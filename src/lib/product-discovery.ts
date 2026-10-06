@@ -23,7 +23,11 @@ export interface ProductSiteResult {
 
 function isPublicIpv4(address: string): boolean {
   const octets = address.split(".").map(Number);
-  if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
+  if (
+    octets.length !== 4 ||
+    octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)
+  )
+    return false;
   const [a, b, c] = octets;
   if (a === 0 || a === 10 || a === 127 || a >= 224) return false;
   if (a === 100 && b >= 64 && b <= 127) return false;
@@ -78,11 +82,21 @@ async function validateFetchUrl(input: string, deadline: number): Promise<Valida
   } catch {
     throw new Error("Enter a valid website address.");
   }
-  if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443")) {
+  if (
+    url.protocol !== "https:" ||
+    url.username ||
+    url.password ||
+    (url.port && url.port !== "443")
+  ) {
     throw new Error("Use a public HTTPS website address.");
   }
   const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (!hostname || hostname === "localhost" || hostname.endsWith(".localhost") || hostname.endsWith(".local")) {
+  if (
+    !hostname ||
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local")
+  ) {
     throw new Error("Use a public HTTPS website address.");
   }
   const version = isIP(hostname);
@@ -97,7 +111,10 @@ async function validateFetchUrl(input: string, deadline: number): Promise<Valida
       addresses = await Promise.race([
         lookup(hostname, { all: true, verbatim: true }),
         new Promise<never>((_resolve, reject) => {
-          dnsTimeout = setTimeout(() => reject(new Error("Product website request timed out.")), remainingMs);
+          dnsTimeout = setTimeout(
+            () => reject(new Error("Product website request timed out.")),
+            remainingMs,
+          );
         }),
       ]);
     } catch {
@@ -108,7 +125,9 @@ async function validateFetchUrl(input: string, deadline: number): Promise<Valida
     }
   }
   if (!addresses.length || addresses.some((address) => !isPublicAddress(address.address))) {
-    throw new Error("This website cannot be fetched because it does not resolve to a public address.");
+    throw new Error(
+      "This website cannot be fetched because it does not resolve to a public address.",
+    );
   }
   url.hash = "";
   return { url, addresses };
@@ -121,7 +140,10 @@ interface ProductHttpResponse {
   body: string;
 }
 
-async function requestValidatedTarget(target: ValidatedFetchTarget, deadline: number): Promise<ProductHttpResponse> {
+async function requestValidatedTarget(
+  target: ValidatedFetchTarget,
+  deadline: number,
+): Promise<ProductHttpResponse> {
   const selected = target.addresses[0];
   const hostname = target.url.hostname.replace(/^\[|\]$/g, "");
   const remainingMs = deadline - Date.now();
@@ -134,42 +156,56 @@ async function requestValidatedTarget(target: ValidatedFetchTarget, deadline: nu
       clearTimeout(totalTimeout);
       callback();
     };
-    const request = httpsRequest(target.url, {
-      method: "GET",
-      headers: { Accept: "text/html,application/xhtml+xml;q=0.9" },
-      servername: isIP(hostname) ? undefined : hostname,
-      lookup: (_name, options, callback) => options.all
-        ? callback(null, [{ address: selected.address, family: selected.family }])
-        : callback(null, selected.address, selected.family),
-    }, (response) => {
-      const announcedLength = Number(response.headers["content-length"] ?? 0);
-      if (announcedLength > MAX_HTML_BYTES) {
-        response.destroy();
-        finish(() => reject(new Error("This website returned too much content to import.")));
-        return;
-      }
-      const chunks: Buffer[] = [];
-      let size = 0;
-      response.on("data", (chunk: Buffer | string) => {
-        const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-        size += bytes.byteLength;
-        if (size > MAX_HTML_BYTES) {
+    const request = httpsRequest(
+      target.url,
+      {
+        method: "GET",
+        headers: { Accept: "text/html,application/xhtml+xml;q=0.9" },
+        servername: isIP(hostname) ? undefined : hostname,
+        lookup: (_name, options, callback) =>
+          options.all
+            ? callback(null, [{ address: selected.address, family: selected.family }])
+            : callback(null, selected.address, selected.family),
+      },
+      (response) => {
+        const announcedLength = Number(response.headers["content-length"] ?? 0);
+        if (announcedLength > MAX_HTML_BYTES) {
           response.destroy();
           finish(() => reject(new Error("This website returned too much content to import.")));
           return;
         }
-        chunks.push(bytes);
-      });
-      response.on("end", () => finish(() => resolve({
-        statusCode: response.statusCode ?? 0,
-        location: response.headers.location,
-        contentType: response.headers["content-type"]?.toLowerCase() ?? "",
-        body: Buffer.concat(chunks).toString("utf8"),
-      })));
-      response.on("error", (error) => finish(() => reject(error)));
-    });
-    const totalTimeout = setTimeout(() => request.destroy(new Error("Product website request timed out.")), remainingMs);
-    request.setTimeout(remainingMs, () => request.destroy(new Error("Product website request timed out.")));
+        const chunks: Buffer[] = [];
+        let size = 0;
+        response.on("data", (chunk: Buffer | string) => {
+          const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          size += bytes.byteLength;
+          if (size > MAX_HTML_BYTES) {
+            response.destroy();
+            finish(() => reject(new Error("This website returned too much content to import.")));
+            return;
+          }
+          chunks.push(bytes);
+        });
+        response.on("end", () =>
+          finish(() =>
+            resolve({
+              statusCode: response.statusCode ?? 0,
+              location: response.headers.location,
+              contentType: response.headers["content-type"]?.toLowerCase() ?? "",
+              body: Buffer.concat(chunks).toString("utf8"),
+            }),
+          ),
+        );
+        response.on("error", (error) => finish(() => reject(error)));
+      },
+    );
+    const totalTimeout = setTimeout(
+      () => request.destroy(new Error("Product website request timed out.")),
+      remainingMs,
+    );
+    request.setTimeout(remainingMs, () =>
+      request.destroy(new Error("Product website request timed out.")),
+    );
     request.on("error", (error) => finish(() => reject(error)));
     request.end();
   });
@@ -181,12 +217,20 @@ async function fetchPublicHtml(startUrl: string): Promise<{ html: string; finalU
   for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
     const response = await requestValidatedTarget(currentTarget, deadline);
     if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
-      if (!response.location || redirectCount === MAX_REDIRECTS) throw new Error("The website redirected too many times.");
-      currentTarget = await validateFetchUrl(new URL(response.location, currentTarget.url).toString(), deadline);
+      if (!response.location || redirectCount === MAX_REDIRECTS)
+        throw new Error("The website redirected too many times.");
+      currentTarget = await validateFetchUrl(
+        new URL(response.location, currentTarget.url).toString(),
+        deadline,
+      );
       continue;
     }
-    if (response.statusCode < 200 || response.statusCode >= 300) throw new Error("The website could not be fetched. Enter its details manually.");
-    if (!response.contentType.includes("text/html") && !response.contentType.includes("application/xhtml+xml")) {
+    if (response.statusCode < 200 || response.statusCode >= 300)
+      throw new Error("The website could not be fetched. Enter its details manually.");
+    if (
+      !response.contentType.includes("text/html") &&
+      !response.contentType.includes("application/xhtml+xml")
+    ) {
       throw new Error("This address did not return a web page. Enter its details manually.");
     }
     return { html: response.body, finalUrl: currentTarget.url };
@@ -195,18 +239,29 @@ async function fetchPublicHtml(startUrl: string): Promise<{ html: string; finalU
 }
 
 function decodeEntities(value: string): string {
-  return value.replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi, (entity, part: string) => {
-    if (part[0] === "#") {
-      const numeric = part[1]?.toLowerCase() === "x"
-        ? Number.parseInt(part.slice(2), 16)
-        : Number.parseInt(part.slice(1), 10);
-      return Number.isFinite(numeric) && numeric >= 0 && numeric <= 0x10ffff
-        ? String.fromCodePoint(numeric)
-        : entity;
-    }
-    const named: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
-    return named[part.toLowerCase()] ?? entity;
-  });
+  return value.replace(
+    /&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi,
+    (entity, part: string) => {
+      if (part[0] === "#") {
+        const numeric =
+          part[1]?.toLowerCase() === "x"
+            ? Number.parseInt(part.slice(2), 16)
+            : Number.parseInt(part.slice(1), 10);
+        return Number.isFinite(numeric) && numeric >= 0 && numeric <= 0x10ffff
+          ? String.fromCodePoint(numeric)
+          : entity;
+      }
+      const named: Record<string, string> = {
+        amp: "&",
+        lt: "<",
+        gt: ">",
+        quot: '"',
+        apos: "'",
+        nbsp: " ",
+      };
+      return named[part.toLowerCase()] ?? entity;
+    },
+  );
 }
 
 function attributes(tag: string): Record<string, string> {
@@ -219,7 +274,9 @@ function attributes(tag: string): Record<string, string> {
 }
 
 function cleanText(value: string): string {
-  return decodeEntities(value.replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
+  return decodeEntities(value.replace(/<[^>]*>/g, " "))
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function metaValue(html: string, keys: readonly string[]): string {
@@ -231,17 +288,30 @@ function metaValue(html: string, keys: readonly string[]): string {
   return "";
 }
 
-export async function fetchProductSiteSuggestion(websiteUrl: string): Promise<ProductSiteSuggestion> {
+export async function fetchProductSiteSuggestion(
+  websiteUrl: string,
+): Promise<ProductSiteSuggestion> {
   const { html, finalUrl } = await fetchPublicHtml(websiteUrl);
-  const title = metaValue(html, ["og:site_name", "og:title", "twitter:title"]) ||
+  const title =
+    metaValue(html, ["og:site_name", "og:title", "twitter:title"]) ||
     cleanText(/<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1] ?? "") ||
     finalUrl.hostname.replace(/^www\./i, "");
-  const description = metaValue(html, ["description", "og:description", "twitter:description"]).slice(0, 500);
+  const description = metaValue(html, [
+    "description",
+    "og:description",
+    "twitter:description",
+  ]).slice(0, 500);
   let icon = metaValue(html, ["og:image", "twitter:image"]);
   if (!icon) {
     for (const match of html.matchAll(/<link\b[^>]*>/gi)) {
       const attrs = attributes(match[0]);
-      if (attrs.rel?.toLowerCase().split(/\s+/).some((part) => part === "icon" || part === "apple-touch-icon") && attrs.href) {
+      if (
+        attrs.rel
+          ?.toLowerCase()
+          .split(/\s+/)
+          .some((part) => part === "icon" || part === "apple-touch-icon") &&
+        attrs.href
+      ) {
         icon = attrs.href;
         break;
       }
@@ -251,7 +321,8 @@ export async function fetchProductSiteSuggestion(websiteUrl: string): Promise<Pr
   if (icon) {
     try {
       const resolved = new URL(icon, finalUrl);
-      if (resolved.protocol === "https:" && !resolved.username && !resolved.password) iconUrl = resolved.toString();
+      if (resolved.protocol === "https:" && !resolved.username && !resolved.password)
+        iconUrl = resolved.toString();
     } catch {
       iconUrl = "";
     }
@@ -261,9 +332,13 @@ export async function fetchProductSiteSuggestion(websiteUrl: string): Promise<Pr
 
 export async function searchProductWebsites(name: string): Promise<ProductSiteResult[]> {
   const query = name.trim().replace(/\s+/g, " ");
-  if (query.length < 2 || query.length > 100) throw new Error("Enter a product name between 2 and 100 characters.");
+  if (query.length < 2 || query.length > 100)
+    throw new Error("Enter a product name between 2 and 100 characters.");
   const apiKey = process.env.BRAVE_SEARCH_API_KEY?.trim();
-  if (!apiKey) throw new Error("Name search is not configured. Enter the website address to import details directly.");
+  if (!apiKey)
+    throw new Error(
+      "Name search is not configured. Enter the website address to import details directly.",
+    );
   const url = new URL("https://api.search.brave.com/res/v1/web/search");
   url.searchParams.set("q", `${query} official website`);
   url.searchParams.set("count", "5");
@@ -278,9 +353,15 @@ export async function searchProductWebsites(name: string): Promise<ProductSiteRe
   } catch {
     throw new Error("Website search could not be reached. Enter the website address to continue.");
   }
-  if (!response.ok) throw new Error("Website search is temporarily unavailable. Enter the website address to continue.");
+  if (!response.ok)
+    throw new Error(
+      "Website search is temporarily unavailable. Enter the website address to continue.",
+    );
   const announcedLength = Number(response.headers.get("content-length") ?? 0);
-  if (announcedLength > MAX_HTML_BYTES) throw new Error("Website search returned too much content. Enter the website address to continue.");
+  if (announcedLength > MAX_HTML_BYTES)
+    throw new Error(
+      "Website search returned too much content. Enter the website address to continue.",
+    );
   const reader = response.body?.getReader();
   const chunks: Uint8Array[] = [];
   let size = 0;
@@ -292,7 +373,9 @@ export async function searchProductWebsites(name: string): Promise<ProductSiteRe
         size += value.byteLength;
         if (size > MAX_HTML_BYTES) {
           await reader.cancel();
-          throw new Error("Website search returned too much content. Enter the website address to continue.");
+          throw new Error(
+            "Website search returned too much content. Enter the website address to continue.",
+          );
         }
         chunks.push(value);
       }
@@ -306,13 +389,21 @@ export async function searchProductWebsites(name: string): Promise<ProductSiteRe
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  const value = JSON.parse(new TextDecoder().decode(bytes)) as { web?: { results?: Array<{ title?: string; url?: string; description?: string }> } };
+  const value = JSON.parse(new TextDecoder().decode(bytes)) as {
+    web?: { results?: Array<{ title?: string; url?: string; description?: string }> };
+  };
   return (value.web?.results ?? []).flatMap((result) => {
     if (!result.url || !result.title) return [];
     try {
       const url = new URL(result.url);
       if (url.protocol !== "https:" || url.username || url.password) return [];
-      return [{ title: cleanText(result.title).slice(0, 160), url: url.toString(), description: cleanText(result.description ?? "").slice(0, 500) }];
+      return [
+        {
+          title: cleanText(result.title).slice(0, 160),
+          url: url.toString(),
+          description: cleanText(result.description ?? "").slice(0, 500),
+        },
+      ];
     } catch {
       return [];
     }

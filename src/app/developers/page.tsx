@@ -38,7 +38,12 @@ export default function DevelopersPage() {
       intro="Perminister provides central identities, password credentials, sessions, scoped permissions, and API keys. Consumer applications keep their branded portals, app-local sessions, domain data, and resource enforcement."
     >
       <div className="guide-notice guide-notice-wide" aria-label="Current API routes">
-        <p>Perminister includes account and key management in the dashboard, <code className="code-label">GET /api/auth/session</code> for a browser session, and <code className="code-label">POST /api/authorize</code> for bearer-key checks. <code className="code-label">GET /api/health</code> reports process liveness only.</p>
+        <p>
+          Perminister includes account and key management in the dashboard,{" "}
+          <code className="code-label">GET /api/auth/session</code> for a browser session, and{" "}
+          <code className="code-label">POST /api/authorize</code> for bearer-key checks.{" "}
+          <code className="code-label">GET /api/health</code> reports process liveness only.
+        </p>
       </div>
 
       <section className="developer-index" aria-labelledby="guide-sections-title">
@@ -63,14 +68,32 @@ export default function DevelopersPage() {
       <section className="guide-panel foundation-panel" aria-labelledby="foundation-title">
         <div className="guide-panel-head">
           <h2 id="foundation-title">Implemented service boundary</h2>
-          <p>Perminister stores identity and access state; consumer applications own their domain data and final resource checks.</p>
+          <p>
+            Perminister stores identity and access state; consumer applications own their domain
+            data and final resource checks.
+          </p>
         </div>
         <ul className="secure-list">
-          <li><CheckIcon />Email/password accounts and revocable browser sessions</li>
-          <li><CheckIcon />Organization-owned products and Owner/Admin/Member roles</li>
-          <li><CheckIcon />Organization-scoped product/project/workspace grants</li>
-          <li><CheckIcon />API-key lifecycle with one-time secret display</li>
-          <li><CheckIcon />Private DigitalOcean Spaces records and recoverable event snapshots</li>
+          <li>
+            <CheckIcon />
+            Email/password accounts and revocable browser sessions
+          </li>
+          <li>
+            <CheckIcon />
+            Organization-owned products and Owner/Admin/Member roles
+          </li>
+          <li>
+            <CheckIcon />
+            Organization-scoped product/project/workspace grants
+          </li>
+          <li>
+            <CheckIcon />
+            API-key lifecycle with one-time secret display
+          </li>
+          <li>
+            <CheckIcon />
+            Private DigitalOcean Spaces records and recoverable event snapshots
+          </li>
         </ul>
       </section>
     </DeveloperGuideLayout>

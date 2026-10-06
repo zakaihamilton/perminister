@@ -1,11 +1,19 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { createOrganizationProductAction, lookupProductWebsiteAction, type ProductLookupState } from "@/app/actions";
+import Image from "next/image";
+import {
+  createOrganizationProductAction,
+  lookupProductWebsiteAction,
+  type ProductLookupState,
+} from "@/app/actions";
 import { productSlug } from "@/lib/product-slug";
 
 export function ProductSetupForm({ organizationId }: { organizationId: string }) {
-  const [lookupState, lookupAction, pending] = useActionState<ProductLookupState, FormData>(lookupProductWebsiteAction, {});
+  const [lookupState, lookupAction, pending] = useActionState<ProductLookupState, FormData>(
+    lookupProductWebsiteAction,
+    {},
+  );
   const [mode, setMode] = useState<"website" | "name">("website");
   const [source, setSource] = useState("");
   const [manual, setManual] = useState(false);
@@ -16,6 +24,7 @@ export function ProductSetupForm({ organizationId }: { organizationId: string })
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [iconUrl, setIconUrl] = useState("");
 
+  /* eslint-disable react-hooks/set-state-in-effect -- The server action returns a suggested editable draft. */
   useEffect(() => {
     const suggestion = lookupState.suggestion;
     if (!suggestion) return;
@@ -32,6 +41,7 @@ export function ProductSetupForm({ organizationId }: { organizationId: string })
     if (!lookupState.source) return;
     setSource(lookupState.source);
   }, [lookupState.source]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   function setNameValue(value: string) {
     setName(value);
@@ -61,10 +71,26 @@ export function ProductSetupForm({ organizationId }: { organizationId: string })
         <span className="onboarding-step">01</span>
         <div className="product-setup-step-body">
           <h2>Start with a website</h2>
-          <p>Use a website address or search by product name. You can edit every suggested detail.</p>
+          <p>
+            Use a website address or search by product name. You can edit every suggested detail.
+          </p>
           <div className="product-source-tabs" role="tablist" aria-label="Choose product source">
-            <button type="button" role="tab" aria-selected={mode === "website"} onClick={() => setMode("website")}>I have a website</button>
-            <button type="button" role="tab" aria-selected={mode === "name"} onClick={() => setMode("name")}>Search by name</button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "website"}
+              onClick={() => setMode("website")}
+            >
+              I have a website
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "name"}
+              onClick={() => setMode("name")}
+            >
+              Search by name
+            </button>
           </div>
           <form action={lookupAction} className="product-source-form">
             <input type="hidden" name="mode" value={mode} />
@@ -81,9 +107,19 @@ export function ProductSetupForm({ organizationId }: { organizationId: string })
                 maxLength={mode === "website" ? 2048 : 100}
               />
             </label>
-            <button className="button button-primary" type="submit" disabled={pending}>{pending ? "Looking up…" : mode === "website" ? "Fetch website details" : "Search websites"}</button>
+            <button className="button button-primary" type="submit" disabled={pending}>
+              {pending
+                ? "Looking up…"
+                : mode === "website"
+                  ? "Fetch website details"
+                  : "Search websites"}
+            </button>
           </form>
-          {lookupState.error ? <p className="form-error" role="alert">{lookupState.error}</p> : null}
+          {lookupState.error ? (
+            <p className="form-error" role="alert">
+              {lookupState.error}
+            </p>
+          ) : null}
           {lookupState.matches?.length ? (
             <div className="website-match-list" aria-label="Website search results">
               <p>Choose the site that belongs to your product:</p>
@@ -93,14 +129,26 @@ export function ProductSetupForm({ organizationId }: { organizationId: string })
                   <input type="hidden" name="organizationId" value={organizationId} />
                   <input type="hidden" name="source" value={match.url} />
                   <button className="website-match" type="submit">
-                    <span><strong>{match.title}</strong><small>{match.url}</small>{match.description ? <small>{match.description}</small> : null}</span>
+                    <span>
+                      <strong>{match.title}</strong>
+                      <small>{match.url}</small>
+                      {match.description ? <small>{match.description}</small> : null}
+                    </span>
                     <span>Use this site →</span>
                   </button>
                 </form>
               ))}
             </div>
           ) : null}
-          {!showDetails ? <button className="text-link product-manual-button" type="button" onClick={startManualEntry}>Enter product details manually</button> : null}
+          {!showDetails ? (
+            <button
+              className="text-link product-manual-button"
+              type="button"
+              onClick={startManualEntry}
+            >
+              Enter product details manually
+            </button>
+          ) : null}
         </div>
       </section>
 
@@ -110,15 +158,87 @@ export function ProductSetupForm({ organizationId }: { organizationId: string })
           <div className="product-setup-step-body">
             <h2>Review product details</h2>
             <p>Your product ID stays stable after creation and is scoped to this organization.</p>
-            {iconUrl ? <img className="product-icon-preview" src={iconUrl} alt="Product icon preview" referrerPolicy="no-referrer" /> : null}
-            <form action={createOrganizationProductAction} className="auth-form product-details-form">
+            {iconUrl ? (
+              <Image
+                alt="Product icon preview"
+                className="product-icon-preview"
+                height={45}
+                src={iconUrl}
+                unoptimized
+                width={45}
+              />
+            ) : null}
+            <form
+              action={createOrganizationProductAction}
+              className="auth-form product-details-form"
+            >
               <input type="hidden" name="organizationId" value={organizationId} />
-              <label>Product name<input name="name" value={name} onChange={(event) => setNameValue(event.target.value)} required maxLength={120} /></label>
-              <label>Product ID<input name="productId" value={productId} onChange={(event) => { setProductId(event.target.value); setProductIdEdited(true); }} required maxLength={128} pattern="[a-zA-Z0-9][a-zA-Z0-9._:-]*" /><span className="form-hint">Generated from the name. Edit it here if your integration already uses a different ID.</span></label>
-              <label>Website<input name="websiteUrl" type="url" value={websiteUrl} onChange={(event) => setWebsiteUrl(event.target.value)} required maxLength={2048} /></label>
-              <label>Description<textarea name="description" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={500} rows={3} /></label>
-              <label>Icon URL <span className="form-hint">Optional</span><input name="iconUrl" type="url" value={iconUrl} onChange={(event) => setIconUrl(event.target.value)} maxLength={2048} /></label>
-              <button className="button button-primary" type="submit" disabled={!name.trim() || !productId.trim() || !websiteUrl.trim()}>Create product</button>
+              <label>
+                Product name
+                <input
+                  name="name"
+                  value={name}
+                  onChange={(event) => setNameValue(event.target.value)}
+                  required
+                  maxLength={120}
+                />
+              </label>
+              <label>
+                Product ID
+                <input
+                  name="productId"
+                  value={productId}
+                  onChange={(event) => {
+                    setProductId(event.target.value);
+                    setProductIdEdited(true);
+                  }}
+                  required
+                  maxLength={128}
+                  pattern="[a-zA-Z0-9][a-zA-Z0-9._:-]*"
+                />
+                <span className="form-hint">
+                  Generated from the name. Edit it here if your integration already uses a different
+                  ID.
+                </span>
+              </label>
+              <label>
+                Website
+                <input
+                  name="websiteUrl"
+                  type="url"
+                  value={websiteUrl}
+                  onChange={(event) => setWebsiteUrl(event.target.value)}
+                  required
+                  maxLength={2048}
+                />
+              </label>
+              <label>
+                Description
+                <textarea
+                  name="description"
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  maxLength={500}
+                  rows={3}
+                />
+              </label>
+              <label>
+                Icon URL <span className="form-hint">Optional</span>
+                <input
+                  name="iconUrl"
+                  type="url"
+                  value={iconUrl}
+                  onChange={(event) => setIconUrl(event.target.value)}
+                  maxLength={2048}
+                />
+              </label>
+              <button
+                className="button button-primary"
+                type="submit"
+                disabled={!name.trim() || !productId.trim() || !websiteUrl.trim()}
+              >
+                Create product
+              </button>
             </form>
           </div>
         </section>

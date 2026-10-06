@@ -26,7 +26,9 @@ export function DeveloperGuideLayout({
       <main className="page-shell">
         <div className="container developers-page">
           <DeveloperGuideNav active={active} />
-          <header className={`developer-hero${active === "overview" ? " developer-hero-with-image" : ""}`}>
+          <header
+            className={`developer-hero${active === "overview" ? " developer-hero-with-image" : ""}`}
+          >
             <div className="developer-hero-copy">
               <p className="eyebrow">{eyebrow}</p>
               <h1>{title}</h1>

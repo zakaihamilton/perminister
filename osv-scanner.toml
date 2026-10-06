@@ -1,0 +1,44 @@
+[[IgnoredVulns]]
+id = "GHSA-c475-qrg2-pj4r"
+ignoreUntil = 2027-10-06
+reason = "Reviewed 2026-10-06: only present in the Lighthouse CI development-tool dependency tree; retain as a time-limited exception while upstream compatibility is checked."
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2027-10-06
+reason = "Reviewed 2026-10-06: the affected braces release is a development-tool transitive dependency with no compatible fixed release in the current graph."
+
+[[IgnoredVulns]]
+id = "GHSA-jmr9-qjv8-65gv"
+ignoreUntil = 2027-10-06
+reason = "Reviewed 2026-10-06: only present in the Lighthouse CI development-tool dependency tree; retain as a time-limited exception while upstream compatibility is checked."
+
+[[IgnoredVulns]]
+id = "GHSA-7pqw-9j4j-h8q3"
+ignoreUntil = 2027-10-06
+reason = "Reviewed 2026-10-06: only present in the Lighthouse CI development-tool dependency tree; retain as a time-limited exception while upstream compatibility is checked."
+
+[[IgnoredVulns]]
+id = "GHSA-238p-pmpm-9mq7"
+ignoreUntil = 2027-10-06
+reason = "Reviewed 2026-10-06: the vulnerable KaTeX release is only used by Markdown lint development tooling; retain as a time-limited exception while upstream compatibility is checked."
+
+[[IgnoredVulns]]
+id = "GHSA-hp3w-g68c-fv3c"
+ignoreUntil = 2027-10-06
+reason = "Reviewed 2026-10-06: sprintf-js is used only by the Lighthouse CI development-tool dependency tree and remains affected at its latest available compatible release."
+
+[[IgnoredVulns]]
+id = "GHSA-52f5-9888-hmc6"
+ignoreUntil = 2027-10-06
+reason = "Reviewed 2026-10-06: only present in the Lighthouse CI development-tool dependency tree; retain as a time-limited exception while upstream compatibility is checked."
+
+[[IgnoredVulns]]
+id = "GHSA-ph9p-34f9-6g65"
+ignoreUntil = 2027-10-06
+reason = "Reviewed 2026-10-06: only present in the Lighthouse CI development-tool dependency tree; retain as a time-limited exception while upstream compatibility is checked."
+
+[[IgnoredVulns]]
+id = "GHSA-w5hq-g745-h8pq"
+ignoreUntil = 2027-10-06
+reason = "Reviewed 2026-10-06: only present in the Lighthouse CI development-tool dependency tree; retain as a time-limited exception while upstream compatibility is checked."

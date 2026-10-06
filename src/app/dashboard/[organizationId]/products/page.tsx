@@ -1,7 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
-import { getCurrentSession, getOrganizationForSubject, listProductsForOrganization } from "@/lib/auth/service";
+import {
+  getCurrentSession,
+  getOrganizationForSubject,
+  listProductsForOrganization,
+} from "@/lib/auth/service";
 import { redirect } from "next/navigation";
 
 export default async function ProductsPage({
@@ -26,25 +30,71 @@ export default async function ProductsPage({
         eyebrow="Workspace"
         title="Products"
         description="Manage the products in this organization and the access attached to each one."
-        action={canManage ? <Link className="button button-primary" href={`/dashboard/${organizationId}/products/new`}>Create product</Link> : undefined}
+        action={
+          canManage ? (
+            <Link
+              className="button button-primary"
+              href={`/dashboard/${organizationId}/products/new`}
+            >
+              Create product
+            </Link>
+          ) : undefined
+        }
       />
-      {query.notice === "product-updated" ? <DashboardNotice message="Product details saved." kind="success" /> : null}
-      {query.error === "product-update" ? <DashboardNotice message="Product details could not be saved." kind="error" /> : null}
+      {query.notice === "product-updated" ? (
+        <DashboardNotice message="Product details saved." kind="success" />
+      ) : null}
+      {query.error === "product-update" ? (
+        <DashboardNotice message="Product details could not be saved." kind="error" />
+      ) : null}
       {products.length ? (
         <div className="product-catalog">
           {products.map((product) => (
-            <Link className="product-card" href={`/dashboard/${organizationId}/products/${encodeURIComponent(product.productId)}`} key={product.productRecordId}>
-              {product.iconUrl ? <img src={product.iconUrl} alt="" referrerPolicy="no-referrer" /> : <span className="product-placeholder">{product.name.slice(0, 1).toUpperCase()}</span>}
-              <span className="product-card-copy"><strong>{product.name}</strong><small>{product.description || product.websiteUrl}</small><code>{product.productId}</code></span>
-              <span className="product-card-arrow" aria-hidden="true">↗</span>
+            <Link
+              className="product-card"
+              href={`/dashboard/${organizationId}/products/${encodeURIComponent(product.productId)}`}
+              key={product.productRecordId}
+            >
+              {product.iconUrl ? (
+                <Image alt="" height={40} src={product.iconUrl} unoptimized width={40} />
+              ) : (
+                <span className="product-placeholder">
+                  {product.name.slice(0, 1).toUpperCase()}
+                </span>
+              )}
+              <span className="product-card-copy">
+                <strong>{product.name}</strong>
+                <small>{product.description || product.websiteUrl}</small>
+                <code>{product.productId}</code>
+              </span>
+              <span className="product-card-arrow" aria-hidden="true">
+                ↗
+              </span>
             </Link>
           ))}
         </div>
       ) : (
         <section className="dashboard-empty-card">
-          <Image alt="A workspace folder ready for its first product and team members." className="empty-state-illustration" height={1254} sizes="88px" src="/illustrations/workspace-invitation.png" width={1254} />
-          <div><h2>Your product catalog starts here</h2><p>Add a website and we’ll suggest the name, description, and icon.</p></div>
-          {canManage ? <Link className="button button-primary" href={`/dashboard/${organizationId}/products/new`}>Create your first product</Link> : null}
+          <Image
+            alt="A workspace folder ready for its first product and team members."
+            className="empty-state-illustration"
+            height={1254}
+            sizes="88px"
+            src="/illustrations/workspace-invitation.png"
+            width={1254}
+          />
+          <div>
+            <h2>Your product catalog starts here</h2>
+            <p>Add a website and we’ll suggest the name, description, and icon.</p>
+          </div>
+          {canManage ? (
+            <Link
+              className="button button-primary"
+              href={`/dashboard/${organizationId}/products/new`}
+            >
+              Create your first product
+            </Link>
+          ) : null}
         </section>
       )}
     </>

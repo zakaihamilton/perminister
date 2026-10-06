@@ -1,6 +1,15 @@
 "use client";
 
-import { cloneElement, useEffect, useId, useRef, useState, type ComponentProps, type ReactElement, type ReactNode } from "react";
+import {
+  cloneElement,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 
 export function Tooltip({
   content,
@@ -26,48 +35,49 @@ export function Tooltip({
     return () => document.removeEventListener("pointerdown", closeOutside);
   }, [open]);
 
-  const triggerContent = trigger
-    ? cloneElement(trigger, {
-        "aria-describedby": [trigger.props["aria-describedby"], id].filter(Boolean).join(" "),
-        onPointerDown: (event) => {
-          trigger.props.onPointerDown?.(event);
-          if (event.pointerType === "touch") setOpen((value) => !value);
-        },
-      })
-    : (
-        <button
-          aria-describedby={id}
-          aria-label={label}
-          className="tooltip-trigger"
-          onPointerDown={(event) => {
-            if (event.pointerType === "touch") setOpen((value) => !value);
-          }}
-          type="button"
-        >
-          {children ?? <span aria-hidden="true">i</span>}
-        </button>
-      );
+  const buttonProps: ComponentProps<"button"> = {
+    "aria-describedby": [trigger?.props["aria-describedby"], id].filter(Boolean).join(" "),
+    "aria-label": trigger ? trigger.props["aria-label"] : label,
+    onBlur: (event) => {
+      trigger?.props.onBlur?.(event);
+      setOpen(false);
+    },
+    onFocus: (event) => {
+      trigger?.props.onFocus?.(event);
+      setOpen(true);
+    },
+    onKeyDown: (event) => {
+      trigger?.props.onKeyDown?.(event);
+      if (event.key === "Escape") setOpen(false);
+    },
+    onPointerDown: (event) => {
+      trigger?.props.onPointerDown?.(event);
+      if (event.pointerType === "touch") setOpen((value) => !value);
+    },
+    onPointerEnter: (event) => {
+      trigger?.props.onPointerEnter?.(event);
+      if (event.pointerType !== "touch") setOpen(true);
+    },
+    onPointerLeave: (event) => {
+      trigger?.props.onPointerLeave?.(event);
+      if (event.pointerType !== "touch") setOpen(false);
+    },
+  };
+
+  const triggerContent = trigger ? (
+    cloneElement(trigger, buttonProps)
+  ) : (
+    <button aria-label={label} className="tooltip-trigger" type="button" {...buttonProps}>
+      {children ?? <span aria-hidden="true">i</span>}
+    </button>
+  );
 
   return (
-    <span
-      className="tooltip-anchor"
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
-      }}
-      onFocus={() => setOpen(true)}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") setOpen(false);
-      }}
-      onPointerEnter={(event) => {
-        if (event.pointerType !== "touch") setOpen(true);
-      }}
-      onPointerLeave={(event) => {
-        if (event.pointerType !== "touch") setOpen(false);
-      }}
-      ref={rootRef}
-    >
+    <span className="tooltip-anchor" ref={rootRef}>
       {triggerContent}
-      <span className="tooltip-bubble" hidden={!open} id={id} role="tooltip">{content}</span>
+      <span className="tooltip-bubble" hidden={!open} id={id} role="tooltip">
+        {content}
+      </span>
     </span>
   );
 }

@@ -18,8 +18,6 @@ export type InvitationId = BrandedId<"InvitationId">;
 export const newSubjectId = (): SubjectId => randomUUID() as SubjectId;
 export const newMembershipId = (): MembershipId => randomUUID() as MembershipId;
 export const newApiKeyId = (): ApiKeyId => randomUUID() as ApiKeyId;
-export const newServicePrincipalId = (): ServicePrincipalId =>
-  randomUUID() as ServicePrincipalId;
 export const newEventId = (): EventId => randomUUID() as EventId;
 export const newSessionId = (): SessionId => randomUUID() as SessionId;
 export const newEmailActionId = (): EmailActionId => randomUUID() as EmailActionId;
@@ -29,8 +27,7 @@ export const newOrganizationMembershipId = (): OrganizationMembershipId =>
 export const newProductRecordId = (): ProductRecordId => randomUUID() as ProductRecordId;
 export const newInvitationId = (): InvitationId => randomUUID() as InvitationId;
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function assertOpaqueId(value: string): void {
   if (!UUID_PATTERN.test(value)) {
@@ -208,10 +205,7 @@ export type AuthRecord =
   | SessionRecord
   | EmailActionRecord;
 export type AuthRecordKind = AuthRecord["kind"];
-export type AuthRecordFor<Kind extends AuthRecordKind> = Extract<
-  AuthRecord,
-  { kind: Kind }
->;
+export type AuthRecordFor<Kind extends AuthRecordKind> = Extract<AuthRecord, { kind: Kind }>;
 
 export type AuthAggregate =
   | { kind: "organization"; id: OrganizationId }
@@ -231,12 +225,7 @@ export type AuthActor =
   | { kind: "system" };
 
 export type JsonValue =
-  | null
-  | boolean
-  | number
-  | string
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+  null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
 export interface AuthEvent {
   schemaVersion: 1;

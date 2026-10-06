@@ -8,3 +8,6 @@ dist/
 # Keep the service dependency resolution reproducible.
 !package-lock.json
 .DS_Store
+.repnix/
+.lighthouseci/
+coverage/

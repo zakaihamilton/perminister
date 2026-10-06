@@ -34,7 +34,8 @@ function readResendConfiguration(): ResendConfiguration | null {
       publicOrigin.password ||
       publicOrigin.search ||
       publicOrigin.hash
-    ) return null;
+    )
+      return null;
     return { apiKey, from, publicOrigin };
   } catch {
     return null;
@@ -59,9 +60,9 @@ async function sendWithResend(message: OutboundEmail): Promise<void> {
     response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${configuration.apiKey}`,
+        Authorization: `Bearer ${configuration.apiKey}`,
         "Content-Type": "application/json",
-        "Accept": "application/json",
+        Accept: "application/json",
       },
       body: JSON.stringify({ from: configuration.from, ...message }),
       signal: AbortSignal.timeout(10_000),
@@ -111,13 +112,17 @@ export async function sendOrganizationInvitationEmail(
   const link = new URL("/accept-invitation", origin);
   link.searchParams.set("token", token);
   const safeLink = link.toString();
-  const safeName = organizationName.replace(/[&<>"']/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  })[character] ?? character);
+  const safeName = organizationName.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[character] ?? character,
+  );
   await sendWithResend({
     to: email,
     subject: `Invitation to join ${organizationName} on Perminister`,

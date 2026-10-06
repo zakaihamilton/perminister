@@ -1,14 +1,16 @@
 import "server-only";
 
-import {
-  createHash,
-  randomBytes,
-  timingSafeEqual,
-  scrypt as scryptCallback,
-} from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual, scrypt as scryptCallback } from "node:crypto";
 import { cookies } from "next/headers";
 import { authMutationQueue } from "./mutation-queue";
 import { withOrganizationMutationLock } from "./coordination";
+import { processLocalLoginThrottle } from "./login-throttle";
+import {
+  appendDirectoryRegistrationAndCheckIntegrity,
+  appendEventAndCheckIntegrity,
+  assertNoConflictingAggregateRevisions,
+  assertUniqueDirectoryRegistrations,
+} from "./integrity";
 import {
   assertOpaqueId,
   newApiKeyId,
@@ -53,10 +55,7 @@ import {
   type SubjectRecord,
   type JsonValue,
 } from "./domain";
-import {
-  createSpacesAuthStoreFromEnv,
-  type VersionedRecord,
-} from "./storage/spaces";
+import { createSpacesAuthStoreFromEnv, type VersionedRecord } from "./storage/spaces";
 
 const SESSION_COOKIE = "perminister_session";
 const SESSION_LIFETIME_MS = 12 * 60 * 60 * 1000;
@@ -70,6 +69,10 @@ let storeSingleton: ReturnType<typeof createSpacesAuthStoreFromEnv> | undefined;
 function store() {
   storeSingleton ??= createSpacesAuthStoreFromEnv();
   return storeSingleton;
+}
+
+export async function checkAuthStorageReadiness(): Promise<void> {
+  await store().checkReadiness();
 }
 
 export class InvalidAuthActionError extends Error {
@@ -88,11 +91,7 @@ export class MailDeliveryUnavailableError extends Error {
 
 function canonicalEmail(value: string): string {
   const email = value.trim().toLowerCase();
-  if (
-    email.length > 254 ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-    email.includes("..")
-  ) {
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.includes("..")) {
     throw new Error("Enter a valid email address.");
   }
   return email;
@@ -138,7 +137,10 @@ async function createPasswordCredential(password: string): Promise<PasswordCrede
   };
 }
 
-async function verifyPassword(password: string, credential: PasswordCredential | null): Promise<boolean> {
+async function verifyPassword(
+  password: string,
+  credential: PasswordCredential | null,
+): Promise<boolean> {
   if (!credential || credential.algorithm !== "scrypt") {
     await scrypt(password, Buffer.alloc(16, 4));
     return false;
@@ -238,6 +240,7 @@ async function loadRecord<Kind extends AuthRecordKind>(
     objectStore.readRecord(kind, id),
     objectStore.listEvents(aggregate),
   ]);
+  assertNoConflictingAggregateRevisions(events);
   let latest: { revision: number; record: AuthRecordFor<Kind> } | null = null;
   for (const event of events) {
     const value = event.payload.record;
@@ -259,11 +262,7 @@ async function loadRecord<Kind extends AuthRecordKind>(
   return snapshot;
 }
 
-async function persistRecord(
-  record: AuthRecord,
-  type: string,
-  actor: AuthActor,
-): Promise<void> {
+async function persistRecord(record: AuthRecord, type: string, actor: AuthActor): Promise<void> {
   const objectStore = store();
   const id = recordId(record);
   const aggregate = aggregateFor(record.kind, id);
@@ -271,7 +270,9 @@ async function persistRecord(
     objectStore.readRecord(record.kind, id),
     objectStore.listEvents(aggregate),
   ]);
-  const revision = Math.max(snapshot?.revision ?? 0, ...events.map((event) => event.aggregateVersion)) + 1;
+  assertNoConflictingAggregateRevisions(events);
+  const revision =
+    Math.max(snapshot?.revision ?? 0, ...events.map((event) => event.aggregateVersion)) + 1;
   const event: AuthEvent = {
     schemaVersion: 1,
     eventId: newEventId(),
@@ -282,7 +283,7 @@ async function persistRecord(
     type,
     payload: { record: record as unknown as JsonValue },
   };
-  await objectStore.appendEvent(event);
+  await appendEventAndCheckIntegrity(objectStore, event);
   await objectStore.writeRecord(record, revision);
 }
 
@@ -314,6 +315,8 @@ function directoryEntry(event: AuthEvent): DirectoryEntry | null {
 
 async function directoryEntries(): Promise<DirectoryEntry[]> {
   const events = await store().listEvents(DIRECTORY_AGGREGATE);
+  assertNoConflictingAggregateRevisions(events);
+  assertUniqueDirectoryRegistrations(events);
   return events.flatMap((event) => {
     const entry = directoryEntry(event);
     return entry ? [entry] : [];
@@ -334,7 +337,10 @@ async function loadSubjectUnlocked(subjectId: string): Promise<SubjectRecord | n
   return value?.record ?? null;
 }
 
-export async function registerAccount(emailInput: string, password: string): Promise<SubjectRecord> {
+export async function registerAccount(
+  emailInput: string,
+  password: string,
+): Promise<SubjectRecord> {
   const email = canonicalEmail(emailInput);
   const passwordCredential = await createPasswordCredential(password);
   return authMutationQueue.run(async () => {
@@ -355,6 +361,8 @@ export async function registerAccount(emailInput: string, password: string): Pro
       updatedAt: now,
     };
     const directoryEvents = await store().listEvents(DIRECTORY_AGGREGATE);
+    assertNoConflictingAggregateRevisions(directoryEvents);
+    assertUniqueDirectoryRegistrations(directoryEvents);
     const event: AuthEvent = {
       schemaVersion: 1,
       eventId: newEventId(),
@@ -369,60 +377,36 @@ export async function registerAccount(emailInput: string, password: string): Pro
         record: subject as unknown as JsonValue,
       },
     };
-    await store().appendEvent(event);
-    await persistRecord(subject, "identity.registered", { kind: "subject", subjectId: subject.subjectId });
+    await appendDirectoryRegistrationAndCheckIntegrity(store(), event);
+    await persistRecord(subject, "identity.registered", {
+      kind: "subject",
+      subjectId: subject.subjectId,
+    });
     return subject;
   });
 }
 
-const loginFailures = new Map<string, { count: number; resetAt: number; lockedUntil: number }>();
-const MAX_LOGIN_FAILURES = 8;
-const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-const LOGIN_LOCK_MS = 15 * 60 * 1000;
-
-function loginThrottleKey(email: string): string {
-  return hashHex(email);
-}
-
-function assertLoginNotThrottled(email: string): void {
-  const key = loginThrottleKey(email);
-  const now = Date.now();
-  const record = loginFailures.get(key);
-  if (!record) return;
-  if (record.lockedUntil > now) throw new Error("Too many sign-in attempts. Try again later.");
-  if (record.resetAt <= now) loginFailures.delete(key);
-}
-
-function noteLoginFailure(email: string): void {
-  const key = loginThrottleKey(email);
-  const now = Date.now();
-  const existing = loginFailures.get(key);
-  const record = !existing || existing.resetAt <= now
-    ? { count: 1, resetAt: now + LOGIN_WINDOW_MS, lockedUntil: 0 }
-    : { ...existing, count: existing.count + 1 };
-  if (record.count >= MAX_LOGIN_FAILURES) record.lockedUntil = now + LOGIN_LOCK_MS;
-  loginFailures.set(key, record);
-  if (loginFailures.size > 5000) {
-    for (const [mapKey, value] of loginFailures) {
-      if (value.resetAt <= now && value.lockedUntil <= now) loginFailures.delete(mapKey);
-    }
-  }
-}
-
 export async function authenticate(emailInput: string, password: string): Promise<SubjectRecord> {
   const email = canonicalEmail(emailInput);
-  assertLoginNotThrottled(email);
-  const subject = await authMutationQueue.run(() => loadSubjectByEmailUnlocked(email));
-  const matched = await verifyPassword(password, subject?.passwordCredential ?? null);
-  if (!subject || subject.status !== "active" || !matched) {
-    noteLoginFailure(email);
-    throw new Error("Email or password is incorrect.");
+  const attempt = processLocalLoginThrottle.beginAttempt(email);
+  try {
+    const subject = await authMutationQueue.run(() => loadSubjectByEmailUnlocked(email));
+    const matched = await verifyPassword(password, subject?.passwordCredential ?? null);
+    if (!subject || subject.status !== "active" || !matched) {
+      attempt.recordFailure();
+      throw new Error("Email or password is incorrect.");
+    }
+    attempt.recordSuccess();
+    return subject;
+  } catch (error) {
+    attempt.release();
+    throw error;
   }
-  loginFailures.delete(loginThrottleKey(email));
-  return subject;
 }
 
-export async function createSession(subjectId: SubjectId): Promise<{ session: SessionRecord; token: string }> {
+export async function createSession(
+  subjectId: SubjectId,
+): Promise<{ session: SessionRecord; token: string }> {
   return authMutationQueue.run(async () => {
     const subject = await loadSubjectUnlocked(subjectId);
     if (!subject || subject.status !== "active") throw new Error("This account cannot sign in.");
@@ -472,7 +456,9 @@ export interface AuthenticatedSession {
   subject: SubjectRecord;
 }
 
-export async function getSessionFromToken(token: string | null | undefined): Promise<AuthenticatedSession | null> {
+export async function getSessionFromToken(
+  token: string | null | undefined,
+): Promise<AuthenticatedSession | null> {
   if (!token) return null;
   const match = /^([0-9a-f-]{36})\.([A-Za-z0-9_-]{40,})$/i.exec(token);
   if (!match) return null;
@@ -489,13 +475,15 @@ export async function getSessionFromToken(token: string | null | undefined): Pro
       record.revokedAt ||
       Date.parse(record.expiresAt) <= Date.now() ||
       !equalHex(record.verifierDigestHex, hashHex(token))
-    ) return null;
+    )
+      return null;
     const subject = await loadRecord("subject", record.subjectId);
     if (
       !subject ||
       subject.record.status !== "active" ||
       subject.record.authVersion !== record.authVersion
-    ) return null;
+    )
+      return null;
     return { session: record, subject: subject.record };
   });
 }
@@ -540,8 +528,11 @@ export function administratorEmailsConfigured(): boolean {
 }
 
 export function isAdministrator(subject: SubjectRecord): boolean {
-  return !!subject.primaryEmail && !!subject.emailVerifiedAt &&
-    configuredAdministrators().has(subject.primaryEmail.toLowerCase());
+  return (
+    !!subject.primaryEmail &&
+    !!subject.emailVerifiedAt &&
+    configuredAdministrators().has(subject.primaryEmail.toLowerCase())
+  );
 }
 
 async function requireAdministrator(subjectId: SubjectId): Promise<SubjectRecord> {
@@ -573,7 +564,19 @@ export interface OrganizationActivityEntry {
   aggregateKind: string;
 }
 
-function requireVerifiedActiveSubject(subject: SubjectRecord | null): asserts subject is SubjectRecord {
+function organizationActivityEntry(event: AuthEvent): OrganizationActivityEntry {
+  return {
+    eventId: event.eventId,
+    type: event.type,
+    occurredAt: event.occurredAt,
+    actor: event.actor.kind === "subject" ? "account" : event.actor.kind,
+    aggregateKind: event.aggregate.kind,
+  };
+}
+
+function requireVerifiedActiveSubject(
+  subject: SubjectRecord | null,
+): asserts subject is SubjectRecord {
   if (!subject || subject.status !== "active" || !subject.emailVerifiedAt) {
     throw new Error("An active, email-verified account is required.");
   }
@@ -581,7 +584,8 @@ function requireVerifiedActiveSubject(subject: SubjectRecord | null): asserts su
 
 function organizationName(value: string): string {
   const name = value.trim().replace(/\s+/g, " ");
-  if (name.length < 2 || name.length > 80) throw new Error("Organization names must be 2 to 80 characters.");
+  if (name.length < 2 || name.length > 80)
+    throw new Error("Organization names must be 2 to 80 characters.");
   return name;
 }
 
@@ -599,11 +603,16 @@ async function organizationMembershipUnlocked(
   subjectId: SubjectId,
 ): Promise<OrganizationMembershipRecord | null> {
   const records = await listRecordsWithRecovery("organization-membership");
-  return records.map((item) => item.record).find((record) =>
-    record.organizationId === organizationId &&
-    record.subjectId === subjectId &&
-    record.status === "active",
-  ) ?? null;
+  return (
+    records
+      .map((item) => item.record)
+      .find(
+        (record) =>
+          record.organizationId === organizationId &&
+          record.subjectId === subjectId &&
+          record.status === "active",
+      ) ?? null
+  );
 }
 
 async function requireOrganizationRoleUnlocked(
@@ -658,9 +667,13 @@ export async function createOrganization(
   });
 }
 
-export async function listOrganizationsForSubject(subjectId: SubjectId): Promise<OrganizationSummary[]> {
+export async function listOrganizationsForSubject(
+  subjectId: SubjectId,
+): Promise<OrganizationSummary[]> {
   return authMutationQueue.run(async () => {
-    const records = (await listRecordsWithRecovery("organization-membership")).map((item) => item.record);
+    const records = (await listRecordsWithRecovery("organization-membership")).map(
+      (item) => item.record,
+    );
     const memberships = organizationMemberships(subjectId, records);
     const summaries: OrganizationSummary[] = [];
     for (const membership of memberships) {
@@ -689,14 +702,16 @@ export async function updateOrganizationName(
   nameInput: string,
 ): Promise<OrganizationRecord> {
   const name = organizationName(nameInput);
-  return authMutationQueue.run(() => withOrganizationMutationLock(organizationId, async () => {
-    await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner"]);
-    const current = await loadRecord("organization", organizationId);
-    if (!current) throw new Error("Organization not found.");
-    const next = { ...current.record, name, updatedAt: new Date().toISOString() };
-    await persistRecord(next, "organization.updated", { kind: "subject", subjectId: actorId });
-    return next;
-  }));
+  return authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner"]);
+      const current = await loadRecord("organization", organizationId);
+      if (!current) throw new Error("Organization not found.");
+      const next = { ...current.record, name, updatedAt: new Date().toISOString() };
+      await persistRecord(next, "organization.updated", { kind: "subject", subjectId: actorId });
+      return next;
+    }),
+  );
 }
 
 export async function listOrganizationMembers(
@@ -722,6 +737,24 @@ export async function listOrganizationMembers(
   });
 }
 
+async function requireOrganizationOwnerAndMemberUnlocked(
+  actorId: SubjectId,
+  organizationId: string,
+  membershipId: string,
+  requireActive: boolean,
+) {
+  const actorMembership = await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner"]);
+  const membership = await loadRecord("organization-membership", membershipId);
+  if (
+    !membership ||
+    membership.record.organizationId !== organizationId ||
+    (requireActive && membership.record.status !== "active")
+  ) {
+    throw new Error("Organization member not found.");
+  }
+  return { actorMembership, membership: membership.record };
+}
+
 export async function updateOrganizationMemberRole(
   actorId: SubjectId,
   organizationId: string,
@@ -729,21 +762,34 @@ export async function updateOrganizationMemberRole(
   role: OrganizationRole,
 ): Promise<void> {
   assertOpaqueId(membershipId);
-  await authMutationQueue.run(() => withOrganizationMutationLock(organizationId, async () => {
-    const actorMembership = await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner"]);
-    const current = await loadRecord("organization-membership", membershipId);
-    if (!current || current.record.organizationId !== organizationId || current.record.status !== "active") {
-      throw new Error("Organization member not found.");
-    }
-    if (current.record.role === role) return;
-    const all = (await listRecordsWithRecovery("organization-membership")).map((item) => item.record);
-    const owners = all.filter((item) => item.organizationId === organizationId && item.role === "owner" && item.status === "active");
-    if (current.record.role === "owner" && role !== "owner" && owners.length <= 1) {
-      throw new Error("An organization must keep at least one owner.");
-    }
-    const next = { ...current.record, role, updatedAt: new Date().toISOString() };
-    await persistRecord(next, "organization.member-role-updated", { kind: "subject", subjectId: actorMembership.subjectId });
-  }));
+  await authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      const { actorMembership, membership } = await requireOrganizationOwnerAndMemberUnlocked(
+        actorId,
+        organizationId,
+        membershipId,
+        true,
+      );
+      if (membership.role === role) return;
+      const all = (await listRecordsWithRecovery("organization-membership")).map(
+        (item) => item.record,
+      );
+      const owners = all.filter(
+        (item) =>
+          item.organizationId === organizationId &&
+          item.role === "owner" &&
+          item.status === "active",
+      );
+      if (membership.role === "owner" && role !== "owner" && owners.length <= 1) {
+        throw new Error("An organization must keep at least one owner.");
+      }
+      const next = { ...membership, role, updatedAt: new Date().toISOString() };
+      await persistRecord(next, "organization.member-role-updated", {
+        kind: "subject",
+        subjectId: actorMembership.subjectId,
+      });
+    }),
+  );
 }
 
 async function revokeSubjectOrganizationAccessUnlocked(
@@ -753,7 +799,12 @@ async function revokeSubjectOrganizationAccessUnlocked(
 ): Promise<void> {
   const grants = (await listRecordsWithRecovery("membership"))
     .map((item) => item.record)
-    .filter((grant) => grant.subjectId === subjectId && grant.scope.organizationId === organizationId && grant.status === "active");
+    .filter(
+      (grant) =>
+        grant.subjectId === subjectId &&
+        grant.scope.organizationId === organizationId &&
+        grant.status === "active",
+    );
   for (const grant of grants) {
     await persistRecord(
       { ...grant, status: "disabled", updatedAt: new Date().toISOString() },
@@ -763,7 +814,13 @@ async function revokeSubjectOrganizationAccessUnlocked(
   }
   const keys = (await listRecordsWithRecovery("api-key"))
     .map((item) => item.record)
-    .filter((key) => key.owner.kind === "subject" && key.owner.subjectId === subjectId && key.scope.organizationId === organizationId && key.status === "active");
+    .filter(
+      (key) =>
+        key.owner.kind === "subject" &&
+        key.owner.subjectId === subjectId &&
+        key.scope.organizationId === organizationId &&
+        key.status === "active",
+    );
   for (const key of keys) {
     await persistRecord(
       { ...key, status: "revoked", revokedAt: new Date().toISOString() },
@@ -779,33 +836,51 @@ export async function removeOrganizationMember(
   membershipId: string,
 ): Promise<void> {
   assertOpaqueId(membershipId);
-  await authMutationQueue.run(() => withOrganizationMutationLock(organizationId, async () => {
-    const actorMembership = await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner"]);
-    const current = await loadRecord("organization-membership", membershipId);
-    if (!current || current.record.organizationId !== organizationId) {
-      throw new Error("Organization member not found.");
-    }
-    if (current.record.status === "active" && current.record.role === "owner") {
-      const owners = (await listRecordsWithRecovery("organization-membership"))
-        .map((item) => item.record)
-        .filter((item) => item.organizationId === organizationId && item.role === "owner" && item.status === "active");
-      if (owners.length <= 1) throw new Error("An organization must keep at least one owner.");
-    }
-    if (current.record.status === "active") {
-      await persistRecord(
-        { ...current.record, status: "disabled", updatedAt: new Date().toISOString() },
-        "organization.member-removed",
-        { kind: "subject", subjectId: actorMembership.subjectId },
+  await authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      const { actorMembership, membership } = await requireOrganizationOwnerAndMemberUnlocked(
+        actorId,
+        organizationId,
+        membershipId,
+        false,
       );
-    }
-    await revokeSubjectOrganizationAccessUnlocked(current.record.subjectId, organizationId, actorMembership.subjectId);
-  }));
+      if (membership.status === "active" && membership.role === "owner") {
+        const owners = (await listRecordsWithRecovery("organization-membership"))
+          .map((item) => item.record)
+          .filter(
+            (item) =>
+              item.organizationId === organizationId &&
+              item.role === "owner" &&
+              item.status === "active",
+          );
+        if (owners.length <= 1) throw new Error("An organization must keep at least one owner.");
+      }
+      if (membership.status === "active") {
+        await persistRecord(
+          { ...membership, status: "disabled", updatedAt: new Date().toISOString() },
+          "organization.member-removed",
+          { kind: "subject", subjectId: actorMembership.subjectId },
+        );
+      }
+      await revokeSubjectOrganizationAccessUnlocked(
+        membership.subjectId,
+        organizationId,
+        actorMembership.subjectId,
+      );
+    }),
+  );
 }
 
 function validateProductId(value: string): string {
   const productId = value.trim().toLowerCase();
-  if (productId.length < 1 || productId.length > 128 || !/^[a-z0-9][a-z0-9._:-]*$/.test(productId)) {
-    throw new Error("Use a product ID with letters, numbers, dots, underscores, colons, or hyphens.");
+  if (
+    productId.length < 1 ||
+    productId.length > 128 ||
+    !/^[a-z0-9][a-z0-9._:-]*$/.test(productId)
+  ) {
+    throw new Error(
+      "Use a product ID with letters, numbers, dots, underscores, colons, or hyphens.",
+    );
   }
   return productId;
 }
@@ -817,7 +892,12 @@ function validateProductUrl(value: string, label: string): string {
   } catch {
     throw new Error(`Enter a valid ${label} URL.`);
   }
-  if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443")) {
+  if (
+    url.protocol !== "https:" ||
+    url.username ||
+    url.password ||
+    (url.port && url.port !== "443")
+  ) {
     throw new Error(`${label} must be a public HTTPS URL.`);
   }
   const hostname = url.hostname.toLowerCase();
@@ -835,41 +915,68 @@ export interface ProductDetailsInput {
   iconUrl: string;
 }
 
+interface NormalizedProductDetails {
+  name: string;
+  description: string;
+  websiteUrl: string;
+  iconUrl: string;
+}
+
+function normalizeProductDetails(
+  input: Omit<ProductDetailsInput, "productId">,
+): NormalizedProductDetails {
+  const name = input.name.trim().replace(/\s+/g, " ");
+  if (!name || name.length > 120) throw new Error("Enter a product name up to 120 characters.");
+  if (input.description.length > 500)
+    throw new Error("The product description must be 500 characters or fewer.");
+  return {
+    name,
+    description: input.description.trim(),
+    websiteUrl: validateProductUrl(input.websiteUrl, "Website"),
+    iconUrl: input.iconUrl.trim() ? validateProductUrl(input.iconUrl.trim(), "Icon") : "",
+  };
+}
+
 export async function createOrganizationProduct(
   actorId: SubjectId,
   organizationId: string,
   input: ProductDetailsInput,
 ): Promise<ProductRecord> {
   const productId = validateProductId(input.productId);
-  const name = input.name.trim().replace(/\s+/g, " ");
-  if (!name || name.length > 120) throw new Error("Enter a product name up to 120 characters.");
-  if (input.description.length > 500) throw new Error("The product description must be 500 characters or fewer.");
-  const websiteUrl = validateProductUrl(input.websiteUrl, "Website");
-  const iconUrl = input.iconUrl.trim() ? validateProductUrl(input.iconUrl.trim(), "Icon") : "";
-  return authMutationQueue.run(() => withOrganizationMutationLock(organizationId, async () => {
-    const manager = await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
-    const products = (await listRecordsWithRecovery("product")).map((item) => item.record);
-    if (products.some((product) => product.organizationId === organizationId && product.productId === productId)) {
-      throw new Error("That product ID is already in use in this organization.");
-    }
-    const now = new Date().toISOString();
-    const product: ProductRecord = {
-      kind: "product",
-      schemaVersion: 1,
-      productRecordId: newProductRecordId(),
-      organizationId: organizationId as OrganizationId,
-      productId,
-      name,
-      description: input.description.trim(),
-      websiteUrl,
-      iconUrl,
-      createdBySubjectId: actorId,
-      createdAt: now,
-      updatedAt: now,
-    };
-    await persistRecord(product, "product.created", { kind: "subject", subjectId: manager.subjectId });
-    return product;
-  }));
+  const details = normalizeProductDetails(input);
+  return authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      const manager = await requireOrganizationRoleUnlocked(actorId, organizationId, [
+        "owner",
+        "admin",
+      ]);
+      const products = (await listRecordsWithRecovery("product")).map((item) => item.record);
+      if (
+        products.some(
+          (product) => product.organizationId === organizationId && product.productId === productId,
+        )
+      ) {
+        throw new Error("That product ID is already in use in this organization.");
+      }
+      const now = new Date().toISOString();
+      const product: ProductRecord = {
+        kind: "product",
+        schemaVersion: 1,
+        productRecordId: newProductRecordId(),
+        organizationId: organizationId as OrganizationId,
+        productId,
+        ...details,
+        createdBySubjectId: actorId,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await persistRecord(product, "product.created", {
+        kind: "subject",
+        subjectId: manager.subjectId,
+      });
+      return product;
+    }),
+  );
 }
 
 export async function updateOrganizationProduct(
@@ -879,19 +986,28 @@ export async function updateOrganizationProduct(
   input: Omit<ProductDetailsInput, "productId">,
 ): Promise<ProductRecord> {
   assertOpaqueId(productRecordId);
-  const name = input.name.trim().replace(/\s+/g, " ");
-  if (!name || name.length > 120) throw new Error("Enter a product name up to 120 characters.");
-  if (input.description.length > 500) throw new Error("The product description must be 500 characters or fewer.");
-  const websiteUrl = validateProductUrl(input.websiteUrl, "Website");
-  const iconUrl = input.iconUrl.trim() ? validateProductUrl(input.iconUrl.trim(), "Icon") : "";
-  return authMutationQueue.run(() => withOrganizationMutationLock(organizationId, async () => {
-    const manager = await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
-    const current = await loadRecord("product", productRecordId);
-    if (!current || current.record.organizationId !== organizationId) throw new Error("Product not found.");
-    const next: ProductRecord = { ...current.record, name, description: input.description.trim(), websiteUrl, iconUrl, updatedAt: new Date().toISOString() };
-    await persistRecord(next, "product.updated", { kind: "subject", subjectId: manager.subjectId });
-    return next;
-  }));
+  const details = normalizeProductDetails(input);
+  return authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      const manager = await requireOrganizationRoleUnlocked(actorId, organizationId, [
+        "owner",
+        "admin",
+      ]);
+      const current = await loadRecord("product", productRecordId);
+      if (!current || current.record.organizationId !== organizationId)
+        throw new Error("Product not found.");
+      const next: ProductRecord = {
+        ...current.record,
+        ...details,
+        updatedAt: new Date().toISOString(),
+      };
+      await persistRecord(next, "product.updated", {
+        kind: "subject",
+        subjectId: manager.subjectId,
+      });
+      return next;
+    }),
+  );
 }
 
 export async function listProductsForOrganization(
@@ -915,7 +1031,9 @@ export async function getProductForOrganization(
   return authMutationQueue.run(async () => {
     await requireOrganizationRoleUnlocked(subjectId, organizationId, ["owner", "admin", "member"]);
     const products = (await listRecordsWithRecovery("product")).map((item) => item.record);
-    const product = products.find((item) => item.organizationId === organizationId && item.productId === productId);
+    const product = products.find(
+      (item) => item.organizationId === organizationId && item.productId === productId,
+    );
     if (!product) throw new Error("Product not found.");
     return product;
   });
@@ -928,41 +1046,61 @@ export async function createOrganizationInvitation(
   role: "admin" | "member",
 ): Promise<{ invitation: OrganizationInvitationRecord; token: string; organizationName: string }> {
   const email = canonicalEmail(emailInput);
-  return authMutationQueue.run(() => withOrganizationMutationLock(organizationId, async () => {
-    const actorMembership = await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
-    if (role === "admin" && actorMembership.role !== "owner") {
-      throw new Error("Only an organization owner can invite an administrator.");
-    }
-    const organization = await loadRecord("organization", organizationId);
-    if (!organization) throw new Error("Organization not found.");
-    const target = await loadSubjectByEmailUnlocked(email);
-    if (target && (await organizationMembershipUnlocked(organizationId, target.subjectId))) {
-      throw new Error("This person is already a member of the organization.");
-    }
-    const invites = (await listRecordsWithRecovery("organization-invitation")).map((item) => item.record);
-    for (const previous of invites.filter((item) => item.organizationId === organizationId && item.email === email && !item.consumedAt && !item.revokedAt)) {
-      await persistRecord({ ...previous, revokedAt: new Date().toISOString() }, "organization.invitation-replaced", { kind: "subject", subjectId: actorId });
-    }
-    const invitationId = newInvitationId();
-    const token = `${invitationId}.${randomBytes(32).toString("base64url")}`;
-    const now = new Date();
-    const invitation: OrganizationInvitationRecord = {
-      kind: "organization-invitation",
-      schemaVersion: 1,
-      invitationId,
-      organizationId: organizationId as OrganizationId,
-      email,
-      role,
-      verifierDigestHex: hashHex(token),
-      createdBySubjectId: actorId,
-      createdAt: now.toISOString(),
-      expiresAt: new Date(now.getTime() + ORGANIZATION_INVITATION_LIFETIME_MS).toISOString(),
-      consumedAt: null,
-      revokedAt: null,
-    };
-    await persistRecord(invitation, "organization.invitation-created", { kind: "subject", subjectId: actorId });
-    return { invitation, token, organizationName: organization.record.name };
-  }));
+  return authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      const actorMembership = await requireOrganizationRoleUnlocked(actorId, organizationId, [
+        "owner",
+        "admin",
+      ]);
+      if (role === "admin" && actorMembership.role !== "owner") {
+        throw new Error("Only an organization owner can invite an administrator.");
+      }
+      const organization = await loadRecord("organization", organizationId);
+      if (!organization) throw new Error("Organization not found.");
+      const target = await loadSubjectByEmailUnlocked(email);
+      if (target && (await organizationMembershipUnlocked(organizationId, target.subjectId))) {
+        throw new Error("This person is already a member of the organization.");
+      }
+      const invites = (await listRecordsWithRecovery("organization-invitation")).map(
+        (item) => item.record,
+      );
+      for (const previous of invites.filter(
+        (item) =>
+          item.organizationId === organizationId &&
+          item.email === email &&
+          !item.consumedAt &&
+          !item.revokedAt,
+      )) {
+        await persistRecord(
+          { ...previous, revokedAt: new Date().toISOString() },
+          "organization.invitation-replaced",
+          { kind: "subject", subjectId: actorId },
+        );
+      }
+      const invitationId = newInvitationId();
+      const token = `${invitationId}.${randomBytes(32).toString("base64url")}`;
+      const now = new Date();
+      const invitation: OrganizationInvitationRecord = {
+        kind: "organization-invitation",
+        schemaVersion: 1,
+        invitationId,
+        organizationId: organizationId as OrganizationId,
+        email,
+        role,
+        verifierDigestHex: hashHex(token),
+        createdBySubjectId: actorId,
+        createdAt: now.toISOString(),
+        expiresAt: new Date(now.getTime() + ORGANIZATION_INVITATION_LIFETIME_MS).toISOString(),
+        consumedAt: null,
+        revokedAt: null,
+      };
+      await persistRecord(invitation, "organization.invitation-created", {
+        kind: "subject",
+        subjectId: actorId,
+      });
+      return { invitation, token, organizationName: organization.record.name };
+    }),
+  );
 }
 
 export async function listOrganizationInvitations(
@@ -973,7 +1111,13 @@ export async function listOrganizationInvitations(
     await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
     return (await listRecordsWithRecovery("organization-invitation"))
       .map((item) => item.record)
-      .filter((invite) => invite.organizationId === organizationId && !invite.consumedAt && !invite.revokedAt && Date.parse(invite.expiresAt) > Date.now())
+      .filter(
+        (invite) =>
+          invite.organizationId === organizationId &&
+          !invite.consumedAt &&
+          !invite.revokedAt &&
+          Date.parse(invite.expiresAt) > Date.now(),
+      )
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   });
 }
@@ -984,13 +1128,23 @@ export async function revokeOrganizationInvitation(
   invitationId: string,
 ): Promise<void> {
   assertOpaqueId(invitationId);
-  await authMutationQueue.run(() => withOrganizationMutationLock(organizationId, async () => {
-    const actorMembership = await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
-    const current = await loadRecord("organization-invitation", invitationId);
-    if (!current || current.record.organizationId !== organizationId) throw new Error("Invitation not found.");
-    if (current.record.consumedAt || current.record.revokedAt) return;
-    await persistRecord({ ...current.record, revokedAt: new Date().toISOString() }, "organization.invitation-revoked", { kind: "subject", subjectId: actorMembership.subjectId });
-  }));
+  await authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      const actorMembership = await requireOrganizationRoleUnlocked(actorId, organizationId, [
+        "owner",
+        "admin",
+      ]);
+      const current = await loadRecord("organization-invitation", invitationId);
+      if (!current || current.record.organizationId !== organizationId)
+        throw new Error("Invitation not found.");
+      if (current.record.consumedAt || current.record.revokedAt) return;
+      await persistRecord(
+        { ...current.record, revokedAt: new Date().toISOString() },
+        "organization.invitation-revoked",
+        { kind: "subject", subjectId: actorMembership.subjectId },
+      );
+    }),
+  );
 }
 
 export async function acceptOrganizationInvitation(
@@ -1005,14 +1159,31 @@ export async function acceptOrganizationInvitation(
     if (!initial) throw new Error("This invitation is invalid or expired.");
     return withOrganizationMutationLock(initial.record.organizationId, async () => {
       const subject = await loadSubjectUnlocked(subjectId);
-      if (!subject || subject.status !== "active" || !subject.primaryEmail) throw new Error("An active account is required to accept an invitation.");
+      if (!subject || subject.status !== "active" || !subject.primaryEmail)
+        throw new Error("An active account is required to accept an invitation.");
       const current = await loadRecord("organization-invitation", match[1]);
-      if (!current || current.record.consumedAt || current.record.revokedAt || Date.parse(current.record.expiresAt) <= Date.now() || current.record.email !== subject.primaryEmail.toLowerCase() || !equalHex(current.record.verifierDigestHex, hashHex(token))) {
-        throw new Error("This invitation is invalid or expired, or it was sent to another email address.");
+      if (
+        !current ||
+        current.record.consumedAt ||
+        current.record.revokedAt ||
+        Date.parse(current.record.expiresAt) <= Date.now() ||
+        current.record.email !== subject.primaryEmail.toLowerCase() ||
+        !equalHex(current.record.verifierDigestHex, hashHex(token))
+      ) {
+        throw new Error(
+          "This invitation is invalid or expired, or it was sent to another email address.",
+        );
       }
-      const existing = await organizationMembershipUnlocked(current.record.organizationId, subjectId);
+      const existing = await organizationMembershipUnlocked(
+        current.record.organizationId,
+        subjectId,
+      );
       if (!existing) {
-        await revokeSubjectOrganizationAccessUnlocked(subjectId, current.record.organizationId, subjectId);
+        await revokeSubjectOrganizationAccessUnlocked(
+          subjectId,
+          current.record.organizationId,
+          subjectId,
+        );
         const now = new Date().toISOString();
         const membership: OrganizationMembershipRecord = {
           kind: "organization-membership",
@@ -1025,12 +1196,27 @@ export async function acceptOrganizationInvitation(
           createdAt: now,
           updatedAt: now,
         };
-        await persistRecord(membership, "organization.invitation-accepted", { kind: "subject", subjectId });
+        await persistRecord(membership, "organization.invitation-accepted", {
+          kind: "subject",
+          subjectId,
+        });
       }
       if (!subject.emailVerifiedAt) {
-        await persistRecord({ ...subject, emailVerifiedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, "identity.email-verified-by-invitation", { kind: "subject", subjectId });
+        await persistRecord(
+          {
+            ...subject,
+            emailVerifiedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          "identity.email-verified-by-invitation",
+          { kind: "subject", subjectId },
+        );
       }
-      await persistRecord({ ...current.record, consumedAt: new Date().toISOString() }, "organization.invitation-consumed", { kind: "subject", subjectId });
+      await persistRecord(
+        { ...current.record, consumedAt: new Date().toISOString() },
+        "organization.invitation-consumed",
+        { kind: "subject", subjectId },
+      );
       return current.record.organizationId;
     });
   });
@@ -1041,10 +1227,19 @@ export async function listOrganizationPermissionGrants(
   organizationId: string,
 ): Promise<MembershipRecord[]> {
   return authMutationQueue.run(async () => {
-    const role = await requireOrganizationRoleUnlocked(subjectId, organizationId, ["owner", "admin", "member"]);
+    const role = await requireOrganizationRoleUnlocked(subjectId, organizationId, [
+      "owner",
+      "admin",
+      "member",
+    ]);
     return (await listRecordsWithRecovery("membership"))
       .map((item) => item.record)
-      .filter((record) => record.scope.organizationId === organizationId && (role.role !== "member" || record.status === "active") && (role.role !== "member" || record.subjectId === subjectId))
+      .filter(
+        (record) =>
+          record.scope.organizationId === organizationId &&
+          (role.role !== "member" || record.status === "active") &&
+          (role.role !== "member" || record.subjectId === subjectId),
+      )
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   });
 }
@@ -1056,36 +1251,36 @@ export async function listOrganizationAudit(
   return authMutationQueue.run(async () => {
     await requireOrganizationRoleUnlocked(subjectId, organizationId, ["owner", "admin"]);
     const events = await store().listAllEvents();
-    return events.filter((event) => {
-      if (event.payload.organizationId === organizationId) return true;
-      const record = event.payload.record;
-      if (!record || typeof record !== "object" || Array.isArray(record)) return false;
-      if ("organizationId" in record && record.organizationId === organizationId) return true;
-      return "scope" in record && typeof record.scope === "object" && record.scope !== null && !Array.isArray(record.scope) && "organizationId" in record.scope && record.scope.organizationId === organizationId;
-    }).slice(0, 100).map((event) => ({
-      eventId: event.eventId,
-      type: event.type,
-      occurredAt: event.occurredAt,
-      actor: event.actor.kind === "subject" ? "account" : event.actor.kind,
-      aggregateKind: event.aggregate.kind,
-    }));
+    return events
+      .filter((event) => {
+        if (event.payload.organizationId === organizationId) return true;
+        const record = event.payload.record;
+        if (!record || typeof record !== "object" || Array.isArray(record)) return false;
+        if ("organizationId" in record && record.organizationId === organizationId) return true;
+        return (
+          "scope" in record &&
+          typeof record.scope === "object" &&
+          record.scope !== null &&
+          !Array.isArray(record.scope) &&
+          "organizationId" in record.scope &&
+          record.scope.organizationId === organizationId
+        );
+      })
+      .slice(0, 100)
+      .map(organizationActivityEntry);
   });
 }
 
 export async function listPlatformAudit(actorId: SubjectId): Promise<OrganizationActivityEntry[]> {
   return authMutationQueue.run(async () => {
     await requireAdministrator(actorId);
-    return (await store().listAllEvents()).slice(0, 100).map((event) => ({
-      eventId: event.eventId,
-      type: event.type,
-      occurredAt: event.occurredAt,
-      actor: event.actor.kind === "subject" ? "account" : event.actor.kind,
-      aggregateKind: event.aggregate.kind,
-    }));
+    return (await store().listAllEvents()).slice(0, 100).map(organizationActivityEntry);
   });
 }
 
-export async function retireLegacyAccess(actorId: SubjectId): Promise<{ grants: number; keys: number }> {
+export async function retireLegacyAccess(
+  actorId: SubjectId,
+): Promise<{ grants: number; keys: number }> {
   return authMutationQueue.run(async () => {
     const actor = await requireAdministrator(actorId);
     const legacyMemberships = (await listRecordsWithRecovery("membership"))
@@ -1095,23 +1290,36 @@ export async function retireLegacyAccess(actorId: SubjectId): Promise<{ grants: 
       .map((item) => item.record)
       .filter((record) => record.status === "active" && !record.scope.organizationId);
     for (const membership of legacyMemberships) {
-      await persistRecord({ ...membership, status: "disabled", updatedAt: new Date().toISOString() }, "migration.legacy-grant-disabled", { kind: "subject", subjectId: actor.subjectId });
+      await persistRecord(
+        { ...membership, status: "disabled", updatedAt: new Date().toISOString() },
+        "migration.legacy-grant-disabled",
+        { kind: "subject", subjectId: actor.subjectId },
+      );
     }
     for (const key of legacyKeys) {
-      await persistRecord({ ...key, status: "revoked", revokedAt: new Date().toISOString() }, "migration.legacy-api-key-revoked", { kind: "subject", subjectId: actor.subjectId });
+      await persistRecord(
+        { ...key, status: "revoked", revokedAt: new Date().toISOString() },
+        "migration.legacy-api-key-revoked",
+        { kind: "subject", subjectId: actor.subjectId },
+      );
     }
     return { grants: legacyMemberships.length, keys: legacyKeys.length };
   });
 }
 
-export async function previewLegacyAccessRetirement(actorId: SubjectId): Promise<{ grants: number; keys: number }> {
+export async function previewLegacyAccessRetirement(
+  actorId: SubjectId,
+): Promise<{ grants: number; keys: number }> {
   return authMutationQueue.run(async () => {
     await requireAdministrator(actorId);
     const memberships = (await listRecordsWithRecovery("membership")).map((item) => item.record);
     const keys = (await listRecordsWithRecovery("api-key")).map((item) => item.record);
     return {
-      grants: memberships.filter((record) => record.status === "active" && !record.scope.organizationId).length,
-      keys: keys.filter((record) => record.status === "active" && !record.scope.organizationId).length,
+      grants: memberships.filter(
+        (record) => record.status === "active" && !record.scope.organizationId,
+      ).length,
+      keys: keys.filter((record) => record.status === "active" && !record.scope.organizationId)
+        .length,
     };
   });
 }
@@ -1176,7 +1384,9 @@ export async function updateAccountStatus(
       current.record.primaryEmail &&
       configuredAdministrators().has(current.record.primaryEmail.toLowerCase())
     ) {
-      throw new Error("Remove this address from PERMINISTER_ADMIN_EMAILS before disabling the account.");
+      throw new Error(
+        "Remove this address from PERMINISTER_ADMIN_EMAILS before disabling the account.",
+      );
     }
     if (current.record.status === status) return;
     const next: SubjectRecord = {
@@ -1193,11 +1403,14 @@ export async function updateAccountStatus(
 }
 
 function validateScope(scope: ResourceScope): ResourceScope {
-  const validPart = (value: string) => value.length <= 128 && /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value);
+  const validPart = (value: string) =>
+    value.length <= 128 && /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value);
   assertOpaqueId(scope.organizationId);
   if (!validPart(scope.productId)) throw new Error("Enter a valid product ID.");
-  if (scope.kind === "project" && !validPart(scope.projectId)) throw new Error("Enter a valid project ID.");
-  if (scope.kind === "workspace" && !validPart(scope.workspaceId)) throw new Error("Enter a valid workspace ID.");
+  if (scope.kind === "project" && !validPart(scope.projectId))
+    throw new Error("Enter a valid project ID.");
+  if (scope.kind === "workspace" && !validPart(scope.workspaceId))
+    throw new Error("Enter a valid workspace ID.");
   return scope;
 }
 
@@ -1213,6 +1426,20 @@ function validateActions(actions: readonly string[]): string[] {
   return normalized;
 }
 
+async function requireOrganizationProductUnlocked(
+  organizationId: string,
+  productId: string,
+): Promise<void> {
+  const products = (await listRecordsWithRecovery("product")).map((item) => item.record);
+  if (
+    !products.some(
+      (product) => product.organizationId === organizationId && product.productId === productId,
+    )
+  ) {
+    throw new Error("Choose a product in this organization.");
+  }
+}
+
 export async function createPermissionGrant(
   actorId: SubjectId,
   targetSubjectId: string,
@@ -1222,34 +1449,41 @@ export async function createPermissionGrant(
   assertOpaqueId(targetSubjectId);
   const scope = validateScope(scopeInput);
   const actions = validateActions(actionsInput);
-  return authMutationQueue.run(() => withOrganizationMutationLock(scope.organizationId, async () => {
-    const actorMembership = await requireOrganizationRoleUnlocked(actorId, scope.organizationId, ["owner", "admin"]);
-    const products = (await listRecordsWithRecovery("product")).map((item) => item.record);
-    if (!products.some((product) => product.organizationId === scope.organizationId && product.productId === scope.productId)) {
-      throw new Error("Choose a product in this organization.");
-    }
-    const target = await loadSubjectUnlocked(targetSubjectId);
-    if (!target || target.status !== "active" || !target.emailVerifiedAt) {
-      throw new Error("Choose an active, email-verified account.");
-    }
-    if (!(await organizationMembershipUnlocked(scope.organizationId, targetSubjectId as SubjectId))) {
-      throw new Error("Choose a member of this organization.");
-    }
-    const now = new Date().toISOString();
-    const membership: MembershipRecord = {
-      kind: "membership",
-      schemaVersion: 1,
-      membershipId: newMembershipId(),
-      subjectId: target.subjectId,
-      scope,
-      grants: [{ scope, actions }],
-      status: "active",
-      createdAt: now,
-      updatedAt: now,
-    };
-    await persistRecord(membership, "permission.granted", { kind: "subject", subjectId: actorMembership.subjectId });
-    return membership;
-  }));
+  return authMutationQueue.run(() =>
+    withOrganizationMutationLock(scope.organizationId, async () => {
+      const actorMembership = await requireOrganizationRoleUnlocked(actorId, scope.organizationId, [
+        "owner",
+        "admin",
+      ]);
+      await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
+      const target = await loadSubjectUnlocked(targetSubjectId);
+      if (!target || target.status !== "active" || !target.emailVerifiedAt) {
+        throw new Error("Choose an active, email-verified account.");
+      }
+      if (
+        !(await organizationMembershipUnlocked(scope.organizationId, targetSubjectId as SubjectId))
+      ) {
+        throw new Error("Choose a member of this organization.");
+      }
+      const now = new Date().toISOString();
+      const membership: MembershipRecord = {
+        kind: "membership",
+        schemaVersion: 1,
+        membershipId: newMembershipId(),
+        subjectId: target.subjectId,
+        scope,
+        grants: [{ scope, actions }],
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      };
+      await persistRecord(membership, "permission.granted", {
+        kind: "subject",
+        subjectId: actorMembership.subjectId,
+      });
+      return membership;
+    }),
+  );
 }
 
 export async function updateGrantStatus(
@@ -1261,13 +1495,27 @@ export async function updateGrantStatus(
   await authMutationQueue.run(async () => {
     const initial = await loadRecord("membership", membershipId);
     if (!initial) throw new Error("Permission grant not found.");
-    if (!initial.record.scope.organizationId) throw new Error("Legacy grants cannot be changed here.");
+    if (!initial.record.scope.organizationId)
+      throw new Error("Legacy grants cannot be changed here.");
     await withOrganizationMutationLock(initial.record.scope.organizationId, async () => {
       const current = await loadRecord("membership", membershipId);
-      if (!current || current.record.scope.organizationId !== initial.record.scope.organizationId) throw new Error("Permission grant not found.");
-      const actorMembership = await requireOrganizationRoleUnlocked(actorId, current.record.scope.organizationId, ["owner", "admin"]);
-      if (status === "active" && !(await organizationMembershipUnlocked(current.record.scope.organizationId, current.record.subjectId))) {
-        throw new Error("The person must be an active organization member before restoring access.");
+      if (!current || current.record.scope.organizationId !== initial.record.scope.organizationId)
+        throw new Error("Permission grant not found.");
+      const actorMembership = await requireOrganizationRoleUnlocked(
+        actorId,
+        current.record.scope.organizationId,
+        ["owner", "admin"],
+      );
+      if (
+        status === "active" &&
+        !(await organizationMembershipUnlocked(
+          current.record.scope.organizationId,
+          current.record.subjectId,
+        ))
+      ) {
+        throw new Error(
+          "The person must be an active organization member before restoring access.",
+        );
       }
       if (current.record.status === status) return;
       await persistRecord(
@@ -1288,6 +1536,8 @@ async function listRecordsWithRecovery<Kind extends AuthRecordKind>(
     objectStore.listRecords(kind),
     knownEvents ? Promise.resolve(knownEvents) : objectStore.listAllEvents(),
   ]);
+  assertNoConflictingAggregateRevisions(allEvents);
+  assertUniqueDirectoryRegistrations(allEvents);
   const ids = new Set<string>(snapshots.map((snapshot) => recordId(snapshot.record)));
   for (const event of allEvents) {
     if (event.aggregate.kind === kind) ids.add(event.aggregate.id);
@@ -1304,7 +1554,9 @@ export async function listMembershipsForSubject(subjectId: SubjectId): Promise<M
   return authMutationQueue.run(() => listMembershipsForSubjectUnlocked(subjectId));
 }
 
-async function listMembershipsForSubjectUnlocked(subjectId: SubjectId): Promise<MembershipRecord[]> {
+async function listMembershipsForSubjectUnlocked(
+  subjectId: SubjectId,
+): Promise<MembershipRecord[]> {
   return (await listRecordsWithRecovery("membership"))
     .map((item) => item.record)
     .filter((record) => record.subjectId === subjectId)
@@ -1330,78 +1582,88 @@ export async function createApiKeyForSubject(
 ): Promise<CreatedApiKey> {
   const scope = validateScope(options.scope);
   const actions = validateActions(options.actions);
-  if (options.expiresAt && (!Number.isFinite(Date.parse(options.expiresAt)) || Date.parse(options.expiresAt) <= Date.now())) {
+  if (
+    options.expiresAt &&
+    (!Number.isFinite(Date.parse(options.expiresAt)) || Date.parse(options.expiresAt) <= Date.now())
+  ) {
     throw new Error("Choose a future expiration time.");
   }
   const rotateId = options.rotateFromApiKeyId;
   if (rotateId) assertOpaqueId(rotateId);
-  return authMutationQueue.run(() => withOrganizationMutationLock(scope.organizationId, async () => {
-    const subject = await loadSubjectUnlocked(subjectId);
-    if (!subject || subject.status !== "active" || !subject.emailVerifiedAt) {
-      throw new Error("An active, email-verified account is required to create an API key.");
-    }
-    if (!(await organizationMembershipUnlocked(scope.organizationId, subjectId))) {
-      throw new Error("Join this organization before creating an API key.");
-    }
-    const products = (await listRecordsWithRecovery("product")).map((item) => item.record);
-    if (!products.some((product) => product.organizationId === scope.organizationId && product.productId === scope.productId)) {
-      throw new Error("Choose a product in this organization.");
-    }
-    for (const action of actions) {
-      if (!(await hasPermission(subjectId, scope, action))) {
-        throw new Error("API keys can only include actions granted to your account.");
+  return authMutationQueue.run(() =>
+    withOrganizationMutationLock(scope.organizationId, async () => {
+      const subject = await loadSubjectUnlocked(subjectId);
+      if (!subject || subject.status !== "active" || !subject.emailVerifiedAt) {
+        throw new Error("An active, email-verified account is required to create an API key.");
       }
-    }
-    let previous: ApiKeyRecord | null = null;
-    if (rotateId) {
-      const old = await loadRecord("api-key", rotateId);
-      if (!old || old.record.owner.kind !== "subject" || old.record.owner.subjectId !== subjectId) {
-        throw new Error("Choose one of your own API keys to rotate.");
+      if (!(await organizationMembershipUnlocked(scope.organizationId, subjectId))) {
+        throw new Error("Join this organization before creating an API key.");
       }
-      if (old.record.status !== "active" || (old.record.expiresAt && Date.parse(old.record.expiresAt) <= Date.now())) {
-        throw new Error("Only an active, unexpired API key can be rotated.");
+      await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
+      for (const action of actions) {
+        if (!(await hasPermission(subjectId, scope, action))) {
+          throw new Error("API keys can only include actions granted to your account.");
+        }
       }
-      if (old.record.scope.organizationId !== scope.organizationId) {
-        throw new Error("A key can only be rotated within its organization.");
+      let previous: ApiKeyRecord | null = null;
+      if (rotateId) {
+        const old = await loadRecord("api-key", rotateId);
+        if (
+          !old ||
+          old.record.owner.kind !== "subject" ||
+          old.record.owner.subjectId !== subjectId
+        ) {
+          throw new Error("Choose one of your own API keys to rotate.");
+        }
+        if (
+          old.record.status !== "active" ||
+          (old.record.expiresAt && Date.parse(old.record.expiresAt) <= Date.now())
+        ) {
+          throw new Error("Only an active, unexpired API key can be rotated.");
+        }
+        if (old.record.scope.organizationId !== scope.organizationId) {
+          throw new Error("A key can only be rotated within its organization.");
+        }
+        previous = old.record;
       }
-      previous = old.record;
-    }
-    const apiKeyId = newApiKeyId();
-    const token = `pmk_${apiKeyId}_${randomBytes(32).toString("base64url")}`;
-    const now = new Date().toISOString();
-    const record: ApiKeyRecord = {
-      kind: "api-key",
-      schemaVersion: 1,
-      apiKeyId,
-      keyClass: "integration",
-      owner: { kind: "subject", subjectId },
-      scope,
-      actions,
-      verifier: { algorithm: "sha256", digestHex: hashHex(token) },
-      status: "active",
-      createdAt: now,
-      expiresAt: options.expiresAt,
-      revokedAt: null,
-      rotatedFromApiKeyId: previous?.apiKeyId ?? null,
-    };
-    await persistRecord(record, previous ? "api-key.rotated.created" : "api-key.created", {
-      kind: "subject",
-      subjectId,
-    });
-    let rotationWarning: string | null = null;
-    if (previous) {
-      try {
-        await persistRecord(
-          { ...previous, status: "revoked", revokedAt: new Date().toISOString() },
-          "api-key.rotated.revoked-previous",
-          { kind: "subject", subjectId },
-        );
-      } catch {
-        rotationWarning = "The new key was created, but the previous key could not be revoked. Revoke it from the key list.";
+      const apiKeyId = newApiKeyId();
+      const token = `pmk_${apiKeyId}_${randomBytes(32).toString("base64url")}`;
+      const now = new Date().toISOString();
+      const record: ApiKeyRecord = {
+        kind: "api-key",
+        schemaVersion: 1,
+        apiKeyId,
+        keyClass: "integration",
+        owner: { kind: "subject", subjectId },
+        scope,
+        actions,
+        verifier: { algorithm: "sha256", digestHex: hashHex(token) },
+        status: "active",
+        createdAt: now,
+        expiresAt: options.expiresAt,
+        revokedAt: null,
+        rotatedFromApiKeyId: previous?.apiKeyId ?? null,
+      };
+      await persistRecord(record, previous ? "api-key.rotated.created" : "api-key.created", {
+        kind: "subject",
+        subjectId,
+      });
+      let rotationWarning: string | null = null;
+      if (previous) {
+        try {
+          await persistRecord(
+            { ...previous, status: "revoked", revokedAt: new Date().toISOString() },
+            "api-key.rotated.revoked-previous",
+            { kind: "subject", subjectId },
+          );
+        } catch {
+          rotationWarning =
+            "The new key was created, but the previous key could not be revoked. Revoke it from the key list.";
+        }
       }
-    }
-    return { record, token, rotationWarning };
-  }));
+      return { record, token, rotationWarning };
+    }),
+  );
 }
 
 export async function listApiKeysForSubject(subjectId: SubjectId): Promise<ApiKeyRecord[]> {
@@ -1415,10 +1677,7 @@ async function listApiKeysForSubjectUnlocked(subjectId: SubjectId): Promise<ApiK
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
 
-export async function revokeApiKeyForSubject(
-  actorId: SubjectId,
-  apiKeyId: string,
-): Promise<void> {
+export async function revokeApiKeyForSubject(actorId: SubjectId, apiKeyId: string): Promise<void> {
   assertOpaqueId(apiKeyId);
   await authMutationQueue.run(async () => {
     const actor = await loadSubjectUnlocked(actorId);
@@ -1428,7 +1687,8 @@ export async function revokeApiKeyForSubject(
     const revoke = async () => {
       const current = await loadRecord("api-key", apiKeyId);
       if (!current) throw new Error("API key not found.");
-      const ownsKey = current.record.owner.kind === "subject" && current.record.owner.subjectId === actorId;
+      const ownsKey =
+        current.record.owner.kind === "subject" && current.record.owner.subjectId === actorId;
       if (!ownsKey && !isAdministrator(actor)) throw new Error("You cannot revoke this API key.");
       if (current.record.status === "revoked") return;
       await persistRecord(
@@ -1446,30 +1706,48 @@ export async function revokeApiKeyForSubject(
 }
 
 function scopeMatchesGrant(grantScope: ResourceScope, request: ResourceScope): boolean {
-  if (grantScope.organizationId !== request.organizationId || grantScope.productId !== request.productId) return false;
+  if (
+    grantScope.organizationId !== request.organizationId ||
+    grantScope.productId !== request.productId
+  )
+    return false;
   if (grantScope.kind === "product") return true;
   if (grantScope.kind !== request.kind) return false;
-  if (grantScope.kind === "project" && request.kind === "project") return grantScope.projectId === request.projectId;
-  if (grantScope.kind === "workspace" && request.kind === "workspace") return grantScope.workspaceId === request.workspaceId;
+  if (grantScope.kind === "project" && request.kind === "project")
+    return grantScope.projectId === request.projectId;
+  if (grantScope.kind === "workspace" && request.kind === "workspace")
+    return grantScope.workspaceId === request.workspaceId;
   return false;
 }
 
 function keyScopeAllows(keyScope: ResourceScope, request: ResourceScope): boolean {
-  if (keyScope.organizationId !== request.organizationId || keyScope.productId !== request.productId) return false;
+  if (
+    keyScope.organizationId !== request.organizationId ||
+    keyScope.productId !== request.productId
+  )
+    return false;
   if (keyScope.kind === "product") return true;
   if (keyScope.kind !== request.kind) return false;
-  if (keyScope.kind === "project" && request.kind === "project") return keyScope.projectId === request.projectId;
-  if (keyScope.kind === "workspace" && request.kind === "workspace") return keyScope.workspaceId === request.workspaceId;
+  if (keyScope.kind === "project" && request.kind === "project")
+    return keyScope.projectId === request.projectId;
+  if (keyScope.kind === "workspace" && request.kind === "workspace")
+    return keyScope.workspaceId === request.workspaceId;
   return false;
 }
 
-async function hasPermission(subjectId: SubjectId, scope: ResourceScope, action: string): Promise<boolean> {
+async function hasPermission(
+  subjectId: SubjectId,
+  scope: ResourceScope,
+  action: string,
+): Promise<boolean> {
   const memberships = await listMembershipsForSubjectUnlocked(subjectId);
-  return memberships.some((membership) =>
-    membership.status === "active" &&
-    membership.grants.some((grant: PermissionGrant) =>
-      scopeMatchesGrant(grant.scope, scope) && grant.actions.includes(action),
-    ),
+  return memberships.some(
+    (membership) =>
+      membership.status === "active" &&
+      membership.grants.some(
+        (grant: PermissionGrant) =>
+          scopeMatchesGrant(grant.scope, scope) && grant.actions.includes(action),
+      ),
   );
 }
 
@@ -1482,12 +1760,27 @@ export interface AuthorizationRequest {
 }
 
 function requestScope(input: AuthorizationRequest): ResourceScope {
-  if (input.resourceKind === "product") return validateScope({ kind: "product", organizationId: input.organizationId as OrganizationId, productId: input.productId });
+  if (input.resourceKind === "product")
+    return validateScope({
+      kind: "product",
+      organizationId: input.organizationId as OrganizationId,
+      productId: input.productId,
+    });
   if (input.resourceKind === "project" && input.resourceId) {
-    return validateScope({ kind: "project", organizationId: input.organizationId as OrganizationId, productId: input.productId, projectId: input.resourceId });
+    return validateScope({
+      kind: "project",
+      organizationId: input.organizationId as OrganizationId,
+      productId: input.productId,
+      projectId: input.resourceId,
+    });
   }
   if (input.resourceKind === "workspace" && input.resourceId) {
-    return validateScope({ kind: "workspace", organizationId: input.organizationId as OrganizationId, productId: input.productId, workspaceId: input.resourceId });
+    return validateScope({
+      kind: "workspace",
+      organizationId: input.organizationId as OrganizationId,
+      productId: input.productId,
+      workspaceId: input.resourceId,
+    });
   }
   throw new Error("A valid resource kind and ID are required.");
 }
@@ -1511,26 +1804,28 @@ export async function authorizeApiKey(
   if (!keyId) return { authorized: false };
   const scope = requestScope(input);
   const action = validateActions([input.action])[0];
-  return authMutationQueue.run(async () => {
-    const current = await loadRecord("api-key", keyId);
-    if (!current) return { authorized: false };
-    const key = current.record;
-    if (
-      key.status !== "active" ||
-      (key.expiresAt && Date.parse(key.expiresAt) <= Date.now()) ||
-      !equalHex(key.verifier.digestHex, hashHex(token)) ||
-      !key.actions.includes(action) ||
-      !keyScopeAllows(key.scope, scope) ||
-      key.owner.kind !== "subject"
-    ) return { authorized: false };
-    const subject = await loadRecord("subject", key.owner.subjectId);
-    if (!subject || subject.record.status !== "active" || !subject.record.emailVerifiedAt) {
-      return { authorized: false };
-    }
-    if (!(await organizationMembershipUnlocked(scope.organizationId, subject.record.subjectId))) return { authorized: false };
-    const authorized = await hasPermission(subject.record.subjectId, scope, action);
-    return authorized ? { authorized: true, subjectId: subject.record.subjectId } : { authorized: false };
-  });
+  const current = await loadRecord("api-key", keyId);
+  if (!current) return { authorized: false };
+  const key = current.record;
+  if (
+    key.status !== "active" ||
+    (key.expiresAt && Date.parse(key.expiresAt) <= Date.now()) ||
+    !equalHex(key.verifier.digestHex, hashHex(token)) ||
+    !key.actions.includes(action) ||
+    !keyScopeAllows(key.scope, scope) ||
+    key.owner.kind !== "subject"
+  )
+    return { authorized: false };
+  const subject = await loadRecord("subject", key.owner.subjectId);
+  if (!subject || subject.record.status !== "active" || !subject.record.emailVerifiedAt) {
+    return { authorized: false };
+  }
+  if (!(await organizationMembershipUnlocked(scope.organizationId, subject.record.subjectId)))
+    return { authorized: false };
+  const authorized = await hasPermission(subject.record.subjectId, scope, action);
+  return authorized
+    ? { authorized: true, subjectId: subject.record.subjectId }
+    : { authorized: false };
 }
 
 export async function issueEmailAction(
@@ -1561,7 +1856,9 @@ export async function issueEmailAction(
   });
 }
 
-export async function issueRecoveryAction(emailInput: string): Promise<{ email: string; token: string } | null> {
+export async function issueRecoveryAction(
+  emailInput: string,
+): Promise<{ email: string; token: string } | null> {
   const email = canonicalEmail(emailInput);
   const subject = await authMutationQueue.run(() => loadSubjectByEmailUnlocked(email));
   if (!subject) return null;
@@ -1588,14 +1885,20 @@ export async function completeEmailAction(
       currentAction.record.consumedAt ||
       Date.parse(currentAction.record.expiresAt) <= Date.now() ||
       !equalHex(currentAction.record.verifierDigestHex, hashHex(token))
-    ) throw new InvalidAuthActionError();
+    )
+      throw new InvalidAuthActionError();
     const currentSubject = await loadRecord("subject", currentAction.record.subjectId);
-    if (!currentSubject || currentSubject.record.status !== "active") throw new InvalidAuthActionError();
+    if (!currentSubject || currentSubject.record.status !== "active")
+      throw new InvalidAuthActionError();
     const subject = currentSubject.record;
     let nextSubject = subject;
     if (purpose === "verify-email") {
       if (!subject.emailVerifiedAt) {
-        nextSubject = { ...subject, emailVerifiedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+        nextSubject = {
+          ...subject,
+          emailVerifiedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
       }
     } else {
       nextSubject = {
@@ -1635,11 +1938,12 @@ async function listSessionsForSubjectUnlocked(
 ): Promise<SessionRecord[]> {
   return (await listRecordsWithRecovery("session", events))
     .map((item) => item.record)
-    .filter((record) =>
-      record.subjectId === subject.subjectId &&
-      record.authVersion === subject.authVersion &&
-      !record.revokedAt &&
-      Date.parse(record.expiresAt) > Date.now(),
+    .filter(
+      (record) =>
+        record.subjectId === subject.subjectId &&
+        record.authVersion === subject.authVersion &&
+        !record.revokedAt &&
+        Date.parse(record.expiresAt) > Date.now(),
     )
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
@@ -1661,10 +1965,15 @@ function auditEntriesForEvents(events: readonly AuthEvent[], subject: SubjectRec
   return events
     .filter((event) => {
       if (administrator) return true;
-      if (event.actor.kind === "subject" && event.actor.subjectId === subject.subjectId) return true;
+      if (event.actor.kind === "subject" && event.actor.subjectId === subject.subjectId)
+        return true;
       const record = event.payload.record;
-      return typeof record === "object" && record !== null &&
-        "subjectId" in record && record.subjectId === subject.subjectId;
+      return (
+        typeof record === "object" &&
+        record !== null &&
+        "subjectId" in record &&
+        record.subjectId === subject.subjectId
+      );
     })
     .slice(0, 100)
     .map((event) => ({
@@ -1701,7 +2010,9 @@ export async function loadDashboardData(subject: SubjectRecord): Promise<Dashboa
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
     const apiKeys = keyRecords
       .map((item) => item.record)
-      .filter((record) => record.owner.kind === "subject" && record.owner.subjectId === subject.subjectId)
+      .filter(
+        (record) => record.owner.kind === "subject" && record.owner.subjectId === subject.subjectId,
+      )
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
     return {
       memberships,

@@ -92,9 +92,6 @@ function publicActionError(error: unknown): string {
     "Website search returned too much content. Enter the website address to continue.",
     "Product website request timed out.",
     "Too many product lookups. Try again in a minute.",
-    "Organization coordination is not configured.",
-    "Organization coordination is unavailable.",
-    "Organization coordination was interrupted.",
     "Organization is busy. Try again shortly.",
   ];
   if (safePrefixes.some((prefix) => error.message.startsWith(prefix))) return error.message;
@@ -111,15 +108,31 @@ function parseScope(data: FormData): ResourceScope {
   const kind = firstValue(data, "scopeKind");
   const organizationId = firstValue(data, "organizationId");
   const productId = firstValue(data, "productId").trim();
-  if (kind === "product") return { kind, organizationId: organizationId as ResourceScope["organizationId"], productId };
+  if (kind === "product")
+    return { kind, organizationId: organizationId as ResourceScope["organizationId"], productId };
   const resourceId = firstValue(data, "resourceId").trim();
-  if (kind === "project") return { kind, organizationId: organizationId as ResourceScope["organizationId"], productId, projectId: resourceId };
-  if (kind === "workspace") return { kind, organizationId: organizationId as ResourceScope["organizationId"], productId, workspaceId: resourceId };
+  if (kind === "project")
+    return {
+      kind,
+      organizationId: organizationId as ResourceScope["organizationId"],
+      productId,
+      projectId: resourceId,
+    };
+  if (kind === "workspace")
+    return {
+      kind,
+      organizationId: organizationId as ResourceScope["organizationId"],
+      productId,
+      workspaceId: resourceId,
+    };
   throw new Error("Choose a supported permission scope.");
 }
 
 function parseActions(data: FormData): string[] {
-  return firstValue(data, "actions").split(",").map((value) => value.trim()).filter(Boolean);
+  return firstValue(data, "actions")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
 }
 
 function dashboardReturnTo(data: FormData): string {
@@ -131,8 +144,11 @@ export async function registerAction(formData: FormData): Promise<void> {
   const email = firstValue(formData, "email");
   const password = firstValue(formData, "password");
   const invitationToken = firstValue(formData, "invitationToken");
-  const invitationQuery = invitationToken ? `&invitationToken=${encodeURIComponent(invitationToken)}` : "";
-  if (password !== firstValue(formData, "confirmPassword")) redirect(`/register?error=password-mismatch${invitationQuery}`);
+  const invitationQuery = invitationToken
+    ? `&invitationToken=${encodeURIComponent(invitationToken)}`
+    : "";
+  if (password !== firstValue(formData, "confirmPassword"))
+    redirect(`/register?error=password-mismatch${invitationQuery}`);
   let subject;
   try {
     subject = await registerAccount(email, password);
@@ -151,7 +167,10 @@ export async function registerAction(formData: FormData): Promise<void> {
   if (invitationToken) {
     let acceptedOrganizationId: string | null = null;
     try {
-      acceptedOrganizationId = await acceptOrganizationInvitation(subject.subjectId, invitationToken);
+      acceptedOrganizationId = await acceptOrganizationInvitation(
+        subject.subjectId,
+        invitationToken,
+      );
     } catch {
       // An invalid invitation does not verify a new account; normal email verification remains available.
     }
@@ -188,20 +207,30 @@ export async function registerAction(formData: FormData): Promise<void> {
 
 export async function signInAction(formData: FormData): Promise<void> {
   const invitationToken = firstValue(formData, "invitationToken");
-  const invitationQuery = invitationToken ? `&invitationToken=${encodeURIComponent(invitationToken)}` : "";
+  const invitationQuery = invitationToken
+    ? `&invitationToken=${encodeURIComponent(invitationToken)}`
+    : "";
   try {
-    const subject = await authenticate(firstValue(formData, "email"), firstValue(formData, "password"));
+    const subject = await authenticate(
+      firstValue(formData, "email"),
+      firstValue(formData, "password"),
+    );
     const session = await createSession(subject.subjectId);
     await setSessionCookie(session.token);
   } catch (error) {
-    const code = error instanceof Error && error.message.startsWith("Too many sign-in attempts")
-      ? "throttled"
-      : error instanceof Error && error.message === "Email or password is incorrect."
-        ? "credentials"
-        : "unavailable";
+    const code =
+      error instanceof Error && error.message.startsWith("Too many sign-in attempts")
+        ? "throttled"
+        : error instanceof Error && error.message === "Email or password is incorrect."
+          ? "credentials"
+          : "unavailable";
     redirect(`/login?error=${code}${invitationQuery}`);
   }
-  redirect(invitationToken ? `/accept-invitation?token=${encodeURIComponent(invitationToken)}` : "/dashboard");
+  redirect(
+    invitationToken
+      ? `/accept-invitation?token=${encodeURIComponent(invitationToken)}`
+      : "/dashboard",
+  );
 }
 
 export async function signOutAction(): Promise<void> {
@@ -254,13 +283,15 @@ export async function requestPasswordRecoveryAction(formData: FormData): Promise
 
 export async function resetPasswordAction(formData: FormData): Promise<void> {
   const password = firstValue(formData, "password");
-  if (password !== firstValue(formData, "confirmPassword")) redirect("/reset-password?error=password-mismatch");
+  if (password !== firstValue(formData, "confirmPassword"))
+    redirect("/reset-password?error=password-mismatch");
   try {
     await completeEmailAction(firstValue(formData, "token"), "recover-password", password);
   } catch (error) {
-    const code = error instanceof Error && error.message.startsWith("Use a password")
-      ? "password-policy"
-      : "invalid-link";
+    const code =
+      error instanceof Error && error.message.startsWith("Use a password")
+        ? "password-policy"
+        : "invalid-link";
     redirect(`/reset-password?error=${code}`);
   }
   redirect("/login?notice=password-reset");
@@ -280,9 +311,10 @@ export async function createApiKeyAction(
   if (!current) return { error: "Sign in again to create an API key." };
   try {
     const expiration = firstValue(formData, "expiresInDays");
-    const expiresAt = expiration === "never"
-      ? null
-      : new Date(Date.now() + Number(expiration) * 24 * 60 * 60 * 1000).toISOString();
+    const expiresAt =
+      expiration === "never"
+        ? null
+        : new Date(Date.now() + Number(expiration) * 24 * 60 * 60 * 1000).toISOString();
     const created = await createApiKeyForSubject(current.subject.subjectId, {
       scope: parseScope(formData),
       actions: parseActions(formData),
@@ -301,7 +333,10 @@ export async function createOrganizationAction(formData: FormData): Promise<void
   const returnTo = dashboardReturnTo(formData);
   let organizationId: string;
   try {
-    const organization = await createOrganization(current.subject.subjectId, firstValue(formData, "name"));
+    const organization = await createOrganization(
+      current.subject.subjectId,
+      firstValue(formData, "name"),
+    );
     organizationId = organization.organizationId;
   } catch {
     redirect(`${returnTo}?error=organization-create`);
@@ -327,7 +362,9 @@ export async function createOrganizationProductAction(formData: FormData): Promi
     const message = encodeURIComponent(publicActionError(error));
     redirect(`/dashboard/${organizationId}/products/new?error=${message}`);
   }
-  redirect(`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}?notice=product-created`);
+  redirect(
+    `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}?notice=product-created`,
+  );
 }
 
 export async function updateOrganizationProductAction(formData: FormData): Promise<void> {
@@ -336,17 +373,24 @@ export async function updateOrganizationProductAction(formData: FormData): Promi
   const organizationId = firstValue(formData, "organizationId");
   let productId: string;
   try {
-    const product = await updateOrganizationProduct(current.subject.subjectId, organizationId, firstValue(formData, "productRecordId"), {
-      name: firstValue(formData, "name"),
-      description: firstValue(formData, "description"),
-      websiteUrl: firstValue(formData, "websiteUrl"),
-      iconUrl: firstValue(formData, "iconUrl"),
-    });
+    const product = await updateOrganizationProduct(
+      current.subject.subjectId,
+      organizationId,
+      firstValue(formData, "productRecordId"),
+      {
+        name: firstValue(formData, "name"),
+        description: firstValue(formData, "description"),
+        websiteUrl: firstValue(formData, "websiteUrl"),
+        iconUrl: firstValue(formData, "iconUrl"),
+      },
+    );
     productId = product.productId;
   } catch {
     redirect(`/dashboard/${organizationId}/products?error=product-update`);
   }
-  redirect(`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}?notice=product-updated`);
+  redirect(
+    `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}?notice=product-updated`,
+  );
 }
 
 export interface ProductLookupState {
@@ -379,10 +423,14 @@ export async function lookupProductWebsiteAction(
     if (!(await consumeProductLookupRateLimit(organizationId, current.subject.subjectId))) {
       return { error: "Too many product lookups. Try again in a minute.", source };
     }
-    const { fetchProductSiteSuggestion, searchProductWebsites } = await import("@/lib/product-discovery");
+    const { fetchProductSiteSuggestion, searchProductWebsites } =
+      await import("@/lib/product-discovery");
     if (mode === "name") {
       const matches = await searchProductWebsites(source);
-      if (!matches.length) return { error: "No public website matches were found. Enter the website address to continue." };
+      if (!matches.length)
+        return {
+          error: "No public website matches were found. Enter the website address to continue.",
+        };
       return { matches, source };
     }
     const suggestion = await fetchProductSiteSuggestion(source);
@@ -396,15 +444,30 @@ export async function inviteOrganizationMemberAction(formData: FormData): Promis
   const current = await getCurrentSession();
   if (!current) redirect("/login");
   const organizationId = firstValue(formData, "organizationId");
-  if (!isMailDeliveryConfigured()) redirect(`/dashboard/${organizationId}/people?error=mail-unconfigured`);
+  if (!isMailDeliveryConfigured())
+    redirect(`/dashboard/${organizationId}/people?error=mail-unconfigured`);
   const role = firstValue(formData, "role");
-  if (role !== "admin" && role !== "member") redirect(`/dashboard/${organizationId}/people?error=invite-failed`);
+  if (role !== "admin" && role !== "member")
+    redirect(`/dashboard/${organizationId}/people?error=invite-failed`);
   try {
-    const result = await createOrganizationInvitation(current.subject.subjectId, organizationId, firstValue(formData, "email"), role);
-    await sendOrganizationInvitationEmail(result.invitation.email, result.token, result.organizationName, result.invitation.role);
+    const result = await createOrganizationInvitation(
+      current.subject.subjectId,
+      organizationId,
+      firstValue(formData, "email"),
+      role,
+    );
+    await sendOrganizationInvitationEmail(
+      result.invitation.email,
+      result.token,
+      result.organizationName,
+      result.invitation.role,
+    );
   } catch (error) {
     const message = publicActionError(error);
-    const code = message === "Email delivery is not configured. No email was sent." ? "mail-unconfigured" : "invite-failed";
+    const code =
+      message === "Email delivery is not configured. No email was sent."
+        ? "mail-unconfigured"
+        : "invite-failed";
     redirect(`/dashboard/${organizationId}/people?error=${code}`);
   }
   redirect(`/dashboard/${organizationId}/people?notice=invite-sent`);
@@ -412,7 +475,8 @@ export async function inviteOrganizationMemberAction(formData: FormData): Promis
 
 export async function acceptOrganizationInvitationAction(formData: FormData): Promise<void> {
   const current = await getCurrentSession();
-  if (!current) redirect(`/login?invitationToken=${encodeURIComponent(firstValue(formData, "token"))}`);
+  if (!current)
+    redirect(`/login?invitationToken=${encodeURIComponent(firstValue(formData, "token"))}`);
   const token = firstValue(formData, "token");
   let organizationId: string;
   try {
@@ -428,9 +492,15 @@ export async function updateOrganizationMemberRoleAction(formData: FormData): Pr
   if (!current) redirect("/login");
   const organizationId = firstValue(formData, "organizationId");
   const role = firstValue(formData, "role");
-  if (role !== "owner" && role !== "admin" && role !== "member") redirect(`/dashboard/${organizationId}/people?error=member-update`);
+  if (role !== "owner" && role !== "admin" && role !== "member")
+    redirect(`/dashboard/${organizationId}/people?error=member-update`);
   try {
-    await updateOrganizationMemberRole(current.subject.subjectId, organizationId, firstValue(formData, "membershipId"), role);
+    await updateOrganizationMemberRole(
+      current.subject.subjectId,
+      organizationId,
+      firstValue(formData, "membershipId"),
+      role,
+    );
   } catch {
     redirect(`/dashboard/${organizationId}/people?error=member-update`);
   }
@@ -442,7 +512,11 @@ export async function removeOrganizationMemberAction(formData: FormData): Promis
   if (!current) redirect("/login");
   const organizationId = firstValue(formData, "organizationId");
   try {
-    await removeOrganizationMember(current.subject.subjectId, organizationId, firstValue(formData, "membershipId"));
+    await removeOrganizationMember(
+      current.subject.subjectId,
+      organizationId,
+      firstValue(formData, "membershipId"),
+    );
   } catch {
     redirect(`/dashboard/${organizationId}/people?error=member-remove`);
   }
@@ -454,7 +528,11 @@ export async function revokeOrganizationInvitationAction(formData: FormData): Pr
   if (!current) redirect("/login");
   const organizationId = firstValue(formData, "organizationId");
   try {
-    await revokeOrganizationInvitation(current.subject.subjectId, organizationId, firstValue(formData, "invitationId"));
+    await revokeOrganizationInvitation(
+      current.subject.subjectId,
+      organizationId,
+      firstValue(formData, "invitationId"),
+    );
   } catch {
     redirect(`/dashboard/${organizationId}/people?error=invite-revoke`);
   }
@@ -466,7 +544,11 @@ export async function updateOrganizationNameAction(formData: FormData): Promise<
   if (!current) redirect("/login");
   const organizationId = firstValue(formData, "organizationId");
   try {
-    await updateOrganizationName(current.subject.subjectId, organizationId, firstValue(formData, "name"));
+    await updateOrganizationName(
+      current.subject.subjectId,
+      organizationId,
+      firstValue(formData, "name"),
+    );
   } catch {
     redirect(`/dashboard/${organizationId}/settings?error=settings`);
   }
@@ -519,9 +601,14 @@ export async function updateGrantStatusAction(formData: FormData): Promise<void>
   if (!current) redirect("/login");
   const status = firstValue(formData, "status");
   const organizationId = firstValue(formData, "organizationId");
-  if (status !== "active" && status !== "disabled") redirect(`/dashboard/${organizationId}/access?error=grant-failed`);
+  if (status !== "active" && status !== "disabled")
+    redirect(`/dashboard/${organizationId}/access?error=grant-failed`);
   try {
-    await updateGrantStatus(current.subject.subjectId, firstValue(formData, "membershipId"), status);
+    await updateGrantStatus(
+      current.subject.subjectId,
+      firstValue(formData, "membershipId"),
+      status,
+    );
   } catch {
     redirect(`/dashboard/${organizationId}/access?error=grant-failed`);
   }
@@ -533,7 +620,8 @@ export async function updateAccountStatusAction(formData: FormData): Promise<voi
   if (!current) redirect("/login");
   if (!isAdministrator(current.subject)) redirect("/dashboard?notice=admin-required");
   const status = firstValue(formData, "status");
-  if (status !== "active" && status !== "disabled") redirect("/dashboard?notice=account-update-failed");
+  if (status !== "active" && status !== "disabled")
+    redirect("/dashboard?notice=account-update-failed");
   try {
     await updateAccountStatus(current.subject.subjectId, firstValue(formData, "subjectId"), status);
   } catch {
