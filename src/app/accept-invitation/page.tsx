@@ -13,7 +13,7 @@ export default async function AcceptInvitationPage({
   const hasToken = /^[0-9a-f-]{36}\.[A-Za-z0-9_-]{43}$/i.test(token);
   return (
     <>
-      <SiteHeader active="none" />
+      <SiteHeader active="none" authenticated={!!current} />
       <main className="page-shell auth-page-shell"><div className="container auth-page">
         <header className="auth-heading"><p className="eyebrow">Join a workspace</p><h1>Accept your invitation</h1><p>Join your organization to see products, access, and account settings.</p></header>
         <section className="auth-card">

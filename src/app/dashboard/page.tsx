@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { SiteFooter, SiteHeader } from "@/components/site-shell";
 import { createOrganizationAction, requestVerificationAction } from "@/app/actions";
@@ -18,12 +19,24 @@ export default async function DashboardHome({
   const verified = !!current.subject.emailVerifiedAt;
   return (
     <>
-      <SiteHeader active="dashboard" />
+      <SiteHeader active="dashboard" authenticated />
       <main className="page-shell onboarding-shell">
         <div className="container onboarding-page">
-          <p className="eyebrow">Welcome to Perminister</p>
-          <h1>Set up your workspace</h1>
-          <p className="page-intro">Create an organization to manage products and access, or join a team with an invitation.</p>
+          <div className="onboarding-intro">
+            <div>
+              <p className="eyebrow">Welcome to Perminister</p>
+              <h1>Set up your workspace</h1>
+              <p className="page-intro">Create an organization to manage products and access, or join a team with an invitation.</p>
+            </div>
+            <Image
+              alt="An invitation card being added to a folder of team identities."
+              className="onboarding-illustration"
+              height={1254}
+              sizes="(max-width: 700px) 38vw, 240px"
+              src="/illustrations/workspace-invitation.png"
+              width={1254}
+            />
+          </div>
 
           {params.error === "organization-create" ? <p className="form-error" role="alert">Your organization could not be created. Check your account and try again.</p> : null}
           {params.notice === "account-created-mail-unconfigured" ? <p className="dashboard-notice info" role="status">Your account was created. Email delivery is not configured, so verify your address before creating an organization.</p> : null}

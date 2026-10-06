@@ -21,7 +21,7 @@ export default async function OperationsPage({
   ]);
   return (
     <>
-      <SiteHeader active="dashboard" />
+      <SiteHeader active="dashboard" authenticated />
       <main className="page-shell operations-page-shell"><div className="container operations-page">
         <header className="operations-topline"><Link href="/dashboard">← Back to dashboard</Link></header>
         <DashboardHeading eyebrow="Restricted tools" title="Platform operations" description="Account support and one-time retirement of unscoped legacy access." />

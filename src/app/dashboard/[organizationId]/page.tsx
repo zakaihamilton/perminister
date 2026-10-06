@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { getCurrentSession, getOrganizationForSubject, listApiKeysForSubject, listOrganizationMembers, listOrganizationPermissionGrants, listProductsForOrganization } from "@/lib/auth/service";
 import { redirect } from "next/navigation";
@@ -48,7 +49,7 @@ export default async function OrganizationOverview({
         </section>
       ) : managers ? (
         <section className="dashboard-empty-card">
-          <span className="empty-card-icon" aria-hidden="true">＋</span>
+          <Image alt="A workspace folder ready for its first product and team members." className="empty-state-illustration" height={1254} sizes="88px" src="/illustrations/workspace-invitation.png" width={1254} />
           <div><h2>No products yet</h2><p>Add your first product to start assigning access and creating API keys.</p></div>
           {managers ? <Link className="button button-primary" href={`/dashboard/${organizationId}/products/new`}>Create a product</Link> : null}
         </section>

@@ -37,8 +37,8 @@ export default function DevelopersPage() {
       title="Build with Perminister"
       intro="Perminister provides central identities, password credentials, sessions, scoped permissions, and API keys. Consumer applications keep their branded portals, app-local sessions, domain data, and resource enforcement."
     >
-      <div className="guide-notice" aria-label="Current API routes">
-        <p><strong>Available now:</strong> account and key management in the dashboard, <code className="code-label">GET /api/auth/session</code> for a browser session, and <code className="code-label">POST /api/authorize</code> for bearer-key checks. <code className="code-label">GET /api/health</code> reports process liveness only.</p>
+      <div className="guide-notice guide-notice-wide" aria-label="Current API routes">
+        <p>Perminister includes account and key management in the dashboard, <code className="code-label">GET /api/auth/session</code> for a browser session, and <code className="code-label">POST /api/authorize</code> for bearer-key checks. <code className="code-label">GET /api/health</code> reports process liveness only.</p>
       </div>
 
       <section className="developer-index" aria-labelledby="guide-sections-title">
