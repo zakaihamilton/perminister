@@ -1,0 +1,10 @@
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+.env*
+!.env.example
+# Keep the service dependency resolution reproducible.
+!package-lock.json
+.DS_Store
