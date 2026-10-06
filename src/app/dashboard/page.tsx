@@ -39,6 +39,7 @@ export default async function DashboardHome({
               alt="An invitation card being added to a folder of team identities."
               className="onboarding-illustration"
               height={1254}
+              loading="eager"
               sizes="(max-width: 700px) 38vw, 240px"
               src="/illustrations/workspace-invitation.png"
               width={1254}
