@@ -23,19 +23,37 @@ export function DashboardShell({
   return (
     <div className="dashboard-layout">
       <aside className="dashboard-sidebar">
-        <div className="dashboard-brand-row"><Brand /></div>
+        <div className="dashboard-brand-row">
+          <Brand />
+        </div>
         <OrganizationSwitcher organizations={organizations} organizationId={organizationId} />
-        <Link className="org-create-link" href="/dashboard/new-organization">＋ Create organization</Link>
+        <Link className="org-create-link" href="/dashboard/new-organization">
+          ＋ Create organization
+        </Link>
         <DashboardNavigation organizationId={organizationId} role={role} />
         <div className="dashboard-sidebar-footer">
-          {email ? <span className="sidebar-email" title={email}>{email}</span> : null}
-          <form action={signOutAction}><button className="sidebar-signout" type="submit">Sign out</button></form>
+          {email ? (
+            <span className="sidebar-email" title={email}>
+              {email}
+            </span>
+          ) : null}
+          <form action={signOutAction}>
+            <button className="sidebar-signout" type="submit">
+              Sign out
+            </button>
+          </form>
         </div>
       </aside>
       <main className="dashboard-main">
-        <div className="dashboard-mobile-brand"><Brand /></div>
+        <div className="dashboard-mobile-brand">
+          <Brand />
+        </div>
         <header aria-label="Workspace controls" className="dashboard-topbar">
-          <span className="dashboard-topbar-context">{organizations.find(({ organization }) => organization.organizationId === organizationId)?.organization.name ?? "Workspace"}</span>
+          <span className="dashboard-topbar-context">
+            {organizations.find(
+              ({ organization }) => organization.organizationId === organizationId,
+            )?.organization.name ?? "Workspace"}
+          </span>
           <ThemeControl />
         </header>
         <div className="dashboard-main-inner">{children}</div>
@@ -74,5 +92,9 @@ export function DashboardNotice({
   message: string;
   kind?: "info" | "success" | "error";
 }) {
-  return <div className={`dashboard-notice ${kind}`} role={kind === "error" ? "alert" : "status"}>{message}</div>;
+  return (
+    <div className={`dashboard-notice ${kind}`} role={kind === "error" ? "alert" : "status"}>
+      {message}
+    </div>
+  );
 }

@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "categories": {
+    "types": {
+      "mode": "required"
+    },
+    "lint": {
+      "mode": "required"
+    },
+    "format": {
+      "mode": "required"
+    },
+    "tests": {
+      "mode": "required"
+    },
+    "dead-code": {
+      "mode": "required"
+    },
+    "duplication": {
+      "mode": "required"
+    },
+    "security": {
+      "mode": "optional"
+    },
+    "architecture": {
+      "mode": "required"
+    },
+    "bundle": {
+      "mode": "required"
+    },
+    "accessibility": {
+      "mode": "required"
+    },
+    "secrets": {
+      "mode": "optional"
+    },
+    "licenses": {
+      "mode": "required"
+    },
+    "documentation": {
+      "mode": "required"
+    },
+    "performance": {
+      "mode": "required"
+    },
+    "ci": {
+      "mode": "optional"
+    }
+  },
+  "severityThreshold": "warning",
+  "execution": {
+    "jobs": 2,
+    "timeoutSeconds": 600
+  },
+  "policies": {
+    "licenses": {
+      "allow": [
+        "MIT",
+        "UNLICENSED",
+        "Apache-2.0",
+        "BSD-2-Clause",
+        "BSD-3-Clause",
+        "ISC",
+        "0BSD",
+        "CC0-1.0",
+        "Unlicense",
+        "CC-BY-4.0",
+        "LGPL-3.0-or-later"
+      ],
+      "deny": ["GPL-3.0-only", "AGPL-3.0-only"]
+    },
+    "performance": {
+      "maxLcpMs": 3000,
+      "maxCls": 0.1,
+      "maxTbtMs": 500
+    }
+  },
+  "baseline": {
+    "path": ".repnix-baseline.json",
+    "failOn": "new"
+  }
+}

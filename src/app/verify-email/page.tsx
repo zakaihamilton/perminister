@@ -17,16 +17,24 @@ export default async function VerifyEmailPage({
           <section className="auth-card" aria-labelledby="verify-title">
             <p className="eyebrow">Email verification</p>
             <h1 id="verify-title">Confirm your email address</h1>
-            {params.error ? <p className="form-error" role="alert">This verification link is invalid, expired, or already used.</p> : null}
+            {params.error ? (
+              <p className="form-error" role="alert">
+                This verification link is invalid, expired, or already used.
+              </p>
+            ) : null}
             {token ? (
               <form action={verifyEmailAction} className="auth-form">
                 <input type="hidden" name="token" value={token} />
-                <button className="button button-primary form-submit" type="submit">Verify email</button>
+                <button className="button button-primary form-submit" type="submit">
+                  Verify email
+                </button>
               </form>
             ) : (
               <p className="form-error">This verification link is missing its one-time token.</p>
             )}
-            <div className="auth-links"><Link href="/login">Continue to sign in</Link></div>
+            <div className="auth-links">
+              <Link href="/login">Continue to sign in</Link>
+            </div>
           </section>
         </div>
       </main>

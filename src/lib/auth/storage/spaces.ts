@@ -7,19 +7,12 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import type {
-  ApiKeyRecord,
   AuthAggregate,
   AuthEvent,
   AuthRecord,
   AuthRecordFor,
   AuthRecordKind,
   EventId,
-  MembershipRecord,
-  OrganizationInvitationRecord,
-  OrganizationMembershipRecord,
-  OrganizationRecord,
-  ProductRecord,
-  SubjectRecord,
 } from "../domain";
 import { assertOpaqueId } from "../domain";
 
@@ -50,9 +43,7 @@ export interface SpacesAuthStoreOptions {
 
 function assertNoPlaintextSecrets(value: unknown, path = "record"): void {
   if (Array.isArray(value)) {
-    value.forEach((item, index) =>
-      assertNoPlaintextSecrets(item, `${path}[${index}]`),
-    );
+    value.forEach((item, index) => assertNoPlaintextSecrets(item, `${path}[${index}]`));
     return;
   }
   if (value === null || typeof value !== "object") return;
@@ -66,8 +57,7 @@ function assertNoPlaintextSecrets(value: unknown, path = "record"): void {
       normalizedKey === "apikey" ||
       normalizedKey === "rawapikey" ||
       normalizedKey === "authorization" ||
-      (normalizedKey.startsWith("password") &&
-        normalizedKey !== "passwordcredential");
+      (normalizedKey.startsWith("password") && normalizedKey !== "passwordcredential");
     if (isPlaintextCredentialField) {
       throw new Error(`Refusing to persist plaintext credential field at ${path}.${key}`);
     }
@@ -138,6 +128,16 @@ export class SpacesAuthStore {
     this.bucket = bucket;
   }
 
+  async checkReadiness(): Promise<void> {
+    await this.client.send(
+      new ListObjectsV2Command({
+        Bucket: this.bucket,
+        Prefix: OBJECT_ROOT,
+        MaxKeys: 1,
+      }),
+    );
+  }
+
   async readRecord<Kind extends AuthRecordKind>(
     kind: Kind,
     id: string,
@@ -152,11 +152,7 @@ export class SpacesAuthStore {
 
     assertNoPlaintextSecrets(value.record);
     const record = value.record as AuthRecord;
-    if (
-      record.schemaVersion !== 1 ||
-      record.kind !== kind ||
-      recordId(record) !== id
-    ) {
+    if (record.schemaVersion !== 1 || record.kind !== kind || recordId(record) !== id) {
       throw new Error(`Record identity does not match its object key at ${key}`);
     }
     return value as VersionedRecord<AuthRecordFor<Kind>>;
@@ -190,10 +186,7 @@ export class SpacesAuthStore {
     await this.writeJson(key, event);
   }
 
-  async readEvent(
-    aggregate: AuthAggregate,
-    eventId: EventId,
-  ): Promise<AuthEvent | null> {
+  async readEvent(aggregate: AuthAggregate, eventId: EventId): Promise<AuthEvent | null> {
     assertOpaqueId(eventId);
     const event = await this.readJson<AuthEvent>(this.eventKey(aggregate, eventId));
     if (event === null) return null;
@@ -219,10 +212,7 @@ export class SpacesAuthStore {
       if (event === null) continue;
       this.validateEvent(event);
       assertNoPlaintextSecrets(event);
-      if (
-        event.aggregate.kind !== aggregate.kind ||
-        event.aggregate.id !== aggregate.id
-      ) {
+      if (event.aggregate.kind !== aggregate.kind || event.aggregate.id !== aggregate.id) {
         throw new Error(`Event aggregate does not match its object key at ${key}`);
       }
       events.push(event);
@@ -230,8 +220,7 @@ export class SpacesAuthStore {
 
     return events.sort(
       (left, right) =>
-        left.aggregateVersion - right.aggregateVersion ||
-        left.eventId.localeCompare(right.eventId),
+        left.aggregateVersion - right.aggregateVersion || left.eventId.localeCompare(right.eventId),
     );
   }
 
@@ -349,9 +338,7 @@ function requiredEnvironmentValue(env: Environment, name: string): string {
   return value;
 }
 
-export function createSpacesAuthStoreFromEnv(
-  env: Environment = process.env,
-): SpacesAuthStore {
+export function createSpacesAuthStoreFromEnv(env: Environment = process.env): SpacesAuthStore {
   const endpoint = requiredEnvironmentValue(env, "PERMINISTER_SPACES_ENDPOINT");
   const region = requiredEnvironmentValue(env, "PERMINISTER_SPACES_REGION");
   const bucket = requiredEnvironmentValue(env, "PERMINISTER_SPACES_BUCKET");
@@ -383,13 +370,3 @@ export function createSpacesAuthStoreFromEnv(
 
   return new SpacesAuthStore({ client, bucket });
 }
-
-export type StoredAuthRecord = VersionedRecord<
-  OrganizationRecord |
-  OrganizationMembershipRecord |
-  ProductRecord |
-  OrganizationInvitationRecord |
-  SubjectRecord |
-  MembershipRecord |
-  ApiKeyRecord
->;

@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { getCurrentSession, getOrganizationForSubject, listOrganizationsForSubject } from "@/lib/auth/service";
+import {
+  getCurrentSession,
+  getOrganizationForSubject,
+  listOrganizationsForSubject,
+} from "@/lib/auth/service";
 
 export default async function OrganizationDashboardLayout({
   children,
@@ -13,22 +17,25 @@ export default async function OrganizationDashboardLayout({
   const current = await getCurrentSession();
   if (!current) redirect("/login");
   const { organizationId } = await params;
+  let organization: Awaited<ReturnType<typeof getOrganizationForSubject>>;
+  let organizations: Awaited<ReturnType<typeof listOrganizationsForSubject>>;
   try {
-    const [organization, organizations] = await Promise.all([
+    [organization, organizations] = await Promise.all([
       getOrganizationForSubject(current.subject.subjectId, organizationId),
       listOrganizationsForSubject(current.subject.subjectId),
     ]);
-    return (
-      <DashboardShell
-        organizationId={organizationId}
-        organizations={organizations}
-        role={organization.membership.role}
-        email={current.subject.primaryEmail}
-      >
-        {children}
-      </DashboardShell>
-    );
   } catch {
     redirect("/dashboard");
   }
+
+  return (
+    <DashboardShell
+      organizationId={organizationId}
+      organizations={organizations}
+      role={organization.membership.role}
+      email={current.subject.primaryEmail}
+    >
+      {children}
+    </DashboardShell>
+  );
 }

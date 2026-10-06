@@ -1,0 +1,9 @@
+node_modules/
+.next/
+out/
+build/
+coverage/
+.repnix/
+.lighthouseci/
+package-lock.json
+next-env.d.ts

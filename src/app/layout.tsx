@@ -18,14 +18,14 @@ export const metadata = {
     "A standalone identity and access service for consumer applications, including product-scoped permissions and API keys.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: ReactNode }>) {
+export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         <meta name="referrer" content="no-referrer" />
-        <Script id="theme-bootstrap" strategy="beforeInteractive">{themeBootstrap}</Script>
+        <Script id="theme-bootstrap" strategy="beforeInteractive">
+          {themeBootstrap}
+        </Script>
       </head>
       <body>{children}</body>
     </html>

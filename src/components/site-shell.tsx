@@ -1,11 +1,16 @@
 import { ThemeControl } from "@/components/theme-control";
 import { getCurrentSession } from "@/lib/auth/service";
+import Link from "next/link";
 
 type ActivePage = "home" | "dashboard" | "developers" | "none";
 
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <a className={`brand${compact ? " brand-compact" : ""}`} href="/" aria-label="Perminister home">
+    <Link
+      className={`brand${compact ? " brand-compact" : ""}`}
+      href="/"
+      aria-label="Perminister home"
+    >
       <span className="brand-mark" aria-hidden="true">
         <svg viewBox="0 0 40 40" fill="none">
           <path d="M20 3.5 34 9v10.4c0 8.1-5.7 13.9-14 17.1C11.7 33.3 6 27.5 6 19.4V9l14-5.5Z" />
@@ -13,8 +18,10 @@ export function Brand({ compact = false }: { compact?: boolean }) {
           <circle cx="29.8" cy="10.2" r="2.4" />
         </svg>
       </span>
-      <span className="brand-word">Perminister<span className="brand-period">.</span></span>
-    </a>
+      <span className="brand-word">
+        Perminister<span className="brand-period">.</span>
+      </span>
+    </Link>
   );
 }
 
@@ -32,25 +39,33 @@ export async function SiteHeader({
       <div className="site-header-inner">
         <Brand />
         <nav className="primary-nav" aria-label="Main navigation">
-          <a href="/" aria-current={active === "home" ? "page" : undefined}>Overview</a>
-          <a href="/developers" aria-current={active === "developers" ? "page" : undefined}>Developers</a>
-          {signedIn
-            ? <a href="/dashboard" aria-current={active === "dashboard" ? "page" : undefined}>Dashboard</a>
-            : <a href="/login">Sign in</a>}
+          <Link href="/" aria-current={active === "home" ? "page" : undefined}>
+            Overview
+          </Link>
+          <Link href="/developers" aria-current={active === "developers" ? "page" : undefined}>
+            Developers
+          </Link>
+          {signedIn ? (
+            <Link href="/dashboard" aria-current={active === "dashboard" ? "page" : undefined}>
+              Dashboard
+            </Link>
+          ) : (
+            <Link href="/login">Sign in</Link>
+          )}
         </nav>
         <ThemeControl />
-        {!signedIn ? <a className="header-create" href="/register">Create account</a> : null}
+        {!signedIn ? (
+          <Link className="header-create" href="/register">
+            Create account
+          </Link>
+        ) : null}
       </div>
     </header>
   );
 }
 
 export type DeveloperSection =
-  | "overview"
-  | "getting-started"
-  | "permissions"
-  | "api-keys"
-  | "storage";
+  "overview" | "getting-started" | "permissions" | "api-keys" | "storage";
 
 const developerSections: ReadonlyArray<{ id: DeveloperSection; label: string; href: string }> = [
   { id: "overview", label: "Overview", href: "/developers" },
@@ -64,13 +79,13 @@ export function DeveloperGuideNav({ active }: { active: DeveloperSection }) {
   return (
     <nav className="developer-nav" aria-label="Developer guide sections">
       {developerSections.map((section) => (
-        <a
+        <Link
           href={section.href}
           key={section.id}
           aria-current={active === section.id ? "page" : undefined}
         >
           {section.label}
-        </a>
+        </Link>
       ))}
     </nav>
   );
@@ -107,15 +122,6 @@ export function LockIcon() {
     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
       <rect x="4.5" y="10" width="15" height="11" rx="2.5" />
       <path d="M8 10V7a4 4 0 1 1 8 0v3m-4 4v3" />
-    </svg>
-  );
-}
-
-export function LayersIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
-      <path d="m12 3 9 5-9 5-9-5 9-5Z" />
-      <path d="m3 12 9 5 9-5M3 16l9 5 9-5" />
     </svg>
   );
 }
