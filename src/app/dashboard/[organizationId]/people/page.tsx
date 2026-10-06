@@ -4,6 +4,7 @@ import {
   revokeOrganizationInvitationAction,
   updateOrganizationMemberRoleAction,
 } from "@/app/actions";
+import { CustomDropdown } from "@/components/custom-dropdown";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import {
   getCurrentSession,
@@ -99,16 +100,18 @@ export default async function PeoplePage({
                     >
                       Role for {member.email}
                     </label>
-                    <select
+                    <CustomDropdown
+                      aria-label={`Role for ${member.email}`}
                       id={`role-${member.membership.organizationMembershipId}`}
                       name="role"
                       defaultValue={member.membership.role}
-                      aria-label={`Role for ${member.email}`}
-                    >
-                      <option value="owner">Owner</option>
-                      <option value="admin">Admin</option>
-                      <option value="member">Member</option>
-                    </select>
+                      className="people-role-dropdown"
+                      options={[
+                        { value: "owner", label: "Owner" },
+                        { value: "admin", label: "Admin" },
+                        { value: "member", label: "Member" },
+                      ]}
+                    />
                     <button className="button button-secondary" type="submit">
                       Save role
                     </button>
@@ -154,12 +157,18 @@ export default async function PeoplePage({
                 placeholder="teammate@example.com"
               />
             </label>
-            <label>
+            <label htmlFor="invite-role">
               Role
-              <select name="role" defaultValue="member">
-                <option value="member">Member</option>
-                {owner ? <option value="admin">Admin</option> : null}
-              </select>
+              <CustomDropdown
+                aria-label="Role"
+                id="invite-role"
+                name="role"
+                defaultValue="member"
+                options={[
+                  { value: "member", label: "Member" },
+                  ...(owner ? [{ value: "admin", label: "Admin" }] : []),
+                ]}
+              />
             </label>
             <button className="button button-primary" type="submit">
               Send invitation
