@@ -32,10 +32,11 @@ export default function HomePage() {
               Perminister brings shared identity, product-scoped permissions, and API-key lifecycle into one service—while each app keeps its own portal and its own data.
             </p>
             <div className="hero-actions">
-              <a className="button button-primary" href="/dashboard">Explore the dashboard <ArrowRight /></a>
+              <a className="button button-primary" href="/register">Create an account <ArrowRight /></a>
+              <a className="button button-secondary" href="/dashboard">Open dashboard</a>
               <a className="button button-secondary" href="/developers">Developer guide <ArrowUpRight /></a>
             </div>
-            <p className="hero-footnote">An early product preview · Account and integration flows are not connected yet</p>
+            <p className="hero-footnote">Create an identity, manage scoped access, and issue API keys.</p>
           </div>
 
           <div className="hero-visual" role="group" aria-label="Conceptual identity and access flow">
@@ -142,7 +143,7 @@ export default function HomePage() {
               <ul className="principle-list">
                 <li><CheckIcon />Portals stay familiar to users</li>
                 <li><CheckIcon />App data and resource checks stay in each product</li>
-                <li><CheckIcon />Spaces is the only planned persistence layer</li>
+                <li><CheckIcon />Spaces is the only persistent store</li>
               </ul>
             </div>
           </div>
@@ -150,8 +151,8 @@ export default function HomePage() {
 
         <section className="container home-bottom-cta" aria-labelledby="next-title">
           <div>
-            <h2 id="next-title">See what’s ready—and what isn’t.</h2>
-            <p>The dashboard and developer guide distinguish current foundation from planned flows.</p>
+            <h2 id="next-title">See how Perminister works.</h2>
+            <p>The dashboard and developer guide cover account, permission, API-key, and storage flows.</p>
           </div>
           <a className="button" href="/developers">Read the developer guide <ArrowRight /></a>
         </section>

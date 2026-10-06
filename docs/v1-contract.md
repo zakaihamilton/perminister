@@ -1,6 +1,6 @@
 # Perminister v1 contract
 
-Status: initial implementation foundation. This document records an anonymized legacy access inventory, the selected Spaces object layout, and the limits that still block auth flows.
+Status: the first identity and access experience is implemented against DigitalOcean Spaces. This document records the anonymized legacy access inventory, the current object layout, and the operational limits that remain.
 
 ## Goal
 
@@ -11,9 +11,9 @@ Provide a standalone service for human identity, sessions, product/resource-scop
 - Project name: Perminister. Local repository folder: `perminister`.
 - DigitalOcean Spaces, accessed through its S3-compatible API, is the only persistent store for Perminister. No database.
 - Perminister owns user identities, credentials, permission assignments, and API-key creation, rotation, expiration, and revocation.
-- Consumer applications remain entry points. Each app handles the sign-in redirect/callback and its own app session, then enforces permissions on its own server-side routes and resources.
-- Permission and API-key status may be cached briefly by each app. The maximum cache age and outage behavior remain open.
-- A consumer application that already uses a private Spaces control bucket and event-history pattern is a possible first integration.
+- Consumer applications remain entry points and keep their own app sessions, domain data, and server-side resource enforcement. The generic bearer authorization API is available; a branded redirect/callback integration contract remains open.
+- Perminister checks API-key expiry, revocation, scope, actions, and current grants on each authorization request. This implementation does not cache permission or key status.
+- Account linking remains unimplemented. Any future link must be an explicit, separately verified flow; email matching alone never merges identities.
 
 ## Anonymized legacy account and access models
 
@@ -38,16 +38,15 @@ Provide a standalone service for human identity, sessions, product/resource-scop
 - Workspace roles are admin and viewer.
 - PostgreSQL also stores analytics and site data. Moving identity and access to Perminister would not by itself migrate those application data stores.
 
-## Proposed identity and permission model
+## Identity and permission model
 
-- Assign every Perminister identity a stable, global subject ID that does not depend on email or username.
-- Link each existing project/workspace account to a subject ID through an explicit migration or verified account-linking flow. Do not merge records solely because email values match.
-- Represent grants with an explicit consumer application and resource scope, such as product, project, or workspace. Preserve finer-grained actions and platform-wide administrator semantics found in legacy systems during mapping.
-- Consumer apps do not maintain their own user-role tables. They receive or retrieve scoped grants and enforce them server-side against their own resources.
-- Keep machine credentials separate from human sessions. Each API key should have an owner, application/resource scope, allowed actions, status, creation/expiry/revocation metadata, and audit history. Store only a verifier/hash of the secret; show the raw secret at creation only.
-- The boundary between Perminister human sessions and consumer app sessions, including lifetime and logout behavior, still needs a decision.
+- Each Perminister identity has a stable UUID subject ID, normalized unique email, scrypt verifier, active/disabled status, email verification time, and auth version.
+- Existing project/workspace accounts are not linked automatically. An explicit verified migration/linking flow is still required for each consumer.
+- Grants carry generic product/project/workspace scope and action names. Administrators assign them through the dashboard; consumer applications enforce each decision against their own resources.
+- API keys are subject-owned machine credentials with an explicit scope, action list, status, expiry, revocation time, and rotation relationship. The application stores only a SHA-256 verifier of the 256-bit random key secret and displays the raw key only in the create response.
+- Perminister browser sessions use 12-hour HttpOnly, SameSite=Lax cookies (Secure in production). Consumer-app session lifetime, handoff, callback, and logout integration remain open; apps retain their own sessions.
 
-## Proposed Spaces storage requirements
+## Spaces storage requirements
 
 - Use a private bucket. Only Perminister server components receive Spaces credentials; browser clients and consumer apps do not access the bucket directly.
 - Use stable opaque IDs for object keys; avoid putting email addresses or other personal information in keys and metadata.
@@ -56,59 +55,64 @@ Provide a standalone service for human identity, sessions, product/resource-scop
 - Enable Spaces object versioning and maintain a separate backup copy.
 - Define cleanup for expired sessions, used/expired reset tokens, revoked/expired API keys, and old event history.
 
-## First code foundation and selected storage contract
+## Implemented code and selected storage contract
 
-The repository contains a minimal Next.js/TypeScript service, an unauthenticated process-liveness endpoint, stable-ID and domain record types, a process-local serial mutation queue, and a server-only S3 SDK adapter. The API-key record has only a SHA-256 verifier digest; no code creates or returns key secrets yet. Password records hold an encoded one-way verifier and support the existing `argon2id` and `scrypt` formats. Auth routes and flows remain unimplemented.
+The repository contains account registration and sign-in, session expiry/revocation, email verification and password recovery actions, current profile display, administrator identity and grant management, API-key create/list/rotate/expire/revoke, audit history, and bearer-key authorization. Passwords use Node.js `scrypt` with a random salt and fixed explicit parameters. The app has no external database or local-storage fallback. Email delivery is optional and uses the Resend Email API; verification/recovery stay unavailable until the Resend key, sender, and public origin are configured.
 
-The adapter uses one private, standard Spaces bucket and this fixed prefix:
+The adapter uses one private Spaces bucket and these prefixes:
 
 ```text
 perminister/v1/records/subjects/{subject-uuid}.json
 perminister/v1/records/memberships/{membership-uuid}.json
 perminister/v1/records/api-keys/{api-key-uuid}.json
+perminister/v1/records/sessions/{session-uuid}.json
+perminister/v1/records/email-actions/{action-uuid}.json
 perminister/v1/events/subject/{subject-uuid}/{event-uuid}.json
 perminister/v1/events/membership/{membership-uuid}/{event-uuid}.json
 perminister/v1/events/api-key/{api-key-uuid}/{event-uuid}.json
+perminister/v1/events/session/{session-uuid}/{event-uuid}.json
+perminister/v1/events/email-action/{action-uuid}/{event-uuid}.json
+perminister/v1/events/directory/00000000-0000-4000-8000-000000000001/{event-uuid}.json
 ```
 
-Record objects contain a `formatVersion`, caller-assigned `revision`, `writtenAt`, and schema-versioned record. The adapter stores the supplied revision but does not check that it increases; the future mutation handler must assign it under the single-writer queue. A later revision overwrites the current object; Spaces object versioning preserves previous object versions once enabled. Events contain their own schema version, event ID, aggregate ID and version, timestamp, actor, type, and payload. Event API methods expose reads and appends, not update or delete. A retry must reuse both the event ID and exact event body. Since the S3-compatible API does not provide a documented conditional-create guarantee in the compatibility reference, a repeated PUT to the same event key is not prevented by this adapter; versioning can retain the prior object version but does not make the event stream immutable against an operator with write access.
+Record objects contain a `formatVersion`, revision, `writtenAt`, and schema-versioned record. For each mutation, the application appends a complete next-record event first, then writes the current snapshot. A read compares the snapshot revision with the latest event and repairs a missing/stale snapshot from the event. Directory registration events contain normalized email and the subject snapshot; email uniqueness checks scan this directory event stream instead of storing emails in object keys. Email action/session/API-key values are one-way verifiers; raw passwords and bearer secrets never enter Spaces.
 
-Object keys use UUIDs generated by `crypto.randomUUID()`. Product IDs, project/workspace IDs, emails, and other identity data stay in private object bodies, not keys. The adapter rejects non-UUID object IDs and rejects serialized fields named as plaintext secrets, passwords, or tokens. It does not create an email index, lookup index, or uniqueness constraint.
+This event/snapshot sequence is recoverable per record, not transactional across records. A retry uses a new event for a new revision after replaying any completed prior event. DigitalOcean Spaces does not supply a conditional cross-object transaction. Object versioning can retain prior snapshot versions, but does not make event keys immutable against an operator with write access.
+
+Object keys use UUIDs generated by `crypto.randomUUID()`. Product IDs, project/workspace IDs, emails, and other identity data stay in private object bodies, not keys. The adapter rejects non-UUID object IDs and rejects serialized fields named as plaintext secrets, passwords, or tokens. Account lookups and audit history list event objects; read cost grows with full history.
 
 ### Mutation boundary and recovery
 
-`SingleWriterMutationQueue` serializes callbacks inside one Node.js process. It is not a distributed lock. Any future mutation routes must use this queue and must run on exactly one active, long-lived writer process; serverless execution, multiple replicas, rolling overlap, or automatic failover would violate this v1 assumption. Read-only routes may be scaled separately only if their access and stale-read behavior are explicitly designed.
+`SingleWriterMutationQueue` serializes callbacks inside one Node.js process. It is not a distributed lock. The operating assumption is low-volume administration with changes issued one at a time. Standard Vercel Functions may run invocations across multiple instances, so the process-local queue does not serialize every write globally; cross-instance write races remain an accepted residual risk.
 
-The intended per-aggregate write sequence is: under the queue, read the current record revision; construct an event with the next aggregate version and a stable event ID; append the event; then write the new record snapshot at that same revision. The adapter exposes these primitives but does not yet orchestrate or recover the sequence. Spaces does not provide a cross-object transaction, and this contract makes no Amazon S3 strong-consistency claim for Spaces.
+The write sequence is: under the queue, replay the latest event if needed; read the current record and event revision; construct a full next-record event; append it; then write the snapshot at that revision. Directory account creation writes its directory event before the subject event/snapshot, allowing a later email lookup to repair an interrupted registration. Authorization reads current grants and keys from Spaces on every check, so revocation takes effect without a cache delay once the S3 write completes.
 
-If a write times out or the process stops between the event PUT and snapshot PUT, treat the outcome as unknown. Pause mutations for that aggregate, read the exact event key using the original event ID, and replay that event into the snapshot before accepting a later aggregate revision. If the event body conflicts with the intended retry or the state cannot be reconstructed, stop writes and restore from Spaces object versions or the separate backup. Do not retry using a new event ID or guess which write succeeded. There is no automated repair job in this increment, so mutation flows must remain disabled until their replay rules are implemented.
+If a write times out or the process stops between event PUT and snapshot PUT, reads replay the latest complete event into the snapshot before accepting a later revision. Cross-aggregate operations remain partial: recovery links are marked consumed before credential changes, so a crash between those writes may require a fresh recovery email; rotation creates a replacement before revoking the prior key and reports when prior-key revocation fails. Inspect event history and Spaces versions before manual repair; do not infer whether a multi-record action completed from the browser response alone.
 
 ### Operational limits
 
 - Spaces object versioning is disabled by default and must be enabled and verified out of band before Perminister writes. DigitalOcean documents that Spaces supports versioning through its API. Versioning is recovery support, not a separate backup.
-- The adapter paginates event-key listings with `ListObjectsV2`, up to 1,000 keys per request, then reads event bodies sequentially. Listing/replay cost grows with the full event history; there are no snapshots, indexes, pruning jobs, or event-retention policy in this increment.
+- Identity lookup, event recovery, audit history, and authorization list relevant event/snapshot objects from Spaces. Costs grow with object count; there are no compaction, pruning, or event-retention jobs.
 - Spaces applies bucket-level rate limits and can return `503 Slow Down`; the S3 SDK client is configured for three total attempts. A mutation retry must still use its original event ID and body.
 - Auth objects are private JSON with `Cache-Control: no-store`. S3 credentials are loaded from server environment variables in `src/lib/auth/storage/spaces.ts` and must never be exposed to browsers or consumer apps.
+- Password recovery and verification require `RESEND_API_KEY`, `PERMINISTER_MAIL_FROM`, and `PERMINISTER_PUBLIC_ORIGIN`. Use a sender from a verified Resend domain. Completing a recovery link proves address ownership and verifies an unverified account. See the direct Resend API setup in [the API guide](api.md).
+- Configure administrator accounts with `PERMINISTER_ADMIN_EMAILS`. The first admin account must register and verify ownership of an address in that setting. Unverified identities cannot administer the service, create API keys, or receive new grants.
 
 References: [Spaces S3 compatibility](https://docs.digitalocean.com/products/spaces/reference/s3-compatibility/), [Spaces versioning](https://docs.digitalocean.com/products/spaces/how-to/enable-versioning/), [Spaces limits](https://docs.digitalocean.com/products/spaces/details/limits/).
 
-## Open decisions before implementation
+## Remaining decisions and deployment work
 
-1. Maximum cache age for permission and API-key status, and the required behavior when Perminister cannot be reached.
-2. User account-linking flow for existing identities that share an email or username.
-3. User sign-in protocol and callback contract for consumer applications.
-4. Central versus per-app session lifetime, logout behavior, and account deactivation/revocation semantics.
-5. The deployment target must guarantee exactly one active Node.js mutation process, or the single-writer assumption must be replaced with a coordination design that works using Spaces alone.
-6. Which legacy machine credential classes (project keys, user/tool keys, gateway tokens, and bootstrap tokens) move under Perminister in v1, or which subset is first.
-7. How identity lookup and uniqueness will work without a database, including how duplicate email values remain separate and how explicit legacy-account links are authorized.
-8. Which password-hash algorithm new Perminister credentials will use, and the migration/rehash policy for imported Argon2id and scrypt verifiers.
+1. Consumer-app redirect/callback integration and how each app establishes its own local session.
+2. A verified legacy account-linking and migration contract.
+3. Global mutation coordination remains an accepted residual risk on serverless hosts. The current low-volume operating assumption is that administrators issue changes one at a time; this does not guarantee cross-instance serialization.
+4. If consumer apps cache authorization responses, each integration must choose a maximum cache age and outage behavior. The current authorization route itself does not cache.
+5. Decide whether new API-key classes beyond user-owned integration keys are needed.
+6. Define event compaction and retention before directory and audit history becomes large.
+7. Configure a Resend API key and a sender from a verified domain before enabling email verification/recovery in production.
 
 ## First vertical slice
 
-1. Create a Perminister identity and explicitly link one legacy consumer account.
-2. Sign in from the consumer app through Perminister and establish that app's session.
-3. Return a product-scoped permission result and enforce it in the consumer app.
-4. Create, use, cache, and revoke one scoped API key with a documented maximum cache delay.
-5. Implement and demonstrate recovery from an interrupted or duplicate write in the Spaces-only mutation flow before enabling any state-changing auth route.
-
-The vertical slice proves the identity, permissions, storage, and key lifecycle before additional legacy account models are migrated.
+1. Register and verify a new Perminister identity, then sign in and establish a consumer app's own session through a generic integration.
+2. Grant a product/project/workspace action and verify it with `POST /api/authorize` using a narrowly scoped API key.
+3. Rotate, expire, and revoke the API key; confirm the authorization route reflects the changes from Spaces.
+4. Exercise replay after an interrupted event/snapshot write and document the multi-record recovery procedure before production writes.

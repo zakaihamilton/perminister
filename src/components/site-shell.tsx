@@ -24,8 +24,9 @@ export function SiteHeader({ active }: { active: ActivePage }) {
           <a href="/" aria-current={active === "home" ? "page" : undefined}>Overview</a>
           <a href="/dashboard" aria-current={active === "dashboard" ? "page" : undefined}>Dashboard</a>
           <a href="/developers" aria-current={active === "developers" ? "page" : undefined}>Developers</a>
+          <a href="/login">Sign in</a>
         </nav>
-        <div className="header-status"><span className="status-dot" /> Preview</div>
+        <a className="header-create" href="/register">Create account</a>
       </div>
     </header>
   );
@@ -67,7 +68,7 @@ export function SiteFooter() {
     <footer className="site-footer">
       <Brand compact />
       <p>Shared identity. Product-owned access.</p>
-      <span className="footer-note">Perminister · early product preview</span>
+      <span className="footer-note">Perminister · identity and access</span>
     </footer>
   );
 }

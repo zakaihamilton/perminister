@@ -3,9 +3,9 @@ import { DeveloperGuideLayout } from "@/components/developer-guide-layout";
 import { CheckIcon, KeyIcon } from "@/components/site-shell";
 
 const lifecycle = [
-  { title: "Create with a narrow scope", body: "Associate a key with an owner, consumer/resource scope, and only the actions it needs." },
-  { title: "Reveal the secret once", body: "The planned creation flow shows the raw secret only at creation. Perminister stores a SHA-256 verifier digest, not the plaintext key." },
-  { title: "Rotate, expire, or revoke", body: "The domain record has lifecycle metadata for expiry, revocation, and rotation. User-facing lifecycle routes are still planned." },
+  { title: "Create with a narrow scope", body: "Choose product, project, or workspace scope, only the actions needed, and an expiration. The effective authorization is limited by the account's active grants too." },
+  { title: "Copy the secret once", body: "The dashboard returns a random bearer key in the creation response. Spaces stores only its SHA-256 verifier; refresh the page and the raw key is gone." },
+  { title: "Rotate, expire, or revoke", body: "Create a replacement with the same scope, then revoke the prior key. Expired and revoked keys fail authorization on the next check." },
 ];
 
 export default function ApiKeysPage() {
@@ -14,13 +14,13 @@ export default function ApiKeysPage() {
       active="api-keys"
       eyebrow="Developer guide / API keys"
       title="Treat keys like credentials"
-      intro="API keys are planned as scoped machine credentials, separate from human identity and consumer app sessions."
+      intro="Perminister API keys are server-only machine credentials, separate from human browser sessions and consumer-app sessions."
     >
       <div className="guide-grid">
         <section className="guide-panel" aria-labelledby="lifecycle-title">
           <div className="guide-panel-head">
-            <h2 id="lifecycle-title">Planned key lifecycle</h2>
-            <p>No key-creation, lookup, rotation, or revocation route exists yet.</p>
+            <h2 id="lifecycle-title">Key lifecycle</h2>
+            <p>Create and manage keys from the signed-in dashboard.</p>
           </div>
           <div className="steps">
             {lifecycle.map((item, index) => (
@@ -35,15 +35,29 @@ export default function ApiKeysPage() {
         <aside className="guide-aside" aria-label="API key security guidance">
           <section className="aside-card key-callout">
             <span className="key-callout-icon"><KeyIcon /></span>
-            <h2>Never place a secret in browser code</h2>
-            <p>Consumer apps should use keys only from trusted server-side code. Keep them out of client bundles, source control, URLs, and logs.</p>
+            <h2>Keep keys on trusted servers</h2>
+            <p>Consumer apps should send keys only from trusted server-side code. Keep them out of browser bundles, source control, URLs, client storage, and logs.</p>
+          </section>
+          <section className="aside-card">
+            <h2>Authorization request</h2>
+            <pre className="code-block"><code>{`POST /api/authorize
+Authorization: Bearer pmk_<uuid>_<secret>
+Content-Type: application/json
+
+{
+  "productId": "product-id",
+  "resourceKind": "project",
+  "resourceId": "project-id",
+  "action": "read:profile"
+}`}</code></pre>
+            <p>See <Link href="/developers/permissions">permission scopes</Link> for evaluation rules and <Link href="/dashboard">the dashboard</Link> to create a key.</p>
           </section>
           <section className="aside-card">
             <h2>Separate human and machine access</h2>
             <ul className="secure-list">
-              <li><CheckIcon />Human users authenticate through the planned identity/session flow.</li>
-              <li><CheckIcon />API keys represent service or user-owned machine credentials.</li>
-              <li><CheckIcon />Both access paths need explicit scope and action checks.</li>
+              <li><CheckIcon />Human users sign in through the Perminister browser session.</li>
+              <li><CheckIcon />Consumer applications keep their own app sessions.</li>
+              <li><CheckIcon />Server keys require explicit scope and action checks.</li>
             </ul>
           </section>
         </aside>

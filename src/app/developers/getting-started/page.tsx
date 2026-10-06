@@ -4,20 +4,20 @@ import { CheckIcon } from "@/components/site-shell";
 
 const steps = [
   {
-    title: "Begin at the consumer application",
-    body: "Keep the existing application portal as the place people start. The sign-in redirect and callback protocol is still planned.",
+    title: "Configure private storage and an administrator",
+    body: "Set the Spaces endpoint, bucket, region, access key, and secret. Add an account email to PERMINISTER_ADMIN_EMAILS, then register with that address to manage identities and grants.",
   },
   {
-    title: "Confirm human identity through Perminister",
-    body: "Perminister is intended to own shared identity and credential checks. Session boundaries and lifetimes are not finalized; each consumer app remains responsible for its own app session.",
+    title: "Create a central identity",
+    body: "Use the registration page to create an email/password account. Perminister stores a salted scrypt verifier and stable subject ID. Existing application accounts are never merged automatically.",
   },
   {
-    title: "Link legacy accounts explicitly",
-    body: "Connect an existing project or workspace account only through a verified migration or account-linking flow. Matching emails do not automatically merge identities.",
+    title: "Create a scoped permission grant and API key",
+    body: "An administrator grants generic product/project/workspace actions. Each account creates a key limited to its own grants and sees its raw secret only once.",
   },
   {
-    title: "Enforce access where the resource lives",
-    body: "A consumer app uses a scoped identity or grant decision, then checks it on the server against its own project, workspace, or other domain resource.",
+    title: "Authorize each server-side resource operation",
+    body: "Call POST /api/authorize from trusted server code with the bearer key, scope IDs, and action. The consumer application still loads and enforces access against its own resource.",
   },
 ];
 
@@ -27,13 +27,13 @@ export default function GettingStartedPage() {
       active="getting-started"
       eyebrow="Developer guide / Getting started"
       title="Integrate at the boundary"
-      intro="Perminister centralizes identity checks. Each consumer application keeps its own portal, session, domain data, and authorization against those resources."
+      intro="Perminister manages central identity and access. Consumer applications keep their own portals, sessions, data, and resource enforcement."
     >
       <div className="guide-grid">
         <section className="guide-panel" aria-labelledby="flow-title">
           <div className="guide-panel-head">
-            <h2 id="flow-title">Planned integration flow</h2>
-            <p>Use this sequence as product direction. No sign-in or account-linking endpoint is available yet.</p>
+            <h2 id="flow-title">First integration flow</h2>
+            <p>Configure storage before registration; create an administrator before assigning grants.</p>
           </div>
           <div className="steps">
             {steps.map((step, index) => (
@@ -43,24 +43,25 @@ export default function GettingStartedPage() {
               </article>
             ))}
           </div>
+          <p className="storage-config-note">See the <Link href="/dashboard">dashboard</Link> to create accounts and keys, and the <Link href="/developers/api-keys">API-key guide</Link> for the authorization payload.</p>
         </section>
 
-        <aside className="guide-aside" aria-label="Integration decisions">
+        <aside className="guide-aside" aria-label="Integration configuration">
           <section className="aside-card">
             <h2>Keep ownership clear</h2>
             <ul className="secure-list">
               <li><CheckIcon />Perminister owns shared human identity and credentials.</li>
-              <li><CheckIcon />Consumer apps own their portals and app sessions.</li>
-              <li><CheckIcon />Consumer apps own domain data and resource enforcement.</li>
+              <li><CheckIcon />Consumer apps own their branded portals and app sessions.</li>
+              <li><CheckIcon />Consumer apps own domain data and final resource enforcement.</li>
             </ul>
           </section>
           <section className="aside-card">
-            <h2>Decisions still open</h2>
-            <ul className="planned-list">
-              <li>Sign-in redirect, callback, and session contract</li>
-              <li>Verified proof for legacy account linking</li>
-              <li>Session lifetime, logout, and deactivation behavior</li>
-            </ul>
+            <h2>Resend setup is optional</h2>
+            <p>Sign-in works without email delivery. Verification and password recovery require a Resend API key, an accepted sender address, and the public application origin; the UI never claims a message was sent when Resend rejects it.</p>
+          </section>
+          <section className="aside-card">
+            <h2>Account linking is not available</h2>
+            <p>Legacy accounts are not merged by matching email. A future migration must authenticate or otherwise verify both identities explicitly.</p>
           </section>
         </aside>
       </div>

@@ -7,6 +7,9 @@ export type MembershipId = BrandedId<"MembershipId">;
 export type ApiKeyId = BrandedId<"ApiKeyId">;
 export type ServicePrincipalId = BrandedId<"ServicePrincipalId">;
 export type EventId = BrandedId<"EventId">;
+export type SessionId = BrandedId<"SessionId">;
+export type EmailActionId = BrandedId<"EmailActionId">;
+export type DirectoryId = BrandedId<"DirectoryId">;
 
 export const newSubjectId = (): SubjectId => randomUUID() as SubjectId;
 export const newMembershipId = (): MembershipId => randomUUID() as MembershipId;
@@ -14,6 +17,8 @@ export const newApiKeyId = (): ApiKeyId => randomUUID() as ApiKeyId;
 export const newServicePrincipalId = (): ServicePrincipalId =>
   randomUUID() as ServicePrincipalId;
 export const newEventId = (): EventId => randomUUID() as EventId;
+export const newSessionId = (): SessionId => randomUUID() as SessionId;
+export const newEmailActionId = (): EmailActionId => randomUUID() as EmailActionId;
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -62,6 +67,8 @@ export interface SubjectRecord {
   primaryEmail: string | null;
   emailVerifiedAt: string | null;
   passwordCredential: PasswordCredential | null;
+  /** Incremented after credential changes to invalidate every older session. */
+  authVersion: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -99,7 +106,38 @@ export interface ApiKeyRecord {
   rotatedFromApiKeyId: ApiKeyId | null;
 }
 
-export type AuthRecord = SubjectRecord | MembershipRecord | ApiKeyRecord;
+export interface SessionRecord {
+  kind: "session";
+  schemaVersion: 1;
+  sessionId: SessionId;
+  subjectId: SubjectId;
+  /** Digest of the browser-held random session secret. */
+  verifierDigestHex: string;
+  authVersion: number;
+  createdAt: string;
+  expiresAt: string;
+  revokedAt: string | null;
+}
+
+export interface EmailActionRecord {
+  kind: "email-action";
+  schemaVersion: 1;
+  actionId: EmailActionId;
+  subjectId: SubjectId;
+  purpose: "verify-email" | "recover-password";
+  /** Digest of the one-time token. The token itself is never persisted. */
+  verifierDigestHex: string;
+  createdAt: string;
+  expiresAt: string;
+  consumedAt: string | null;
+}
+
+export type AuthRecord =
+  | SubjectRecord
+  | MembershipRecord
+  | ApiKeyRecord
+  | SessionRecord
+  | EmailActionRecord;
 export type AuthRecordKind = AuthRecord["kind"];
 export type AuthRecordFor<Kind extends AuthRecordKind> = Extract<
   AuthRecord,
@@ -109,7 +147,10 @@ export type AuthRecordFor<Kind extends AuthRecordKind> = Extract<
 export type AuthAggregate =
   | { kind: "subject"; id: SubjectId }
   | { kind: "membership"; id: MembershipId }
-  | { kind: "api-key"; id: ApiKeyId };
+  | { kind: "api-key"; id: ApiKeyId }
+  | { kind: "session"; id: SessionId }
+  | { kind: "email-action"; id: EmailActionId }
+  | { kind: "directory"; id: DirectoryId };
 
 export type AuthActor =
   | { kind: "subject"; subjectId: SubjectId }

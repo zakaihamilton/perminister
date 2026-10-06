@@ -2,39 +2,30 @@ import Link from "next/link";
 import { DeveloperGuideLayout } from "@/components/developer-guide-layout";
 import { ArrowUpRight, CheckIcon } from "@/components/site-shell";
 
-function WarningIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
-      <path d="m12 3 9 16H3l9-16Z" />
-      <path d="M12 9v4m0 3h.01" />
-    </svg>
-  );
-}
-
 const sections = [
   {
     href: "/developers/getting-started",
     number: "01",
     title: "Getting started",
-    description: "Integration boundaries, sign-in flow, and explicit legacy-account linking.",
+    description: "Account setup, configuration, session behavior, and the current API surface.",
   },
   {
     href: "/developers/permissions",
     number: "02",
     title: "Permissions",
-    description: "Product, project, and workspace scopes with server-side enforcement guidance.",
+    description: "Product, project, and workspace grants checked against each request.",
   },
   {
     href: "/developers/api-keys",
     number: "03",
     title: "API keys",
-    description: "Machine credentials, one-time secret display, and planned key lifecycle.",
+    description: "Create, rotate, expire, and revoke server-only bearer keys.",
   },
   {
     href: "/developers/storage",
     number: "04",
     title: "Storage & readiness",
-    description: "The Spaces-only storage contract, writer model, and current operational limits.",
+    description: "Spaces event recovery, write concurrency, and required settings.",
   },
 ];
 
@@ -44,17 +35,16 @@ export default function DevelopersPage() {
       active="overview"
       eyebrow="Developer guide"
       title="Build with Perminister"
-      intro="Perminister provides shared human identity, sessions, scoped permissions, and API keys. Consumer applications keep their own entry points, app sessions, domain data, and resource enforcement."
+      intro="Perminister provides central identities, password credentials, sessions, scoped permissions, and API keys. Consumer applications keep their branded portals, app-local sessions, domain data, and resource enforcement."
     >
-      <aside className="guide-notice" aria-label="Implementation status">
-        <span className="callout-icon"><WarningIcon /></span>
-        <p><strong>Authentication and access routes are planned, not callable yet.</strong> <code className="code-label">GET /api/health</code> is the only implemented route; it checks process liveness, not Spaces readiness. Sign-in/session, account-linking, permission-query, and API-key routes do not have a finalized contract.</p>
-      </aside>
+      <div className="guide-notice" aria-label="Current API routes">
+        <p><strong>Available now:</strong> account and key management in the dashboard, <code className="code-label">GET /api/auth/session</code> for a browser session, and <code className="code-label">POST /api/authorize</code> for bearer-key checks. <code className="code-label">GET /api/health</code> reports process liveness only.</p>
+      </div>
 
       <section className="developer-index" aria-labelledby="guide-sections-title">
         <div className="developer-index-heading">
           <h2 id="guide-sections-title">Choose a guide</h2>
-          <p>Each section separates current foundation from planned integration behavior.</p>
+          <p>Each section covers current behavior and the configuration it needs.</p>
         </div>
         <div className="developer-index-grid">
           {sections.map((section) => (
@@ -72,14 +62,14 @@ export default function DevelopersPage() {
 
       <section className="guide-panel foundation-panel" aria-labelledby="foundation-title">
         <div className="guide-panel-head">
-          <h2 id="foundation-title">Foundation in this repository</h2>
-          <p>These pieces exist today; user-facing auth and key operations remain unimplemented.</p>
+          <h2 id="foundation-title">Implemented service boundary</h2>
+          <p>Perminister stores identity and access state; consumer applications own their domain data and final resource checks.</p>
         </div>
         <ul className="secure-list">
-          <li><CheckIcon />TypeScript / Next.js service scaffold</li>
-          <li><CheckIcon />Product-neutral identity, grant, and key record types</li>
-          <li><CheckIcon />Server-only Spaces record and event adapter</li>
-          <li><CheckIcon />Process-liveness route at <code className="code-label">/api/health</code></li>
+          <li><CheckIcon />Email/password accounts and revocable browser sessions</li>
+          <li><CheckIcon />Administrator-managed generic product/project/workspace grants</li>
+          <li><CheckIcon />API-key lifecycle with one-time secret display</li>
+          <li><CheckIcon />Private DigitalOcean Spaces records and recoverable event snapshots</li>
         </ul>
       </section>
     </DeveloperGuideLayout>

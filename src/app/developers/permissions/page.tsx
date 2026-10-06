@@ -15,7 +15,7 @@ export default function PermissionsPage() {
           <section className="guide-panel" aria-labelledby="scope-title">
             <div className="guide-panel-head">
               <h2 id="scope-title">Generic scope shapes</h2>
-              <p>The current domain model supports these resource boundaries without a fixed application catalog.</p>
+              <p>Administrators create grants in the dashboard. IDs and actions are supplied by each consumer application; Perminister has no fixed catalog.</p>
             </div>
             <table className="scope-table">
               <thead><tr><th scope="col">Scope kind</th><th scope="col">Identifier</th><th scope="col">Use</th></tr></thead>
@@ -30,7 +30,7 @@ export default function PermissionsPage() {
           <section className="guide-panel" aria-labelledby="enforcement-title">
             <div className="guide-panel-head">
               <h2 id="enforcement-title">Enforcement stays with the consumer</h2>
-              <p>Perminister describes identity and grants; the consuming system knows its resources.</p>
+              <p><code className="code-label">POST /api/authorize</code> checks the bearer key's scope and actions against the account's current grants. The consumer application still loads and enforces access against its own resource.</p>
             </div>
             <div className="steps">
               <article className="step"><span className="step-number">01</span><div><h3>Resolve the requested resource</h3><p>Load the project, workspace, or other resource through the consumer app's own data layer.</p></div></article>
@@ -46,8 +46,8 @@ export default function PermissionsPage() {
             <p>During migration, map fine-grained actions and platform-wide administrator semantics explicitly. Avoid flattening roles into a single broad grant.</p>
           </section>
           <section className="aside-card">
-            <h2>Live permission queries are planned</h2>
-            <p>No permission-query route or finalized response contract exists yet. Cache duration and behavior during a Perminister outage remain open decisions.</p>
+            <h2>Authorization is current per request</h2>
+            <p>The endpoint reads current key and grant state from Spaces and returns no cached decision. Consumer applications that add their own cache must choose a maximum age and outage behavior.</p>
             <ul className="secure-list">
               <li><CheckIcon />Use server-side resource checks.</li>
               <li><CheckIcon />Keep application data in its consumer system.</li>

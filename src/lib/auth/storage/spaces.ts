@@ -24,6 +24,8 @@ const RECORD_COLLECTION: Record<AuthRecordKind, string> = {
   subject: "subjects",
   membership: "memberships",
   "api-key": "api-keys",
+  session: "sessions",
+  "email-action": "email-actions",
 };
 
 export interface VersionedRecord<RecordType extends AuthRecord = AuthRecord> {
@@ -73,6 +75,10 @@ function recordId(record: AuthRecord): string {
       return record.membershipId;
     case "api-key":
       return record.apiKeyId;
+    case "session":
+      return record.sessionId;
+    case "email-action":
+      return record.actionId;
   }
 }
 
@@ -211,6 +217,41 @@ export class SpacesAuthStore {
         left.aggregateVersion - right.aggregateVersion ||
         left.eventId.localeCompare(right.eventId),
     );
+  }
+
+  async listAllEvents(): Promise<AuthEvent[]> {
+    const keys = await this.listKeys(`${OBJECT_ROOT}/events/`);
+    const events: AuthEvent[] = [];
+    for (const key of keys) {
+      const event = await this.readJson<AuthEvent>(key);
+      if (event === null) continue;
+      this.validateEvent(event);
+      assertNoPlaintextSecrets(event);
+      if (this.eventKey(event.aggregate, event.eventId) !== key) {
+        throw new Error(`Event identity does not match its object key at ${key}`);
+      }
+      events.push(event);
+    }
+    return events.sort(
+      (left, right) =>
+        Date.parse(right.occurredAt) - Date.parse(left.occurredAt) ||
+        right.eventId.localeCompare(left.eventId),
+    );
+  }
+
+  async listRecords<Kind extends AuthRecordKind>(
+    kind: Kind,
+  ): Promise<VersionedRecord<AuthRecordFor<Kind>>[]> {
+    const prefix = `${OBJECT_ROOT}/records/${RECORD_COLLECTION[kind]}/`;
+    const keys = await this.listKeys(prefix);
+    const records: VersionedRecord<AuthRecordFor<Kind>>[] = [];
+    for (const key of keys) {
+      const id = key.slice(prefix.length).replace(/\.json$/, "");
+      assertOpaqueId(id);
+      const record = await this.readRecord(kind, id);
+      if (record) records.push(record);
+    }
+    return records;
   }
 
   private eventKey(aggregate: AuthAggregate, eventId: EventId): string {

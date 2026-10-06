@@ -11,7 +11,10 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
+      <head>
+        <meta name="referrer" content="no-referrer" />
+      </head>
       <body>{children}</body>
     </html>
   );
