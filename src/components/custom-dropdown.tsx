@@ -214,6 +214,7 @@ export function CustomDropdown({
                 optionRefs.current[index] = element;
               }}
               role="option"
+              tabIndex={-1}
               type="button"
             >
               <span>{option.label}</span>
