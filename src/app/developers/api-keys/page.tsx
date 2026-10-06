@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Tooltip } from "@/components/tooltip";
 import { DeveloperGuideLayout } from "@/components/developer-guide-layout";
 import { CheckIcon, KeyIcon } from "@/components/site-shell";
 
@@ -35,7 +36,7 @@ export default function ApiKeysPage() {
         <aside className="guide-aside" aria-label="API key security guidance">
           <section className="aside-card key-callout">
             <span className="key-callout-icon"><KeyIcon /></span>
-            <h2>Keep keys on trusted servers</h2>
+            <h2>Keep keys on trusted servers <Tooltip content="A server-only key is a credential for trusted backend code. Never include its secret in a browser bundle, URL, or client-side storage." /></h2>
             <p>Consumer apps should send keys only from trusted server-side code. Keep them out of browser bundles, source control, URLs, client storage, and logs.</p>
           </section>
           <section className="aside-card">

@@ -5,6 +5,7 @@ import type { OrganizationSummary } from "@/lib/auth/service";
 import { DashboardNavigation } from "@/components/dashboard-navigation";
 import { OrganizationSwitcher } from "@/components/organization-switcher";
 import Link from "next/link";
+import { ThemeControl } from "@/components/theme-control";
 
 export function DashboardShell({
   organizationId,
@@ -33,6 +34,10 @@ export function DashboardShell({
       </aside>
       <main className="dashboard-main">
         <div className="dashboard-mobile-brand"><Brand /></div>
+        <header aria-label="Workspace controls" className="dashboard-topbar">
+          <span className="dashboard-topbar-context">{organizations.find(({ organization }) => organization.organizationId === organizationId)?.organization.name ?? "Workspace"}</span>
+          <ThemeControl />
+        </header>
         <div className="dashboard-main-inner">{children}</div>
       </main>
     </div>

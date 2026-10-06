@@ -1,3 +1,6 @@
+import { ThemeControl } from "@/components/theme-control";
+import { getCurrentSession } from "@/lib/auth/service";
+
 type ActivePage = "home" | "dashboard" | "developers" | "none";
 
 export function Brand({ compact = false }: { compact?: boolean }) {
@@ -15,18 +18,28 @@ export function Brand({ compact = false }: { compact?: boolean }) {
   );
 }
 
-export function SiteHeader({ active }: { active: ActivePage }) {
+export async function SiteHeader({
+  active,
+  authenticated,
+}: {
+  active: ActivePage;
+  authenticated?: boolean;
+}) {
+  const signedIn = authenticated ?? !!(await getCurrentSession());
+
   return (
     <header className="site-header">
       <div className="site-header-inner">
         <Brand />
         <nav className="primary-nav" aria-label="Main navigation">
           <a href="/" aria-current={active === "home" ? "page" : undefined}>Overview</a>
-          <a href="/dashboard" aria-current={active === "dashboard" ? "page" : undefined}>Dashboard</a>
           <a href="/developers" aria-current={active === "developers" ? "page" : undefined}>Developers</a>
-          <a href="/login">Sign in</a>
+          {signedIn
+            ? <a href="/dashboard" aria-current={active === "dashboard" ? "page" : undefined}>Dashboard</a>
+            : <a href="/login">Sign in</a>}
         </nav>
-        <a className="header-create" href="/register">Create account</a>
+        <ThemeControl />
+        {!signedIn ? <a className="header-create" href="/register">Create account</a> : null}
       </div>
     </header>
   );
@@ -67,7 +80,7 @@ export function SiteFooter() {
   return (
     <footer className="site-footer">
       <Brand compact />
-      <p>Shared identity. Product-owned access.</p>
+      <p>Products, people, and access in one place.</p>
       <span className="footer-note">Perminister · identity and access</span>
     </footer>
   );

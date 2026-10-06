@@ -1,4 +1,5 @@
 import { createGrantAction, updateGrantStatusAction } from "@/app/actions";
+import { Tooltip } from "@/components/tooltip";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { getCurrentSession, getOrganizationForSubject, listOrganizationMembers, listOrganizationPermissionGrants, listProductsForOrganization, type OrganizationMemberView } from "@/lib/auth/service";
 import type { MembershipRecord, ResourceScope } from "@/lib/auth/domain";
@@ -85,8 +86,8 @@ export default async function AccessPage({
               <div className="form-grid">
                 <label>Person<select name="subjectId" required defaultValue=""><option value="" disabled>Select a team member</option>{eligibleMembers.map((member) => <option key={member.membership.organizationMembershipId} value={member.membership.subjectId}>{member.email}</option>)}</select></label>
                 <label>Product<select name="productId" required>{products.map((product) => <option key={product.productRecordId} value={product.productId}>{product.name}</option>)}</select></label>
-                <label>Scope<select name="scopeKind" defaultValue="product"><option value="product">Entire product</option><option value="project">One project</option><option value="workspace">One workspace</option></select></label>
-                <label>Project or workspace ID<input name="resourceId" maxLength={128} placeholder="Optional for product access" /></label>
+                <div className="form-field-with-tooltip"><div className="form-label-row"><label htmlFor="grant-scope">Scope</label><Tooltip content="A product grant covers all resources in that product. Project and workspace grants narrow access to one resource." /></div><select id="grant-scope" name="scopeKind" defaultValue="product"><option value="product">Entire product</option><option value="project">One project</option><option value="workspace">One workspace</option></select></div>
+                <div className="form-field-with-tooltip"><div className="form-label-row"><label htmlFor="grant-resource-id">Project or workspace ID</label><Tooltip content="Enter the exact project or workspace ID used by the product. Leave it blank for product-wide access." /></div><input id="grant-resource-id" name="resourceId" maxLength={128} placeholder="Optional for product access" /></div>
               </div>
               <label>Allowed actions<input name="actions" required maxLength={2048} placeholder="read:profile, write:profile" /></label>
               <p className="form-hint">Use action names from your product. Product grants include resources inside that product.</p>

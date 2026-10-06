@@ -56,8 +56,8 @@ export default function GettingStartedPage() {
             </ul>
           </section>
           <section className="aside-card">
-            <h2>Resend setup is optional</h2>
-            <p>Sign-in works without email delivery. Verification and password recovery require a Resend API key, an accepted sender address, and the public application origin; the UI never claims a message was sent when Resend rejects it.</p>
+            <h2>Platform-wide email delivery</h2>
+            <p>Configure Resend once for Perminister; organizations use the shared email service and do not configure Resend separately. Email verification, password recovery, and invitations require the platform configuration. Sign-in itself works without email delivery.</p>
           </section>
           <section className="aside-card">
             <h2>Product search is optional</h2>

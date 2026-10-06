@@ -20,7 +20,7 @@ export default async function ProfilePage({
       <DashboardHeading eyebrow="Your account" title="Profile" description="Your Perminister identity is shared across the organizations you belong to." />
       {query.notice === "verification-sent" ? <DashboardNotice message="Verification link sent. Check your inbox." kind="success" /> : null}
       {query.notice === "email-already-verified" ? <DashboardNotice message="Your email address is already verified." kind="success" /> : null}
-      {query.notice === "mail-not-configured" ? <DashboardNotice message="Email delivery is not configured. Ask your administrator to enable Resend." kind="error" /> : null}
+      {query.notice === "mail-not-configured" ? <DashboardNotice message="Platform email delivery is not configured. Ask the Perminister operator to configure Resend." kind="error" /> : null}
       {query.notice === "verification-delivery-failed" ? <DashboardNotice message="We could not send the verification email. Try again later." kind="error" /> : null}
       <section className="dashboard-card profile-card">
         <dl className="profile-details">

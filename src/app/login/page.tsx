@@ -30,7 +30,7 @@ export default async function LoginPage({
   const invitationToken = params.invitationToken ?? "";
   return (
     <>
-      <SiteHeader active="none" />
+      <SiteHeader active="none" authenticated={false} />
       <main className="page-shell auth-page-shell">
         <div className="container auth-page">
           <header className="auth-heading">

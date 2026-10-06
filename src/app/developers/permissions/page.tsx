@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Tooltip } from "@/components/tooltip";
 import { DeveloperGuideLayout } from "@/components/developer-guide-layout";
 import { CheckIcon } from "@/components/site-shell";
 
@@ -14,7 +15,7 @@ export default function PermissionsPage() {
         <div className="guide-main">
           <section className="guide-panel" aria-labelledby="scope-title">
             <div className="guide-panel-head">
-              <h2 id="scope-title">Generic scope shapes</h2>
+              <h2 id="scope-title">Generic scope shapes <Tooltip content="Product scope applies across its resources. Project and workspace scopes narrow a grant to one resource identifier." /></h2>
               <p>Organization Owners and Admins create grants in the dashboard. Product IDs belong to an organization; project/workspace IDs and actions are supplied by each consumer application.</p>
             </div>
             <table className="scope-table">
