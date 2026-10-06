@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { useCloseOnOutsidePointerDown } from "@/components/use-close-on-outside-pointer-down";
 
 export interface CustomDropdownOption {
   value: string;
@@ -58,13 +59,9 @@ export function CustomDropdown({
     const activeIndex = options.findIndex((option) => option.value === activeValue);
     const firstEnabledIndex = options.findIndex((option) => !option.disabled);
     optionRefs.current[activeIndex >= 0 ? activeIndex : firstEnabledIndex]?.focus();
-
-    const closeOutside = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", closeOutside);
-    return () => document.removeEventListener("pointerdown", closeOutside);
   }, [activeValue, open, options]);
+
+  useCloseOnOutsidePointerDown(open, rootRef, setOpen);
 
   useEffect(
     () => () => {
