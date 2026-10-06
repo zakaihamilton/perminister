@@ -100,3 +100,28 @@ export async function sendRecoveryEmail(email: string, token: string): Promise<v
     html: `<p>Reset your Perminister password within 30 minutes:</p><p><a href="${safeLink}">Reset password</a></p>`,
   });
 }
+
+export async function sendOrganizationInvitationEmail(
+  email: string,
+  token: string,
+  organizationName: string,
+  role: "admin" | "member",
+): Promise<void> {
+  const origin = publicOrigin();
+  const link = new URL("/accept-invitation", origin);
+  link.searchParams.set("token", token);
+  const safeLink = link.toString();
+  const safeName = organizationName.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character] ?? character);
+  await sendWithResend({
+    to: email,
+    subject: `Invitation to join ${organizationName} on Perminister`,
+    text: `You have been invited to join ${organizationName} as an organization ${role}. Accept the invitation within 7 days: ${safeLink}`,
+    html: `<p>You have been invited to join <strong>${safeName}</strong> as an organization ${role}.</p><p><a href="${safeLink}">Accept invitation</a></p><p>This invitation expires in 7 days.</p>`,
+  });
+}

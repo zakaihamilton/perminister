@@ -4,28 +4,41 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   authenticate,
+  acceptOrganizationInvitation,
   completeEmailAction,
   createApiKeyForSubject,
+  createOrganization,
+  createOrganizationInvitation,
+  createOrganizationProduct,
   createPermissionGrant,
   createSession,
   getCurrentSession,
+  getOrganizationForSubject,
   isAdministrator,
   issueEmailAction,
   issueRecoveryAction,
   registerAccount,
+  removeOrganizationMember,
+  revokeOrganizationInvitation,
+  retireLegacyAccess,
   revokeApiKeyForSubject,
   revokeSession,
   setSessionCookie,
   signOutCurrentSession,
   updateAccountStatus,
   updateGrantStatus,
+  updateOrganizationMemberRole,
+  updateOrganizationName,
+  updateOrganizationProduct,
 } from "@/lib/auth/service";
 import type { ResourceScope } from "@/lib/auth/domain";
 import {
   isMailDeliveryConfigured,
   sendRecoveryEmail,
+  sendOrganizationInvitationEmail,
   sendVerificationEmail,
 } from "@/lib/auth/mail";
+import { consumeProductLookupRateLimit } from "@/lib/auth/coordination";
 
 function publicActionError(error: unknown): string {
   if (!(error instanceof Error)) return "Perminister could not complete that request.";
@@ -44,11 +57,45 @@ function publicActionError(error: unknown): string {
     "Choose an active account.",
     "Choose an active, email-verified account.",
     "An active, email-verified account is required to create an API key.",
+    "Join this organization before creating an API key.",
+    "API keys can only include actions granted to your account.",
+    "Choose a product in this organization.",
+    "Choose a member of this organization.",
+    "This person is already a member of the organization.",
+    "Only an organization owner can invite an administrator.",
+    "An organization must keep at least one owner.",
+    "You do not have permission to manage this organization.",
+    "That product ID is already in use in this organization.",
+    "Use a product ID with letters, numbers, dots, underscores, colons, or hyphens.",
+    "Enter a product name up to 120 characters.",
+    "The product description must be 500 characters or fewer.",
+    "Organization names must be 2 to 80 characters.",
+    "This invitation is invalid or expired, or it was sent to another email address.",
     "Only an active, unexpired API key can be rotated.",
     "Choose one of your own API keys to rotate.",
     "You cannot disable the currently configured administrator account.",
     "Email delivery is not configured.",
     "Resend could not be reached.",
+    "Name search is not configured.",
+    "No public website matches were found.",
+    "Enter a product name between",
+    "Enter a valid website address.",
+    "Use a public HTTPS website address.",
+    "This website cannot be fetched because it does not resolve to a public address.",
+    "The website redirected too many times.",
+    "This website returned too much content to import.",
+    "The website could not be fetched. Enter its details manually.",
+    "This address did not return a web page. Enter its details manually.",
+    "Website could not be resolved. Enter its details manually.",
+    "Website search could not be reached. Enter the website address to continue.",
+    "Website search is temporarily unavailable. Enter the website address to continue.",
+    "Website search returned too much content. Enter the website address to continue.",
+    "Product website request timed out.",
+    "Too many product lookups. Try again in a minute.",
+    "Organization coordination is not configured.",
+    "Organization coordination is unavailable.",
+    "Organization coordination was interrupted.",
+    "Organization is busy. Try again shortly.",
   ];
   if (safePrefixes.some((prefix) => error.message.startsWith(prefix))) return error.message;
   if (/^Resend rejected the message \(HTTP [0-9]{3}\)\./.test(error.message)) return error.message;
@@ -62,11 +109,12 @@ function firstValue(data: FormData, name: string): string {
 
 function parseScope(data: FormData): ResourceScope {
   const kind = firstValue(data, "scopeKind");
+  const organizationId = firstValue(data, "organizationId");
   const productId = firstValue(data, "productId").trim();
-  if (kind === "product") return { kind, productId };
+  if (kind === "product") return { kind, organizationId: organizationId as ResourceScope["organizationId"], productId };
   const resourceId = firstValue(data, "resourceId").trim();
-  if (kind === "project") return { kind, productId, projectId: resourceId };
-  if (kind === "workspace") return { kind, productId, workspaceId: resourceId };
+  if (kind === "project") return { kind, organizationId: organizationId as ResourceScope["organizationId"], productId, projectId: resourceId };
+  if (kind === "workspace") return { kind, organizationId: organizationId as ResourceScope["organizationId"], productId, workspaceId: resourceId };
   throw new Error("Choose a supported permission scope.");
 }
 
@@ -74,10 +122,17 @@ function parseActions(data: FormData): string[] {
   return firstValue(data, "actions").split(",").map((value) => value.trim()).filter(Boolean);
 }
 
+function dashboardReturnTo(data: FormData): string {
+  const value = firstValue(data, "returnTo");
+  return value.startsWith("/dashboard/") || value === "/dashboard" ? value : "/dashboard";
+}
+
 export async function registerAction(formData: FormData): Promise<void> {
   const email = firstValue(formData, "email");
   const password = firstValue(formData, "password");
-  if (password !== firstValue(formData, "confirmPassword")) redirect("/register?error=password-mismatch");
+  const invitationToken = firstValue(formData, "invitationToken");
+  const invitationQuery = invitationToken ? `&invitationToken=${encodeURIComponent(invitationToken)}` : "";
+  if (password !== firstValue(formData, "confirmPassword")) redirect(`/register?error=password-mismatch${invitationQuery}`);
   let subject;
   try {
     subject = await registerAccount(email, password);
@@ -90,7 +145,25 @@ export async function registerAction(formData: FormData): Promise<void> {
         : message.startsWith("Use a password") || message.startsWith("Password must")
           ? "password-policy"
           : "registration-unavailable";
-    redirect(`/register?error=${code}`);
+    redirect(`/register?error=${code}${invitationQuery}`);
+  }
+
+  if (invitationToken) {
+    let acceptedOrganizationId: string | null = null;
+    try {
+      acceptedOrganizationId = await acceptOrganizationInvitation(subject.subjectId, invitationToken);
+    } catch {
+      // An invalid invitation does not verify a new account; normal email verification remains available.
+    }
+    if (acceptedOrganizationId) {
+      try {
+        const session = await createSession(subject.subjectId);
+        await setSessionCookie(session.token);
+      } catch {
+        redirect("/login?notice=invitation-accepted-sign-in");
+      }
+      redirect(`/dashboard/${acceptedOrganizationId}?notice=invitation-accepted`);
+    }
   }
 
   let notice = "account-created-mail-unconfigured";
@@ -114,6 +187,8 @@ export async function registerAction(formData: FormData): Promise<void> {
 }
 
 export async function signInAction(formData: FormData): Promise<void> {
+  const invitationToken = firstValue(formData, "invitationToken");
+  const invitationQuery = invitationToken ? `&invitationToken=${encodeURIComponent(invitationToken)}` : "";
   try {
     const subject = await authenticate(firstValue(formData, "email"), firstValue(formData, "password"));
     const session = await createSession(subject.subjectId);
@@ -124,9 +199,9 @@ export async function signInAction(formData: FormData): Promise<void> {
       : error instanceof Error && error.message === "Email or password is incorrect."
         ? "credentials"
         : "unavailable";
-    redirect(`/login?error=${code}`);
+    redirect(`/login?error=${code}${invitationQuery}`);
   }
-  redirect("/dashboard");
+  redirect(invitationToken ? `/accept-invitation?token=${encodeURIComponent(invitationToken)}` : "/dashboard");
 }
 
 export async function signOutAction(): Promise<void> {
@@ -134,20 +209,21 @@ export async function signOutAction(): Promise<void> {
   redirect("/");
 }
 
-export async function requestVerificationAction(): Promise<void> {
+export async function requestVerificationAction(formData: FormData): Promise<void> {
+  const returnTo = dashboardReturnTo(formData);
   const current = await getCurrentSession();
   if (!current) redirect("/login");
-  if (current.subject.emailVerifiedAt) redirect("/dashboard?notice=email-already-verified");
-  if (!isMailDeliveryConfigured()) redirect("/dashboard?notice=mail-not-configured");
+  if (current.subject.emailVerifiedAt) redirect(`${returnTo}?notice=email-already-verified`);
+  if (!isMailDeliveryConfigured()) redirect(`${returnTo}?notice=mail-not-configured`);
   let verification: { email: string; token: string } | null = null;
   try {
     verification = await issueEmailAction(current.subject.subjectId, "verify-email");
     if (verification) await sendVerificationEmail(verification.email, verification.token);
   } catch {
-    redirect("/dashboard?notice=verification-delivery-failed");
+    redirect(`${returnTo}?notice=verification-delivery-failed`);
   }
-  if (!verification) redirect("/dashboard?notice=email-already-verified");
-  redirect("/dashboard?notice=verification-sent");
+  if (!verification) redirect(`${returnTo}?notice=email-already-verified`);
+  redirect(`${returnTo}?notice=verification-sent`);
 }
 
 export async function verifyEmailAction(formData: FormData): Promise<void> {
@@ -219,21 +295,212 @@ export async function createApiKeyAction(
   }
 }
 
+export async function createOrganizationAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const returnTo = dashboardReturnTo(formData);
+  let organizationId: string;
+  try {
+    const organization = await createOrganization(current.subject.subjectId, firstValue(formData, "name"));
+    organizationId = organization.organizationId;
+  } catch {
+    redirect(`${returnTo}?error=organization-create`);
+  }
+  redirect(`/dashboard/${organizationId}`);
+}
+
+export async function createOrganizationProductAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  let productId: string;
+  try {
+    const product = await createOrganizationProduct(current.subject.subjectId, organizationId, {
+      productId: firstValue(formData, "productId"),
+      name: firstValue(formData, "name"),
+      description: firstValue(formData, "description"),
+      websiteUrl: firstValue(formData, "websiteUrl"),
+      iconUrl: firstValue(formData, "iconUrl"),
+    });
+    productId = product.productId;
+  } catch (error) {
+    const message = encodeURIComponent(publicActionError(error));
+    redirect(`/dashboard/${organizationId}/products/new?error=${message}`);
+  }
+  redirect(`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}?notice=product-created`);
+}
+
+export async function updateOrganizationProductAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  let productId: string;
+  try {
+    const product = await updateOrganizationProduct(current.subject.subjectId, organizationId, firstValue(formData, "productRecordId"), {
+      name: firstValue(formData, "name"),
+      description: firstValue(formData, "description"),
+      websiteUrl: firstValue(formData, "websiteUrl"),
+      iconUrl: firstValue(formData, "iconUrl"),
+    });
+    productId = product.productId;
+  } catch {
+    redirect(`/dashboard/${organizationId}/products?error=product-update`);
+  }
+  redirect(`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}?notice=product-updated`);
+}
+
+export interface ProductLookupState {
+  error?: string;
+  matches?: Array<{ title: string; url: string; description: string }>;
+  suggestion?: { name: string; description: string; websiteUrl: string; iconUrl: string };
+  source?: string;
+}
+
+export async function lookupProductWebsiteAction(
+  _previous: ProductLookupState,
+  formData: FormData,
+): Promise<ProductLookupState> {
+  const mode = firstValue(formData, "mode");
+  const source = firstValue(formData, "source").trim();
+  const organizationId = firstValue(formData, "organizationId");
+  if (mode !== "name" && mode !== "website") {
+    return { error: "Choose a product lookup method.", source };
+  }
+  if (!source || source.length > 2048) {
+    return { error: "Enter a product name or website address up to 2,048 characters.", source };
+  }
+  const current = await getCurrentSession();
+  if (!current) return { error: "Sign in before looking up product details.", source };
+  try {
+    const organization = await getOrganizationForSubject(current.subject.subjectId, organizationId);
+    if (organization.membership.role !== "owner" && organization.membership.role !== "admin") {
+      return { error: "Only organization owners and admins can look up product details.", source };
+    }
+    if (!(await consumeProductLookupRateLimit(organizationId, current.subject.subjectId))) {
+      return { error: "Too many product lookups. Try again in a minute.", source };
+    }
+    const { fetchProductSiteSuggestion, searchProductWebsites } = await import("@/lib/product-discovery");
+    if (mode === "name") {
+      const matches = await searchProductWebsites(source);
+      if (!matches.length) return { error: "No public website matches were found. Enter the website address to continue." };
+      return { matches, source };
+    }
+    const suggestion = await fetchProductSiteSuggestion(source);
+    return { suggestion, source: suggestion.websiteUrl };
+  } catch (error) {
+    return { error: publicActionError(error), source };
+  }
+}
+
+export async function inviteOrganizationMemberAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  if (!isMailDeliveryConfigured()) redirect(`/dashboard/${organizationId}/people?error=mail-unconfigured`);
+  const role = firstValue(formData, "role");
+  if (role !== "admin" && role !== "member") redirect(`/dashboard/${organizationId}/people?error=invite-failed`);
+  try {
+    const result = await createOrganizationInvitation(current.subject.subjectId, organizationId, firstValue(formData, "email"), role);
+    await sendOrganizationInvitationEmail(result.invitation.email, result.token, result.organizationName, result.invitation.role);
+  } catch (error) {
+    const message = publicActionError(error);
+    const code = message === "Email delivery is not configured. No email was sent." ? "mail-unconfigured" : "invite-failed";
+    redirect(`/dashboard/${organizationId}/people?error=${code}`);
+  }
+  redirect(`/dashboard/${organizationId}/people?notice=invite-sent`);
+}
+
+export async function acceptOrganizationInvitationAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect(`/login?invitationToken=${encodeURIComponent(firstValue(formData, "token"))}`);
+  const token = firstValue(formData, "token");
+  let organizationId: string;
+  try {
+    organizationId = await acceptOrganizationInvitation(current.subject.subjectId, token);
+  } catch {
+    redirect(`/accept-invitation?token=${encodeURIComponent(token)}&error=invalid`);
+  }
+  redirect(`/dashboard/${organizationId}?notice=invitation-accepted`);
+}
+
+export async function updateOrganizationMemberRoleAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  const role = firstValue(formData, "role");
+  if (role !== "owner" && role !== "admin" && role !== "member") redirect(`/dashboard/${organizationId}/people?error=member-update`);
+  try {
+    await updateOrganizationMemberRole(current.subject.subjectId, organizationId, firstValue(formData, "membershipId"), role);
+  } catch {
+    redirect(`/dashboard/${organizationId}/people?error=member-update`);
+  }
+  redirect(`/dashboard/${organizationId}/people?notice=member-updated`);
+}
+
+export async function removeOrganizationMemberAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  try {
+    await removeOrganizationMember(current.subject.subjectId, organizationId, firstValue(formData, "membershipId"));
+  } catch {
+    redirect(`/dashboard/${organizationId}/people?error=member-remove`);
+  }
+  redirect(`/dashboard/${organizationId}/people?notice=member-removed`);
+}
+
+export async function revokeOrganizationInvitationAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  try {
+    await revokeOrganizationInvitation(current.subject.subjectId, organizationId, firstValue(formData, "invitationId"));
+  } catch {
+    redirect(`/dashboard/${organizationId}/people?error=invite-revoke`);
+  }
+  redirect(`/dashboard/${organizationId}/people?notice=invite-revoked`);
+}
+
+export async function updateOrganizationNameAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  try {
+    await updateOrganizationName(current.subject.subjectId, organizationId, firstValue(formData, "name"));
+  } catch {
+    redirect(`/dashboard/${organizationId}/settings?error=settings`);
+  }
+  redirect(`/dashboard/${organizationId}/settings?notice=settings-saved`);
+}
+
+export async function retireLegacyAccessAction(): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  if (!isAdministrator(current.subject)) redirect("/dashboard");
+  let retired: { grants: number; keys: number };
+  try {
+    retired = await retireLegacyAccess(current.subject.subjectId);
+  } catch {
+    redirect("/dashboard/operations?error=migration");
+  }
+  redirect(`/dashboard/operations?retired=${retired.grants},${retired.keys}`);
+}
+
 export async function revokeApiKeyAction(formData: FormData): Promise<void> {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
   try {
     await revokeApiKeyForSubject(current.subject.subjectId, firstValue(formData, "apiKeyId"));
   } catch {
-    redirect("/dashboard?notice=key-revoke-failed");
+    redirect(`${dashboardReturnTo(formData)}?error=key-revoke-failed`);
   }
-  redirect("/dashboard?notice=key-revoked");
+  redirect(`${dashboardReturnTo(formData)}?notice=key-revoked`);
 }
 
 export async function createGrantAction(formData: FormData): Promise<void> {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
-  if (!isAdministrator(current.subject)) redirect("/dashboard?notice=admin-required");
+  const organizationId = firstValue(formData, "organizationId");
   try {
     await createPermissionGrant(
       current.subject.subjectId,
@@ -242,23 +509,23 @@ export async function createGrantAction(formData: FormData): Promise<void> {
       parseActions(formData),
     );
   } catch {
-    redirect("/dashboard?notice=grant-failed");
+    redirect(`/dashboard/${organizationId}/access?error=grant-failed`);
   }
-  redirect("/dashboard?notice=grant-created");
+  redirect(`/dashboard/${organizationId}/access?notice=grant-created`);
 }
 
 export async function updateGrantStatusAction(formData: FormData): Promise<void> {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
-  if (!isAdministrator(current.subject)) redirect("/dashboard?notice=admin-required");
   const status = firstValue(formData, "status");
-  if (status !== "active" && status !== "disabled") redirect("/dashboard?notice=grant-failed");
+  const organizationId = firstValue(formData, "organizationId");
+  if (status !== "active" && status !== "disabled") redirect(`/dashboard/${organizationId}/access?error=grant-failed`);
   try {
     await updateGrantStatus(current.subject.subjectId, firstValue(formData, "membershipId"), status);
   } catch {
-    redirect("/dashboard?notice=grant-failed");
+    redirect(`/dashboard/${organizationId}/access?error=grant-failed`);
   }
-  redirect("/dashboard?notice=grant-updated");
+  redirect(`/dashboard/${organizationId}/access?notice=grant-updated`);
 }
 
 export async function updateAccountStatusAction(formData: FormData): Promise<void> {
@@ -284,7 +551,7 @@ export async function revokeSessionAction(formData: FormData): Promise<void> {
     const cookieStore = await cookies();
     if (sessionId === current.session.sessionId) cookieStore.delete("perminister_session");
   } catch {
-    redirect("/dashboard?notice=session-revoke-failed");
+    redirect(`${dashboardReturnTo(formData)}?notice=session-revoke-failed`);
   }
-  redirect("/dashboard?notice=session-revoked");
+  redirect(`${dashboardReturnTo(formData)}?notice=session-revoked`);
 }

@@ -11,7 +11,7 @@ export default async function ResetPasswordPage({
   const token = typeof params.token === "string" ? params.token : "";
   return (
     <>
-      <SiteHeader active="dashboard" />
+      <SiteHeader active="none" />
       <main className="page-shell auth-page-shell">
         <div className="container auth-page">
           <section className="auth-card" aria-labelledby="reset-title">

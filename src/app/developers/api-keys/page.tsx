@@ -45,6 +45,7 @@ Authorization: Bearer pmk_<uuid>_<secret>
 Content-Type: application/json
 
 {
+  "organizationId": "organization-uuid",
   "productId": "product-id",
   "resourceKind": "project",
   "resourceId": "project-id",

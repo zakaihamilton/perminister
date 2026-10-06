@@ -15,12 +15,20 @@ import type {
   AuthRecordKind,
   EventId,
   MembershipRecord,
+  OrganizationInvitationRecord,
+  OrganizationMembershipRecord,
+  OrganizationRecord,
+  ProductRecord,
   SubjectRecord,
 } from "../domain";
 import { assertOpaqueId } from "../domain";
 
 const OBJECT_ROOT = "perminister/v1";
 const RECORD_COLLECTION: Record<AuthRecordKind, string> = {
+  organization: "organizations",
+  "organization-membership": "organization-memberships",
+  product: "products",
+  "organization-invitation": "organization-invitations",
   subject: "subjects",
   membership: "memberships",
   "api-key": "api-keys",
@@ -69,6 +77,14 @@ function assertNoPlaintextSecrets(value: unknown, path = "record"): void {
 
 function recordId(record: AuthRecord): string {
   switch (record.kind) {
+    case "organization":
+      return record.organizationId;
+    case "organization-membership":
+      return record.organizationMembershipId;
+    case "product":
+      return record.productRecordId;
+    case "organization-invitation":
+      return record.invitationId;
     case "subject":
       return record.subjectId;
     case "membership":
@@ -369,5 +385,11 @@ export function createSpacesAuthStoreFromEnv(
 }
 
 export type StoredAuthRecord = VersionedRecord<
-  SubjectRecord | MembershipRecord | ApiKeyRecord
+  OrganizationRecord |
+  OrganizationMembershipRecord |
+  ProductRecord |
+  OrganizationInvitationRecord |
+  SubjectRecord |
+  MembershipRecord |
+  ApiKeyRecord
 >;

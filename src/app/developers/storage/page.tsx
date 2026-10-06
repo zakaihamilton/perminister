@@ -59,6 +59,10 @@ export default function StoragePage() {
             <h2>Optional email settings</h2>
             <p>Password recovery and verification require <code>RESEND_API_KEY</code>, <code>PERMINISTER_MAIL_FROM</code>, and <code>PERMINISTER_PUBLIC_ORIGIN</code>. Resend must accept the configured sender; missing configuration means no email is sent.</p>
           </section>
+          <section className="aside-card">
+            <h2>Optional product search</h2>
+            <p><code>BRAVE_SEARCH_API_KEY</code> enables server-side name search during product setup. Importing directly from a public HTTPS website does not require this setting.</p>
+          </section>
           <p className="health-note"><code className="code-label">GET /api/health</code> reports process liveness. <code className="code-label">GET /api/auth/session</code> reports the browser session. See <Link href="/developers/getting-started">setup details</Link>.</p>
         </aside>
       </div>

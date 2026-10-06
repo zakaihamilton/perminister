@@ -10,6 +10,10 @@ export type EventId = BrandedId<"EventId">;
 export type SessionId = BrandedId<"SessionId">;
 export type EmailActionId = BrandedId<"EmailActionId">;
 export type DirectoryId = BrandedId<"DirectoryId">;
+export type OrganizationId = BrandedId<"OrganizationId">;
+export type OrganizationMembershipId = BrandedId<"OrganizationMembershipId">;
+export type ProductRecordId = BrandedId<"ProductRecordId">;
+export type InvitationId = BrandedId<"InvitationId">;
 
 export const newSubjectId = (): SubjectId => randomUUID() as SubjectId;
 export const newMembershipId = (): MembershipId => randomUUID() as MembershipId;
@@ -19,6 +23,11 @@ export const newServicePrincipalId = (): ServicePrincipalId =>
 export const newEventId = (): EventId => randomUUID() as EventId;
 export const newSessionId = (): SessionId => randomUUID() as SessionId;
 export const newEmailActionId = (): EmailActionId => randomUUID() as EmailActionId;
+export const newOrganizationId = (): OrganizationId => randomUUID() as OrganizationId;
+export const newOrganizationMembershipId = (): OrganizationMembershipId =>
+  randomUUID() as OrganizationMembershipId;
+export const newProductRecordId = (): ProductRecordId => randomUUID() as ProductRecordId;
+export const newInvitationId = (): InvitationId => randomUUID() as InvitationId;
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -33,17 +42,73 @@ export function assertOpaqueId(value: string): void {
 export type ProductId = string;
 
 export type ResourceScope =
-  | { kind: "product"; productId: ProductId }
+  | { kind: "product"; organizationId: OrganizationId; productId: ProductId }
   | {
       kind: "project";
+      organizationId: OrganizationId;
       productId: ProductId;
       projectId: string;
     }
   | {
       kind: "workspace";
+      organizationId: OrganizationId;
       productId: ProductId;
       workspaceId: string;
     };
+
+export interface OrganizationRecord {
+  kind: "organization";
+  schemaVersion: 1;
+  organizationId: OrganizationId;
+  name: string;
+  createdBySubjectId: SubjectId;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type OrganizationRole = "owner" | "admin" | "member";
+
+export interface OrganizationMembershipRecord {
+  kind: "organization-membership";
+  schemaVersion: 1;
+  organizationMembershipId: OrganizationMembershipId;
+  organizationId: OrganizationId;
+  subjectId: SubjectId;
+  role: OrganizationRole;
+  status: "active" | "disabled";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductRecord {
+  kind: "product";
+  schemaVersion: 1;
+  productRecordId: ProductRecordId;
+  organizationId: OrganizationId;
+  productId: ProductId;
+  name: string;
+  description: string;
+  websiteUrl: string;
+  iconUrl: string;
+  createdBySubjectId: SubjectId;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrganizationInvitationRecord {
+  kind: "organization-invitation";
+  schemaVersion: 1;
+  invitationId: InvitationId;
+  organizationId: OrganizationId;
+  email: string;
+  role: Exclude<OrganizationRole, "owner">;
+  verifierDigestHex: string;
+  createdBySubjectId: SubjectId;
+  createdAt: string;
+  expiresAt: string;
+  consumedAt: string | null;
+  revokedAt: string | null;
+}
 
 export interface PermissionGrant {
   scope: ResourceScope;
@@ -133,6 +198,10 @@ export interface EmailActionRecord {
 }
 
 export type AuthRecord =
+  | OrganizationRecord
+  | OrganizationMembershipRecord
+  | ProductRecord
+  | OrganizationInvitationRecord
   | SubjectRecord
   | MembershipRecord
   | ApiKeyRecord
@@ -145,6 +214,10 @@ export type AuthRecordFor<Kind extends AuthRecordKind> = Extract<
 >;
 
 export type AuthAggregate =
+  | { kind: "organization"; id: OrganizationId }
+  | { kind: "organization-membership"; id: OrganizationMembershipId }
+  | { kind: "product"; id: ProductRecordId }
+  | { kind: "organization-invitation"; id: InvitationId }
   | { kind: "subject"; id: SubjectId }
   | { kind: "membership"; id: MembershipId }
   | { kind: "api-key"; id: ApiKeyId }

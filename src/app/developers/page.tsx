@@ -7,7 +7,7 @@ const sections = [
     href: "/developers/getting-started",
     number: "01",
     title: "Getting started",
-    description: "Account setup, configuration, session behavior, and the current API surface.",
+    description: "Organization setup, products, invitations, and the current API surface.",
   },
   {
     href: "/developers/permissions",
@@ -67,7 +67,8 @@ export default function DevelopersPage() {
         </div>
         <ul className="secure-list">
           <li><CheckIcon />Email/password accounts and revocable browser sessions</li>
-          <li><CheckIcon />Administrator-managed generic product/project/workspace grants</li>
+          <li><CheckIcon />Organization-owned products and Owner/Admin/Member roles</li>
+          <li><CheckIcon />Organization-scoped product/project/workspace grants</li>
           <li><CheckIcon />API-key lifecycle with one-time secret display</li>
           <li><CheckIcon />Private DigitalOcean Spaces records and recoverable event snapshots</li>
         </ul>

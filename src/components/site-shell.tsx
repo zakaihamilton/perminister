@@ -1,4 +1,4 @@
-type ActivePage = "home" | "dashboard" | "developers";
+type ActivePage = "home" | "dashboard" | "developers" | "none";
 
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (

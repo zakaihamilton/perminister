@@ -4,20 +4,20 @@ import { CheckIcon } from "@/components/site-shell";
 
 const steps = [
   {
-    title: "Configure private storage and an administrator",
-    body: "Set the Spaces endpoint, bucket, region, access key, and secret. Add an account email to PERMINISTER_ADMIN_EMAILS, then register with that address to manage identities and grants.",
+    title: "Create an organization",
+    body: "Register and verify your account, then create an organization. Its creator becomes the Owner and can invite Admins and Members.",
   },
   {
-    title: "Create a central identity",
-    body: "Use the registration page to create an email/password account. Perminister stores a salted scrypt verifier and stable subject ID. Existing application accounts are never merged automatically.",
+    title: "Add a product",
+    body: "Owners and Admins can enter a website URL or search by name, then edit the suggested product name, ID, description, website, and icon before saving.",
   },
   {
-    title: "Create a scoped permission grant and API key",
-    body: "An administrator grants generic product/project/workspace actions. Each account creates a key limited to its own grants and sees its raw secret only once.",
+    title: "Grant access and create a key",
+    body: "An Owner or Admin grants product/project/workspace actions to a verified organization member. Members create their own keys from the access they have and see the secret only once.",
   },
   {
     title: "Authorize each server-side resource operation",
-    body: "Call POST /api/authorize from trusted server code with the bearer key, scope IDs, and action. The consumer application still loads and enforces access against its own resource.",
+    body: "Call POST /api/authorize from trusted server code with the bearer key, organization ID, scope IDs, and action. The consumer application still loads and enforces access against its own resource.",
   },
 ];
 
@@ -33,7 +33,7 @@ export default function GettingStartedPage() {
         <section className="guide-panel" aria-labelledby="flow-title">
           <div className="guide-panel-head">
             <h2 id="flow-title">First integration flow</h2>
-            <p>Configure storage before registration; create an administrator before assigning grants.</p>
+            <p>Set up an organization, add a product, then give members the access they need.</p>
           </div>
           <div className="steps">
             {steps.map((step, index) => (
@@ -60,8 +60,8 @@ export default function GettingStartedPage() {
             <p>Sign-in works without email delivery. Verification and password recovery require a Resend API key, an accepted sender address, and the public application origin; the UI never claims a message was sent when Resend rejects it.</p>
           </section>
           <section className="aside-card">
-            <h2>Account linking is not available</h2>
-            <p>Legacy accounts are not merged by matching email. A future migration must authenticate or otherwise verify both identities explicitly.</p>
+            <h2>Product search is optional</h2>
+            <p>Website import works on its own. Set <code>BRAVE_SEARCH_API_KEY</code> to enable product-name search; the API key stays on the server.</p>
           </section>
         </aside>
       </div>

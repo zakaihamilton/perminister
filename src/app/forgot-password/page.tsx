@@ -18,7 +18,7 @@ export default async function ForgotPasswordPage({
   const mailReady = isMailDeliveryConfigured();
   return (
     <>
-      <SiteHeader active="dashboard" />
+      <SiteHeader active="none" />
       <main className="page-shell auth-page-shell">
         <div className="container auth-page">
           <header className="auth-heading">

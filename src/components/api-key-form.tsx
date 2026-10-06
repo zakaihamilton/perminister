@@ -2,11 +2,14 @@
 
 import { useActionState } from "react";
 import { createApiKeyAction, type CreateApiKeyState } from "@/app/actions";
-import type { ResourceScope } from "@/lib/auth/domain";
+import type { ProductRecord, ResourceScope } from "@/lib/auth/domain";
 
 interface ApiKeyFormProps {
   rotateFromApiKeyId?: string;
   submitLabel?: string;
+  organizationId: string;
+  products: ProductRecord[];
+  returnTo: string;
   defaults?: {
     scope: ResourceScope;
     actions: readonly string[];
@@ -17,6 +20,9 @@ interface ApiKeyFormProps {
 export function ApiKeyForm({
   rotateFromApiKeyId,
   submitLabel = "Create API key",
+  organizationId,
+  products,
+  returnTo,
   defaults,
 }: ApiKeyFormProps) {
   const [state, action, pending] = useActionState<CreateApiKeyState, FormData>(
@@ -32,6 +38,8 @@ export function ApiKeyForm({
 
   return (
     <form action={action} className="auth-form management-form">
+      <input type="hidden" name="organizationId" value={organizationId} />
+      <input type="hidden" name="returnTo" value={returnTo} />
       {rotateFromApiKeyId ? (
         <input type="hidden" name="rotateFromApiKeyId" value={rotateFromApiKeyId} />
       ) : null}
@@ -45,8 +53,11 @@ export function ApiKeyForm({
           </select>
         </label>
         <label>
-          Product ID
-          <input name="productId" required maxLength={128} defaultValue={defaults?.scope.productId ?? ""} />
+          Product
+          <select name="productId" required defaultValue={defaults?.scope.productId ?? products[0]?.productId ?? ""}>
+            <option value="" disabled>Select a product</option>
+            {products.map((product) => <option key={product.productRecordId} value={product.productId}>{product.name}</option>)}
+          </select>
         </label>
         <label>
           Project or workspace ID
@@ -67,7 +78,7 @@ export function ApiKeyForm({
           </select>
         </label>
       </div>
-      <p className="form-hint">The project or workspace ID is required only when that scope type is selected.</p>
+      <p className="form-hint">Choose a product where your account already has the selected actions. Add a project or workspace ID when needed.</p>
       <button className="button button-primary form-submit" disabled={pending} type="submit">
         {pending ? "Saving…" : submitLabel}
       </button>
