@@ -208,6 +208,51 @@
       "scope": ".",
       "file": "lib/auth/storage/spaces.ts",
       "line": 207
+    },
+    {
+      "fingerprint": "c28df08ab26d636391627202",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/dashboard/[organizationId]/access/page.tsx",
+      "line": 66
+    },
+    {
+      "fingerprint": "c28df08ab26d636391627202",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/dashboard/[organizationId]/access/page.tsx",
+      "line": 66
+    },
+    {
+      "fingerprint": "248f754722742a1cb7f50aad",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/dashboard/[organizationId]/access/page.tsx",
+      "line": 71
+    },
+    {
+      "fingerprint": "248f754722742a1cb7f50aad",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/dashboard/[organizationId]/access/page.tsx",
+      "line": 71
+    },
+    {
+      "fingerprint": "34fdee5967d30f834e3c6300",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/dashboard/[organizationId]/people/page.tsx",
+      "line": 23
     }
   ]
 }

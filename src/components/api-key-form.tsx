@@ -2,6 +2,7 @@
 
 import { useActionState, useId } from "react";
 import { createApiKeyAction, type CreateApiKeyState } from "@/app/actions";
+import { CustomDropdown } from "@/components/custom-dropdown";
 import { Tooltip } from "@/components/tooltip";
 import type { ProductRecord, ResourceScope } from "@/lib/auth/domain";
 
@@ -52,28 +53,32 @@ export function ApiKeyForm({
             <label htmlFor={`${formId}-scope`}>Scope type</label>
             <Tooltip content="Choose whether this key can act across a product, or only within one project or workspace." />
           </div>
-          <select id={`${formId}-scope`} name="scopeKind" defaultValue={scopeKind}>
-            <option value="product">Product</option>
-            <option value="project">Project</option>
-            <option value="workspace">Workspace</option>
-          </select>
+          <CustomDropdown
+            aria-label="Scope type"
+            id={`${formId}-scope`}
+            name="scopeKind"
+            defaultValue={scopeKind}
+            options={[
+              { value: "product", label: "Product" },
+              { value: "project", label: "Project" },
+              { value: "workspace", label: "Workspace" },
+            ]}
+          />
         </div>
-        <label>
+        <label htmlFor={`${formId}-product`}>
           Product
-          <select
+          <CustomDropdown
+            aria-label="Product"
+            id={`${formId}-product`}
             name="productId"
             required
             defaultValue={defaults?.scope.productId ?? products[0]?.productId ?? ""}
-          >
-            <option value="" disabled>
-              Select a product
-            </option>
-            {products.map((product) => (
-              <option key={product.productRecordId} value={product.productId}>
-                {product.name}
-              </option>
-            ))}
-          </select>
+            placeholder="Select a product"
+            options={products.map((product) => ({
+              value: product.productId,
+              label: product.name,
+            }))}
+          />
         </label>
         <div className="form-field-with-tooltip">
           <div className="form-label-row">
@@ -106,17 +111,19 @@ export function ApiKeyForm({
             <label htmlFor={`${formId}-expiration`}>Expiration</label>
             <Tooltip content="An expired key cannot authorize requests. A key with no expiration stays active until it is revoked." />
           </div>
-          <select
+          <CustomDropdown
+            aria-label="Expiration"
             id={`${formId}-expiration`}
             name="expiresInDays"
             defaultValue={defaults?.expiresInDays ?? "30"}
-          >
-            <option value="1">1 day</option>
-            <option value="7">7 days</option>
-            <option value="30">30 days</option>
-            <option value="90">90 days</option>
-            <option value="never">No expiration</option>
-          </select>
+            options={[
+              { value: "1", label: "1 day" },
+              { value: "7", label: "7 days" },
+              { value: "30", label: "30 days" },
+              { value: "90", label: "90 days" },
+              { value: "never", label: "No expiration" },
+            ]}
+          />
         </div>
       </div>
       <p className="form-hint">

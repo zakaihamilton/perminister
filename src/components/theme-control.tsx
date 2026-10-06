@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Tooltip } from "@/components/tooltip";
+import { useCloseOnOutsidePointerDown } from "@/components/use-close-on-outside-pointer-down";
 
 export type ThemeChoice = "system" | "light" | "dark";
 
@@ -69,12 +70,9 @@ export function ThemeControl() {
     if (!open) return;
     const selectedIndex = themeOptions.findIndex((option) => option.value === choice);
     optionRefs.current[selectedIndex]?.focus();
-    const closeOutside = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", closeOutside);
-    return () => document.removeEventListener("pointerdown", closeOutside);
   }, [open, choice]);
+
+  useCloseOnOutsidePointerDown(open, rootRef, setOpen);
 
   function chooseTheme(next: ThemeChoice) {
     setChoice(next);

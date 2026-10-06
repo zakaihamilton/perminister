@@ -1,4 +1,5 @@
 import { createGrantAction, updateGrantStatusAction } from "@/app/actions";
+import { CustomDropdown } from "@/components/custom-dropdown";
 import { Tooltip } from "@/components/tooltip";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import {
@@ -161,42 +162,51 @@ export default async function AccessPage({
             <form action={createGrantAction} className="auth-form access-form">
               <input type="hidden" name="organizationId" value={organizationId} />
               <div className="form-grid">
-                <label>
+                <label htmlFor="grant-subject">
                   Person
-                  <select name="subjectId" required defaultValue="">
-                    <option value="" disabled>
-                      Select a team member
-                    </option>
-                    {eligibleMembers.map((member) => (
-                      <option
-                        key={member.membership.organizationMembershipId}
-                        value={member.membership.subjectId}
-                      >
-                        {member.email}
-                      </option>
-                    ))}
-                  </select>
+                  <CustomDropdown
+                    aria-label="Person"
+                    id="grant-subject"
+                    name="subjectId"
+                    required
+                    defaultValue=""
+                    placeholder="Select a team member"
+                    options={eligibleMembers.map((member) => ({
+                      value: member.membership.subjectId,
+                      label: member.email ?? "Account unavailable",
+                    }))}
+                  />
                 </label>
-                <label>
+                <label htmlFor="grant-product">
                   Product
-                  <select name="productId" required>
-                    {products.map((product) => (
-                      <option key={product.productRecordId} value={product.productId}>
-                        {product.name}
-                      </option>
-                    ))}
-                  </select>
+                  <CustomDropdown
+                    aria-label="Product"
+                    id="grant-product"
+                    name="productId"
+                    required
+                    defaultValue={products[0]?.productId ?? ""}
+                    options={products.map((product) => ({
+                      value: product.productId,
+                      label: product.name,
+                    }))}
+                  />
                 </label>
                 <div className="form-field-with-tooltip">
                   <div className="form-label-row">
                     <label htmlFor="grant-scope">Scope</label>
                     <Tooltip content="A product grant covers all resources in that product. Project and workspace grants narrow access to one resource." />
                   </div>
-                  <select id="grant-scope" name="scopeKind" defaultValue="product">
-                    <option value="product">Entire product</option>
-                    <option value="project">One project</option>
-                    <option value="workspace">One workspace</option>
-                  </select>
+                  <CustomDropdown
+                    aria-label="Scope"
+                    id="grant-scope"
+                    name="scopeKind"
+                    defaultValue="product"
+                    options={[
+                      { value: "product", label: "Entire product" },
+                      { value: "project", label: "One project" },
+                      { value: "workspace", label: "One workspace" },
+                    ]}
+                  />
                 </div>
                 <div className="form-field-with-tooltip">
                   <div className="form-label-row">

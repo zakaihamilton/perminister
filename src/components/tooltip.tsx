@@ -2,7 +2,6 @@
 
 import {
   cloneElement,
-  useEffect,
   useId,
   useRef,
   useState,
@@ -10,6 +9,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import { useCloseOnOutsidePointerDown } from "@/components/use-close-on-outside-pointer-down";
 
 export function Tooltip({
   content,
@@ -26,14 +26,7 @@ export function Tooltip({
   const rootRef = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
-    const closeOutside = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", closeOutside);
-    return () => document.removeEventListener("pointerdown", closeOutside);
-  }, [open]);
+  useCloseOnOutsidePointerDown(open, rootRef, setOpen);
 
   const buttonProps: ComponentProps<"button"> = {
     "aria-describedby": [trigger?.props["aria-describedby"], id].filter(Boolean).join(" "),
