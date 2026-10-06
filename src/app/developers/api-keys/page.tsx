@@ -4,7 +4,7 @@ import { CheckIcon, KeyIcon } from "@/components/site-shell";
 
 const lifecycle = [
   { title: "Create with a narrow scope", body: "Associate a key with an owner, consumer/resource scope, and only the actions it needs." },
-  { title: "Reveal the secret once", body: "The planned creation flow shows the raw secret only at creation. Authodox stores a SHA-256 verifier digest, not the plaintext key." },
+  { title: "Reveal the secret once", body: "The planned creation flow shows the raw secret only at creation. Perminister stores a SHA-256 verifier digest, not the plaintext key." },
   { title: "Rotate, expire, or revoke", body: "The domain record has lifecycle metadata for expiry, revocation, and rotation. User-facing lifecycle routes are still planned." },
 ];
 

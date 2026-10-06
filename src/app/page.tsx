@@ -29,7 +29,7 @@ export default function HomePage() {
             <p className="hero-kicker"><span className="kicker-spark" />Identity infrastructure for your products</p>
             <h1 id="hero-title">One identity layer.<br /><em>Every product.</em></h1>
             <p className="hero-lede">
-              Authodox brings shared identity, product-scoped permissions, and API-key lifecycle into one service—while each app keeps its own portal and its own data.
+              Perminister brings shared identity, product-scoped permissions, and API-key lifecycle into one service—while each app keeps its own portal and its own data.
             </p>
             <div className="hero-actions">
               <a className="button button-primary" href="/dashboard">Explore the dashboard <ArrowRight /></a>
@@ -59,15 +59,15 @@ export default function HomePage() {
                 </div>
                 <p className="flow-label">Identity and credential check</p>
                 <div className="flow-stem" aria-hidden="true" />
-                <div className="authodox-service-group">
-                  <div className="authodox-node">
+                <div className="perminister-service-group">
+                  <div className="perminister-node">
                     <Brand compact />
                     <div className="node-copy">
                       <strong>Identity and access service</strong>
-                      <span>Centralized by Authodox</span>
+                      <span>Centralized by Perminister</span>
                     </div>
                   </div>
-                  <div className="service-capabilities" aria-label="Authodox capabilities">
+                  <div className="service-capabilities" aria-label="Perminister capabilities">
                     <span>Identity &amp; credentials</span>
                     <span>Human session checks</span>
                     <span>Scoped permissions</span>
@@ -98,10 +98,10 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="trust-strip" aria-label="Authodox integration boundary">
+        <section className="trust-strip" aria-label="Perminister integration boundary">
           <div className="container trust-strip-inner">
             <span className="trust-label">Clear boundary</span>
-            <p className="trust-copy">Authodox provides identity and grants; each consumer app keeps its portal, session, data, and resource enforcement.</p>
+            <p className="trust-copy">Perminister provides identity and grants; each consumer app keeps its portal, session, data, and resource enforcement.</p>
             <span className="trust-caption">No connected-app data is loaded</span>
           </div>
         </section>
@@ -110,7 +110,7 @@ export default function HomePage() {
           <div className="section-heading">
             <p className="eyebrow">A shared foundation</p>
             <h2 id="approach-title">One identity. Clear boundaries.</h2>
-              <p>Give consumer applications a consistent way to identify people and request scoped access, without moving their domain data into Authodox.</p>
+              <p>Give consumer applications a consistent way to identify people and request scoped access, without moving their domain data into Perminister.</p>
           </div>
           <div className="feature-grid">
             <article className="feature-card">
@@ -126,7 +126,7 @@ export default function HomePage() {
             <article className="feature-card">
               <span className="feature-icon"><KeyIcon /></span>
               <h3>Keys with a lifecycle</h3>
-              <p>Scoped machine credentials are designed for rotation and revocation, with only a one-way verifier stored in Authodox.</p>
+              <p>Scoped machine credentials are designed for rotation and revocation, with only a one-way verifier stored in Perminister.</p>
             </article>
           </div>
         </section>
@@ -138,7 +138,7 @@ export default function HomePage() {
               <h2 id="boundary-title">Shared identity.<br />Product-owned access.</h2>
             </div>
             <div className="principle-copy">
-              <p>Authodox is a standalone identity and permission service. Each consumer application remains the place people start and the system that understands its own data.</p>
+              <p>Perminister is a standalone identity and permission service. Each consumer application remains the place people start and the system that understands its own data.</p>
               <ul className="principle-list">
                 <li><CheckIcon />Portals stay familiar to users</li>
                 <li><CheckIcon />App data and resource checks stay in each product</li>

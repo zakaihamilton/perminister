@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 export function GET() {
   return Response.json(
-    { service: "authodox", status: "ok" },
+    { service: "perminister", status: "ok" },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

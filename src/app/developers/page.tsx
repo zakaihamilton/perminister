@@ -43,8 +43,8 @@ export default function DevelopersPage() {
     <DeveloperGuideLayout
       active="overview"
       eyebrow="Developer guide"
-      title="Build with Authodox"
-      intro="Authodox provides shared human identity, sessions, scoped permissions, and API keys. Consumer applications keep their own entry points, app sessions, domain data, and resource enforcement."
+      title="Build with Perminister"
+      intro="Perminister provides shared human identity, sessions, scoped permissions, and API keys. Consumer applications keep their own entry points, app sessions, domain data, and resource enforcement."
     >
       <aside className="guide-notice" aria-label="Implementation status">
         <span className="callout-icon"><WarningIcon /></span>

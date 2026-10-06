@@ -2,7 +2,7 @@ type ActivePage = "home" | "dashboard" | "developers";
 
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <a className={`brand${compact ? " brand-compact" : ""}`} href="/" aria-label="Authodox home">
+    <a className={`brand${compact ? " brand-compact" : ""}`} href="/" aria-label="Perminister home">
       <span className="brand-mark" aria-hidden="true">
         <svg viewBox="0 0 40 40" fill="none">
           <path d="M20 3.5 34 9v10.4c0 8.1-5.7 13.9-14 17.1C11.7 33.3 6 27.5 6 19.4V9l14-5.5Z" />
@@ -10,7 +10,7 @@ export function Brand({ compact = false }: { compact?: boolean }) {
           <circle cx="29.8" cy="10.2" r="2.4" />
         </svg>
       </span>
-      <span className="brand-word">authodox<span className="brand-period">.</span></span>
+      <span className="brand-word">Perminister<span className="brand-period">.</span></span>
     </a>
   );
 }
@@ -67,7 +67,7 @@ export function SiteFooter() {
     <footer className="site-footer">
       <Brand compact />
       <p>Shared identity. Product-owned access.</p>
-      <span className="footer-note">Authodox · early product preview</span>
+      <span className="footer-note">Perminister · early product preview</span>
     </footer>
   );
 }

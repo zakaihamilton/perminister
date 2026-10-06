@@ -8,19 +8,19 @@ export default function StoragePage() {
       active="storage"
       eyebrow="Developer guide / Storage & readiness"
       title="Spaces is the only store"
-      intro="Authodox persists private records and event objects in DigitalOcean Spaces through its S3-compatible API. There is no database or local-storage fallback."
+      intro="Perminister persists private records and event objects in DigitalOcean Spaces through its S3-compatible API. There is no database or local-storage fallback."
     >
       <div className="guide-grid">
         <div className="guide-main">
           <section className="guide-panel" aria-labelledby="boundary-title">
             <div className="guide-panel-head">
               <h2 id="boundary-title">Storage boundary</h2>
-              <p>Consumer applications use future Authodox interfaces. They do not receive bucket credentials or access the bucket directly.</p>
+              <p>Consumer applications use future Perminister interfaces. They do not receive bucket credentials or access the bucket directly.</p>
             </div>
             <div className="storage-facts">
               <div className="storage-fact"><span>Persistence</span><strong>Private DigitalOcean Space</strong></div>
               <div className="storage-fact"><span>Region</span><strong>SFO3</strong></div>
-              <div className="storage-fact"><span>Example bucket</span><strong>authodox</strong></div>
+              <div className="storage-fact"><span>Example bucket</span><strong>perminister</strong></div>
               <div className="storage-fact"><span>Record keys</span><strong>Opaque UUIDs</strong></div>
               <div className="storage-fact"><span>Credential access</span><strong>Server-side only</strong></div>
             </div>

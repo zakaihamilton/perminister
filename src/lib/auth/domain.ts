@@ -20,11 +20,11 @@ const UUID_PATTERN =
 
 export function assertOpaqueId(value: string): void {
   if (!UUID_PATTERN.test(value)) {
-    throw new Error("Authodox object identifiers must be UUIDs");
+    throw new Error("Perminister object identifiers must be UUIDs");
   }
 }
 
-/** Open product identifier so Authodox stays independent of consumer catalogs. */
+/** Open product identifier so Perminister stays independent of consumer catalogs. */
 export type ProductId = string;
 
 export type ResourceScope =

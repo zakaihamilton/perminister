@@ -8,8 +8,8 @@ const steps = [
     body: "Keep the existing application portal as the place people start. The sign-in redirect and callback protocol is still planned.",
   },
   {
-    title: "Confirm human identity through Authodox",
-    body: "Authodox is intended to own shared identity and credential checks. Session boundaries and lifetimes are not finalized; each consumer app remains responsible for its own app session.",
+    title: "Confirm human identity through Perminister",
+    body: "Perminister is intended to own shared identity and credential checks. Session boundaries and lifetimes are not finalized; each consumer app remains responsible for its own app session.",
   },
   {
     title: "Link legacy accounts explicitly",
@@ -27,7 +27,7 @@ export default function GettingStartedPage() {
       active="getting-started"
       eyebrow="Developer guide / Getting started"
       title="Integrate at the boundary"
-      intro="Authodox centralizes identity checks. Each consumer application keeps its own portal, session, domain data, and authorization against those resources."
+      intro="Perminister centralizes identity checks. Each consumer application keeps its own portal, session, domain data, and authorization against those resources."
     >
       <div className="guide-grid">
         <section className="guide-panel" aria-labelledby="flow-title">
@@ -49,7 +49,7 @@ export default function GettingStartedPage() {
           <section className="aside-card">
             <h2>Keep ownership clear</h2>
             <ul className="secure-list">
-              <li><CheckIcon />Authodox owns shared human identity and credentials.</li>
+              <li><CheckIcon />Perminister owns shared human identity and credentials.</li>
               <li><CheckIcon />Consumer apps own their portals and app sessions.</li>
               <li><CheckIcon />Consumer apps own domain data and resource enforcement.</li>
             </ul>

@@ -58,7 +58,7 @@ export default function DashboardPage() {
             <span className="callout-icon"><WarningIcon /></span>
             <div>
               <strong>No authenticated session is available in this preview.</strong>
-              <p>Sign-in, account creation, and legacy-account linking routes are not implemented, so Authodox is not loading or changing account data here.</p>
+              <p>Sign-in, account creation, and legacy-account linking routes are not implemented, so Perminister is not loading or changing account data here.</p>
             </div>
           </section>
 
@@ -67,7 +67,7 @@ export default function DashboardPage() {
               <div className="panel-head">
                 <div>
                   <h2 className="panel-title" id="account-title">Central identity</h2>
-                  <p className="panel-subtitle">Your Authodox account and explicitly linked consumer accounts</p>
+                  <p className="panel-subtitle">Your Perminister account and explicitly linked consumer accounts</p>
                 </div>
                 <span className="subtle-label">Not loaded</span>
               </div>

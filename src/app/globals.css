@@ -204,8 +204,8 @@ button:focus-visible {
 .identity-source-copy strong { color: #38455b; font-size: 14px; }
 .identity-source-copy span { color: #7e8999; font-size: 12px; }
 .flow-label { margin: 10px 0 0; color: #788599; text-align: center; font: 12px "DM Mono", monospace; }
-.authodox-service-group { border: 1px solid #dfe5ef; border-radius: 12px; padding: 7px; background: #f4f6fa; }
-.authodox-node {
+.perminister-service-group { border: 1px solid #dfe5ef; border-radius: 12px; padding: 7px; background: #f4f6fa; }
+.perminister-node {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -215,12 +215,11 @@ button:focus-visible {
   color: white;
   background: var(--ink);
 }
-.authodox-node .brand-mark { width: 31px; height: 31px; }
-.authodox-node .brand-word { font-size: 15px; }
-.authodox-node .brand-word { color: white; }
-.authodox-node .brand-mark path:first-child { fill: #334055; stroke: #7d8ba4; }
-.authodox-node .brand-mark path:nth-child(2) { stroke: var(--mint); }
-.authodox-node .brand-mark circle { fill: var(--mint); }
+.perminister-node .brand-mark { width: 31px; height: 31px; }
+.perminister-node .brand-word { font-size: 15px; color: white; }
+.perminister-node .brand-mark path:first-child { fill: #334055; stroke: #7d8ba4; }
+.perminister-node .brand-mark path:nth-child(2) { stroke: var(--mint); }
+.perminister-node .brand-mark circle { fill: var(--mint); }
 .node-copy { display: grid; flex: 1 1 auto; min-width: 0; gap: 4px; }
 .node-copy strong { font: 700 14px/1.3 "Manrope", sans-serif; }
 .node-copy span { color: #bec8d7; font-size: 12px; }

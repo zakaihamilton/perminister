@@ -8,7 +8,7 @@ export default function PermissionsPage() {
       active="permissions"
       eyebrow="Developer guide / Permissions"
       title="Grant access in context"
-      intro="Authodox grants are scoped to a consumer application and, where needed, to a resource owned by that application. The consumer app still enforces each decision on its server."
+      intro="Perminister grants are scoped to a consumer application and, where needed, to a resource owned by that application. The consumer app still enforces each decision on its server."
     >
       <div className="guide-grid">
         <div className="guide-main">
@@ -30,7 +30,7 @@ export default function PermissionsPage() {
           <section className="guide-panel" aria-labelledby="enforcement-title">
             <div className="guide-panel-head">
               <h2 id="enforcement-title">Enforcement stays with the consumer</h2>
-              <p>Authodox describes identity and grants; the consuming system knows its resources.</p>
+              <p>Perminister describes identity and grants; the consuming system knows its resources.</p>
             </div>
             <div className="steps">
               <article className="step"><span className="step-number">01</span><div><h3>Resolve the requested resource</h3><p>Load the project, workspace, or other resource through the consumer app's own data layer.</p></div></article>
@@ -47,7 +47,7 @@ export default function PermissionsPage() {
           </section>
           <section className="aside-card">
             <h2>Live permission queries are planned</h2>
-            <p>No permission-query route or finalized response contract exists yet. Cache duration and behavior during an Authodox outage remain open decisions.</p>
+            <p>No permission-query route or finalized response contract exists yet. Cache duration and behavior during a Perminister outage remain open decisions.</p>
             <ul className="secure-list">
               <li><CheckIcon />Use server-side resource checks.</li>
               <li><CheckIcon />Keep application data in its consumer system.</li>

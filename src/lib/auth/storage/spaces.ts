@@ -19,7 +19,7 @@ import type {
 } from "../domain";
 import { assertOpaqueId } from "../domain";
 
-const OBJECT_ROOT = "authodox/v1";
+const OBJECT_ROOT = "perminister/v1";
 const RECORD_COLLECTION: Record<AuthRecordKind, string> = {
   subject: "subjects",
   membership: "memberships",
@@ -295,8 +295,9 @@ function requiredEnvironmentValue(env: Environment, name: string): string {
 export function createSpacesAuthStoreFromEnv(
   env: Environment = process.env,
 ): SpacesAuthStore {
-  const endpoint = requiredEnvironmentValue(env, "AUTHODOX_SPACES_ENDPOINT");
-  const region = requiredEnvironmentValue(env, "AUTHODOX_SPACES_REGION");
+  const endpoint = requiredEnvironmentValue(env, "PERMINISTER_SPACES_ENDPOINT");
+  const region = requiredEnvironmentValue(env, "PERMINISTER_SPACES_REGION");
+  const bucket = requiredEnvironmentValue(env, "PERMINISTER_SPACES_BUCKET");
   const parsedEndpoint = new URL(endpoint);
   if (
     parsedEndpoint.protocol !== "https:" ||
@@ -307,25 +308,23 @@ export function createSpacesAuthStoreFromEnv(
     parsedEndpoint.username ||
     parsedEndpoint.password ||
     parsedEndpoint.hostname.toLowerCase() !==
-      `${region.toLowerCase()}.digitaloceanspaces.com`
+      `${bucket.toLowerCase()}.${region.toLowerCase()}.digitaloceanspaces.com`
   ) {
-    throw new Error("Spaces endpoint must be a regional HTTPS endpoint");
+    throw new Error("Spaces endpoint must be the bucket's HTTPS endpoint");
   }
 
   const client = new S3Client({
-    endpoint: parsedEndpoint.origin,
+    // The configured endpoint names this bucket; the S3 SDK expects the regional base.
+    endpoint: `https://${region.toLowerCase()}.digitaloceanspaces.com`,
     region,
     credentials: {
-      accessKeyId: requiredEnvironmentValue(env, "AUTHODOX_SPACES_ACCESS_KEY"),
-      secretAccessKey: requiredEnvironmentValue(env, "AUTHODOX_SPACES_SECRET_KEY"),
+      accessKeyId: requiredEnvironmentValue(env, "PERMINISTER_SPACES_ACCESS_KEY"),
+      secretAccessKey: requiredEnvironmentValue(env, "PERMINISTER_SPACES_SECRET_KEY"),
     },
     maxAttempts: 3,
   });
 
-  return new SpacesAuthStore({
-    client,
-    bucket: requiredEnvironmentValue(env, "AUTHODOX_SPACES_BUCKET"),
-  });
+  return new SpacesAuthStore({ client, bucket });
 }
 
 export type StoredAuthRecord = VersionedRecord<
