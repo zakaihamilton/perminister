@@ -2705,10 +2705,6 @@ button:focus-visible {
   width: 100%;
   min-width: 0;
 }
-.sidebar-email-tooltip .tooltip-bubble {
-  width: 100%;
-  overflow-wrap: anywhere;
-}
 .sidebar-signout {
   width: 100%;
   min-height: 40px;
@@ -3159,7 +3155,11 @@ button:focus-visible {
   padding: 10px 12px;
   color: var(--ink);
   background: var(--surface-inset);
-  font: 500 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font:
+    500 14px/1.4 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 }
 .product-source-form input::placeholder {
   color: var(--muted);
@@ -5137,11 +5137,15 @@ summary:focus-visible {
   color: var(--blue-dark);
 }
 .tooltip-bubble {
-  position: absolute;
-  bottom: calc(100% + 9px);
-  left: 50%;
+  position: fixed;
+  top: 0;
+  left: 0;
   z-index: 120;
   width: min(250px, calc(100vw - 36px));
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
   border: 1px solid var(--line-strong);
   border-radius: 4px;
   padding: 9px 11px;
@@ -5151,29 +5155,7 @@ summary:focus-visible {
   font-size: 12px;
   font-weight: 450;
   line-height: 1.5;
-  transform: translateX(-50%);
-}
-.tooltip-bubble[hidden] {
-  display: none;
-}
-.tooltip-anchor:last-child .tooltip-bubble {
-  left: auto;
-  right: 0;
-  transform: none;
-}
-.theme-control .tooltip-bubble {
-  top: calc(100% + 9px);
-  right: auto;
-  bottom: auto;
-  left: 50%;
-  transform: translateX(-50%);
-}
-.dashboard-sidebar-theme .theme-control .tooltip-bubble {
-  top: auto;
-  right: 0;
-  bottom: calc(100% + 9px);
-  left: auto;
-  transform: none;
+  visibility: hidden;
 }
 
 html[data-theme="dark"] body {
@@ -6595,5 +6577,271 @@ html[data-theme="dark"] .home-closing-button:hover {
   .api-key-product-row > .button {
     width: 100%;
     justify-content: center;
+  }
+}
+:is(
+  a[href]:not([aria-disabled="true"]),
+  button:not(:disabled):not([aria-disabled="true"]),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  [role="menuitemradio"]:not([aria-disabled="true"]),
+  summary
+) {
+  transition:
+    color 140ms ease,
+    background 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    filter 140ms ease,
+    transform 140ms ease;
+}
+:is(
+  a[href]:not([aria-disabled="true"]),
+  button:not(:disabled):not([aria-disabled="true"]),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  [role="menuitemradio"]:not([aria-disabled="true"]),
+  summary
+):hover {
+  filter: brightness(0.97);
+}
+:is(
+  a[href]:not([aria-disabled="true"]),
+  button:not(:disabled):not([aria-disabled="true"]),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  [role="menuitemradio"]:not([aria-disabled="true"]),
+  summary
+):active {
+  filter: brightness(0.92);
+  transform: translateY(1px);
+}
+.button:not(:disabled):active {
+  transform: translateY(1px);
+}
+.product-card:hover {
+  border-color: var(--blue);
+  background: var(--surface-2);
+  box-shadow: 0 3px 10px rgba(38, 35, 27, 0.1);
+}
+.product-card:active {
+  border-color: var(--blue-dark);
+  background: var(--blue-pale);
+  transform: translateY(1px);
+}
+.product-card-arrow {
+  transition:
+    color 140ms ease,
+    transform 140ms ease;
+}
+.product-card:hover .product-card-arrow {
+  color: var(--blue);
+  transform: translate(2px, -2px);
+}
+.dashboard-product-preview {
+  border-radius: 4px;
+}
+.dashboard-product-preview:hover {
+  background: var(--surface-2);
+}
+.dashboard-product-preview:hover strong {
+  color: var(--blue-dark);
+}
+.dashboard-product-preview strong {
+  transition: color 140ms ease;
+}
+.dashboard-product-preview:active {
+  background: var(--blue-pale);
+  transform: translateY(1px);
+}
+.product-onboarding-card {
+  margin-bottom: 18px;
+}
+.product-onboarding-card .dashboard-card-heading {
+  margin-bottom: 16px;
+}
+.product-onboarding-card .dashboard-card-heading p {
+  max-width: 760px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.product-onboarding-steps {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.product-onboarding-steps li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 13px;
+  border-top: 1px solid var(--line);
+  padding: 15px 0;
+}
+.product-onboarding-steps li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.product-onboarding-steps li:last-child {
+  padding-bottom: 0;
+}
+.product-onboarding-steps .onboarding-step {
+  margin-top: 1px;
+}
+.product-onboarding-steps li > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.product-onboarding-step-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.product-onboarding-step-heading h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+}
+.product-onboarding-steps p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.product-onboarding-steps code {
+  border-radius: 3px;
+  padding: 1px 4px;
+  color: var(--ink);
+  background: var(--surface-2);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.access-actions-field {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 7px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 650;
+}
+.access-actions-field .custom-dropdown {
+  width: 100%;
+}
+.access-custom-actions {
+  display: grid;
+  gap: 7px;
+  margin-top: 4px;
+}
+.access-role-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.access-role-actions code {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 3px 6px;
+  color: var(--ink-soft);
+  background: var(--surface-inset);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-weight: 450;
+  overflow-wrap: anywhere;
+}
+.access-role-details {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 450;
+}
+.access-role-details summary {
+  width: fit-content;
+  color: var(--blue-dark);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.access-role-details > small {
+  display: block;
+  max-width: 620px;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.access-role-catalog-card {
+  margin-top: 18px;
+}
+.access-role-list {
+  display: grid;
+  gap: 9px;
+}
+.access-role-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 13px;
+  background: var(--surface-inset);
+}
+.access-role-item > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.access-role-item strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+.access-role-item span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.access-role-item form {
+  flex: 0 0 auto;
+  margin: 0;
+}
+.access-role-catalog-note {
+  margin: 13px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.access-role-create-form {
+  max-width: 700px;
+  margin-top: 17px;
+}
+.product-onboarding-status-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+html[data-theme="dark"] .product-onboarding-step-heading h3,
+html[data-theme="dark"] .product-onboarding-steps code,
+html[data-theme="dark"] .access-role-actions code,
+html[data-theme="dark"] .access-role-item strong {
+  color: var(--ink);
+}
+html[data-theme="dark"] .access-role-actions code {
+  border-color: var(--line);
+  background: var(--surface-2);
+}
+@media (max-width: 560px) {
+  .product-onboarding-card {
+    padding: 16px;
+  }
+  .product-onboarding-steps li {
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 10px;
+  }
+  .access-role-item {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

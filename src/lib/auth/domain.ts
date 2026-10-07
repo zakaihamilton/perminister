@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { ProductAccessRole } from "./access-roles";
 
 type BrandedId<Name extends string> = string & { readonly __brand: Name };
 
@@ -96,6 +97,8 @@ export interface ProductRecord {
   description: string;
   websiteUrl: string;
   iconUrl: string;
+  /** Organization-scoped reusable action bundles for this product. */
+  accessRoles?: ProductAccessRole[];
   createdBySubjectId: SubjectId;
   createdAt: string;
   updatedAt: string;
@@ -153,6 +156,8 @@ export interface MembershipRecord {
   subjectId: SubjectId;
   scope: ResourceScope;
   grants: readonly PermissionGrant[];
+  /** Optional display snapshot for grants created from a product-published access role. */
+  accessRole?: { id: string; name: string };
   status: "active" | "disabled";
   createdAt: string;
   updatedAt: string;

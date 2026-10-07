@@ -46,11 +46,7 @@ export function AccessGrantScopeFields() {
         </small>
       </div>
       {scopeKind !== "product" ? (
-        <label
-          className="access-resource-field"
-          htmlFor="grant-resource-id"
-          key={scopeKind}
-        >
+        <label className="access-resource-field" htmlFor="grant-resource-id" key={scopeKind}>
           {resourceLabel}
           <input
             id="grant-resource-id"

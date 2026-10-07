@@ -22,12 +22,16 @@ const steps = [
     body: "Owners and Admins can enter a website URL, then edit the suggested product name, ID, description, website, and icon before saving.",
   },
   {
-    title: "Grant access and create a key",
-    body: "A Product Owner or Admin grants product/project/workspace actions to an active product member. Product roles do not grant API actions by themselves. Members create their own keys from explicit grants and see each secret only once.",
+    title: "Connect the consumer app",
+    body: "Configure one server-side client ID and secret for the app, bound to its stable product ID. The app backend calls Perminister for identity and organization access, then keeps the app's own session and data. The same product ID can be added under several organizations; their people and grants remain separate.",
   },
   {
-    title: "Authorize each server-side resource operation",
-    body: "Call POST /api/authorize from trusted server code with the bearer key, organization ID, scope IDs, and action. The consumer application still loads and enforces access against its own resource.",
+    title: "Invite people and assign access",
+    body: "A Product Owner or Admin invites people and creates reusable access roles in the product's Access page. Each role bundles exact action names the app checks; the role can then be assigned at product, project, or workspace scope. Product membership roles do not grant app permissions by themselves.",
+  },
+  {
+    title: "Authorize app requests",
+    body: "The app backend keeps the Perminister consumer session in its own HttpOnly cookie and can check a person's organization, resource, and action with POST /api/authorize. For background integrations such as telemetry writers, use a separate service principal and a narrowly scoped API key.",
   },
 ];
 
@@ -44,8 +48,8 @@ export default function GettingStartedPage() {
           <div className="guide-panel-head">
             <h2 id="flow-title">First integration flow</h2>
             <p>
-              Request an organization, wait for approval, add a product, then give members the
-              access they need.
+              Request an organization, add the app once, then invite people and assign scoped
+              access.
             </p>
           </div>
           <div className="steps">

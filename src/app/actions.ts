@@ -10,6 +10,7 @@ import {
   createOrganization,
   createOrganizationInvitation,
   createOrganizationProduct,
+  createProductAccessRole,
   createProductInvitation,
   createPermissionGrant,
   createSession,
@@ -35,8 +36,9 @@ import {
   updateOrganizationProduct,
   updateProductMemberRole,
   removeProductMember,
+  removeProductAccessRole,
 } from "@/lib/auth/service";
-import type { ResourceScope } from "@/lib/auth/domain";
+import type { ResourceScope, SubjectId } from "@/lib/auth/domain";
 import {
   browserOriginFromHeaders,
   isMailDeliveryConfigured,
@@ -701,11 +703,13 @@ export async function createGrantAction(formData: FormData): Promise<void> {
   const organizationId = firstValue(formData, "organizationId");
   const productId = firstValue(formData, "productId");
   try {
+    const accessRoleId = firstValue(formData, "accessRoleId").trim();
     await createPermissionGrant(
       current.subject.subjectId,
       firstValue(formData, "subjectId"),
       parseScope(formData),
-      parseActions(formData),
+      accessRoleId ? [] : parseActions(formData),
+      accessRoleId || undefined,
     );
   } catch {
     redirect(
@@ -714,6 +718,51 @@ export async function createGrantAction(formData: FormData): Promise<void> {
   }
   redirect(
     `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access?notice=grant-created`,
+  );
+}
+
+async function runProductAccessRoleAction(
+  formData: FormData,
+  notice: "access-role-created" | "access-role-removed",
+  mutation: (subjectId: SubjectId, organizationId: string, productId: string) => Promise<unknown>,
+): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  const productId = firstValue(formData, "productId");
+  const accessPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access`;
+  try {
+    await mutation(current.subject.subjectId, organizationId, productId);
+  } catch {
+    redirect(`${accessPath}?error=access-role`);
+  }
+  redirect(`${accessPath}?notice=${notice}`);
+}
+
+export async function createProductAccessRoleAction(formData: FormData): Promise<void> {
+  await runProductAccessRoleAction(
+    formData,
+    "access-role-created",
+    (subjectId, organizationId, productId) =>
+      createProductAccessRole(subjectId, organizationId, productId, {
+        name: firstValue(formData, "roleName"),
+        description: firstValue(formData, "roleDescription"),
+        actions: firstValue(formData, "actions").split(/[\n,]/),
+      }),
+  );
+}
+
+export async function removeProductAccessRoleAction(formData: FormData): Promise<void> {
+  await runProductAccessRoleAction(
+    formData,
+    "access-role-removed",
+    (subjectId, organizationId, productId) =>
+      removeProductAccessRole(
+        subjectId,
+        organizationId,
+        productId,
+        firstValue(formData, "accessRoleId"),
+      ),
   );
 }
 
