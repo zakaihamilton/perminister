@@ -58,21 +58,11 @@ export default async function RegisterPage({
               ) : null}
               <label>
                 First name
-                <input
-                  name="firstName"
-                  type="text"
-                  autoComplete="given-name"
-                  maxLength={80}
-                />
+                <input name="firstName" type="text" autoComplete="given-name" maxLength={80} />
               </label>
               <label>
                 Last name
-                <input
-                  name="lastName"
-                  type="text"
-                  autoComplete="family-name"
-                  maxLength={80}
-                />
+                <input name="lastName" type="text" autoComplete="family-name" maxLength={80} />
               </label>
               <label>
                 Email address
