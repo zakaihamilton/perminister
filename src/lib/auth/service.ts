@@ -2,6 +2,8 @@ import "server-only";
 
 import { createHash, randomBytes, timingSafeEqual, scrypt as scryptCallback } from "node:crypto";
 import { cookies } from "next/headers";
+import { cache } from "react";
+import { mapWithConcurrency } from "./concurrency";
 import { authMutationQueue } from "./mutation-queue";
 import { withOrganizationMutationLock } from "./coordination";
 import { processLocalLoginThrottle } from "./login-throttle";
@@ -530,7 +532,7 @@ export async function getSessionFromToken(
   } catch {
     return null;
   }
-  return authMutationQueue.run(async () => {
+  return authMutationQueue.read(async () => {
     const session = await loadRecord("session", match[1] as SessionId);
     if (!session) return null;
     const record = session.record;
@@ -551,11 +553,13 @@ export async function getSessionFromToken(
   });
 }
 
-export async function getCurrentSession(): Promise<AuthenticatedSession | null> {
-  const cookieStore = await cookies();
-  const current = await getSessionFromToken(cookieStore.get(SESSION_COOKIE)?.value);
-  return current?.session.applicationClientId ? null : current;
-}
+export const getCurrentSession = cache(
+  async function getCurrentSession(): Promise<AuthenticatedSession | null> {
+    const cookieStore = await cookies();
+    const current = await getSessionFromToken(cookieStore.get(SESSION_COOKIE)?.value);
+    return current?.session.applicationClientId ? null : current;
+  },
+);
 
 export async function getConsumerSessionFromToken(
   token: string | null | undefined,
@@ -789,10 +793,10 @@ export async function createOrganization(
   });
 }
 
-export async function listOrganizationsForSubject(
+export const listOrganizationsForSubject = cache(async function listOrganizationsForSubject(
   subjectId: SubjectId,
 ): Promise<OrganizationSummary[]> {
-  return authMutationQueue.run(async () => {
+  return authMutationQueue.read(async () => {
     const memberships = (await store().listMembershipsForSubject(subjectId)).filter(
       (record) => record.status === "active",
     );
@@ -802,37 +806,42 @@ export async function listOrganizationsForSubject(
       entries.push(membership);
       byOrganization.set(membership.organizationId, entries);
     }
-    const summaries: OrganizationSummary[] = [];
-    for (const [organizationId, entries] of byOrganization) {
+    const summaries = await mapWithConcurrency<
+      [string, OrganizationMembershipRecord[]],
+      OrganizationSummary | null
+    >([...byOrganization.entries()], async ([organizationId, entries]) => {
       const organization = await loadRecord("organization", organizationId);
-      if (organization && organizationApprovalStatus(organization.record) === "approved") {
-        const catalogManager = entries.find((membership) => !membership.productId);
-        const productMember = entries.find((membership) => membership.productId);
-        if (catalogManager)
-          summaries.push({
-            organization: organization.record,
-            membership: catalogManager,
-            catalogManager: true,
-          });
-        else if (productMember) {
-          summaries.push({
-            organization: organization.record,
-            membership: {
-              ...productMember,
-              role: "member",
-              productId: undefined,
-              permissionGrants: undefined,
-            },
-            catalogManager: false,
-          });
-        }
+      if (!organization || organizationApprovalStatus(organization.record) !== "approved") {
+        return null;
       }
-    }
-    return summaries.sort((left, right) =>
-      left.organization.name.localeCompare(right.organization.name),
-    );
+      const catalogManager = entries.find((membership) => !membership.productId);
+      const productMember = entries.find((membership) => membership.productId);
+      if (catalogManager) {
+        return {
+          organization: organization.record,
+          membership: catalogManager,
+          catalogManager: true,
+        } satisfies OrganizationSummary;
+      }
+      if (productMember) {
+        return {
+          organization: organization.record,
+          membership: {
+            ...productMember,
+            role: "member",
+            productId: undefined,
+            permissionGrants: undefined,
+          },
+          catalogManager: false,
+        } satisfies OrganizationSummary;
+      }
+      return null;
+    });
+    return summaries
+      .filter((summary): summary is OrganizationSummary => summary !== null)
+      .sort((left, right) => left.organization.name.localeCompare(right.organization.name));
   });
-}
+});
 
 export async function listOrganizationRequestsForSubject(
   subjectId: SubjectId,
@@ -951,12 +960,15 @@ export async function listConsumerOrganizationsForSubject(
   });
 }
 
-export async function getOrganizationForSubject(
+export const getOrganizationForSubject = cache(async function getOrganizationForSubject(
   subjectId: SubjectId,
   organizationId: string,
 ): Promise<OrganizationSummary> {
-  return authMutationQueue.run(async () => {
-    const catalogManager = await organizationMembershipUnlocked(organizationId, subjectId);
+  return authMutationQueue.read(async () => {
+    const [catalogManager, organization] = await Promise.all([
+      organizationMembershipUnlocked(organizationId, subjectId),
+      loadRecord("organization", organizationId),
+    ]);
     const productMembership = catalogManager
       ? null
       : ((await store().listMembershipsForSubject(subjectId)).find(
@@ -965,7 +977,6 @@ export async function getOrganizationForSubject(
             !!entry.productId &&
             entry.status === "active",
         ) ?? null);
-    const organization = await loadRecord("organization", organizationId);
     if (
       (!catalogManager && !productMembership) ||
       !organization ||
@@ -981,7 +992,7 @@ export async function getOrganizationForSubject(
     };
     return { organization: organization.record, membership, catalogManager: !!catalogManager };
   });
-}
+});
 
 export async function updateOrganizationName(
   actorId: SubjectId,
@@ -1001,33 +1012,25 @@ export async function updateOrganizationName(
   );
 }
 
-export async function listOrganizationMembers(
+export const listOrganizationMembers = cache(async function listOrganizationMembers(
   actorId: SubjectId,
   organizationId: string,
 ): Promise<OrganizationMemberView[]> {
-  return authMutationQueue.run(async () => {
+  return authMutationQueue.read(async () => {
     await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
-    const memberships = (await listRecordsWithRecovery("organization-membership"))
-      .map((item) => item.record)
-      .filter(
-        (record) =>
-          record.organizationId === organizationId &&
-          !record.productId &&
-          record.status === "active",
-      )
+    const memberships = (await store().listOrganizationMemberships(organizationId))
+      .filter((record) => !record.productId && record.status === "active")
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-    const result: OrganizationMemberView[] = [];
-    for (const membership of memberships) {
+    return mapWithConcurrency(memberships, async (membership) => {
       const subject = await loadSubjectUnlocked(membership.subjectId);
-      result.push({
+      return {
         membership,
         email: subject?.primaryEmail ?? null,
         emailVerified: !!subject?.emailVerifiedAt,
-      });
-    }
-    return result;
+      };
+    });
   });
-}
+});
 
 async function requireOrganizationOwnerAndMemberUnlocked(
   actorId: SubjectId,
@@ -1362,15 +1365,20 @@ async function requireManageableProductUnlocked(
   return { actor, product };
 }
 
-export async function listProductsForOrganization(
+export const listProductsForOrganization = cache(async function listProductsForOrganization(
   subjectId: SubjectId,
   organizationId: string,
 ): Promise<ProductRecord[]> {
-  return authMutationQueue.run(async () => {
-    const organization = await loadApprovedOrganizationUnlocked(organizationId);
+  return authMutationQueue.read(async () => {
+    const [organization, catalogManager] = await Promise.all([
+      loadApprovedOrganizationUnlocked(organizationId),
+      organizationMembershipUnlocked(organizationId, subjectId),
+    ]);
     if (!organization) throw new Error("Organization not found.");
-    const catalogManager = await organizationMembershipUnlocked(organizationId, subjectId);
-    const memberRows = catalogManager ? [] : await store().listMembershipsForSubject(subjectId);
+    const [memberRows, products] = await Promise.all([
+      catalogManager ? Promise.resolve([]) : store().listMembershipsForSubject(subjectId),
+      store().listProducts(organizationId),
+    ]);
     const allowedProducts = new Set(
       memberRows
         .filter(
@@ -1380,11 +1388,11 @@ export async function listProductsForOrganization(
         .map((row) => row.productId!),
     );
     if (!catalogManager && allowedProducts.size === 0) throw new Error("Organization not found.");
-    return (await store().listProducts(organizationId))
+    return products
       .filter((product) => !!catalogManager || allowedProducts.has(product.productId))
       .sort((left, right) => left.name.localeCompare(right.name));
   });
-}
+});
 
 export async function getProductForOrganization(
   subjectId: SubjectId,
@@ -1930,35 +1938,43 @@ export async function acceptOrganizationInvitation(
   });
 }
 
-export async function listOrganizationPermissionGrants(
-  subjectId: SubjectId,
-  organizationId: string,
-): Promise<MembershipRecord[]> {
-  return authMutationQueue.run(async () => {
-    const catalogManager = await organizationMembershipUnlocked(organizationId, subjectId);
-    if (!catalogManager) {
-      const memberships = await store().listMembershipsForSubject(subjectId);
-      if (
-        !memberships.some(
-          (item) =>
-            item.organizationId === organizationId && item.productId && item.status === "active",
-        )
-      ) {
-        throw new Error("Organization not found.");
+export const listOrganizationPermissionGrants = cache(
+  async function listOrganizationPermissionGrants(
+    subjectId: SubjectId,
+    organizationId: string,
+  ): Promise<MembershipRecord[]> {
+    return authMutationQueue.read(async () => {
+      const catalogManager = await organizationMembershipUnlocked(organizationId, subjectId);
+      let memberships: OrganizationMembershipRecord[];
+      if (!catalogManager) {
+        memberships = await store().listMembershipsForSubject(subjectId);
+        if (
+          !memberships.some(
+            (item) =>
+              item.organizationId === organizationId && item.productId && item.status === "active",
+          )
+        ) {
+          throw new Error("Organization not found.");
+        }
+        memberships = memberships.filter(
+          (membership) => membership.organizationId === organizationId && !!membership.productId,
+        );
+      } else {
+        memberships = await store().listOrganizationMemberships(organizationId);
       }
-    }
-    const isCatalogManager = !!catalogManager;
-    return (await store().listOrganizationMemberships(organizationId))
-      .filter((membership) => !!membership.productId)
-      .flatMap((membership) => membership.permissionGrants ?? [])
-      .filter(
-        (record) =>
-          record.scope.organizationId === organizationId &&
-          (isCatalogManager || record.subjectId === subjectId),
-      )
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
-  });
-}
+      const isCatalogManager = !!catalogManager;
+      return memberships
+        .filter((membership) => !!membership.productId)
+        .flatMap((membership) => membership.permissionGrants ?? [])
+        .filter(
+          (record) =>
+            record.scope.organizationId === organizationId &&
+            (isCatalogManager || record.subjectId === subjectId),
+        )
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    });
+  },
+);
 
 export async function listOrganizationAudit(
   subjectId: SubjectId,
@@ -2672,16 +2688,14 @@ export async function createApiKeyForSubject(
   );
 }
 
-export async function listApiKeysForSubject(subjectId: SubjectId): Promise<ApiKeyRecord[]> {
-  return authMutationQueue.run(() => listApiKeysForSubjectUnlocked(subjectId));
-}
-
-async function listApiKeysForSubjectUnlocked(subjectId: SubjectId): Promise<ApiKeyRecord[]> {
-  return (await listRecordsWithRecovery("api-key"))
-    .map((item) => item.record)
-    .filter((record) => record.owner.kind === "subject" && record.owner.subjectId === subjectId)
-    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
-}
+export const listApiKeysForSubject = cache(async function listApiKeysForSubject(
+  subjectId: SubjectId,
+): Promise<ApiKeyRecord[]> {
+  return authMutationQueue.read(async () => {
+    const keys = await store().listApiKeysForSubject(subjectId);
+    return keys.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  });
+});
 
 export async function revokeApiKeyForSubject(actorId: SubjectId, apiKeyId: string): Promise<void> {
   assertOpaqueId(apiKeyId);
