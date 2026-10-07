@@ -39,7 +39,7 @@ async function sendVerificationIfNeeded(
 }
 
 export async function POST(request: Request) {
-  const client = requireConsumerClient(request);
+  const client = await requireConsumerClient(request);
   if (client instanceof Response) return client;
   if (!client.selfRegistrationEnabled) {
     return Response.json(

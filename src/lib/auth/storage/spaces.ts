@@ -93,6 +93,8 @@ function recordKey(record: AuthRecord): string {
       return `${OBJECT_PREFIX}orgs/${record.scope.organizationId}/products/${safeSegment(record.scope.productId)}/members/${record.subjectId}/grants/${record.membershipId}.json`;
     case "api-key":
       return `${OBJECT_PREFIX}api-keys/${record.apiKeyId}.json`;
+    case "consumer-client":
+      return `${OBJECT_PREFIX}consumer-clients/${record.consumerClientId}.json`;
     case "session":
       return `${OBJECT_PREFIX}sessions/${record.sessionId}.json`;
     case "email-action":
@@ -491,6 +493,7 @@ export class SpacesAuthStore {
       membership: [`${OBJECT_PREFIX}orgs/`],
       "service-principal": [`${OBJECT_PREFIX}service-principals/`],
       "api-key": [`${OBJECT_PREFIX}api-keys/`],
+      "consumer-client": [`${OBJECT_PREFIX}consumer-clients/`],
       session: [`${OBJECT_PREFIX}sessions/`],
       "email-action": [`${OBJECT_PREFIX}email-actions/`],
     };
@@ -517,6 +520,7 @@ export class SpacesAuthStore {
       subject: `${OBJECT_PREFIX}subjects/${id}.json`,
       organization: `${OBJECT_PREFIX}orgs/${id}/organization.json`,
       "api-key": `${OBJECT_PREFIX}api-keys/${id}.json`,
+      "consumer-client": `${OBJECT_PREFIX}consumer-clients/${id}.json`,
       session: `${OBJECT_PREFIX}sessions/${id}.json`,
       "email-action": `${OBJECT_PREFIX}email-actions/${id}.json`,
       "service-principal": `${OBJECT_PREFIX}service-principals/${id}.json`,
@@ -534,6 +538,8 @@ export class SpacesAuthStore {
         return `${OBJECT_PREFIX}orgs/${id}/organization.json`;
       case "api-key":
         return `${OBJECT_PREFIX}api-keys/${id}.json`;
+      case "consumer-client":
+        return `${OBJECT_PREFIX}consumer-clients/${id}.json`;
       case "session":
         return `${OBJECT_PREFIX}sessions/${id}.json`;
       case "email-action":

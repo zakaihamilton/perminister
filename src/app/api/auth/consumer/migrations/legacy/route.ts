@@ -1,13 +1,16 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { getConsumerClient } from "@/lib/auth/consumer-clients";
 import {
   isJsonRequest,
   NO_STORE_HEADERS,
   readBoundedJson,
   RequestBodyTooLargeError,
 } from "@/lib/auth/http";
-import { importLegacyAuthData, type LegacyAuthImportInput } from "@/lib/auth/service";
+import {
+  hasActiveConsumerClientForProduct,
+  importLegacyAuthData,
+  type LegacyAuthImportInput,
+} from "@/lib/auth/service";
 
 export const runtime = "nodejs";
 
@@ -127,11 +130,22 @@ export async function POST(request: Request) {
       { status: 400, headers: NO_STORE_HEADERS },
     );
   }
-  const visitoringClient = parsed.data.visitoring ? getConsumerClient("visitoring") : null;
-  const postparticleClient = parsed.data.postparticle ? getConsumerClient("postparticle") : null;
+  let visitoringConfigured = false;
+  let postparticleConfigured = false;
+  try {
+    [visitoringConfigured, postparticleConfigured] = await Promise.all([
+      parsed.data.visitoring ? hasActiveConsumerClientForProduct("visitoring") : false,
+      parsed.data.postparticle ? hasActiveConsumerClientForProduct("postparticle") : false,
+    ]);
+  } catch {
+    return Response.json(
+      { error: "Consumer client registry is temporarily unavailable." },
+      { status: 503, headers: NO_STORE_HEADERS },
+    );
+  }
   if (
-    (parsed.data.visitoring && !visitoringClient) ||
-    (parsed.data.postparticle && !postparticleClient)
+    (parsed.data.visitoring && !visitoringConfigured) ||
+    (parsed.data.postparticle && !postparticleConfigured)
   ) {
     return Response.json(
       { error: "Configure the corresponding consumer clients before importing accounts." },
@@ -142,8 +156,8 @@ export async function POST(request: Request) {
     const report = await importLegacyAuthData(
       parsed.data as LegacyAuthImportInput,
       {
-        ...(visitoringClient ? { visitoringProductId: visitoringClient.productId } : {}),
-        ...(postparticleClient ? { postparticleProductId: postparticleClient.productId } : {}),
+        ...(parsed.data.visitoring ? { visitoringProductId: "visitoring" } : {}),
+        ...(parsed.data.postparticle ? { postparticleProductId: "postparticle" } : {}),
       },
       parsed.data.dryRun,
     );

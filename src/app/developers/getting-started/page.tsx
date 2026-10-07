@@ -18,7 +18,7 @@ const steps = [
   },
   {
     title: "Connect the app backend",
-    body: "Have a Perminister administrator provision a client ID and secret for the product. The backend sends them in X-Perminister-Client-Id and X-Perminister-Client-Secret headers; never include the secret in browser code or logs.",
+    body: "A product owner or admin creates an app client from the product’s App clients page. Copy the client ID and one-time secret into the app backend. The backend sends them in X-Perminister-Client-Id and X-Perminister-Client-Secret headers; never include the secret in browser code or logs.",
   },
   {
     title: "Keep the app's own session",

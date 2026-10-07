@@ -2,28 +2,35 @@ import Link from "next/link";
 import { updateOrganizationProductAction } from "@/app/actions";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { ProductIcon } from "@/components/product-icon";
-import { Tooltip } from "@/components/tooltip";
 import {
   getProductPageContext,
   type ProductPageWithSearchParams,
 } from "@/lib/auth/product-page-context";
-import { getConsumerClientsForProduct } from "@/lib/auth/consumer-clients";
+import { listConsumerClientsForProduct } from "@/lib/auth/service";
 
 export default async function ProductPage({ params, searchParams }: ProductPageWithSearchParams) {
-  const [{ organizationId, productId, access: productAccess }, query] = await Promise.all([
+  const [{ current, organizationId, productId, access: productAccess }, query] = await Promise.all([
     getProductPageContext(params),
     searchParams,
   ]);
   const product = productAccess.product;
   const canManageDetails = productAccess.catalogManager;
   const productRole = productAccess.membership?.role;
-  const connectedClients = getConsumerClientsForProduct(product.productId);
   const canManageProduct = productRole === "owner" || productRole === "admin";
+  const productClients = canManageProduct
+    ? await listConsumerClientsForProduct(
+        current.subject.subjectId,
+        organizationId,
+        product.productId,
+      )
+    : [];
+  const connectedClients = productClients.filter((client) => client.status === "active");
   const productActionLinks = canManageProduct
     ? [
         { path: "people", label: "People" },
         { path: "access", label: "Access" },
         { path: "roles", label: "Access roles" },
+        { path: "clients", label: "App clients" },
         { path: "api-keys", label: "API keys" },
         { path: "activity", label: "Activity" },
       ]
@@ -89,42 +96,31 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
                 </div>
                 {connectedClients.length === 1 ? (
                   <p>
-                    {connectedClients[0].appName} has Perminister client credentials bound to
-                    product ID <code>{product.productId}</code>. Keep the client secret in the app
-                    server&apos;s environment. Reuse this app setup across organizations; each
+                    {connectedClients[0].appName} has active credentials for product ID{" "}
+                    <code>{product.productId}</code>. Keep the client secret in the app
+                    backend&apos;s environment. Reuse this client across organizations; each
                     organization keeps its own people and access grants.
                   </p>
                 ) : connectedClients.length > 1 ? (
                   <p>
-                    {connectedClients.length} app clients have credentials for this product ID. Use
-                    one shared app client to keep setup simple.
+                    {connectedClients.length} app clients have active credentials for this product
+                    ID. Keep each client secret in the corresponding app backend.
                   </p>
                 ) : (
                   <p>
-                    Connect the app&apos;s backend to Perminister. In the Perminister deployment
-                    environment, add the client ID to <code>PERMINISTER_APP_CLIENT_IDS</code>{" "}
-                    <Tooltip
-                      label="What PERMINISTER_APP_CLIENT_IDS means"
-                      content="Comma-separated IDs of the app clients enabled in this Perminister deployment. Add this app's client ID here."
-                    />
-                    , set <code>PERMINISTER_APP_CLIENT_{"{ID}"}_SECRET</code>{" "}
-                    <Tooltip
-                      label="What PERMINISTER_APP_CLIENT_{ID}_SECRET means"
-                      content="The secret shared by this app's backend and Perminister. Replace {ID} with the client ID in uppercase, using underscores for punctuation. Keep the secret server-side; it must be at least 32 characters."
-                    />
-                    to the app&apos;s client secret, and set{" "}
-                    <code>PERMINISTER_APP_CLIENT_{"{ID}"}_PRODUCT_ID</code>{" "}
-                    <Tooltip
-                      label="What PERMINISTER_APP_CLIENT_{ID}_PRODUCT_ID means"
-                      content="The product ID this client is associated with. Set it to this app's product ID and use that same ID in every organization."
-                    />
-                    to <code>{product.productId}</code>. Use the same product ID in every
-                    organization.
+                    Create an app client in Perminister, then store its client ID and secret in the
+                    app backend&apos;s environment. Use the same product ID in every organization.{" "}
+                    <Link
+                      className="text-link"
+                      href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/clients`}
+                    >
+                      Manage app clients
+                    </Link>
                   </p>
                 )}
                 <p className="product-onboarding-status-note">
-                  This status only checks Perminister&apos;s client configuration. Sign in through
-                  the application to verify that its backend integration works.
+                  This status checks active Perminister credentials. Sign in through the application
+                  to verify its backend integration.
                 </p>
                 <Link className="text-link" href="/developers/getting-started">
                   Read the app integration guide
