@@ -10,29 +10,37 @@ import {
 
 export function BreadcrumbBar({ items }: { items: readonly DashboardBreadcrumbItem[] }) {
   if (items.length === 0) return null;
-  const lastIndex = items.length - 1;
+  const currentPage = items[items.length - 1];
 
   return (
-    <nav aria-label="Breadcrumb" className="dashboard-breadcrumbs">
-      <ol>
-        {items.map((item, index) => (
-          <li key={`${item.label}-${index}`}>
-            {index < lastIndex && item.href ? (
-              <Link href={item.href}>{item.label}</Link>
-            ) : (
-              <h1 aria-current="page" className="dashboard-breadcrumb-current">
-                {item.label}
-              </h1>
-            )}
-            {index < lastIndex ? (
-              <span aria-hidden="true" className="dashboard-breadcrumb-separator">
-                /
-              </span>
-            ) : null}
-          </li>
-        ))}
-      </ol>
-    </nav>
+    <>
+      <nav aria-label="Breadcrumb" className="dashboard-breadcrumbs">
+        <ol>
+          {items.map((item, index) => {
+            const isCurrentPage = index === items.length - 1;
+            return (
+              <li key={`${item.label}-${index}`}>
+                {isCurrentPage ? (
+                  <span aria-current="page" className="dashboard-breadcrumb-current">
+                    {item.label}
+                  </span>
+                ) : item.href ? (
+                  <Link href={item.href}>{item.label}</Link>
+                ) : (
+                  <span>{item.label}</span>
+                )}
+                {!isCurrentPage ? (
+                  <span aria-hidden="true" className="dashboard-breadcrumb-separator">
+                    /
+                  </span>
+                ) : null}
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+      <h1 className="dashboard-page-title">{currentPage.label}</h1>
+    </>
   );
 }
 

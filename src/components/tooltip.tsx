@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  cloneElement,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type ComponentProps,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import { useEffect, useId, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useCloseOnOutsidePointerDown } from "@/components/use-close-on-outside-pointer-down";
 
@@ -17,12 +8,12 @@ export function Tooltip({
   content,
   children,
   label = "More information",
-  trigger,
+  triggerProps,
 }: {
   content: string;
   children?: ReactNode;
   label?: string;
-  trigger?: ReactElement<ComponentProps<"button">>;
+  triggerProps?: Omit<ComponentProps<"button">, "children">;
 }) {
   const id = useId();
   const rootRef = useRef<HTMLSpanElement>(null);
@@ -87,46 +78,46 @@ export function Tooltip({
   }, [content, open]);
 
   const buttonProps: ComponentProps<"button"> = {
-    "aria-describedby": [trigger?.props["aria-describedby"], id].filter(Boolean).join(" "),
-    "aria-label": trigger ? trigger.props["aria-label"] : label,
+    ...triggerProps,
+    "aria-describedby": [triggerProps?.["aria-describedby"], id].filter(Boolean).join(" "),
+    "aria-label": triggerProps?.["aria-label"] ?? label,
     onBlur: (event) => {
-      trigger?.props.onBlur?.(event);
+      triggerProps?.onBlur?.(event);
       setOpen(false);
     },
     onFocus: (event) => {
-      trigger?.props.onFocus?.(event);
+      triggerProps?.onFocus?.(event);
       setOpen(true);
     },
     onKeyDown: (event) => {
-      trigger?.props.onKeyDown?.(event);
+      triggerProps?.onKeyDown?.(event);
       if (event.key === "Escape") setOpen(false);
     },
     onPointerDown: (event) => {
-      trigger?.props.onPointerDown?.(event);
+      triggerProps?.onPointerDown?.(event);
       if (event.pointerType === "touch") setOpen((value) => !value);
     },
     onPointerEnter: (event) => {
-      trigger?.props.onPointerEnter?.(event);
+      triggerProps?.onPointerEnter?.(event);
       if (event.pointerType !== "touch") setOpen(true);
     },
     onPointerLeave: (event) => {
-      trigger?.props.onPointerLeave?.(event);
+      triggerProps?.onPointerLeave?.(event);
       if (event.pointerType !== "touch") setOpen(false);
     },
   };
-
-  const triggerContent = trigger ? (
-    cloneElement(trigger, buttonProps)
-  ) : (
-    <button aria-label={label} className="tooltip-trigger" type="button" {...buttonProps}>
-      {children ?? <span aria-hidden="true">i</span>}
-    </button>
-  );
+  const { className, type, ...restButtonProps } = buttonProps;
 
   return (
     <>
       <span className="tooltip-anchor" ref={rootRef}>
-        {triggerContent}
+        <button
+          {...restButtonProps}
+          className={className ?? "tooltip-trigger"}
+          type={type ?? "button"}
+        >
+          {children ?? <span aria-hidden="true">i</span>}
+        </button>
       </span>
       {open && typeof document !== "undefined"
         ? createPortal(

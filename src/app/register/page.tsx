@@ -7,6 +7,7 @@ import { getCurrentSession } from "@/lib/auth/service";
 const errorText: Record<string, string> = {
   "account-exists": "An account with this email address already exists. Sign in instead.",
   "invalid-email": "Enter a valid email address.",
+  "invalid-name": "Names must be 80 characters or fewer.",
   "password-policy": "Use a password with at least 15 characters.",
   "password-mismatch": "The passwords do not match.",
   "registration-unavailable":
@@ -55,6 +56,14 @@ export default async function RegisterPage({
               {invitationToken ? (
                 <input type="hidden" name="invitationToken" value={invitationToken} />
               ) : null}
+              <label>
+                First name
+                <input name="firstName" type="text" autoComplete="given-name" maxLength={80} />
+              </label>
+              <label>
+                Last name
+                <input name="lastName" type="text" autoComplete="family-name" maxLength={80} />
+              </label>
               <label>
                 Email address
                 <input name="email" type="email" autoComplete="email" maxLength={254} required />

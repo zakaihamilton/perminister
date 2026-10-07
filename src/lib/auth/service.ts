@@ -92,6 +92,20 @@ function canonicalEmail(value: string): string {
   return email;
 }
 
+const PERSON_NAME_MAX_LENGTH = 80;
+
+function normalizedPersonName(
+  value: string | undefined,
+  label: "First" | "Last",
+): string | undefined {
+  if (value === undefined) return undefined;
+  const name = value.trim();
+  if (name.length > PERSON_NAME_MAX_LENGTH) {
+    throw new Error(`${label} name must be ${PERSON_NAME_MAX_LENGTH} characters or fewer.`);
+  }
+  return name || undefined;
+}
+
 function validatePassword(password: string): void {
   if (password.length < 15) {
     throw new Error("Use a password with at least 15 characters.");
@@ -315,8 +329,11 @@ async function loadSubjectUnlocked(subjectId: string): Promise<SubjectRecord | n
 export async function registerAccount(
   emailInput: string,
   password: string,
+  profile: { firstName?: string; lastName?: string } = {},
 ): Promise<SubjectRecord> {
   const email = canonicalEmail(emailInput);
+  const firstName = normalizedPersonName(profile.firstName, "First");
+  const lastName = normalizedPersonName(profile.lastName, "Last");
   const passwordCredential = await createPasswordCredential(password);
   return authMutationQueue.run(async () => {
     if (await loadSubjectByEmailUnlocked(email)) {
@@ -328,6 +345,8 @@ export async function registerAccount(
       schemaVersion: 1,
       subjectId: newSubjectId(),
       status: "active",
+      firstName,
+      lastName,
       primaryEmail: email,
       emailVerifiedAt: null,
       passwordCredential,
@@ -340,6 +359,31 @@ export async function registerAccount(
       subjectId: subject.subjectId,
     });
     return subject;
+  });
+}
+
+export async function updateAccountProfile(
+  subjectId: SubjectId,
+  profile: { firstName: string; lastName: string },
+): Promise<void> {
+  const firstName = normalizedPersonName(profile.firstName, "First");
+  const lastName = normalizedPersonName(profile.lastName, "Last");
+  await authMutationQueue.run(async () => {
+    const current = await loadSubjectUnlocked(subjectId);
+    if (!current || current.status !== "active") {
+      throw new Error("This account cannot update its profile.");
+    }
+    if (current.firstName === firstName && current.lastName === lastName) return;
+    const next: SubjectRecord = {
+      ...current,
+      firstName,
+      lastName,
+      updatedAt: new Date().toISOString(),
+    };
+    await persistRecord(next, "identity.profile-updated", {
+      kind: "subject",
+      subjectId,
+    });
   });
 }
 
@@ -2001,6 +2045,8 @@ export async function previewLegacyAccessRetirement(
 export interface PublicAccount {
   subjectId: SubjectId;
   email: string | null;
+  firstName: string | null;
+  lastName: string | null;
   status: SubjectRecord["status"];
   emailVerified: boolean;
   administrator: boolean;
@@ -2011,6 +2057,8 @@ function publicAccount(subject: SubjectRecord): PublicAccount {
   return {
     subjectId: subject.subjectId,
     email: subject.primaryEmail,
+    firstName: subject.firstName ?? null,
+    lastName: subject.lastName ?? null,
     status: subject.status,
     emailVerified: !!subject.emailVerifiedAt,
     administrator: isAdministrator(subject),

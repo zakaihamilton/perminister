@@ -6,7 +6,6 @@ import { DashboardBreadcrumbs } from "@/components/dashboard-breadcrumbs";
 import { DashboardNavigation } from "@/components/dashboard-navigation";
 import { OrganizationSwitcher } from "@/components/organization-switcher";
 import { ThemeControl } from "@/components/theme-control";
-import { Tooltip } from "@/components/tooltip";
 import type { DashboardBreadcrumbProduct } from "@/lib/dashboard-breadcrumbs";
 
 export function DashboardShell({
@@ -16,6 +15,8 @@ export function DashboardShell({
   organizations,
   role,
   email,
+  firstName,
+  lastName,
   children,
 }: {
   organizationId: string;
@@ -24,8 +25,14 @@ export function DashboardShell({
   organizations: OrganizationSummary[];
   role: "owner" | "admin" | "member";
   email: string | null;
+  firstName: string | null;
+  lastName: string | null;
   children: ReactNode;
 }) {
+  const displayName = [firstName?.trim(), lastName?.trim()]
+    .filter((name): name is string => !!name)
+    .join(" ");
+
   return (
     <div className="dashboard-layout">
       <aside className="dashboard-sidebar">
@@ -38,20 +45,10 @@ export function DashboardShell({
           <ThemeControl />
         </div>
         <div className="dashboard-sidebar-footer">
-          {email ? (
-            <div className="sidebar-email-tooltip">
-              <Tooltip
-                content={email}
-                trigger={
-                  <button
-                    aria-label="Show full email address"
-                    className="sidebar-email"
-                    type="button"
-                  >
-                    {email}
-                  </button>
-                }
-              />
+          {email || displayName ? (
+            <div className="sidebar-account">
+              {email ? <div className="sidebar-email">{email}</div> : null}
+              {displayName ? <p className="sidebar-account-name">{displayName}</p> : null}
             </div>
           ) : null}
           <form action={signOutAction}>

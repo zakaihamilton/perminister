@@ -2,6 +2,7 @@
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import {
   authenticate,
   acceptOrganizationInvitation,
@@ -30,6 +31,7 @@ import {
   setSessionCookie,
   signOutCurrentSession,
   updateAccountStatus,
+  updateAccountProfile,
   updateGrantStatus,
   updateOrganizationMemberRole,
   updateOrganizationName,
@@ -47,7 +49,11 @@ import {
   sendProductInvitationEmail,
   sendVerificationEmail,
 } from "@/lib/auth/mail";
-import { consumeProductLookupRateLimit } from "@/lib/auth/coordination";
+import {
+  consumePasswordRecoveryRateLimit,
+  consumeProductLookupRateLimit,
+  passwordRecoveryRequesterKey,
+} from "@/lib/auth/coordination";
 
 function publicActionError(error: unknown): string {
   if (!(error instanceof Error)) return "Perminister could not complete that request.";
@@ -58,6 +64,8 @@ function publicActionError(error: unknown): string {
     "Use a password",
     "Password must be",
     "Enter a valid email address.",
+    "First name must be 80 characters or fewer.",
+    "Last name must be 80 characters or fewer.",
     "Enter a valid product ID.",
     "Enter a valid project ID.",
     "Enter a valid workspace ID.",
@@ -160,16 +168,21 @@ export async function registerAction(formData: FormData): Promise<void> {
     redirect(`/register?error=password-mismatch${invitationQuery}`);
   let subject;
   try {
-    subject = await registerAccount(email, password);
+    subject = await registerAccount(email, password, {
+      firstName: firstValue(formData, "firstName"),
+      lastName: firstValue(formData, "lastName"),
+    });
   } catch (error) {
     const message = publicActionError(error);
     const code = message.startsWith("An account with")
       ? "account-exists"
       : message.startsWith("Enter a valid email")
         ? "invalid-email"
-        : message.startsWith("Use a password") || message.startsWith("Password must")
-          ? "password-policy"
-          : "registration-unavailable";
+        : message.startsWith("First name") || message.startsWith("Last name")
+          ? "invalid-name"
+          : message.startsWith("Use a password") || message.startsWith("Password must")
+            ? "password-policy"
+            : "registration-unavailable";
     redirect(`/register?error=${code}${invitationQuery}`);
   }
 
@@ -281,19 +294,20 @@ export async function verifyEmailAction(formData: FormData): Promise<void> {
 
 export async function requestPasswordRecoveryAction(formData: FormData): Promise<void> {
   if (!isMailDeliveryConfigured()) redirect("/forgot-password?error=mail-not-configured");
-  let delivery: { email: string; token: string } | null;
-  try {
-    delivery = await issueRecoveryAction(firstValue(formData, "email"));
-  } catch {
-    redirect("/forgot-password?error=invalid-email");
+  const email = firstValue(formData, "email");
+  const requestHeaders = await headers();
+  if (!consumePasswordRecoveryRateLimit(email, passwordRecoveryRequesterKey(requestHeaders))) {
+    redirect("/forgot-password?notice=requested");
   }
-  if (!delivery) redirect("/forgot-password?notice=requested");
-  try {
-    const origin = browserOriginFromHeaders(await headers());
-    await sendRecoveryEmail(delivery.email, delivery.token, { origin });
-  } catch {
-    redirect("/forgot-password?error=delivery-failed");
-  }
+  const origin = requestHeaders.get("origin");
+  after(async () => {
+    try {
+      const delivery = await issueRecoveryAction(email);
+      if (delivery) await sendRecoveryEmail(delivery.email, delivery.token, { origin });
+    } catch {
+      // Keep recovery delivery and account existence out of the response.
+    }
+  });
   redirect("/forgot-password?notice=requested");
 }
 
@@ -671,6 +685,21 @@ export async function updateOrganizationNameAction(formData: FormData): Promise<
     redirect(`/dashboard/${organizationId}/settings?error=settings`);
   }
   redirect(`/dashboard/${organizationId}/settings?notice=settings-saved`);
+}
+
+export async function updateAccountProfileAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const returnTo = dashboardReturnTo(formData);
+  try {
+    await updateAccountProfile(current.subject.subjectId, {
+      firstName: firstValue(formData, "firstName"),
+      lastName: firstValue(formData, "lastName"),
+    });
+  } catch {
+    redirect(`${returnTo}?error=profile`);
+  }
+  redirect(`${returnTo}?notice=profile-saved`);
 }
 
 export async function retireLegacyAccessAction(): Promise<void> {

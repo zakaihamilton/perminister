@@ -78,8 +78,9 @@ describe("dashboard breadcrumbs", () => {
     expect(html).toContain('<nav aria-label="Breadcrumb"');
     expect(html).toContain('href="/dashboard/org-123/products/visitoring"');
     expect(html).toContain(
-      '<h1 aria-current="page" class="dashboard-breadcrumb-current">Access roles</h1>',
+      '<span aria-current="page" class="dashboard-breadcrumb-current">Access roles</span>',
     );
+    expect(html).toContain('<h1 class="dashboard-page-title">Access roles</h1>');
     expect(html).toContain('aria-hidden="true"');
     expect(html).not.toContain('<a href="/dashboard/org-123/products/visitoring/roles">');
   });
