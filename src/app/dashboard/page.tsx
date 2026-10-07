@@ -71,6 +71,30 @@ export default async function DashboardHome({
               before creating an organization.
             </p>
           ) : null}
+          {params.notice === "verification-sent" ? (
+            <p className="dashboard-notice success" role="status">
+              We sent a verification link to{" "}
+              <strong>{current.subject.primaryEmail ?? "your email address"}</strong>. Check your
+              inbox and spam folder.
+            </p>
+          ) : null}
+          {params.notice === "email-already-verified" ? (
+            <p className="dashboard-notice success" role="status">
+              Your email address is already verified. You can request an organization now.
+            </p>
+          ) : null}
+          {params.notice === "mail-not-configured" ? (
+            <p className="dashboard-notice error" role="alert">
+              Email delivery is not configured, so we could not send a verification link. Ask the
+              Perminister operator to configure email delivery.
+            </p>
+          ) : null}
+          {params.notice === "verification-delivery-failed" ? (
+            <p className="dashboard-notice error" role="alert">
+              We could not send the verification email. Check your inbox before trying again, or
+              contact the Perminister operator.
+            </p>
+          ) : null}
 
           {pendingRequest ? (
             <section className="onboarding-card">
