@@ -1,4 +1,5 @@
-import { createHash } from "node:crypto";
+import { createHash, scryptSync } from "node:crypto";
+import { hash as hashArgon2id } from "@node-rs/argon2";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -172,6 +173,23 @@ class MemoryStore {
         .find(
           (record): record is Extract<AuthRecord, { kind: "subject" }> =>
             record.kind === "subject" && record.primaryEmail === email,
+        )?.subjectId ?? null
+    );
+  }
+
+  async findSubjectIdByUsername(productId: string, username: string) {
+    this.objectReads += 1;
+    return (
+      [...this.records.values()]
+        .map((value) => value.record)
+        .find(
+          (record): record is Extract<AuthRecord, { kind: "subject" }> =>
+            record.kind === "subject" &&
+            record.loginIdentifiers?.some(
+              (identifier) =>
+                identifier.productId === productId &&
+                identifier.normalizedValue === username.trim().toLowerCase(),
+            ) === true,
         )?.subjectId ?? null
     );
   }
@@ -654,6 +672,687 @@ describe("organization approval", () => {
       ),
     ).rejects.toThrow("Administrator access is required.");
     expect(organization.approvalStatus).toBe("pending");
+  });
+});
+
+describe("consumer identity migration and management", () => {
+  let store: MemoryStore;
+  let service: typeof import("../../src/lib/auth/service");
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.stubEnv("PERMINISTER_ADMIN_EMAILS", "");
+    store = new MemoryStore();
+    seedAuthorizationData(store);
+    for (const [index, productId] of ["visitoring", "postparticle"].entries()) {
+      store.seed({
+        kind: "product",
+        schemaVersion: 1,
+        productRecordId: (index === 0 ? ROLE_PRODUCT_RECORD_ID : API_KEY_ID) as never,
+        organizationId: ORGANIZATION_ID as never,
+        productId,
+        name: productId,
+        description: "",
+        websiteUrl: "https://example.com",
+        iconUrl: "",
+        createdBySubjectId: SUBJECT_ID as never,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as AuthRecord);
+    }
+    mocks.store = store;
+    service = await import("../../src/lib/auth/service");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("verifies and upgrades Visitoring Argon2id and PostParticle scrypt credentials", async () => {
+    const password = "Legacy password long enough 7!";
+    const now = new Date().toISOString();
+    const argonHash = await hashArgon2id(password);
+    const postParticleSalt = "0123456789abcdef0123456789abcdef";
+    const postParticleHash = `${postParticleSalt}:${scryptSync(password, postParticleSalt, 64).toString("hex")}`;
+    const visitoringId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const postParticleId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    store.seed({
+      kind: "subject",
+      schemaVersion: 1,
+      subjectId: visitoringId as never,
+      status: "active",
+      primaryEmail: "argon@example.com",
+      emailVerifiedAt: null,
+      emailVerificationExempt: true,
+      passwordCredential: {
+        algorithm: "argon2id",
+        format: "argon2id-phc",
+        encodedVerifier: argonHash,
+        updatedAt: now,
+      },
+      authVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    store.seed({
+      kind: "subject",
+      schemaVersion: 1,
+      subjectId: postParticleId as never,
+      status: "active",
+      primaryEmail: null,
+      emailVerifiedAt: null,
+      emailVerificationExempt: true,
+      loginIdentifiers: [
+        { kind: "username", productId: "postparticle", value: "writer", normalizedValue: "writer" },
+      ],
+      passwordCredential: {
+        algorithm: "scrypt",
+        format: "postparticle-scrypt-v1",
+        encodedVerifier: postParticleHash,
+        updatedAt: now,
+      },
+      authVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+
+    await expect(
+      service.authenticate("argon@example.com", password, "visitoring"),
+    ).resolves.toMatchObject({
+      subjectId: visitoringId,
+    });
+    await expect(service.authenticate("writer", password, "postparticle")).resolves.toMatchObject({
+      subjectId: postParticleId,
+    });
+    expect(store.records.get(store.key("subject", visitoringId))?.record).toMatchObject({
+      passwordCredential: { algorithm: "scrypt", format: "perminister-scrypt-v1" },
+    });
+    expect(store.records.get(store.key("subject", postParticleId))?.record).toMatchObject({
+      passwordCredential: { algorithm: "scrypt", format: "perminister-scrypt-v1" },
+    });
+
+    const session = await service.createConsumerSession(
+      postParticleId as never,
+      "postparticle",
+      "postparticle",
+      8 * 60 * 60 * 1000,
+    );
+    expect(Date.parse(session.session.expiresAt) - Date.parse(session.session.createdAt)).toBe(
+      8 * 60 * 60 * 1000,
+    );
+    await expect(
+      service.getConsumerSessionFromToken(session.token, "postparticle"),
+    ).resolves.toMatchObject({ subject: { subjectId: postParticleId } });
+  });
+
+  it("reports duplicate-email credential conflicts, imports the selected identity, and is idempotent", async () => {
+    const argonHash = await hashArgon2id("Visitoring password 123!");
+    const salt = "abcdef0123456789abcdef0123456789";
+    const postParticleHash = `${salt}:${scryptSync("PostParticle password 123!", salt, 64).toString("hex")}`;
+    const input = {
+      visitoring: {
+        organizationId: ORGANIZATION_ID,
+        users: [{ id: "visitor-user-1", email: "shared@example.com", passwordHash: argonHash }],
+        memberships: [
+          { userId: "visitor-user-1", workspaceId: "workspace-1", role: "admin" as const },
+        ],
+      },
+      postparticle: {
+        organizationId: ORGANIZATION_ID,
+        users: [
+          {
+            username: "sharedwriter",
+            email: "shared@example.com",
+            passwordHash: postParticleHash,
+            platformAdmin: true,
+          },
+        ],
+        memberships: [
+          { username: "sharedwriter", projectId: "project-1", role: "editor" as const },
+        ],
+      },
+    };
+
+    const dryRun = await service.importLegacyAuthData(
+      input,
+      { visitoringProductId: "visitoring", postparticleProductId: "postparticle" },
+      true,
+    );
+    expect(dryRun.applied).toBe(false);
+    expect(dryRun.conflicts).toMatchObject([
+      {
+        identity: "email:shared@example.com",
+        candidates: ["visitoring:visitor-user-1", "postparticle:sharedwriter"],
+      },
+    ]);
+    expect(store.writes).toHaveLength(0);
+
+    const resolved = await service.importLegacyAuthData(
+      {
+        ...input,
+        credentialSelections: { "email:shared@example.com": "visitoring:visitor-user-1" },
+      },
+      { visitoringProductId: "visitoring", postparticleProductId: "postparticle" },
+      false,
+    );
+    expect(resolved.applied).toBe(true);
+    const subjectId = await store.findSubjectIdByEmail("shared@example.com");
+    expect(subjectId).toBeTruthy();
+    const subject = store.records.get(store.key("subject", subjectId!))?.record;
+    expect(subject).toMatchObject({
+      emailVerificationExempt: true,
+      primaryEmail: "shared@example.com",
+      loginIdentifiers: [
+        expect.objectContaining({ productId: "postparticle", normalizedValue: "sharedwriter" }),
+      ],
+      passwordCredential: { algorithm: "argon2id", format: "argon2id-phc" },
+    });
+    const importedSession = await service.createConsumerSession(
+      subjectId as never,
+      "visitoring",
+      "visitoring",
+      30 * 24 * 60 * 60 * 1000,
+    );
+    expect(
+      Date.parse(importedSession.session.expiresAt) - Date.parse(importedSession.session.createdAt),
+    ).toBe(30 * 24 * 60 * 60 * 1000);
+
+    const postparticleAccess = await service.listConsumerOrganizationsForSubject(
+      subjectId as never,
+      "postparticle",
+    );
+    expect(postparticleAccess[0]).toMatchObject({ platformAdmin: true });
+    expect(postparticleAccess[0]?.resourceRoles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ role: "platform-admin" }),
+        expect.objectContaining({ role: "editor" }),
+      ]),
+    );
+    const grantCountBefore = (await store.listRecords("membership")).length;
+    const rerun = await service.importLegacyAuthData(
+      {
+        ...input,
+        credentialSelections: { "email:shared@example.com": "visitoring:visitor-user-1" },
+      },
+      { visitoringProductId: "visitoring", postparticleProductId: "postparticle" },
+      false,
+    );
+    expect(rerun.applied).toBe(true);
+    expect((await store.listRecords("membership")).length).toBe(grantCountBefore);
+  });
+
+  it("rejects duplicate source account references even when their emails differ", async () => {
+    const passwordHash = await hashArgon2id("Visitoring password 123!");
+    const report = await service.importLegacyAuthData(
+      {
+        visitoring: {
+          organizationId: ORGANIZATION_ID,
+          users: [
+            { id: "reused-source-id", email: "first@example.com", passwordHash },
+            { id: "reused-source-id", email: "second@example.com", passwordHash },
+          ],
+          memberships: [],
+        },
+      },
+      { visitoringProductId: "visitoring" },
+      true,
+    );
+    expect(report.errors).toContain(
+      "Duplicate legacy account reference: visitoring:reused-source-id",
+    );
+    expect(report.applied).toBe(false);
+    expect(store.writes).toHaveLength(0);
+  });
+
+  it("keeps PostParticle account disable and session revocation scoped to that product", async () => {
+    const password = "Shared legacy password 123!";
+    const visitoringHash = await hashArgon2id(password);
+    const salt = "0123456789abcdef0123456789abcdef";
+    const postParticleHash = `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
+    const imported = await service.importLegacyAuthData(
+      {
+        visitoring: {
+          organizationId: ORGANIZATION_ID,
+          users: [
+            { id: "shared-person", email: "shared@example.com", passwordHash: visitoringHash },
+          ],
+          memberships: [{ userId: "shared-person", workspaceId: "workspace-1", role: "viewer" }],
+        },
+        postparticle: {
+          organizationId: ORGANIZATION_ID,
+          users: [
+            {
+              username: "writer",
+              email: "shared@example.com",
+              passwordHash: postParticleHash,
+              disabled: true,
+            },
+            {
+              username: "platformadmin",
+              email: "admin@example.com",
+              passwordHash: postParticleHash,
+              platformAdmin: true,
+            },
+          ],
+          memberships: [{ username: "writer", projectId: "project-1", role: "editor" }],
+        },
+        credentialSelections: { "email:shared@example.com": "visitoring:shared-person" },
+      },
+      { visitoringProductId: "visitoring", postparticleProductId: "postparticle" },
+      false,
+    );
+    expect(imported.applied).toBe(true);
+    const sharedId = await store.findSubjectIdByEmail("shared@example.com");
+    const adminId = await store.findSubjectIdByUsername("postparticle", "platformadmin");
+    expect(sharedId).toBeTruthy();
+    expect(adminId).toBeTruthy();
+    expect(store.records.get(store.key("subject", sharedId!))?.record).toMatchObject({
+      status: "active",
+      consumerProductStates: [{ productId: "postparticle", status: "disabled", sessionVersion: 2 }],
+    });
+
+    const visitoringSession = await service.createConsumerSession(
+      sharedId as never,
+      "visitoring",
+      "visitoring",
+      30 * 24 * 60 * 60 * 1000,
+    );
+    await expect(
+      service.authenticate("shared@example.com", password, "visitoring"),
+    ).resolves.toMatchObject({
+      subjectId: sharedId,
+    });
+    await expect(service.authenticate("writer", password, "postparticle")).rejects.toThrow(
+      "Email or password is incorrect.",
+    );
+    await expect(
+      service.createConsumerSession(sharedId as never, "postparticle", "postparticle"),
+    ).rejects.toThrow("disabled for the application");
+
+    await service.updateConsumerAccount(adminId as never, "postparticle", sharedId!, {
+      organizationId: ORGANIZATION_ID,
+      productId: "postparticle",
+      status: "active",
+    });
+    const postParticleSession = await service.createConsumerSession(
+      sharedId as never,
+      "postparticle",
+      "postparticle",
+      8 * 60 * 60 * 1000,
+    );
+    await service.updateConsumerAccount(adminId as never, "postparticle", sharedId!, {
+      organizationId: ORGANIZATION_ID,
+      productId: "postparticle",
+      revokeSessions: true,
+    });
+    await expect(
+      service.getConsumerSessionFromToken(postParticleSession.token, "postparticle"),
+    ).resolves.toBeNull();
+    await expect(
+      service.getConsumerSessionFromToken(visitoringSession.token, "visitoring"),
+    ).resolves.toBeTruthy();
+  });
+
+  it("keeps Visitoring members workspace-scoped and protects the last active administrator", async () => {
+    const visitorPasswordHash = await hashArgon2id("Visitoring password 123!");
+    const imported = await service.importLegacyAuthData(
+      {
+        visitoring: {
+          organizationId: ORGANIZATION_ID,
+          users: [
+            {
+              id: "workspace-admin",
+              email: "admin@example.com",
+              passwordHash: visitorPasswordHash,
+            },
+            {
+              id: "workspace-viewer",
+              email: "viewer@example.com",
+              passwordHash: visitorPasswordHash,
+            },
+          ],
+          memberships: [
+            { userId: "workspace-admin", workspaceId: "workspace-1", role: "admin" },
+            { userId: "workspace-viewer", workspaceId: "workspace-1", role: "viewer" },
+          ],
+        },
+      },
+      { visitoringProductId: "visitoring" },
+      false,
+    );
+    expect(imported.applied).toBe(true);
+    const actorId = await store.findSubjectIdByEmail("admin@example.com");
+    const targetId = await store.findSubjectIdByEmail("viewer@example.com");
+    expect(actorId).toBeTruthy();
+    expect(targetId).toBeTruthy();
+
+    const viewerSession = await service.createConsumerSession(
+      targetId as never,
+      "visitoring",
+      "visitoring",
+    );
+    await expect(
+      service.authorizeApiKey(
+        viewerSession.token,
+        {
+          organizationId: ORGANIZATION_ID,
+          productId: "visitoring",
+          resourceKind: "workspace",
+          resourceId: "workspace-1",
+          action: "visitoring:workspace:read",
+        },
+        "visitoring",
+      ),
+    ).resolves.toMatchObject({ authorized: true });
+    await expect(
+      service.authorizeApiKey(
+        viewerSession.token,
+        {
+          organizationId: ORGANIZATION_ID,
+          productId: "visitoring",
+          resourceKind: "workspace",
+          resourceId: "workspace-1",
+          action: "visitoring:members:manage",
+        },
+        "visitoring",
+      ),
+    ).resolves.toMatchObject({ authorized: false });
+
+    const targetBefore = store.records.get(store.key("subject", targetId!))?.record;
+    const attached = await service.createConsumerMember(actorId as never, "visitoring", {
+      organizationId: ORGANIZATION_ID,
+      productId: "visitoring",
+      scopeKind: "workspace",
+      resourceId: "workspace-1",
+      email: "viewer@example.com",
+      password: "Ignored because the account already exists 7!",
+      role: "viewer",
+    });
+    expect(attached.created).toBe(false);
+    expect(attached.member.subjectId).toBe(targetId);
+    expect(store.records.get(store.key("subject", targetId!))?.record).toEqual(targetBefore);
+
+    const members = await service.listConsumerMembers(actorId as never, "visitoring", {
+      organizationId: ORGANIZATION_ID,
+      productId: "visitoring",
+      scopeKind: "workspace",
+      resourceId: "workspace-1",
+    });
+    expect(members).toHaveLength(2);
+    await expect(
+      service.listConsumerMembers(actorId as never, "visitoring", {
+        organizationId: ORGANIZATION_ID,
+        productId: "visitoring",
+        scopeKind: "workspace",
+        resourceId: "workspace-2",
+      }),
+    ).rejects.toThrow("permission");
+    await expect(
+      service.updateConsumerMember(actorId as never, "visitoring", actorId!, {
+        organizationId: ORGANIZATION_ID,
+        productId: "visitoring",
+        scopeKind: "workspace",
+        resourceId: "workspace-1",
+        role: "viewer",
+      }),
+    ).rejects.toThrow("another administrator");
+    await expect(
+      service.updateConsumerMember(actorId as never, "visitoring", targetId!, {
+        organizationId: ORGANIZATION_ID,
+        productId: "visitoring",
+        scopeKind: "workspace",
+        resourceId: "workspace-1",
+        role: "admin",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("enforces PostParticle project roles and platform-admin account controls", async () => {
+    const salt = "0123456789abcdef0123456789abcdef";
+    const password = "PostParticle legacy password 123!";
+    const passwordHash = `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
+    const imported = await service.importLegacyAuthData(
+      {
+        postparticle: {
+          organizationId: ORGANIZATION_ID,
+          users: [
+            {
+              username: "platformadmin",
+              email: "platform@example.com",
+              passwordHash,
+              platformAdmin: true,
+            },
+            { username: "projectadmin", email: "projectadmin@example.com", passwordHash },
+            { username: "writer", passwordHash },
+          ],
+          memberships: [
+            { username: "projectadmin", projectId: "project-1", role: "admin" },
+            { username: "writer", projectId: "project-1", role: "editor" },
+          ],
+        },
+      },
+      { postparticleProductId: "postparticle" },
+      false,
+    );
+    expect(imported.applied).toBe(true);
+    const platformAdminId = await store.findSubjectIdByUsername("postparticle", "platformadmin");
+    const projectAdminId = await store.findSubjectIdByUsername("postparticle", "projectadmin");
+    const writerId = await store.findSubjectIdByUsername("postparticle", "writer");
+    expect(platformAdminId).toBeTruthy();
+    expect(projectAdminId).toBeTruthy();
+    expect(writerId).toBeTruthy();
+
+    const editorSession = await service.createConsumerSession(
+      writerId as never,
+      "postparticle",
+      "postparticle",
+    );
+    await expect(
+      service.authorizeApiKey(
+        editorSession.token,
+        {
+          organizationId: ORGANIZATION_ID,
+          productId: "postparticle",
+          resourceKind: "project",
+          resourceId: "project-1",
+          action: "postparticle:project:write",
+        },
+        "postparticle",
+      ),
+    ).resolves.toMatchObject({ authorized: true });
+    await expect(
+      service.authorizeApiKey(
+        editorSession.token,
+        {
+          organizationId: ORGANIZATION_ID,
+          productId: "postparticle",
+          resourceKind: "project",
+          resourceId: "project-1",
+          action: "postparticle:members:manage",
+        },
+        "postparticle",
+      ),
+    ).resolves.toMatchObject({ authorized: false });
+    const platformSession = await service.createConsumerSession(
+      platformAdminId as never,
+      "postparticle",
+      "postparticle",
+    );
+    await expect(
+      service.authorizeApiKey(
+        platformSession.token,
+        {
+          organizationId: ORGANIZATION_ID,
+          productId: "postparticle",
+          resourceKind: "product",
+          action: "postparticle:accounts:manage",
+        },
+        "postparticle",
+      ),
+    ).resolves.toMatchObject({ authorized: true });
+
+    const listed = await service.listConsumerMembers(platformAdminId as never, "postparticle", {
+      organizationId: ORGANIZATION_ID,
+      productId: "postparticle",
+      scopeKind: "project",
+      resourceId: "project-1",
+    });
+    expect(listed).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ subjectId: projectAdminId, role: "admin" }),
+        expect.objectContaining({ subjectId: writerId, role: "editor" }),
+      ]),
+    );
+    await expect(
+      service.listConsumerMembers(projectAdminId as never, "postparticle", {
+        organizationId: ORGANIZATION_ID,
+        productId: "postparticle",
+        scopeKind: "project",
+        resourceId: "project-2",
+      }),
+    ).rejects.toThrow("permission");
+    await expect(
+      service.listConsumerAccounts(
+        projectAdminId as never,
+        "postparticle",
+        ORGANIZATION_ID,
+        "postparticle",
+      ),
+    ).rejects.toThrow("Platform administrator");
+
+    const accounts = await service.listConsumerAccounts(
+      platformAdminId as never,
+      "postparticle",
+      ORGANIZATION_ID,
+      "postparticle",
+    );
+    expect(accounts).toHaveLength(3);
+    const addedPlatformAdmin = await service.createConsumerAccount(
+      platformAdminId as never,
+      "postparticle",
+      {
+        organizationId: ORGANIZATION_ID,
+        productId: "postparticle",
+        username: "additional-admin",
+        password: "Another PostParticle password 123!",
+        platformAdmin: true,
+      },
+    );
+    expect(addedPlatformAdmin).toMatchObject({
+      created: true,
+      account: { username: "additional-admin", platformAdmin: true },
+    });
+    await service.updateConsumerAccount(
+      platformAdminId as never,
+      "postparticle",
+      addedPlatformAdmin.account.subjectId,
+      {
+        organizationId: ORGANIZATION_ID,
+        productId: "postparticle",
+        platformAdmin: false,
+      },
+    );
+    const updatedPlatformAdmins = await service.listConsumerAccounts(
+      platformAdminId as never,
+      "postparticle",
+      ORGANIZATION_ID,
+      "postparticle",
+    );
+    expect(
+      updatedPlatformAdmins.find((account) => account.username === "additional-admin")
+        ?.platformAdmin,
+    ).toBe(false);
+    const created = await service.createConsumerMember(platformAdminId as never, "postparticle", {
+      organizationId: ORGANIZATION_ID,
+      productId: "postparticle",
+      scopeKind: "project",
+      resourceId: "project-2",
+      username: "new-writer",
+      password: "New PostParticle password 123!",
+      role: "viewer",
+    });
+    expect(created).toMatchObject({ created: true, member: { role: "viewer", active: true } });
+
+    const writerSession = await service.createConsumerSession(
+      writerId as never,
+      "postparticle",
+      "postparticle",
+      8 * 60 * 60 * 1000,
+    );
+    await expect(
+      service.getConsumerSessionFromToken(writerSession.token, "postparticle"),
+    ).resolves.toBeTruthy();
+    vi.stubEnv("PERMINISTER_APP_CLIENT_IDS", "postparticle");
+    vi.stubEnv("PERMINISTER_APP_CLIENT_POSTPARTICLE_SECRET", "p".repeat(40));
+    vi.stubEnv("PERMINISTER_APP_CLIENT_POSTPARTICLE_PRODUCT_ID", "postparticle");
+    const { consumerRequestContext } = await import("../../src/lib/auth/consumer-route");
+    const validHeaders = {
+      "x-perminister-client-id": "postparticle",
+      "x-perminister-client-secret": "p".repeat(40),
+      authorization: `Bearer ${writerSession.token}`,
+    };
+    await expect(
+      consumerRequestContext(
+        new Request("https://perminister.example/api", { headers: validHeaders }),
+      ),
+    ).resolves.toMatchObject({ current: { subject: { subjectId: writerId } } });
+    await expect(
+      consumerRequestContext(
+        new Request("https://perminister.example/api", {
+          headers: { ...validHeaders, "x-perminister-client-secret": "bad" },
+        }),
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      consumerRequestContext(
+        new Request("https://perminister.example/api", {
+          headers: { ...validHeaders, authorization: "Bearer invalid-session" },
+        }),
+      ),
+    ).resolves.toBeNull();
+    const storedSession = store.records.get(
+      store.key("session", writerSession.session.sessionId),
+    )?.record;
+    expect(storedSession?.kind).toBe("session");
+    if (storedSession?.kind === "session") {
+      store.seed({ ...storedSession, expiresAt: new Date(Date.now() - 1000).toISOString() });
+    }
+    await expect(
+      service.getConsumerSessionFromToken(writerSession.token, "postparticle"),
+    ).resolves.toBeNull();
+
+    const resetSession = await service.createConsumerSession(
+      writerId as never,
+      "postparticle",
+      "postparticle",
+      8 * 60 * 60 * 1000,
+    );
+    await service.updateConsumerMember(platformAdminId as never, "postparticle", writerId!, {
+      organizationId: ORGANIZATION_ID,
+      productId: "postparticle",
+      scopeKind: "project",
+      resourceId: "project-1",
+      role: "viewer",
+      password: "Reset PostParticle password 456!",
+    });
+    await expect(
+      service.getConsumerSessionFromToken(resetSession.token, "postparticle"),
+    ).resolves.toBeNull();
+
+    const secondSession = await service.createConsumerSession(
+      writerId as never,
+      "postparticle",
+      "postparticle",
+      8 * 60 * 60 * 1000,
+    );
+    await service.updateConsumerAccount(platformAdminId as never, "postparticle", writerId!, {
+      organizationId: ORGANIZATION_ID,
+      productId: "postparticle",
+      status: "disabled",
+    });
+    await expect(
+      service.getConsumerSessionFromToken(secondSession.token, "postparticle"),
+    ).resolves.toBeNull();
   });
 });
 

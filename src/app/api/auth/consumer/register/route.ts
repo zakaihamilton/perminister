@@ -55,6 +55,12 @@ export async function POST(request: Request) {
       },
     );
   }
+  if (!client.selfRegistrationEnabled) {
+    return Response.json(
+      { error: "self_registration_disabled" },
+      { status: 403, headers: NO_STORE_HEADERS },
+    );
+  }
   if (!isJsonRequest(request)) {
     return Response.json(
       { error: "Content-Type must be application/json." },
