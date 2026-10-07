@@ -6489,6 +6489,22 @@ html[data-theme="dark"] .home-closing-button:hover {
   display: grid;
   gap: 18px;
 }
+.access-visual-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 260px);
+  align-items: center;
+  gap: 20px;
+}
+.access-visual-overview .dashboard-card-heading {
+  margin-bottom: 0;
+}
+.access-visual-illustration {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  justify-self: end;
+}
 .access-explainer .dashboard-card-heading {
   margin-bottom: 0;
 }
@@ -6512,49 +6528,25 @@ html[data-theme="dark"] .home-closing-button:hover {
   padding: 14px;
   background: var(--surface-inset);
 }
-.access-scope-guide h3,
-.access-action-help h3 {
+.access-scope-guide h3 {
   margin: 0 0 5px;
   color: var(--ink);
   font-size: 14px;
   line-height: 1.4;
 }
 .access-scope-guide p,
-.access-action-help p,
-.access-explainer-guidance,
 .access-explainer-note {
   margin: 0;
   color: var(--muted);
   font-size: 13px;
   line-height: 1.55;
 }
-.access-action-help {
-  border-left: 3px solid var(--blue);
-  padding: 2px 0 2px 12px;
-}
-.access-action-help p,
-.access-explainer-guidance {
-  max-width: 850px;
-}
-.access-action-help h3 {
-  margin-bottom: 6px;
-}
-.access-action-help code {
-  border-radius: 3px;
-  padding: 1px 4px;
-  color: var(--ink);
-  background: var(--surface-2);
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 12px;
-}
-.access-explainer-guidance {
-  color: var(--ink-soft);
-}
 .access-explainer-note {
   border-top: 1px solid var(--line);
   padding-top: 12px;
 }
-.access-scope-field {
+.access-scope-field,
+.access-actions-field {
   display: grid;
   min-width: 0;
   align-content: start;
@@ -6583,14 +6575,8 @@ html[data-theme="dark"] .home-closing-button:hover {
     justify-content: center;
   }
 }
-:is(
-  a[href]:not([aria-disabled="true"]),
-  button:not(:disabled):not([aria-disabled="true"]),
-  [role="button"]:not([aria-disabled="true"]),
-  [role="option"]:not([aria-disabled="true"]),
-  [role="menuitemradio"]:not([aria-disabled="true"]),
-  summary
-) {
+/* prettier-ignore */
+:is(a[href]:not([aria-disabled="true"]), button:not(:disabled):not([aria-disabled="true"]), [role="button"]:not([aria-disabled="true"]), [role="option"]:not([aria-disabled="true"]), [role="menuitemradio"]:not([aria-disabled="true"]), summary) {
   transition:
     color 140ms ease,
     background 140ms ease,
@@ -6599,24 +6585,12 @@ html[data-theme="dark"] .home-closing-button:hover {
     filter 140ms ease,
     transform 140ms ease;
 }
-:is(
-  a[href]:not([aria-disabled="true"]),
-  button:not(:disabled):not([aria-disabled="true"]),
-  [role="button"]:not([aria-disabled="true"]),
-  [role="option"]:not([aria-disabled="true"]),
-  [role="menuitemradio"]:not([aria-disabled="true"]),
-  summary
-):hover {
+/* prettier-ignore */
+:is(a[href]:not([aria-disabled="true"]), button:not(:disabled):not([aria-disabled="true"]), [role="button"]:not([aria-disabled="true"]), [role="option"]:not([aria-disabled="true"]), [role="menuitemradio"]:not([aria-disabled="true"]), summary):hover {
   filter: brightness(0.97);
 }
-:is(
-  a[href]:not([aria-disabled="true"]),
-  button:not(:disabled):not([aria-disabled="true"]),
-  [role="button"]:not([aria-disabled="true"]),
-  [role="option"]:not([aria-disabled="true"]),
-  [role="menuitemradio"]:not([aria-disabled="true"]),
-  summary
-):active {
+/* prettier-ignore */
+:is(a[href]:not([aria-disabled="true"]), button:not(:disabled):not([aria-disabled="true"]), [role="button"]:not([aria-disabled="true"]), [role="option"]:not([aria-disabled="true"]), [role="menuitemradio"]:not([aria-disabled="true"]), summary):active {
   filter: brightness(0.92);
   transform: translateY(1px);
 }
@@ -6724,15 +6698,6 @@ html[data-theme="dark"] .home-closing-button:hover {
   font-size: 12px;
   overflow-wrap: anywhere;
 }
-.access-actions-field {
-  display: grid;
-  min-width: 0;
-  align-content: start;
-  gap: 7px;
-  color: var(--ink-soft);
-  font-size: 13px;
-  font-weight: 650;
-}
 .access-actions-field .custom-dropdown {
   width: 100%;
 }
@@ -6778,6 +6743,9 @@ html[data-theme="dark"] .home-closing-button:hover {
 }
 .access-role-catalog-card {
   margin-top: 18px;
+}
+.access-role-catalog-card .access-visual-overview {
+  margin-bottom: 14px;
 }
 .access-role-list {
   display: grid;
@@ -6847,5 +6815,15 @@ html[data-theme="dark"] .access-role-actions code {
   .access-role-item {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+@media (max-width: 700px) {
+  .access-visual-overview {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .access-visual-illustration {
+    max-width: 220px;
+    justify-self: center;
   }
 }

@@ -3,13 +3,11 @@ import { ApiKeyForm } from "@/components/api-key-form";
 import { ApiKeyItem, ApiKeyNotices } from "@/components/api-key-item";
 import { DashboardHeading } from "@/components/dashboard-shell";
 import {
-  getCurrentSession,
-  getProductAccessForSubject,
-  listApiKeysForSubject,
-  listOrganizationPermissionGrants,
-} from "@/lib/auth/service";
+  getProductPageContext,
+  type ProductPageWithSearchParams,
+} from "@/lib/auth/product-page-context";
+import { listApiKeysForSubject, listOrganizationPermissionGrants } from "@/lib/auth/service";
 import type { ApiKeyRecord, ResourceScope } from "@/lib/auth/domain";
-import { notFound, redirect } from "next/navigation";
 
 function keyStatus(key: ApiKeyRecord): "active" | "revoked" | "expired" {
   if (key.status === "revoked") return "revoked";
@@ -26,19 +24,11 @@ function scopeText(scope: ResourceScope): string {
 export default async function ProductApiKeysPage({
   params,
   searchParams,
-}: {
-  params: Promise<{ organizationId: string; productId: string }>;
-  searchParams: Promise<{ notice?: string; error?: string }>;
-}) {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const [{ organizationId, productId }, query] = await Promise.all([params, searchParams]);
-  const access = await getProductAccessForSubject(
-    current.subject.subjectId,
-    organizationId,
-    productId,
-  ).catch(() => null);
-  if (!access) notFound();
+}: ProductPageWithSearchParams) {
+  const [{ current, organizationId, productId, access }, query] = await Promise.all([
+    getProductPageContext(params),
+    searchParams,
+  ]);
 
   const [allKeys, grants] = await Promise.all([
     listApiKeysForSubject(current.subject.subjectId),

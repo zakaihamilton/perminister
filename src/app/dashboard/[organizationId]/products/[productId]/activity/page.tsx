@@ -1,25 +1,11 @@
 import { DashboardHeading } from "@/components/dashboard-shell";
-import {
-  getCurrentSession,
-  getProductAccessForSubject,
-  listProductAudit,
-} from "@/lib/auth/service";
-import { notFound, redirect } from "next/navigation";
+import { getProductPageContext, type ProductPageParams } from "@/lib/auth/product-page-context";
+import { listProductAudit } from "@/lib/auth/service";
+import { notFound } from "next/navigation";
 
-export default async function ProductActivityPage({
-  params,
-}: {
-  params: Promise<{ organizationId: string; productId: string }>;
-}) {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const { organizationId, productId } = await params;
-  const access = await getProductAccessForSubject(
-    current.subject.subjectId,
-    organizationId,
-    productId,
-  ).catch(() => null);
-  if (!access || !access.membership) notFound();
+export default async function ProductActivityPage({ params }: ProductPageParams) {
+  const { current, organizationId, productId, access } = await getProductPageContext(params);
+  if (!access.membership) notFound();
   const entries = await listProductAudit(current.subject.subjectId, organizationId, productId);
   return (
     <>

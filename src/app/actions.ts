@@ -730,13 +730,13 @@ async function runProductAccessRoleAction(
   if (!current) redirect("/login");
   const organizationId = firstValue(formData, "organizationId");
   const productId = firstValue(formData, "productId");
-  const accessPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access`;
+  const rolesPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/roles`;
   try {
     await mutation(current.subject.subjectId, organizationId, productId);
   } catch {
-    redirect(`${accessPath}?error=access-role`);
+    redirect(`${rolesPath}?error=access-role`);
   }
-  redirect(`${accessPath}?notice=${notice}`);
+  redirect(`${rolesPath}?notice=${notice}`);
 }
 
 export async function createProductAccessRoleAction(formData: FormData): Promise<void> {
