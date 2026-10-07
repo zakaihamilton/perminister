@@ -1,25 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-07T10:51:25.475Z",
+  "generatedAt": "2026-10-07T11:54:14.385Z",
   "entries": [
-    {
-      "fingerprint": "3d91306e0364e072358f1926",
-      "provider": "script:lint",
-      "category": "lint",
-      "type": "lint-error",
-      "scope": ".",
-      "file": "src/app/dashboard/[organizationId]/api-keys/page.tsx",
-      "line": 11
-    },
-    {
-      "fingerprint": "15aa0789080c4272cfd7c943",
-      "provider": "script:lint",
-      "category": "lint",
-      "type": "lint-error",
-      "scope": ".",
-      "file": "src/app/dashboard/[organizationId]/api-keys/page.tsx",
-      "line": 82
-    },
     {
       "fingerprint": "c11f9ac6c31c034b24de30f3",
       "provider": "jscpd",
@@ -390,33 +372,6 @@
       "line": 21
     },
     {
-      "fingerprint": "ab99694f2db628e6f06d30d5",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/dashboard/[organizationId]/api-keys/page.tsx",
-      "line": 67
-    },
-    {
-      "fingerprint": "0a8ead7a68363842e5131464",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/dashboard/[organizationId]/api-keys/page.tsx",
-      "line": 90
-    },
-    {
-      "fingerprint": "f588b3344264fa16779215f1",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/dashboard/[organizationId]/api-keys/page.tsx",
-      "line": 103
-    },
-    {
       "fingerprint": "303afadc66f0fb8d2a386bc2",
       "provider": "jscpd",
       "category": "duplication",
@@ -516,40 +471,40 @@
       "line": 3152
     },
     {
-      "fingerprint": "c8629232a090d91068ebb438",
+      "fingerprint": "64967eff40bdfaf518ae152d",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/globals.css",
-      "line": 6538
+      "line": 6542
     },
     {
-      "fingerprint": "1bb550920e74fc7719650cb5",
+      "fingerprint": "df4900e17d1b4484f0a399b3",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/globals.css",
-      "line": 6553
+      "line": 6557
     },
     {
-      "fingerprint": "b42e2dea296589cd7e90d671",
+      "fingerprint": "654f45db2ff2be1619e787aa",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/globals.css",
-      "line": 6581
+      "line": 6585
     },
     {
-      "fingerprint": "5d608b6403388e70f45beb64",
+      "fingerprint": "62e69c4cdd77549bd1010321",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/globals.css",
-      "line": 6596
+      "line": 6600
     },
     {
       "fingerprint": "df95597233f9a430867cbd3e",

@@ -4042,6 +4042,11 @@ h3,
 .header-create:hover {
   background: var(--button-primary-hover);
 }
+.site-header .primary-nav a,
+.site-header .header-create,
+.site-header .theme-trigger {
+  font-size: 14px;
+}
 .container {
   width: min(1200px, calc(100% - 52px));
 }
@@ -4927,6 +4932,8 @@ summary:focus-visible {
 .dashboard-sidebar-theme .theme-menu {
   top: auto;
   bottom: calc(100% + 7px);
+  left: 0;
+  right: auto;
 }
 .theme-menu-label {
   display: block;
@@ -5558,6 +5565,10 @@ html[data-theme="dark"] .simple-panel-links span {
     padding-right: 10px;
     padding-left: 10px;
   }
+  .dashboard-sidebar-theme .theme-menu {
+    left: auto;
+    right: 0;
+  }
 }
 @media (max-width: 740px) {
   .site-header {
@@ -5853,9 +5864,6 @@ html[data-theme="dark"] .home-page {
   --blue-action: #385d86;
   --blue-action-hover: #2e4f74;
 }
-.home-page .primary-nav a,
-.home-page .header-create,
-.home-page .theme-trigger,
 .home-page .site-footer .footer-note {
   font-size: 14px;
 }
@@ -6343,10 +6351,6 @@ html[data-theme="dark"] .home-closing-button:hover {
   }
 }
 @media (max-width: 740px) {
-  .home-page .primary-nav a,
-  .home-page .header-create {
-    font-size: 14px;
-  }
   .home-closing-cta {
     align-items: flex-start;
     flex-direction: column;
