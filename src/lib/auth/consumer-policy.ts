@@ -45,12 +45,12 @@ const POLICIES: Readonly<Record<string, ConsumerProductPolicy>> = {
   },
 };
 
-export function consumerProductPolicy(clientId: string): ConsumerProductPolicy | null {
-  return POLICIES[clientId.trim().toLowerCase()] ?? null;
+export function consumerProductPolicy(productId: string): ConsumerProductPolicy | null {
+  return POLICIES[productId.trim().toLowerCase()] ?? null;
 }
 
-export function consumerRoleActions(clientId: string, role: string): readonly string[] | null {
-  return consumerProductPolicy(clientId)?.roles[role] ?? null;
+export function consumerRoleActions(productId: string, role: string): readonly string[] | null {
+  return consumerProductPolicy(productId)?.roles[role] ?? null;
 }
 
 export function isOrganizationId(value: unknown): value is string {

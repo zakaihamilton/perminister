@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   try {
     const accounts = await listConsumerAccounts(
       auth.current.subject.subjectId,
-      auth.client.clientId,
+      auth.client.productId,
       organizationId,
       auth.client.productId,
     );
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   try {
     const result = await createConsumerAccount(
       auth.current.subject.subjectId,
-      auth.client.clientId,
+      auth.client.productId,
       {
         organizationId: body.organizationId,
         productId: auth.client.productId,

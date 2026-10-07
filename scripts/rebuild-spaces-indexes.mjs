@@ -205,6 +205,8 @@ async function main() {
       } else if (prefix === `${ROOT_PREFIX}consumer-clients/`) {
         if (record.kind !== "consumer-client" || !uuid(record.consumerClientId))
           throw new Error(`Malformed consumer client at ${key}`);
+        if (record.organizationId !== undefined && !uuid(record.organizationId))
+          throw new Error(`Malformed consumer client organization at ${key}`);
         add(
           indexes,
           `${ROOT_PREFIX}indexes/by-id/consumer-client/${record.consumerClientId}.json`,
