@@ -30,7 +30,7 @@ const steps = [
   },
   {
     title: "Authorize protected requests",
-    body: "Call POST /api/authorize from the backend before serving a protected operation. Load the app's own resource and enforce the decision there. For background work, use a separate service principal and a narrowly scoped API key.",
+    body: "Call POST /api/authorize from the backend before serving a protected operation. Load the app's own resource and enforce the decision there. For background work, use a service principal with a narrowly scoped service key.",
   },
 ];
 
