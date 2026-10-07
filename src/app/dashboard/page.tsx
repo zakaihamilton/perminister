@@ -45,7 +45,7 @@ export default async function DashboardHome({
               height={1254}
               loading="eager"
               sizes="(max-width: 700px) 38vw, 240px"
-              src="/illustrations/workspace-invitation-vivid.png"
+              src="/illustrations/workspace-invitation.png"
               width={1254}
             />
           </div>

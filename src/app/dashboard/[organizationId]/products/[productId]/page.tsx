@@ -1,8 +1,8 @@
 import Link from "next/link";
-import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
 import { updateOrganizationProductAction } from "@/app/actions";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
+import { ProductIcon } from "@/components/product-icon";
 import {
   getCurrentSession,
   getProductAccessForSubject,
@@ -69,11 +69,7 @@ export default async function ProductPage({
       ) : null}
       <section className="dashboard-card product-detail-card">
         <div className="product-detail-top">
-          {product.iconUrl ? (
-            <Image alt="" height={40} src={product.iconUrl} unoptimized width={40} />
-          ) : (
-            <span className="product-placeholder">{product.name.slice(0, 1).toUpperCase()}</span>
-          )}
+          <ProductIcon name={product.name} src={product.iconUrl} />
           <div>
             <span className="eyebrow">Product ID</span>
             <code className="product-id-code">{product.productId}</code>

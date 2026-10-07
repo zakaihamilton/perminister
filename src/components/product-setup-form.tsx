@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import Image from "next/image";
+import { ProductIcon } from "@/components/product-icon";
 import {
   createOrganizationProductAction,
   lookupProductWebsiteAction,
@@ -111,13 +111,11 @@ export function ProductSetupForm({ organizationId }: { organizationId: string })
             <h2>Review product details</h2>
             <p>Your product ID stays stable after creation and is scoped to this organization.</p>
             {iconUrl ? (
-              <Image
-                alt="Product icon preview"
-                className="product-icon-preview"
-                height={45}
+              <ProductIcon
+                name={name}
                 src={iconUrl}
-                unoptimized
-                width={45}
+                className="product-icon-preview"
+                size={45}
               />
             ) : null}
             <form

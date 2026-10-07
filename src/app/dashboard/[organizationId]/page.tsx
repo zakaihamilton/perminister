@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { ProductIcon } from "@/components/product-icon";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import {
   getCurrentSession,
@@ -100,13 +101,7 @@ export default async function OrganizationOverview({
                 href={`/dashboard/${organizationId}/products/${encodeURIComponent(product.productId)}`}
                 key={product.productRecordId}
               >
-                {product.iconUrl ? (
-                  <Image alt="" height={40} src={product.iconUrl} unoptimized width={40} />
-                ) : (
-                  <span className="product-placeholder">
-                    {product.name.slice(0, 1).toUpperCase()}
-                  </span>
-                )}
+                <ProductIcon name={product.name} src={product.iconUrl} />
                 <span>
                   <strong>{product.name}</strong>
                   <small>{product.description || product.websiteUrl}</small>
@@ -122,7 +117,7 @@ export default async function OrganizationOverview({
             className="empty-state-illustration"
             height={1254}
             sizes="88px"
-            src="/illustrations/workspace-invitation-vivid.png"
+            src="/illustrations/workspace-invitation.png"
             width={1254}
           />
           <div>
