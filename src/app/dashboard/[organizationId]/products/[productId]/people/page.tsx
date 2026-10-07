@@ -40,11 +40,7 @@ export default async function ProductPeoplePage({
 
   return (
     <>
-      <DashboardHeading
-        eyebrow={access.product.name}
-        title="People"
-        description="Manage this product’s members and their product roles."
-      />
+      <DashboardHeading description="Manage this product’s members and their product roles." />
       {query.notice === "invite-sent" ? (
         <DashboardNotice message="Product invitation sent." kind="success" />
       ) : null}

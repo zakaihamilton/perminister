@@ -2577,25 +2577,6 @@ button:focus-visible {
 .dashboard-brand-row .brand-word {
   font-size: 19px;
 }
-.org-create-link {
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  margin: -7px 4px 15px;
-  border: 1px dashed var(--line-strong);
-  border-radius: 7px;
-  padding: 0 10px;
-  color: var(--blue-dark);
-  font-size: 14px;
-  font-weight: 700;
-  transition:
-    border-color 0.14s ease,
-    background 0.14s ease;
-}
-.org-create-link:hover {
-  border-color: var(--blue);
-  background: #f5f7ff;
-}
 .org-switcher {
   display: grid;
   gap: 7px;
@@ -2736,14 +2717,7 @@ button:focus-visible {
   gap: 24px;
   margin: 0 0 29px;
 }
-.dashboard-page-heading h1 {
-  margin: 6px 0 8px;
-  font:
-    750 clamp(30px, 3.3vw, 39px)/1.1 "Manrope",
-    sans-serif;
-  letter-spacing: -1.6px;
-}
-.dashboard-page-heading > div:first-child > p:last-child {
+.dashboard-page-heading > p {
   max-width: 680px;
   margin: 0;
   color: var(--muted);
@@ -3954,7 +3928,6 @@ h1,
 .home-bottom-cta h2,
 .developer-hero h1,
 .page-heading-row h1,
-.dashboard-page-heading h1,
 .onboarding-page h1,
 .auth-heading h1,
 .auth-card h1 {
@@ -4375,17 +4348,6 @@ summary:focus-visible {
   color: var(--ink);
   background: var(--surface-inset);
 }
-.org-create-link {
-  min-height: 40px;
-  border-color: var(--line-strong);
-  border-radius: 4px;
-  color: var(--blue-dark);
-  font-size: 13px;
-}
-.org-create-link:hover {
-  border-color: var(--blue);
-  background: var(--blue-pale);
-}
 .dashboard-nav {
   gap: 2px;
 }
@@ -4430,10 +4392,61 @@ summary:focus-visible {
 .dashboard-main-inner {
   width: min(1080px, 100%);
 }
+.dashboard-breadcrumbs {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.4;
+}
+.dashboard-breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dashboard-breadcrumbs li {
+  display: inline-flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 10px;
+  overflow-wrap: anywhere;
+}
+.dashboard-breadcrumbs a {
+  color: var(--muted);
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+.dashboard-breadcrumbs a:hover,
+.dashboard-breadcrumbs a:focus-visible {
+  color: var(--blue-dark);
+  text-decoration: underline;
+}
+.dashboard-breadcrumbs [aria-current="page"] {
+  color: var(--ink-soft);
+  font-weight: 650;
+}
+.dashboard-breadcrumbs .dashboard-breadcrumb-current {
+  margin: 0;
+  color: var(--ink);
+  font-family:
+    Iowan Old Style,
+    Baskerville,
+    "Palatino Linotype",
+    Georgia,
+    serif;
+  font-size: clamp(34px, 4vw, 46px);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1.03;
+}
+.dashboard-breadcrumb-separator {
+  color: var(--line-strong);
+}
 .dashboard-page-heading {
   margin-bottom: 25px;
 }
-.dashboard-page-heading h1,
 .page-heading-row h1,
 .onboarding-page h1 {
   color: var(--ink);
@@ -4441,7 +4454,7 @@ summary:focus-visible {
   line-height: 1.02;
   letter-spacing: -0.04em;
 }
-.dashboard-page-heading > div:first-child > p:last-child,
+.dashboard-page-heading > p,
 .page-heading-row .page-intro {
   color: var(--muted);
   font-size: 14px;
@@ -5066,6 +5079,13 @@ summary:focus-visible {
   text-align: left;
   cursor: pointer;
 }
+.custom-dropdown-option-action {
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  padding-top: 10px;
+  color: var(--blue-dark);
+}
 .custom-dropdown-option:hover,
 .custom-dropdown-option:focus-visible,
 .custom-dropdown-option[aria-selected="true"] {
@@ -5235,7 +5255,6 @@ html[data-theme="dark"] .admin-account-row p,
 html[data-theme="dark"] .audit-row strong,
 html[data-theme="dark"] .migration-counts strong,
 html[data-theme="dark"] .access-grant-main strong,
-html[data-theme="dark"] .dashboard-page-heading h1,
 html[data-theme="dark"] .page-heading-row h1,
 html[data-theme="dark"] .developer-hero h1,
 html[data-theme="dark"] .auth-heading h1,
@@ -5255,7 +5274,7 @@ html[data-theme="dark"] .form-hint,
 html[data-theme="dark"] .auth-footnote,
 html[data-theme="dark"] .auth-heading > p:last-child,
 html[data-theme="dark"] .page-intro,
-html[data-theme="dark"] .dashboard-page-heading > div:first-child > p:last-child,
+html[data-theme="dark"] .dashboard-page-heading > p,
 html[data-theme="dark"] .page-heading-row .page-intro,
 html[data-theme="dark"] .dashboard-card-heading p,
 html[data-theme="dark"] .dashboard-metric-card span,
@@ -5715,7 +5734,6 @@ html[data-theme="dark"] .simple-panel-links span {
   .dashboard-page-heading {
     margin-bottom: 19px;
   }
-  .dashboard-page-heading h1,
   .page-heading-row h1,
   .onboarding-page h1 {
     font-size: 37px;
@@ -6487,13 +6505,13 @@ html[data-theme="dark"] .home-closing-button:hover {
 }
 .access-explainer {
   display: grid;
-  gap: 18px;
+  gap: 12px;
 }
 .access-visual-overview {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(190px, 260px);
-  align-items: center;
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) minmax(130px, 165px);
+  align-items: start;
+  gap: 12px;
 }
 .access-visual-overview .dashboard-card-heading {
   margin-bottom: 0;
@@ -6501,7 +6519,7 @@ html[data-theme="dark"] .home-closing-button:hover {
 .access-visual-illustration {
   display: block;
   width: 100%;
-  max-width: 260px;
+  max-width: 165px;
   height: auto;
   justify-self: end;
 }
@@ -6525,7 +6543,7 @@ html[data-theme="dark"] .home-closing-button:hover {
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 5px;
-  padding: 14px;
+  padding: 11px 12px;
   background: var(--surface-inset);
 }
 .access-scope-guide h3 {
@@ -6543,7 +6561,7 @@ html[data-theme="dark"] .home-closing-button:hover {
 }
 .access-explainer-note {
   border-top: 1px solid var(--line);
-  padding-top: 12px;
+  padding-top: 9px;
 }
 .access-scope-field,
 .access-actions-field {
@@ -6743,9 +6761,13 @@ html[data-theme="dark"] .home-closing-button:hover {
 }
 .access-role-catalog-card {
   margin-top: 18px;
+  padding: 16px;
 }
 .access-role-catalog-card .access-visual-overview {
-  margin-bottom: 14px;
+  margin-bottom: 6px;
+}
+.access-role-catalog-card .access-visual-illustration {
+  max-width: 150px;
 }
 .access-role-list {
   display: grid;
@@ -6780,14 +6802,14 @@ html[data-theme="dark"] .home-closing-button:hover {
   margin: 0;
 }
 .access-role-catalog-note {
-  margin: 13px 0 0;
+  margin: 8px 0 0;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.5;
 }
 .access-role-create-form {
   max-width: 700px;
-  margin-top: 17px;
+  margin-top: 12px;
 }
 .product-onboarding-status-note {
   color: var(--muted);
@@ -6808,6 +6830,9 @@ html[data-theme="dark"] .access-role-actions code {
   .product-onboarding-card {
     padding: 16px;
   }
+  .access-role-catalog-card {
+    padding: 14px;
+  }
   .product-onboarding-steps li {
     grid-template-columns: 30px minmax(0, 1fr);
     gap: 10px;
@@ -6823,7 +6848,7 @@ html[data-theme="dark"] .access-role-actions code {
     gap: 8px;
   }
   .access-visual-illustration {
-    max-width: 220px;
+    max-width: 160px;
     justify-self: center;
   }
 }

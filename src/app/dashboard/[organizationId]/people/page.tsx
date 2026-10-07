@@ -42,11 +42,7 @@ export default async function PeoplePage({
 
   return (
     <>
-      <DashboardHeading
-        eyebrow="Workspace"
-        title="Catalog managers"
-        description="Catalog managers maintain organization and product details. Product roles and permissions are managed inside each product."
-      />
+      <DashboardHeading description="Catalog managers maintain organization and product details. Product roles and permissions are managed inside each product." />
       {query.notice === "invite-sent" ? (
         <DashboardNotice message="Invitation email sent." kind="success" />
       ) : null}

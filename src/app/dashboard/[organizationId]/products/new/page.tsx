@@ -23,8 +23,6 @@ export default async function NewProductPage({
   return (
     <>
       <DashboardHeading
-        eyebrow="Products"
-        title="Create a product"
         description="Start with your website and review the details before adding the product."
         action={
           <Link className="button button-secondary" href={`/dashboard/${organizationId}/products`}>

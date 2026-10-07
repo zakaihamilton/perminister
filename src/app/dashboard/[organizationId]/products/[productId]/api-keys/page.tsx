@@ -51,8 +51,6 @@ export default async function ProductApiKeysPage({
   return (
     <>
       <DashboardHeading
-        eyebrow={access.product.name}
-        title="API keys"
         description="Create and manage server credentials scoped to this product."
         action={
           <div className="product-detail-actions">

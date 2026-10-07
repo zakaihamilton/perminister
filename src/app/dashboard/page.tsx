@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { SiteFooter, SiteHeader } from "@/components/site-shell";
+import { BreadcrumbBar } from "@/components/dashboard-breadcrumbs";
 import { createOrganizationAction, requestVerificationAction } from "@/app/actions";
 import {
   getCurrentSession,
@@ -29,10 +30,10 @@ export default async function DashboardHome({
       <SiteHeader active="dashboard" authenticated />
       <main className="page-shell onboarding-shell">
         <div className="container onboarding-page">
+          <BreadcrumbBar items={[{ label: "Set up your workspace" }]} />
           <div className="onboarding-intro">
             <div>
               <p className="eyebrow">Welcome to Perminister</p>
-              <h1>Set up your workspace</h1>
               <p className="page-intro">
                 Request an organization to manage products and access. A platform administrator must
                 approve it before you can use the workspace, or you can join a team with an

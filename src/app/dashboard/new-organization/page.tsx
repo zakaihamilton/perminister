@@ -25,13 +25,12 @@ export default async function NewOrganizationPage({
   return (
     <DashboardShell
       organizationId={selected.organization.organizationId}
+      organizationName={selected.organization.name}
       organizations={organizations}
       role={selected.membership.role}
       email={current.subject.primaryEmail}
     >
       <DashboardHeading
-        eyebrow="Workspace"
-        title="Request an organization"
         description="Every new organization needs platform approval before its workspace can be used."
         action={
           <Link

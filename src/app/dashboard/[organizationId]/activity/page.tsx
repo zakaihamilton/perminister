@@ -18,11 +18,7 @@ export default async function ActivityPage({
   const entries = await listOrganizationAudit(current.subject.subjectId, organizationId);
   return (
     <>
-      <DashboardHeading
-        eyebrow="Workspace"
-        title="Activity"
-        description="Recent changes to organization membership, products, grants, and keys."
-      />
+      <DashboardHeading description="Recent changes to organization membership, products, grants, and keys." />
       {entries.length ? (
         <section className="dashboard-card activity-card">
           <ol className="activity-list">

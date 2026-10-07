@@ -24,8 +24,6 @@ export default async function ProductAccessRolesPage({
   return (
     <>
       <DashboardHeading
-        eyebrow={access.product.name}
-        title="Access roles"
         description="Create reusable permission sets for this organization’s product."
         action={
           <Link className="button button-secondary" href={accessPath}>

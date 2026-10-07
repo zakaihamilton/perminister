@@ -2,20 +2,25 @@ import type { ReactNode } from "react";
 import { signOutAction } from "@/app/actions";
 import { Brand } from "@/components/site-shell";
 import type { OrganizationSummary } from "@/lib/auth/service";
+import { DashboardBreadcrumbs } from "@/components/dashboard-breadcrumbs";
 import { DashboardNavigation } from "@/components/dashboard-navigation";
 import { OrganizationSwitcher } from "@/components/organization-switcher";
-import Link from "next/link";
 import { ThemeControl } from "@/components/theme-control";
 import { Tooltip } from "@/components/tooltip";
+import type { DashboardBreadcrumbProduct } from "@/lib/dashboard-breadcrumbs";
 
 export function DashboardShell({
   organizationId,
+  organizationName,
+  products = [],
   organizations,
   role,
   email,
   children,
 }: {
   organizationId: string;
+  organizationName: string;
+  products?: DashboardBreadcrumbProduct[];
   organizations: OrganizationSummary[];
   role: "owner" | "admin" | "member";
   email: string | null;
@@ -28,9 +33,6 @@ export function DashboardShell({
           <Brand />
         </div>
         <OrganizationSwitcher organizations={organizations} organizationId={organizationId} />
-        <Link className="org-create-link" href="/dashboard/new-organization">
-          ＋ Request organization
-        </Link>
         <DashboardNavigation organizationId={organizationId} role={role} />
         <div className="dashboard-sidebar-theme">
           <ThemeControl />
@@ -63,30 +65,29 @@ export function DashboardShell({
         <div className="dashboard-mobile-brand">
           <Brand />
         </div>
-        <div className="dashboard-main-inner">{children}</div>
+        <div className="dashboard-main-inner">
+          <DashboardBreadcrumbs
+            organizationId={organizationId}
+            organizationName={organizationName}
+            products={products}
+          />
+          {children}
+        </div>
       </main>
     </div>
   );
 }
 
 export function DashboardHeading({
-  eyebrow,
-  title,
   description,
   action,
 }: {
-  eyebrow?: string;
-  title: string;
   description?: string;
   action?: ReactNode;
 }) {
   return (
     <header className="dashboard-page-heading">
-      <div>
-        {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
-        <h1>{title}</h1>
-        {description ? <p>{description}</p> : null}
-      </div>
+      {description ? <p>{description}</p> : null}
       {action ? <div className="dashboard-heading-action">{action}</div> : null}
     </header>
   );

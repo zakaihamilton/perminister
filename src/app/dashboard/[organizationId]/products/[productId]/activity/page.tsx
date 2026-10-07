@@ -9,11 +9,7 @@ export default async function ProductActivityPage({ params }: ProductPageParams)
   const entries = await listProductAudit(current.subject.subjectId, organizationId, productId);
   return (
     <>
-      <DashboardHeading
-        eyebrow={access.product.name}
-        title="Activity"
-        description="Recent membership, invitation, grant, and key changes for this product."
-      />
+      <DashboardHeading description="Recent membership, invitation, grant, and key changes for this product." />
       {entries.length ? (
         <section className="dashboard-card activity-card">
           <ol className="activity-list">

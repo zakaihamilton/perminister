@@ -7,6 +7,7 @@ export interface CustomDropdownOption {
   value: string;
   label: string;
   disabled?: boolean;
+  variant?: "action";
 }
 
 interface CustomDropdownProps {
@@ -208,7 +209,7 @@ export function CustomDropdown({
           {options.map((option, index) => (
             <button
               aria-selected={normalizedValue === option.value}
-              className="custom-dropdown-option"
+              className={`custom-dropdown-option${option.variant === "action" ? " custom-dropdown-option-action" : ""}`}
               disabled={option.disabled}
               id={`${listboxId}-option-${index}`}
               key={option.value}

@@ -20,11 +20,7 @@ export default async function OrganizationSettingsPage({
   if (summary.membership.role !== "owner") notFound();
   return (
     <>
-      <DashboardHeading
-        eyebrow="Organization"
-        title="Settings"
-        description="Update the name shown to members and in invitations."
-      />
+      <DashboardHeading description="Update the name shown to members and in invitations." />
       {query.notice === "settings-saved" ? (
         <DashboardNotice message="Organization settings saved." kind="success" />
       ) : null}

@@ -96,8 +96,6 @@ export default async function ProductAccessPage({
   return (
     <>
       <DashboardHeading
-        eyebrow={access.product.name}
-        title="Access"
         description={
           canManage
             ? "Choose what product members can do and which resources it applies to."

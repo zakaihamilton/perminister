@@ -21,11 +21,7 @@ export default async function ProfilePage({
   const returnTo = `/dashboard/${organizationId}/profile`;
   return (
     <>
-      <DashboardHeading
-        eyebrow="Your account"
-        title="Profile"
-        description="Your Perminister identity is shared across the organizations you belong to."
-      />
+      <DashboardHeading description="Your Perminister identity is shared across the organizations you belong to." />
       {query.notice === "verification-sent" ? (
         <DashboardNotice message="Verification link sent. Check your inbox." kind="success" />
       ) : null}
