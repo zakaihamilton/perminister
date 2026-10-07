@@ -140,6 +140,10 @@ export interface SubjectRecord {
   schemaVersion: 1;
   subjectId: SubjectId;
   status: "active" | "disabled";
+  /** Optional for accounts created before profile names were collected. */
+  firstName?: string;
+  /** Optional for accounts created before profile names were collected. */
+  lastName?: string;
   primaryEmail: string | null;
   emailVerifiedAt: string | null;
   passwordCredential: PasswordCredential | null;

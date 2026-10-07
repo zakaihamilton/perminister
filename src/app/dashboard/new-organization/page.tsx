@@ -29,6 +29,8 @@ export default async function NewOrganizationPage({
       organizations={organizations}
       role={selected.membership.role}
       email={current.subject.primaryEmail}
+      firstName={current.subject.firstName ?? null}
+      lastName={current.subject.lastName ?? null}
     >
       <DashboardHeading
         description="Every new organization needs platform approval before its workspace can be used."

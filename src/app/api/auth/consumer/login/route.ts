@@ -97,6 +97,8 @@ export async function POST(request: Request) {
         account: {
           subjectId: subject.subjectId,
           email: subject.primaryEmail,
+          firstName: subject.firstName ?? null,
+          lastName: subject.lastName ?? null,
         },
         session: {
           expiresAt: created.session.expiresAt,

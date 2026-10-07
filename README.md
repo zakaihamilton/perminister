@@ -21,3 +21,11 @@ operator for a local environment file. Application integrators only need the
 
     npm install
     npm run dev
+
+## Production storage topology
+
+The auth store writes records and indexes to DigitalOcean Spaces. Its mutation queue and recovery
+throttles are process-local, and Spaces `PutObject` does not provide the conditional writes needed
+to coordinate independent writers. Run exactly one Node.js server process against a given Spaces
+bucket, including during deploys; do not use multiple replicas or overlapping old and new servers.
+Horizontal scaling requires moving auth mutations to a transactional shared store first.

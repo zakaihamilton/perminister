@@ -11,14 +11,22 @@ import {
 
 export const runtime = "nodejs";
 
-function validRegistration(value: unknown): value is { email: string; password: string } {
+function validRegistration(
+  value: unknown,
+): value is { email: string; password: string; firstName?: string; lastName?: string } {
+  if (!isJsonObject(value)) return false;
+  const isOptionalName = (name: "firstName" | "lastName") => {
+    const nameValue = value[name];
+    return nameValue === undefined || (typeof nameValue === "string" && nameValue.length <= 80);
+  };
   return (
-    isJsonObject(value) &&
     typeof value.email === "string" &&
     value.email.length <= 254 &&
     typeof value.password === "string" &&
     value.password.length >= 15 &&
-    value.password.length <= 256
+    value.password.length <= 256 &&
+    isOptionalName("firstName") &&
+    isOptionalName("lastName")
   );
 }
 
@@ -73,17 +81,23 @@ export async function POST(request: Request) {
   }
   if (!validRegistration(body)) {
     return Response.json(
-      { error: "Provide a valid email address and a password between 15 and 256 characters." },
+      {
+        error:
+          "Provide a valid email address, a password between 15 and 256 characters, and optional names up to 80 characters.",
+      },
       { status: 400, headers: NO_STORE_HEADERS },
     );
   }
 
   try {
-    await registerAccount(body.email, body.password);
+    await registerAccount(body.email, body.password, {
+      firstName: body.firstName,
+      lastName: body.lastName,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     if (!message.startsWith("An account with this email")) {
-      const isInputError = /valid email|password/i.test(message);
+      const isInputError = /valid email|password|name/i.test(message);
       return Response.json(
         {
           error: isInputError ? message : "Registration is temporarily unavailable.",

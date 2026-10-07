@@ -51,7 +51,7 @@ function isPublicIpv6(address: string): boolean {
   if (!/^[23]/.test(normalized)) return false;
   const [first, secondRaw = "0"] = normalized.split(":");
   const second = Number.parseInt(secondRaw || "0", 16);
-  if (first === "2001" && (second <= 0x1ff || second === 0x200)) return false;
+  if (first === "2001" && (second <= 0x1ff || second === 0x200 || second === 0x0db8)) return false;
   if (first === "2002") return false;
   if (first === "3fff" && second <= 0x0fff) return false;
   return true;

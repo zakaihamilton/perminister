@@ -17,6 +17,8 @@ export async function GET() {
         account: {
           subjectId: current.subject.subjectId,
           email: current.subject.primaryEmail,
+          firstName: current.subject.firstName ?? null,
+          lastName: current.subject.lastName ?? null,
           emailVerified: !!current.subject.emailVerifiedAt,
           status: current.subject.status,
         },

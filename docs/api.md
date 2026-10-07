@@ -31,9 +31,12 @@ Consumer authentication endpoints are called by the application backend:
 | `POST`   | `/api/auth/consumer/password-recovery`  | Request or complete password recovery                                 |
 | `PATCH`  | `/api/auth/consumer/password`           | Change a password for the current session                             |
 
-Registration accepts `email` and `password`; the password must be 15–256 characters. It returns
-`202` with the same accepted response for new and existing email addresses. A new account does not
-gain organization access automatically; an invitation or organization manager must grant it.
+Registration accepts `email` and `password`; the password must be 15–256 characters. Optional
+`firstName` and `lastName` fields may each contain up to 80 characters. The names are available in
+authenticated account responses (`null` when unset) and can also be updated from the Perminister
+profile page. The endpoint returns `202` with the same accepted response for new and existing email
+addresses. A new account does not gain organization access automatically; an invitation or
+organization manager must grant it.
 
 Login accepts `email` and `password`. For example:
 
@@ -55,7 +58,12 @@ account can use this product:
 {
   "authenticated": true,
   "sessionToken": "<SESSION_TOKEN>",
-  "account": { "subjectId": "<SUBJECT_ID>", "email": "person@example.com" },
+  "account": {
+    "subjectId": "<SUBJECT_ID>",
+    "email": "person@example.com",
+    "firstName": "Alex",
+    "lastName": "Morgan"
+  },
   "session": { "expiresAt": "<TIMESTAMP>" },
   "organizations": [
     {
@@ -74,6 +82,11 @@ accepts either an `email` to request a link or a `token` to complete verificatio
 either an `email` to request a link or a `token` and new `password` to complete recovery. A new
 password must be 15–256 characters. Password change requires `currentPassword` and `newPassword`.
 Requests by email return a generic accepted response to avoid revealing whether an account exists.
+Recovery lookups and mail delivery run after the response, and the Perminister service throttles
+repeated recovery requests by email and caller. Current process-local caps are three requests per
+email per rolling hour, 30 per first-party caller per rolling hour, and 300 per API client per
+rolling hour. Product backends should also apply their own request and bot limits to public
+authentication flows.
 Password changes and recovery invalidate existing app sessions.
 
 Store the session token in the application's own Secure, HttpOnly, SameSite cookie. Send it as a

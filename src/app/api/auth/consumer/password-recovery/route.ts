@@ -1,5 +1,7 @@
+import { after } from "next/server";
 import { authenticateConsumerClient } from "@/lib/auth/consumer-clients";
 import { sendRecoveryEmail } from "@/lib/auth/mail";
+import { consumePasswordRecoveryRateLimit } from "@/lib/auth/coordination";
 import {
   completeEmailAction,
   InvalidAuthActionError,
@@ -99,17 +101,24 @@ export async function POST(request: Request) {
       },
     );
   }
-  try {
-    const action = await issueRecoveryAction(body.email);
-    if (action) {
-      await sendRecoveryEmail(action.email, action.token, {
-        origin: request.headers.get("origin"),
-        appOrigin: client.appOrigin,
-        appName: client.appName,
-      });
-    }
-  } catch {
-    // Do not reveal whether an email address belongs to an account.
+  const email = body.email;
+  if (!consumePasswordRecoveryRateLimit(email, `client:${client.clientId}`, 300)) {
+    return Response.json({ accepted: true }, { status: 202, headers: NO_STORE_HEADERS });
   }
+  const origin = request.headers.get("origin");
+  after(async () => {
+    try {
+      const action = await issueRecoveryAction(email);
+      if (action) {
+        await sendRecoveryEmail(action.email, action.token, {
+          origin,
+          appOrigin: client.appOrigin,
+          appName: client.appName,
+        });
+      }
+    } catch {
+      // Do not reveal whether an email address belongs to an account.
+    }
+  });
   return Response.json({ accepted: true }, { status: 202, headers: NO_STORE_HEADERS });
 }

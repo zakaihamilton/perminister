@@ -2663,6 +2663,11 @@ button:focus-visible {
   border-top: 1px solid #edf0f4;
   padding: 16px 7px 0;
 }
+.sidebar-account {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
 .sidebar-email {
   display: block;
   width: 100%;
@@ -2678,13 +2683,14 @@ button:focus-visible {
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
-  cursor: help;
 }
-.sidebar-email-tooltip,
-.sidebar-email-tooltip .tooltip-anchor {
-  display: block;
-  width: 100%;
-  min-width: 0;
+.sidebar-account-name {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
 }
 .sidebar-signout {
   width: 100%;
@@ -3391,6 +3397,11 @@ button:focus-visible {
   font-weight: 700;
   cursor: pointer;
 }
+.profile-card .profile-name-form {
+  border-bottom: 1px solid var(--line);
+  margin: 15px 0 18px;
+  padding-bottom: 18px;
+}
 .profile-details {
   display: grid;
   gap: 0;
@@ -3717,6 +3728,17 @@ button:focus-visible {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   clip-path: inset(50%);
+}
+
+@media (max-width: 1030px) {
+  .dashboard-page-heading:has(.product-detail-actions) {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 13px;
+  }
+  .dashboard-page-heading:has(.product-detail-actions) .dashboard-heading-action {
+    width: 100%;
+  }
 }
 
 @media (max-width: 980px) {
@@ -4426,12 +4448,9 @@ summary:focus-visible {
   color: var(--blue-dark);
   text-decoration: underline;
 }
-.dashboard-breadcrumbs [aria-current="page"] {
-  color: var(--ink-soft);
-  font-weight: 650;
-}
-.dashboard-breadcrumbs .dashboard-breadcrumb-current {
+.dashboard-page-title {
   margin: 0;
+  margin-bottom: 10px;
   color: var(--ink);
   font-family:
     Iowan Old Style,
@@ -5699,6 +5718,9 @@ html[data-theme="dark"] .simple-panel-links span {
     justify-content: space-between;
     border-top: 1px solid var(--line);
     padding: 8px 2px;
+  }
+  .sidebar-account {
+    flex: 1 1 auto;
   }
   .dashboard-sidebar-footer form {
     flex: 0 0 auto;

@@ -39,6 +39,8 @@ export default async function OrganizationDashboardLayout({
       organizations={organizations}
       role={organization.membership.role}
       email={current.subject.primaryEmail}
+      firstName={current.subject.firstName ?? null}
+      lastName={current.subject.lastName ?? null}
     >
       {children}
     </DashboardShell>

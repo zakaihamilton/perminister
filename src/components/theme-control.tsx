@@ -111,31 +111,29 @@ export function ThemeControl() {
     <div className="theme-control" ref={rootRef}>
       <Tooltip
         content="Choose light, dark, or system appearance. Your choice is saved on this device."
-        trigger={
-          <button
-            aria-controls={open ? "theme-menu" : undefined}
-            aria-expanded={open}
-            aria-haspopup="menu"
-            aria-label={`Appearance: ${themeOptions.find((option) => option.value === choice)?.label ?? "System"}`}
-            className="theme-trigger"
-            onClick={() => setOpen((value) => !value)}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowDown" && !open) {
-                event.preventDefault();
-                setOpen(true);
-              }
-            }}
-            ref={triggerRef}
-            type="button"
-          >
-            <ThemeIcon choice={choice} />
-            <span className="theme-trigger-label">Theme</span>
-            <svg aria-hidden="true" className="theme-chevron" viewBox="0 0 16 16" fill="none">
-              <path d="m4 6 4 4 4-4" />
-            </svg>
-          </button>
-        }
-      />
+        triggerProps={{
+          "aria-controls": open ? "theme-menu" : undefined,
+          "aria-expanded": open,
+          "aria-haspopup": "menu",
+          "aria-label": `Appearance: ${themeOptions.find((option) => option.value === choice)?.label ?? "System"}`,
+          className: "theme-trigger",
+          onClick: () => setOpen((value) => !value),
+          onKeyDown: (event) => {
+            if (event.key === "ArrowDown" && !open) {
+              event.preventDefault();
+              setOpen(true);
+            }
+          },
+          ref: triggerRef,
+          type: "button",
+        }}
+      >
+        <ThemeIcon choice={choice} />
+        <span className="theme-trigger-label">Theme</span>
+        <svg aria-hidden="true" className="theme-chevron" viewBox="0 0 16 16" fill="none">
+          <path d="m4 6 4 4 4-4" />
+        </svg>
+      </Tooltip>
       {open ? (
         <div
           aria-label="Choose appearance"
