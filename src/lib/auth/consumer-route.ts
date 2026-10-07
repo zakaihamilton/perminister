@@ -44,10 +44,10 @@ export async function readConsumerJsonBody(
 export async function consumerRequestContext(
   request: Request,
 ): Promise<ConsumerRequestContext | Response | null> {
-  const client = authenticateConsumerClient(request);
-  const token = bearerToken(request);
-  if (!client || !token) return null;
   try {
+    const client = await authenticateConsumerClient(request);
+    const token = bearerToken(request);
+    if (!client || !token) return null;
     const current = await getConsumerSessionFromToken(token, client.clientId);
     if (!current || current.session.productId !== client.productId) return null;
     return { client, current };
@@ -78,8 +78,16 @@ export async function requireConsumerJsonRequest(
   return { ...context, body };
 }
 
-export function requireConsumerClient(request: Request): ConsumerClient | Response {
-  const client = authenticateConsumerClient(request);
+export async function requireConsumerClient(request: Request): Promise<ConsumerClient | Response> {
+  let client: ConsumerClient | null;
+  try {
+    client = await authenticateConsumerClient(request);
+  } catch {
+    return Response.json(
+      { error: "Authentication service is temporarily unavailable." },
+      { status: 503, headers: NO_STORE_HEADERS },
+    );
+  }
   if (client) return client;
   return Response.json(
     { error: "Invalid application credentials." },
@@ -91,7 +99,7 @@ export async function requireConsumerClientJsonBody(
   request: Request,
   maxBytes: number,
 ): Promise<{ client: ConsumerClient; body: unknown } | Response> {
-  const client = requireConsumerClient(request);
+  const client = await requireConsumerClient(request);
   if (client instanceof Response) return client;
   const body = await readConsumerJsonBody(request, maxBytes);
   if (body instanceof Response) return body;

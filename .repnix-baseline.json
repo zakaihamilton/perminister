@@ -1,51 +1,51 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-07T19:15:32.344Z",
+  "generatedAt": "2026-10-07T21:02:09.545Z",
   "entries": [
     {
-      "fingerprint": "a017d277a4da61975ff101f4",
+      "fingerprint": "e8ce8345533847fd8984fd76",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/actions.ts",
-      "line": 396
+      "line": 482
     },
     {
-      "fingerprint": "bd6098fff813f0a02cbaa31b",
+      "fingerprint": "85598027e64bfed9b1ebd0bb",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/actions.ts",
-      "line": 511
+      "line": 597
     },
     {
-      "fingerprint": "bd6098fff813f0a02cbaa31b",
+      "fingerprint": "85598027e64bfed9b1ebd0bb",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/actions.ts",
-      "line": 511
+      "line": 597
     },
     {
-      "fingerprint": "bd6098fff813f0a02cbaa31b",
+      "fingerprint": "85598027e64bfed9b1ebd0bb",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/actions.ts",
-      "line": 511
+      "line": 597
     },
     {
-      "fingerprint": "f73b6f9a9c390abfa013ec27",
+      "fingerprint": "9c482284d550c9634873ecf8",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/actions.ts",
-      "line": 605
+      "line": 691
     },
     {
       "fingerprint": "a0c99683e41b884510f183fc",
@@ -192,13 +192,13 @@
       "line": 163
     },
     {
-      "fingerprint": "9e71265c08a17882ee6142f8",
+      "fingerprint": "cdf17bb97cc5552e196b86bb",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "lib/auth/service.ts",
-      "line": 1718
+      "line": 1971
     }
   ]
 }

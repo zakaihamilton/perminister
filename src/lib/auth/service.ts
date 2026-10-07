@@ -12,6 +12,7 @@ import {
   assertOpaqueId,
   authRecordId,
   newApiKeyId,
+  newConsumerClientId,
   newEmailActionId,
   newEventId,
   newInvitationId,
@@ -25,6 +26,8 @@ import {
   type ApiKeyId,
   type ApiKeyOwner,
   type ApiKeyRecord,
+  type ConsumerClientId,
+  type ConsumerClientRecord,
   type AuthActor,
   type AuthAggregate,
   type AuthEvent,
@@ -311,6 +314,8 @@ function aggregateFor(kind: AuthRecordKind, id: string): AuthAggregate {
       return { kind, id: id as ServicePrincipalId };
     case "api-key":
       return { kind, id: id as ApiKeyId };
+    case "consumer-client":
+      return { kind, id: id as ConsumerClientId };
     case "session":
       return { kind, id: id as SessionId };
     case "email-action":
@@ -352,6 +357,9 @@ function activityPayload(record: AuthRecord): AuthEvent["payload"] {
     payload.organizationId = record.scope.organizationId;
     payload.productId = record.scope.productId;
     if (record.owner.kind === "subject") payload.subjectId = record.owner.subjectId;
+  } else if (record.kind === "consumer-client") {
+    payload.productId = record.productId;
+    payload.subjectId = record.createdBySubjectId;
   } else if (record.kind === "session" || record.kind === "email-action") {
     payload.subjectId = record.subjectId;
   } else {
@@ -1651,6 +1659,251 @@ async function requireProductRoleUnlocked(
     throw new Error("You do not have permission to manage this product.");
   }
   return membership;
+}
+
+export interface ConsumerClientSummary {
+  clientId: string;
+  productId: string;
+  appName: string;
+  appOrigin: string | null;
+  sessionLifetimeMs: number;
+  selfRegistrationEnabled: boolean;
+  status: ConsumerClientRecord["status"];
+  createdAt: string;
+  updatedAt: string;
+  revokedAt: string | null;
+}
+
+export interface ConsumerClientCredential {
+  clientId: string;
+  secret: string;
+}
+
+export interface CreateConsumerClientOptions {
+  appName: string;
+  appOrigin: string;
+  sessionLifetimeSeconds: number;
+  selfRegistrationEnabled: boolean;
+}
+
+function consumerClientSummary(record: ConsumerClientRecord): ConsumerClientSummary {
+  return {
+    clientId: record.consumerClientId,
+    productId: record.productId,
+    appName: record.appName,
+    appOrigin: record.appOrigin,
+    sessionLifetimeMs: record.sessionLifetimeMs,
+    selfRegistrationEnabled: record.selfRegistrationEnabled,
+    status: record.status,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    revokedAt: record.revokedAt,
+  };
+}
+
+function validateConsumerClientOptions(productId: string, options: CreateConsumerClientOptions) {
+  const appName = options.appName.trim().replace(/\s+/g, " ");
+  if (!appName || appName.length > 80 || /[\u0000-\u001f\u007f]/.test(appName)) {
+    throw new Error("Enter an application name up to 80 characters.");
+  }
+  let appOrigin: string | null = null;
+  if (options.appOrigin.trim()) {
+    let parsed: URL;
+    try {
+      parsed = new URL(options.appOrigin.trim());
+    } catch {
+      throw new Error("Enter a valid app origin.");
+    }
+    const isSecure =
+      parsed.protocol === "https:" ||
+      (process.env.NODE_ENV !== "production" &&
+        parsed.protocol === "http:" &&
+        ["localhost", "127.0.0.1"].includes(parsed.hostname));
+    if (
+      !isSecure ||
+      parsed.username ||
+      parsed.password ||
+      parsed.pathname !== "/" ||
+      parsed.search ||
+      parsed.hash
+    ) {
+      throw new Error("Use an HTTPS app origin without a path, query, or fragment.");
+    }
+    appOrigin = parsed.origin;
+  }
+  if (
+    !Number.isSafeInteger(options.sessionLifetimeSeconds) ||
+    options.sessionLifetimeSeconds < 5 * 60 ||
+    options.sessionLifetimeSeconds > 90 * 24 * 60 * 60
+  ) {
+    throw new Error("Session lifetime must be between 5 minutes and 90 days.");
+  }
+  if (typeof options.selfRegistrationEnabled !== "boolean") {
+    throw new Error("Choose whether self-registration is enabled.");
+  }
+  if (["visitoring", "postparticle"].includes(productId) && options.selfRegistrationEnabled) {
+    throw new Error("Public self-registration is disabled for this product.");
+  }
+  return { appName, appOrigin };
+}
+
+export async function getConsumerClientRecord(
+  clientId: string,
+): Promise<ConsumerClientRecord | null> {
+  assertOpaqueId(clientId);
+  return authMutationQueue.read(async () => {
+    const found = await loadRecord("consumer-client", clientId);
+    return found?.record ?? null;
+  });
+}
+
+export async function hasActiveConsumerClientForProduct(productId: string): Promise<boolean> {
+  const normalizedProductId = validateProductId(productId);
+  return authMutationQueue.read(async () =>
+    (await listRecordsWithRecovery("consumer-client")).some(
+      (item) => item.record.productId === normalizedProductId && item.record.status === "active",
+    ),
+  );
+}
+
+export async function listConsumerClientsForProduct(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+): Promise<ConsumerClientSummary[]> {
+  const normalizedProductId = validateProductId(productId);
+  return authMutationQueue.read(async () => {
+    await requireProductRoleUnlocked(actorId, organizationId, normalizedProductId, [
+      "owner",
+      "admin",
+    ]);
+    return (await listRecordsWithRecovery("consumer-client"))
+      .map((item) => item.record)
+      .filter((record) => record.productId === normalizedProductId)
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+      .map(consumerClientSummary);
+  });
+}
+
+async function withConsumerClientManager<Result>(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  operation: (actor: OrganizationMembershipRecord, normalizedProductId: string) => Promise<Result>,
+): Promise<Result> {
+  assertOpaqueId(organizationId);
+  const normalizedProductId = validateProductId(productId);
+  return authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      const actor = await requireProductRoleUnlocked(actorId, organizationId, normalizedProductId, [
+        "owner",
+        "admin",
+      ]);
+      return operation(actor, normalizedProductId);
+    }),
+  );
+}
+
+export async function createConsumerClient(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  options: CreateConsumerClientOptions,
+): Promise<ConsumerClientCredential> {
+  return withConsumerClientManager(
+    actorId,
+    organizationId,
+    productId,
+    async (actor, normalizedProductId) => {
+      const validated = validateConsumerClientOptions(normalizedProductId, options);
+      const consumerClientId = newConsumerClientId();
+      const secret = `pmc_${consumerClientId}_${randomBytes(32).toString("base64url")}`;
+      const now = new Date().toISOString();
+      const record: ConsumerClientRecord = {
+        kind: "consumer-client",
+        schemaVersion: 1,
+        consumerClientId,
+        productId: normalizedProductId,
+        appName: validated.appName,
+        appOrigin: validated.appOrigin,
+        sessionLifetimeMs: options.sessionLifetimeSeconds * 1000,
+        selfRegistrationEnabled: options.selfRegistrationEnabled,
+        verifier: { algorithm: "sha256", digestHex: hashHex(secret) },
+        status: "active",
+        createdBySubjectId: actor.subjectId,
+        createdAt: now,
+        updatedAt: now,
+        revokedAt: null,
+      };
+      await persistRecord(record, "consumer-client.created", {
+        kind: "subject",
+        subjectId: actor.subjectId,
+      });
+      return { clientId: consumerClientId, secret };
+    },
+  );
+}
+
+export async function rotateConsumerClient(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  clientId: string,
+): Promise<ConsumerClientCredential> {
+  assertOpaqueId(clientId);
+  return withConsumerClientManager(
+    actorId,
+    organizationId,
+    productId,
+    async (actor, normalizedProductId) => {
+      const found = await loadRecord("consumer-client", clientId);
+      if (
+        !found ||
+        found.record.productId !== normalizedProductId ||
+        found.record.status !== "active"
+      ) {
+        throw new Error("Choose an active application client for this product.");
+      }
+      const secret = `pmc_${found.record.consumerClientId}_${randomBytes(32).toString("base64url")}`;
+      const next: ConsumerClientRecord = {
+        ...found.record,
+        verifier: { algorithm: "sha256", digestHex: hashHex(secret) },
+        updatedAt: new Date().toISOString(),
+      };
+      await persistRecord(next, "consumer-client.secret-rotated", {
+        kind: "subject",
+        subjectId: actor.subjectId,
+      });
+      return { clientId: next.consumerClientId, secret };
+    },
+  );
+}
+
+export async function revokeConsumerClient(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  clientId: string,
+): Promise<void> {
+  assertOpaqueId(clientId);
+  await withConsumerClientManager(
+    actorId,
+    organizationId,
+    productId,
+    async (actor, normalizedProductId) => {
+      const found = await loadRecord("consumer-client", clientId);
+      if (!found || found.record.productId !== normalizedProductId) {
+        throw new Error("Application client not found.");
+      }
+      if (found.record.status === "revoked") return;
+      const now = new Date().toISOString();
+      await persistRecord(
+        { ...found.record, status: "revoked", revokedAt: now, updatedAt: now },
+        "consumer-client.revoked",
+        { kind: "subject", subjectId: actor.subjectId },
+      );
+    },
+  );
 }
 
 export async function listProductMembers(

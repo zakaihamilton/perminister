@@ -108,6 +108,7 @@ async function main() {
     `${ROOT_PREFIX}invitations/`,
     `${ROOT_PREFIX}service-principals/`,
     `${ROOT_PREFIX}api-keys/`,
+    `${ROOT_PREFIX}consumer-clients/`,
     `${ROOT_PREFIX}sessions/`,
     `${ROOT_PREFIX}email-actions/`,
     `${ROOT_PREFIX}activity/events/`,
@@ -199,6 +200,14 @@ async function main() {
         add(
           indexes,
           `${ROOT_PREFIX}indexes/by-id/service-principal/${record.servicePrincipalId}.json`,
+          { key },
+        );
+      } else if (prefix === `${ROOT_PREFIX}consumer-clients/`) {
+        if (record.kind !== "consumer-client" || !uuid(record.consumerClientId))
+          throw new Error(`Malformed consumer client at ${key}`);
+        add(
+          indexes,
+          `${ROOT_PREFIX}indexes/by-id/consumer-client/${record.consumerClientId}.json`,
           { key },
         );
       } else if (prefix === `${ROOT_PREFIX}sessions/`) {

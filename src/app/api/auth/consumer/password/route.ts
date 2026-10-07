@@ -12,7 +12,15 @@ import { changePasswordForSubject, getConsumerSessionFromToken } from "@/lib/aut
 export const runtime = "nodejs";
 
 export async function PATCH(request: Request) {
-  const client = authenticateConsumerClient(request);
+  let client: Awaited<ReturnType<typeof authenticateConsumerClient>>;
+  try {
+    client = await authenticateConsumerClient(request);
+  } catch {
+    return Response.json(
+      { error: "Authentication service is temporarily unavailable." },
+      { status: 503, headers: NO_STORE_HEADERS },
+    );
+  }
   const token = bearerToken(request);
   if (!client || !token) {
     return Response.json(

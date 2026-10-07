@@ -44,6 +44,8 @@ function storedId(record: AuthRecord): string {
       return record.servicePrincipalId;
     case "api-key":
       return record.apiKeyId;
+    case "consumer-client":
+      return record.consumerClientId;
     case "session":
       return record.sessionId;
     case "email-action":

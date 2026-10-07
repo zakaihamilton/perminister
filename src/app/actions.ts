@@ -3,11 +3,13 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
+import { revalidatePath } from "next/cache";
 import {
   authenticate,
   acceptOrganizationInvitation,
   completeEmailAction,
   createApiKeyForSubject,
+  createConsumerClient,
   createOrganization,
   createOrganizationInvitation,
   createOrganizationProduct,
@@ -27,6 +29,7 @@ import {
   revokeProductInvitation,
   retireLegacyAccess,
   revokeApiKeyForSubject,
+  revokeConsumerClient,
   revokeSession,
   setSessionCookie,
   signOutCurrentSession,
@@ -39,8 +42,10 @@ import {
   updateProductMemberRole,
   removeProductMember,
   removeProductAccessRole,
+  rotateConsumerClient,
 } from "@/lib/auth/service";
 import type { ResourceScope, SubjectId } from "@/lib/auth/domain";
+import type { ConsumerClientCredential } from "@/lib/auth/service";
 import {
   browserOriginFromHeaders,
   isMailDeliveryConfigured,
@@ -95,6 +100,14 @@ function publicActionError(error: unknown): string {
     "Organization names must be 2 to 80 characters.",
     "This invitation is invalid or expired, or it was sent to another email address.",
     "Only an active, unexpired API key can be rotated.",
+    "Enter an application name up to 80 characters.",
+    "Enter a valid app origin.",
+    "Use an HTTPS app origin without a path, query, or fragment.",
+    "Session lifetime must be between 5 minutes and 90 days.",
+    "Choose whether self-registration is enabled.",
+    "Public self-registration is disabled for this product.",
+    "Choose an active application client for this product.",
+    "Application client not found.",
     "Choose one of your own API keys to rotate.",
     "You cannot disable the currently configured administrator account.",
     "Email delivery is not configured.",
@@ -355,6 +368,79 @@ export async function createApiKeyAction(
   } catch (error) {
     return { error: publicActionError(error) };
   }
+}
+
+export interface ConsumerClientActionState {
+  clientId?: string;
+  secret?: string;
+  error?: string;
+}
+
+async function consumerClientActionContext(formData: FormData) {
+  const current = await getCurrentSession();
+  if (!current) return null;
+  return {
+    current,
+    organizationId: firstValue(formData, "organizationId"),
+    productId: firstValue(formData, "productId"),
+    clientId: firstValue(formData, "clientId"),
+    returnTo: dashboardReturnTo(formData),
+  };
+}
+
+export async function createOrRotateConsumerClientAction(
+  _previous: ConsumerClientActionState,
+  formData: FormData,
+): Promise<ConsumerClientActionState> {
+  const context = await consumerClientActionContext(formData);
+  if (!context) return { error: "Sign in again to manage application clients." };
+  const { current, organizationId, productId, returnTo, clientId } = context;
+  try {
+    let credential: ConsumerClientCredential;
+    if (clientId) {
+      credential = await rotateConsumerClient(
+        current.subject.subjectId,
+        organizationId,
+        productId,
+        clientId,
+      );
+    } else {
+      const sessionLifetimeHours = Number(firstValue(formData, "sessionLifetimeHours"));
+      const registrationSetting = firstValue(formData, "selfRegistrationEnabled");
+      if (registrationSetting !== "true" && registrationSetting !== "false") {
+        return { error: "Choose whether self-registration is enabled." };
+      }
+      credential = await createConsumerClient(
+        current.subject.subjectId,
+        organizationId,
+        productId,
+        {
+          appName: firstValue(formData, "appName"),
+          appOrigin: firstValue(formData, "appOrigin"),
+          sessionLifetimeSeconds: Math.round(sessionLifetimeHours * 60 * 60),
+          selfRegistrationEnabled: registrationSetting === "true",
+        },
+      );
+    }
+    revalidatePath(returnTo);
+    return credential;
+  } catch (error) {
+    return { error: publicActionError(error) };
+  }
+}
+
+export async function revokeConsumerClientAction(formData: FormData): Promise<void> {
+  const context = await consumerClientActionContext(formData);
+  if (!context) redirect("/login");
+  const { current, organizationId, productId, clientId, returnTo } = context;
+  try {
+    await revokeConsumerClient(current.subject.subjectId, organizationId, productId, clientId);
+  } catch (error) {
+    const message = encodeURIComponent(publicActionError(error));
+    redirect(`${returnTo}?error=${message}`);
+  }
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?notice=client-revoked`);
 }
 
 export async function createOrganizationAction(formData: FormData): Promise<void> {

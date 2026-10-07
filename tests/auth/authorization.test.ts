@@ -31,6 +31,7 @@ vi.mock("../../src/lib/auth/storage/spaces", () => ({
 const ORGANIZATION_ID = "11111111-1111-4111-8111-111111111111";
 const SUBJECT_ID = "33333333-3333-4333-8333-333333333333";
 const API_KEY_ID = "55555555-5555-4555-8555-555555555555";
+const CONSUMER_CLIENT_ID = "44444444-4444-4444-8444-444444444444";
 const ORG_MEMBERSHIP_ID = "66666666-6666-4666-8666-666666666666";
 const GRANT_ID = "77777777-7777-4777-8777-777777777777";
 const INVITATION_ID = "88888888-8888-4888-8888-888888888888";
@@ -62,6 +63,8 @@ function storedId(record: AuthRecord): string {
       return record.servicePrincipalId;
     case "api-key":
       return record.apiKeyId;
+    case "consumer-client":
+      return record.consumerClientId;
     case "session":
       return record.sessionId;
     case "email-action":
@@ -1273,22 +1276,40 @@ describe("consumer identity migration and management", () => {
     });
     expect(created).toMatchObject({ created: true, member: { role: "viewer", active: true } });
 
+    const clientSecret = "p".repeat(40);
+    const clientNow = new Date().toISOString();
+    store.seed({
+      kind: "consumer-client",
+      schemaVersion: 1,
+      consumerClientId: CONSUMER_CLIENT_ID as never,
+      productId: "postparticle",
+      appName: "PostParticle",
+      appOrigin: null,
+      sessionLifetimeMs: 8 * 60 * 60 * 1000,
+      selfRegistrationEnabled: false,
+      verifier: {
+        algorithm: "sha256",
+        digestHex: createHash("sha256").update(clientSecret).digest("hex"),
+      },
+      status: "active",
+      createdBySubjectId: platformAdminId as never,
+      createdAt: clientNow,
+      updatedAt: clientNow,
+      revokedAt: null,
+    } as AuthRecord);
     const writerSession = await service.createConsumerSession(
       writerId as never,
-      "postparticle",
+      CONSUMER_CLIENT_ID,
       "postparticle",
       8 * 60 * 60 * 1000,
     );
     await expect(
-      service.getConsumerSessionFromToken(writerSession.token, "postparticle"),
+      service.getConsumerSessionFromToken(writerSession.token, CONSUMER_CLIENT_ID),
     ).resolves.toBeTruthy();
-    vi.stubEnv("PERMINISTER_APP_CLIENT_IDS", "postparticle");
-    vi.stubEnv("PERMINISTER_APP_CLIENT_POSTPARTICLE_SECRET", "p".repeat(40));
-    vi.stubEnv("PERMINISTER_APP_CLIENT_POSTPARTICLE_PRODUCT_ID", "postparticle");
     const { consumerRequestContext } = await import("../../src/lib/auth/consumer-route");
     const validHeaders = {
-      "x-perminister-client-id": "postparticle",
-      "x-perminister-client-secret": "p".repeat(40),
+      "x-perminister-client-id": CONSUMER_CLIENT_ID,
+      "x-perminister-client-secret": clientSecret,
       authorization: `Bearer ${writerSession.token}`,
     };
     await expect(
@@ -1318,12 +1339,12 @@ describe("consumer identity migration and management", () => {
       store.seed({ ...storedSession, expiresAt: new Date(Date.now() - 1000).toISOString() });
     }
     await expect(
-      service.getConsumerSessionFromToken(writerSession.token, "postparticle"),
+      service.getConsumerSessionFromToken(writerSession.token, CONSUMER_CLIENT_ID),
     ).resolves.toBeNull();
 
     const resetSession = await service.createConsumerSession(
       writerId as never,
-      "postparticle",
+      CONSUMER_CLIENT_ID,
       "postparticle",
       8 * 60 * 60 * 1000,
     );
@@ -1336,12 +1357,12 @@ describe("consumer identity migration and management", () => {
       password: "Reset PostParticle password 456!",
     });
     await expect(
-      service.getConsumerSessionFromToken(resetSession.token, "postparticle"),
+      service.getConsumerSessionFromToken(resetSession.token, CONSUMER_CLIENT_ID),
     ).resolves.toBeNull();
 
     const secondSession = await service.createConsumerSession(
       writerId as never,
-      "postparticle",
+      CONSUMER_CLIENT_ID,
       "postparticle",
       8 * 60 * 60 * 1000,
     );
@@ -1351,7 +1372,7 @@ describe("consumer identity migration and management", () => {
       status: "disabled",
     });
     await expect(
-      service.getConsumerSessionFromToken(secondSession.token, "postparticle"),
+      service.getConsumerSessionFromToken(secondSession.token, CONSUMER_CLIENT_ID),
     ).resolves.toBeNull();
   });
 });

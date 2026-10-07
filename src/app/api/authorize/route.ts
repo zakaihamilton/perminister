@@ -108,7 +108,7 @@ export async function POST(request: Request) {
   }
   try {
     const isApiKey = /^pmk_[0-9a-f-]{36}_/i.test(match[1]);
-    const client = isApiKey ? null : authenticateConsumerClient(request);
+    const client = isApiKey ? null : await authenticateConsumerClient(request);
     if (!isApiKey && (!client || client.productId !== body.productId)) {
       return Response.json({ authorized: false }, { status: 403, headers: noStoreHeaders });
     }

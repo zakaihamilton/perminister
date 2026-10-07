@@ -9,7 +9,15 @@ import {
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const client = authenticateConsumerClient(request);
+  let client: Awaited<ReturnType<typeof authenticateConsumerClient>>;
+  try {
+    client = await authenticateConsumerClient(request);
+  } catch {
+    return Response.json(
+      { error: "Session service is temporarily unavailable." },
+      { status: 503, headers: NO_STORE_HEADERS },
+    );
+  }
   if (!client) {
     return Response.json(
       { error: "Invalid application credentials." },
@@ -64,7 +72,15 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const client = authenticateConsumerClient(request);
+  let client: Awaited<ReturnType<typeof authenticateConsumerClient>>;
+  try {
+    client = await authenticateConsumerClient(request);
+  } catch {
+    return Response.json(
+      { error: "Session service is temporarily unavailable." },
+      { status: 503, headers: NO_STORE_HEADERS },
+    );
+  }
   if (!client) {
     return Response.json(
       { error: "Invalid application credentials." },

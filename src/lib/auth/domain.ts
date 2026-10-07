@@ -6,6 +6,7 @@ type BrandedId<Name extends string> = string & { readonly __brand: Name };
 export type SubjectId = BrandedId<"SubjectId">;
 export type MembershipId = BrandedId<"MembershipId">;
 export type ApiKeyId = BrandedId<"ApiKeyId">;
+export type ConsumerClientId = BrandedId<"ConsumerClientId">;
 export type ServicePrincipalId = BrandedId<"ServicePrincipalId">;
 export type EventId = BrandedId<"EventId">;
 export type SessionId = BrandedId<"SessionId">;
@@ -21,6 +22,7 @@ export type OrganizationApprovalStatus = "pending" | "approved" | "rejected";
 export const newSubjectId = (): SubjectId => randomUUID() as SubjectId;
 export const newMembershipId = (): MembershipId => randomUUID() as MembershipId;
 export const newApiKeyId = (): ApiKeyId => randomUUID() as ApiKeyId;
+export const newConsumerClientId = (): ConsumerClientId => randomUUID() as ConsumerClientId;
 export const newServicePrincipalId = (): ServicePrincipalId => randomUUID() as ServicePrincipalId;
 export const newEventId = (): EventId => randomUUID() as EventId;
 export const newSessionId = (): SessionId => randomUUID() as SessionId;
@@ -232,6 +234,24 @@ export interface ApiKeyRecord {
   rotatedFromApiKeyId: ApiKeyId | null;
 }
 
+export interface ConsumerClientRecord {
+  kind: "consumer-client";
+  schemaVersion: 1;
+  consumerClientId: ConsumerClientId;
+  productId: ProductId;
+  appName: string;
+  appOrigin: string | null;
+  sessionLifetimeMs: number;
+  selfRegistrationEnabled: boolean;
+  /** Hash of a high-entropy app credential. The plaintext secret is returned only once. */
+  verifier: { algorithm: "sha256"; digestHex: string };
+  status: "active" | "revoked";
+  createdBySubjectId: SubjectId;
+  createdAt: string;
+  updatedAt: string;
+  revokedAt: string | null;
+}
+
 export interface SessionRecord {
   kind: "session";
   schemaVersion: 1;
@@ -273,6 +293,7 @@ export type AuthRecord =
   | MembershipRecord
   | ServicePrincipalRecord
   | ApiKeyRecord
+  | ConsumerClientRecord
   | SessionRecord
   | EmailActionRecord;
 export type AuthRecordKind = AuthRecord["kind"];
@@ -296,6 +317,8 @@ export function authRecordId(record: AuthRecord): string {
       return record.servicePrincipalId;
     case "api-key":
       return record.apiKeyId;
+    case "consumer-client":
+      return record.consumerClientId;
     case "session":
       return record.sessionId;
     case "email-action":
@@ -312,6 +335,7 @@ export type AuthAggregate =
   | { kind: "membership"; id: MembershipId }
   | { kind: "service-principal"; id: ServicePrincipalId }
   | { kind: "api-key"; id: ApiKeyId }
+  | { kind: "consumer-client"; id: ConsumerClientId }
   | { kind: "session"; id: SessionId }
   | { kind: "email-action"; id: EmailActionId }
   | { kind: "directory"; id: DirectoryId };

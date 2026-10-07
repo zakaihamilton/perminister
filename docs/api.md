@@ -6,9 +6,13 @@ The paths below are relative to the Perminister base URL provided by the platfor
 
 ## Client credentials
 
-Ask a Perminister platform operator to provision a client ID and secret for the application and bind
-it to the product ID used in the Perminister catalog. The application backend sends these headers
-when calling consumer endpoints:
+Product owners and admins create an app client from the product’s **App clients** page. Each client
+is bound to that product and has its own session lifetime, optional app origin, and
+self-registration setting. Perminister returns the client ID and secret once; copy them into the
+application backend’s environment. Owners and admins can rotate or revoke credentials from the same
+page. Rotating a secret immediately invalidates the previous one, and revoking a client stops its
+credentials from working. The application backend sends these headers when calling consumer
+endpoints:
 
 ```http
 X-Perminister-Client-Id: <CLIENT_ID>
@@ -42,11 +46,11 @@ Consumer authentication endpoints are called by the application backend:
 Registration accepts `email` and `password`; the password must be 15–256 characters. Optional
 `firstName` and `lastName` fields may each contain up to 80 characters. The names are available in
 authenticated account responses (`null` when unset) and can also be updated from the Perminister
-profile page. Public self-registration is disabled for the `visitoring` and `postparticle` client
-IDs; their `/register` requests return `403`. Self-registration remains enabled by default for other
-clients and can be configured with `PERMINISTER_APP_CLIENT_<ID>_SELF_REGISTRATION_ENABLED`. When
-enabled, the endpoint returns `202` with `{"accepted":true}` for both new and existing email
-addresses. A new account does not gain organization access automatically; an invitation or
+profile page. Public self-registration is disabled by default for new clients. It stays disabled for
+Visitoring and PostParticle, whose accounts are provisioned by product administrators. For other
+products, an owner or admin can enable it in the client settings; otherwise `/register` returns
+`403`. When enabled, the endpoint returns `202` with `{"accepted":true}` for both new and existing
+email addresses. A new account does not gain organization access automatically; an invitation or
 organization manager must grant it. Invalid registration fields return `400`; a temporary
 registration service failure returns `503`.
 
@@ -105,10 +109,9 @@ failed attempts for an identifier within 15 minutes, login is locked for 15 minu
 `{"error":"too_many_attempts"}`. This login throttle is process-local, so product backends should
 also apply their own rate limits. Authentication service failures return `503`.
 
-Consumer sessions default to 30 days for `visitoring`, 8 hours for `postparticle`, and 12 hours for
-other clients. Set `PERMINISTER_APP_CLIENT_<ID>_SESSION_LIFETIME_SECONDS` to override a client
-lifetime (300 seconds through 90 days). Keep the returned token in the app's Secure, HttpOnly,
-SameSite cookie.
+Each app client stores its configured session lifetime (5 minutes through 90 days). Set Visitoring
+to 30 days and PostParticle to 8 hours when creating those clients. Keep the returned token in the
+app's Secure, HttpOnly, SameSite cookie.
 
 Use `GET /api/auth/consumer/session` with the client headers and session bearer token to validate the
 session. A successful response contains `authenticated: true`, the same `account` and organization
@@ -228,8 +231,8 @@ The one-time import accepts an exported identity and membership manifest at
 `POST /api/auth/consumer/migrations/legacy`. Configure `PERMINISTER_LEGACY_IMPORT_SECRET` with a
 random secret of at least 32 characters and send it as `X-Perminister-Migration-Secret`. This route
 does not accept consumer client credentials or a user session. Keep the migration secret and input
-manifest server-side; the manifest contains password hashes. Configure both app clients and their
-products before importing.
+manifest server-side; the manifest contains password hashes. Create an active app client for each
+product being imported before starting the import.
 
 Example dry-run request (replace the hash placeholders with the exact exported hashes):
 
