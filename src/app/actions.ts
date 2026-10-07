@@ -10,16 +10,19 @@ import {
   createOrganization,
   createOrganizationInvitation,
   createOrganizationProduct,
+  createProductInvitation,
   createPermissionGrant,
   createSession,
   getCurrentSession,
   getOrganizationForSubject,
   isAdministrator,
+  decideOrganizationRequest,
   issueEmailAction,
   issueRecoveryAction,
   registerAccount,
   removeOrganizationMember,
   revokeOrganizationInvitation,
+  revokeProductInvitation,
   retireLegacyAccess,
   revokeApiKeyForSubject,
   revokeSession,
@@ -30,12 +33,15 @@ import {
   updateOrganizationMemberRole,
   updateOrganizationName,
   updateOrganizationProduct,
+  updateProductMemberRole,
+  removeProductMember,
 } from "@/lib/auth/service";
 import type { ResourceScope } from "@/lib/auth/domain";
 import {
   isMailDeliveryConfigured,
   sendRecoveryEmail,
   sendOrganizationInvitationEmail,
+  sendProductInvitationEmail,
   sendVerificationEmail,
 } from "@/lib/auth/mail";
 import { consumeProductLookupRateLimit } from "@/lib/auth/coordination";
@@ -61,6 +67,12 @@ function publicActionError(error: unknown): string {
     "API keys can only include actions granted to your account.",
     "Choose a product in this organization.",
     "Choose a member of this organization.",
+    "Choose a member of this product.",
+    "This person is already a product member.",
+    "Only a product owner can invite a product administrator.",
+    "A product must keep at least one owner.",
+    "You do not have permission to manage this product.",
+    "Join this product before creating an API key.",
     "This person is already a member of the organization.",
     "Only an organization owner can invite an administrator.",
     "An organization must keep at least one owner.",
@@ -76,9 +88,6 @@ function publicActionError(error: unknown): string {
     "You cannot disable the currently configured administrator account.",
     "Email delivery is not configured.",
     "Resend could not be reached.",
-    "Name search is not configured.",
-    "No public website matches were found.",
-    "Enter a product name between",
     "Enter a valid website address.",
     "Use a public HTTPS website address.",
     "This website cannot be fetched because it does not resolve to a public address.",
@@ -87,9 +96,6 @@ function publicActionError(error: unknown): string {
     "The website could not be fetched. Enter its details manually.",
     "This address did not return a web page. Enter its details manually.",
     "Website could not be resolved. Enter its details manually.",
-    "Website search could not be reached. Enter the website address to continue.",
-    "Website search is temporarily unavailable. Enter the website address to continue.",
-    "Website search returned too much content. Enter the website address to continue.",
     "Product website request timed out.",
     "Too many product lookups. Try again in a minute.",
     "Organization is busy. Try again shortly.",
@@ -331,17 +337,36 @@ export async function createOrganizationAction(formData: FormData): Promise<void
   const current = await getCurrentSession();
   if (!current) redirect("/login");
   const returnTo = dashboardReturnTo(formData);
-  let organizationId: string;
   try {
-    const organization = await createOrganization(
-      current.subject.subjectId,
-      firstValue(formData, "name"),
-    );
-    organizationId = organization.organizationId;
-  } catch {
-    redirect(`${returnTo}?error=organization-create`);
+    await createOrganization(current.subject.subjectId, firstValue(formData, "name"));
+  } catch (error) {
+    const code =
+      error instanceof Error && error.message === "An organization request is already pending."
+        ? "organization-pending"
+        : "organization-create";
+    redirect(`${returnTo}?error=${code}`);
   }
-  redirect(`/dashboard/${organizationId}`);
+  redirect(`${returnTo}?notice=organization-pending`);
+}
+
+export async function reviewOrganizationRequestAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  if (!isAdministrator(current.subject)) redirect("/dashboard?notice=admin-required");
+  const approvalStatus = firstValue(formData, "approvalStatus");
+  if (approvalStatus !== "approved" && approvalStatus !== "rejected") {
+    redirect("/dashboard/operations?error=organization-review");
+  }
+  try {
+    await decideOrganizationRequest(
+      current.subject.subjectId,
+      firstValue(formData, "organizationId"),
+      approvalStatus,
+    );
+  } catch {
+    redirect("/dashboard/operations?error=organization-review");
+  }
+  redirect(`/dashboard/operations?notice=organization-${approvalStatus}`);
 }
 
 export async function createOrganizationProductAction(formData: FormData): Promise<void> {
@@ -395,7 +420,6 @@ export async function updateOrganizationProductAction(formData: FormData): Promi
 
 export interface ProductLookupState {
   error?: string;
-  matches?: Array<{ title: string; url: string; description: string }>;
   suggestion?: { name: string; description: string; websiteUrl: string; iconUrl: string };
   source?: string;
 }
@@ -404,14 +428,10 @@ export async function lookupProductWebsiteAction(
   _previous: ProductLookupState,
   formData: FormData,
 ): Promise<ProductLookupState> {
-  const mode = firstValue(formData, "mode");
   const source = firstValue(formData, "source").trim();
   const organizationId = firstValue(formData, "organizationId");
-  if (mode !== "name" && mode !== "website") {
-    return { error: "Choose a product lookup method.", source };
-  }
   if (!source || source.length > 2048) {
-    return { error: "Enter a product name or website address up to 2,048 characters.", source };
+    return { error: "Enter a website address up to 2,048 characters.", source };
   }
   const current = await getCurrentSession();
   if (!current) return { error: "Sign in before looking up product details.", source };
@@ -423,16 +443,7 @@ export async function lookupProductWebsiteAction(
     if (!(await consumeProductLookupRateLimit(organizationId, current.subject.subjectId))) {
       return { error: "Too many product lookups. Try again in a minute.", source };
     }
-    const { fetchProductSiteSuggestion, searchProductWebsites } =
-      await import("@/lib/product-discovery");
-    if (mode === "name") {
-      const matches = await searchProductWebsites(source);
-      if (!matches.length)
-        return {
-          error: "No public website matches were found. Enter the website address to continue.",
-        };
-      return { matches, source };
-    }
+    const { fetchProductSiteSuggestion } = await import("@/lib/product-discovery");
     const suggestion = await fetchProductSiteSuggestion(source);
     return { suggestion, source: suggestion.websiteUrl };
   } catch (error) {
@@ -446,15 +457,14 @@ export async function inviteOrganizationMemberAction(formData: FormData): Promis
   const organizationId = firstValue(formData, "organizationId");
   if (!isMailDeliveryConfigured())
     redirect(`/dashboard/${organizationId}/people?error=mail-unconfigured`);
-  const role = firstValue(formData, "role");
-  if (role !== "admin" && role !== "member")
+  if (firstValue(formData, "role") !== "admin")
     redirect(`/dashboard/${organizationId}/people?error=invite-failed`);
   try {
     const result = await createOrganizationInvitation(
       current.subject.subjectId,
       organizationId,
       firstValue(formData, "email"),
-      role,
+      "admin",
     );
     await sendOrganizationInvitationEmail(
       result.invitation.email,
@@ -471,6 +481,40 @@ export async function inviteOrganizationMemberAction(formData: FormData): Promis
     redirect(`/dashboard/${organizationId}/people?error=${code}`);
   }
   redirect(`/dashboard/${organizationId}/people?notice=invite-sent`);
+}
+
+export async function inviteProductMemberAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  const productId = firstValue(formData, "productId");
+  const productPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/people`;
+  if (!isMailDeliveryConfigured()) redirect(`${productPath}?error=mail-unconfigured`);
+  const role = firstValue(formData, "role");
+  if (role !== "admin" && role !== "member") redirect(`${productPath}?error=invite-failed`);
+  try {
+    const result = await createProductInvitation(
+      current.subject.subjectId,
+      organizationId,
+      productId,
+      firstValue(formData, "email"),
+      role,
+    );
+    await sendProductInvitationEmail(
+      result.invitation.email,
+      result.token,
+      result.productName,
+      result.invitation.role,
+    );
+  } catch (error) {
+    const message = publicActionError(error);
+    const code =
+      message === "Email delivery is not configured. No email was sent."
+        ? "mail-unconfigured"
+        : "invite-failed";
+    redirect(`${productPath}?error=${code}`);
+  }
+  redirect(`${productPath}?notice=invite-sent`);
 }
 
 export async function acceptOrganizationInvitationAction(formData: FormData): Promise<void> {
@@ -492,7 +536,7 @@ export async function updateOrganizationMemberRoleAction(formData: FormData): Pr
   if (!current) redirect("/login");
   const organizationId = firstValue(formData, "organizationId");
   const role = firstValue(formData, "role");
-  if (role !== "owner" && role !== "admin" && role !== "member")
+  if (role !== "owner" && role !== "admin")
     redirect(`/dashboard/${organizationId}/people?error=member-update`);
   try {
     await updateOrganizationMemberRole(
@@ -505,6 +549,68 @@ export async function updateOrganizationMemberRoleAction(formData: FormData): Pr
     redirect(`/dashboard/${organizationId}/people?error=member-update`);
   }
   redirect(`/dashboard/${organizationId}/people?notice=member-updated`);
+}
+
+export async function updateProductMemberRoleAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  const productId = firstValue(formData, "productId");
+  const productPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/people`;
+  const role = firstValue(formData, "role");
+  if (role !== "owner" && role !== "admin" && role !== "member") {
+    redirect(`${productPath}?error=member-update`);
+  }
+  try {
+    await updateProductMemberRole(
+      current.subject.subjectId,
+      organizationId,
+      productId,
+      firstValue(formData, "subjectId"),
+      role,
+    );
+  } catch {
+    redirect(`${productPath}?error=member-update`);
+  }
+  redirect(`${productPath}?notice=member-updated`);
+}
+
+export async function removeProductMemberAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  const productId = firstValue(formData, "productId");
+  const productPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/people`;
+  try {
+    await removeProductMember(
+      current.subject.subjectId,
+      organizationId,
+      productId,
+      firstValue(formData, "subjectId"),
+    );
+  } catch {
+    redirect(`${productPath}?error=member-remove`);
+  }
+  redirect(`${productPath}?notice=member-removed`);
+}
+
+export async function revokeProductInvitationAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  const productId = firstValue(formData, "productId");
+  const productPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/people`;
+  try {
+    await revokeProductInvitation(
+      current.subject.subjectId,
+      organizationId,
+      productId,
+      firstValue(formData, "invitationId"),
+    );
+  } catch {
+    redirect(`${productPath}?error=invite-revoke`);
+  }
+  redirect(`${productPath}?notice=invite-revoked`);
 }
 
 export async function removeOrganizationMemberAction(formData: FormData): Promise<void> {
@@ -583,6 +689,7 @@ export async function createGrantAction(formData: FormData): Promise<void> {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
   const organizationId = firstValue(formData, "organizationId");
+  const productId = firstValue(formData, "productId");
   try {
     await createPermissionGrant(
       current.subject.subjectId,
@@ -591,9 +698,13 @@ export async function createGrantAction(formData: FormData): Promise<void> {
       parseActions(formData),
     );
   } catch {
-    redirect(`/dashboard/${organizationId}/access?error=grant-failed`);
+    redirect(
+      `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access?error=grant-failed`,
+    );
   }
-  redirect(`/dashboard/${organizationId}/access?notice=grant-created`);
+  redirect(
+    `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access?notice=grant-created`,
+  );
 }
 
 export async function updateGrantStatusAction(formData: FormData): Promise<void> {
@@ -601,8 +712,9 @@ export async function updateGrantStatusAction(formData: FormData): Promise<void>
   if (!current) redirect("/login");
   const status = firstValue(formData, "status");
   const organizationId = firstValue(formData, "organizationId");
-  if (status !== "active" && status !== "disabled")
-    redirect(`/dashboard/${organizationId}/access?error=grant-failed`);
+  const productId = firstValue(formData, "productId");
+  const accessPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access`;
+  if (status !== "active" && status !== "disabled") redirect(`${accessPath}?error=grant-failed`);
   try {
     await updateGrantStatus(
       current.subject.subjectId,
@@ -610,9 +722,9 @@ export async function updateGrantStatusAction(formData: FormData): Promise<void>
       status,
     );
   } catch {
-    redirect(`/dashboard/${organizationId}/access?error=grant-failed`);
+    redirect(`${accessPath}?error=grant-failed`);
   }
-  redirect(`/dashboard/${organizationId}/access?notice=grant-updated`);
+  redirect(`${accessPath}?notice=grant-updated`);
 }
 
 export async function updateAccountStatusAction(formData: FormData): Promise<void> {

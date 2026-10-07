@@ -22,8 +22,7 @@ export default async function ProductsPage({
     getOrganizationForSubject(current.subject.subjectId, organizationId),
     listProductsForOrganization(current.subject.subjectId, organizationId),
   ]);
-  const canManage = organization.membership.role !== "member";
-  if (!canManage) redirect(`/dashboard/${organizationId}/access`);
+  const canManage = organization.catalogManager;
   return (
     <>
       <DashboardHeading
@@ -80,7 +79,7 @@ export default async function ProductsPage({
             className="empty-state-illustration"
             height={1254}
             sizes="88px"
-            src="/illustrations/workspace-invitation.png"
+            src="/illustrations/workspace-invitation-vivid.png"
             width={1254}
           />
           <div>

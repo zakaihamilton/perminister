@@ -1,19 +1,26 @@
 import Link from "next/link";
 import { DeveloperGuideLayout } from "@/components/developer-guide-layout";
 import { CheckIcon } from "@/components/site-shell";
+import { withCanonical } from "@/lib/site-metadata";
+
+export const metadata = withCanonical({
+  title: "Getting started",
+  description:
+    "Set up a Perminister organization, add a product, grant access, and make server-side authorization checks.",
+}, "/developers/getting-started");
 
 const steps = [
   {
-    title: "Create an organization",
-    body: "Register and verify your account, then create an organization. Its creator becomes the Owner and can invite Admins and Members.",
+    title: "Request an organization",
+    body: "Register and verify your account, then submit an organization request. A platform administrator must approve it before the workspace becomes available; you become its Owner after approval.",
   },
   {
     title: "Add a product",
-    body: "Owners and Admins can enter a website URL or search by name, then edit the suggested product name, ID, description, website, and icon before saving.",
+    body: "Owners and Admins can enter a website URL, then edit the suggested product name, ID, description, website, and icon before saving.",
   },
   {
     title: "Grant access and create a key",
-    body: "An Owner or Admin grants product/project/workspace actions to a verified organization member. Members create their own keys from the access they have and see the secret only once.",
+    body: "A Product Owner or Admin grants product/project/workspace actions to an active product member. Product roles do not grant API actions by themselves. Members create their own keys from explicit grants and see each secret only once.",
   },
   {
     title: "Authorize each server-side resource operation",
@@ -33,7 +40,10 @@ export default function GettingStartedPage() {
         <section className="guide-panel" aria-labelledby="flow-title">
           <div className="guide-panel-head">
             <h2 id="flow-title">First integration flow</h2>
-            <p>Set up an organization, add a product, then give members the access they need.</p>
+            <p>
+              Request an organization, wait for approval, add a product, then give members the
+              access they need.
+            </p>
           </div>
           <div className="steps">
             {steps.map((step, index) => (
@@ -47,8 +57,9 @@ export default function GettingStartedPage() {
             ))}
           </div>
           <p className="storage-config-note">
-            See the <Link href="/dashboard">dashboard</Link> to create accounts and keys, and the{" "}
-            <Link href="/developers/api-keys">API-key guide</Link> for the authorization payload.
+            See the <Link href="/dashboard">dashboard</Link> to request organizations and create
+            keys, and the <Link href="/developers/api-keys">API-key guide</Link> for the
+            authorization payload.
           </p>
         </section>
 
@@ -77,13 +88,6 @@ export default function GettingStartedPage() {
               do not configure Resend separately. Email verification, password recovery, and
               invitations require the platform configuration. Sign-in itself works without email
               delivery.
-            </p>
-          </section>
-          <section className="aside-card">
-            <h2>Product search is optional</h2>
-            <p>
-              Website import works on its own. Set <code>BRAVE_SEARCH_API_KEY</code> to enable
-              product-name search; the API key stays on the server.
             </p>
           </section>
         </aside>

@@ -14,7 +14,6 @@ export function ProductSetupForm({ organizationId }: { organizationId: string })
     lookupProductWebsiteAction,
     {},
   );
-  const [mode, setMode] = useState<"website" | "name">("website");
   const [source, setSource] = useState("");
   const [manual, setManual] = useState(false);
   const [name, setName] = useState("");
@@ -50,16 +49,12 @@ export function ProductSetupForm({ organizationId }: { organizationId: string })
 
   function startManualEntry() {
     setManual(true);
-    if (mode === "website") {
-      try {
-        const url = new URL(source);
-        setWebsiteUrl(url.toString());
-        setNameValue(url.hostname.replace(/^www\./i, ""));
-      } catch {
-        // Leave the editable fields empty when the entered address is incomplete.
-      }
-    } else {
-      setNameValue(source);
+    try {
+      const url = new URL(source);
+      setWebsiteUrl(url.toString());
+      setNameValue(url.hostname.replace(/^www\./i, ""));
+    } catch {
+      // Leave the editable fields empty when the entered address is incomplete.
     }
   }
 
@@ -72,73 +67,30 @@ export function ProductSetupForm({ organizationId }: { organizationId: string })
         <div className="product-setup-step-body">
           <h2>Start with a website</h2>
           <p>
-            Use a website address or search by product name. You can edit every suggested detail.
+            Enter a website address to suggest product details, or enter the details manually.
           </p>
-          <div className="product-source-tabs" role="tablist" aria-label="Choose product source">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === "website"}
-              onClick={() => setMode("website")}
-            >
-              I have a website
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === "name"}
-              onClick={() => setMode("name")}
-            >
-              Search by name
-            </button>
-          </div>
           <form action={lookupAction} className="product-source-form">
-            <input type="hidden" name="mode" value={mode} />
             <input type="hidden" name="organizationId" value={organizationId} />
             <label>
-              {mode === "website" ? "Website address" : "Product name"}
+              Website address
               <input
                 name="source"
-                type={mode === "website" ? "url" : "text"}
+                type="url"
                 value={source}
                 onChange={(event) => setSource(event.target.value)}
-                placeholder={mode === "website" ? "https://example.com" : "Acme Studio"}
+                placeholder="https://example.com"
                 required
-                maxLength={mode === "website" ? 2048 : 100}
+                maxLength={2048}
               />
             </label>
             <button className="button button-primary" type="submit" disabled={pending}>
-              {pending
-                ? "Looking up…"
-                : mode === "website"
-                  ? "Fetch website details"
-                  : "Search websites"}
+              {pending ? "Looking up…" : "Fetch website details"}
             </button>
           </form>
           {lookupState.error ? (
             <p className="form-error" role="alert">
               {lookupState.error}
             </p>
-          ) : null}
-          {lookupState.matches?.length ? (
-            <div className="website-match-list" aria-label="Website search results">
-              <p>Choose the site that belongs to your product:</p>
-              {lookupState.matches.map((match) => (
-                <form action={lookupAction} key={match.url}>
-                  <input type="hidden" name="mode" value="website" />
-                  <input type="hidden" name="organizationId" value={organizationId} />
-                  <input type="hidden" name="source" value={match.url} />
-                  <button className="website-match" type="submit">
-                    <span>
-                      <strong>{match.title}</strong>
-                      <small>{match.url}</small>
-                      {match.description ? <small>{match.description}</small> : null}
-                    </span>
-                    <span>Use this site →</span>
-                  </button>
-                </form>
-              ))}
-            </div>
           ) : null}
           {!showDetails ? (
             <button

@@ -48,28 +48,26 @@ export default async function OrganizationOverview({
         title="Overview"
         description={
           managers
-            ? "Manage products, people, and access for your organization."
-            : "See the products and access assigned to you."
+            ? "Manage the organization catalog, then manage each product’s members and access inside that product."
+            : "See the products and permissions assigned to you."
         }
       />
       {query.notice === "invitation-accepted" ? (
         <DashboardNotice
-          message="You joined the organization. Check the Access page to see what you can use."
+          message="You joined the product. Open Products to see your access."
           kind="success"
         />
       ) : null}
       <section className="dashboard-metric-grid" aria-label="Workspace summary">
-        {managers ? (
-          <Link className="dashboard-metric-card" href={`/dashboard/${organizationId}/products`}>
-            <span>Products</span>
-            <strong>{products.length}</strong>
-            <small>View product catalog</small>
-          </Link>
-        ) : null}
-        <Link className="dashboard-metric-card" href={`/dashboard/${organizationId}/access`}>
+        <Link className="dashboard-metric-card" href={`/dashboard/${organizationId}/products`}>
+          <span>{managers ? "Products" : "Your products"}</span>
+          <strong>{products.length}</strong>
+          <small>{managers ? "View product catalog" : "View assigned products"}</small>
+        </Link>
+        <Link className="dashboard-metric-card" href={`/dashboard/${organizationId}/products`}>
           <span>{managers ? "Access grants" : "Your grants"}</span>
           <strong>{grants.length}</strong>
-          <small>Review permissions</small>
+          <small>Open a product to review permissions</small>
         </Link>
         <Link className="dashboard-metric-card" href={`/dashboard/${organizationId}/api-keys`}>
           <span>Your API keys</span>
@@ -84,12 +82,12 @@ export default async function OrganizationOverview({
           </Link>
         ) : null}
       </section>
-      {managers && products.length ? (
+      {products.length ? (
         <section className="dashboard-card dashboard-overview-products">
           <div className="dashboard-card-heading">
             <div>
               <h2>Products</h2>
-              <p>Start with a product to manage its access.</p>
+              <p>{managers ? "Open a product to manage its members and access." : "Open a product to review its details and your access."}</p>
             </div>
             <Link className="text-link" href={`/dashboard/${organizationId}/products`}>
               View all
@@ -124,7 +122,7 @@ export default async function OrganizationOverview({
             className="empty-state-illustration"
             height={1254}
             sizes="88px"
-            src="/illustrations/workspace-invitation.png"
+            src="/illustrations/workspace-invitation-vivid.png"
             width={1254}
           />
           <div>
@@ -147,15 +145,15 @@ export default async function OrganizationOverview({
           {managers ? (
             <Link href={`/dashboard/${organizationId}/people`}>
               <span>01</span>
-              <strong>Invite your team</strong>
-              <small>Give teammates the right organization role.</small>
+              <strong>Manage catalog managers</strong>
+              <small>Control who can edit organization and product details.</small>
             </Link>
           ) : null}
           {managers ? (
             <Link href={`/dashboard/${organizationId}/access`}>
               <span>02</span>
-              <strong>Assign product access</strong>
-              <small>Choose a product, person, and allowed actions.</small>
+              <strong>Create a product</strong>
+              <small>Product members and API actions are managed per product.</small>
             </Link>
           ) : null}
           <Link href={`/dashboard/${organizationId}/api-keys`}>

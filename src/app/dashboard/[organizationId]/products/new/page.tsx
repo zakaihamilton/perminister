@@ -19,7 +19,7 @@ export default async function NewProductPage({
     organizationId,
   ).catch(() => null);
   if (!organization) notFound();
-  if (organization.membership.role === "member") redirect(`/dashboard/${organizationId}/access`);
+  if (!organization.catalogManager) redirect(`/dashboard/${organizationId}/products`);
   return (
     <>
       <DashboardHeading

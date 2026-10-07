@@ -15,6 +15,8 @@ export type OrganizationMembershipId = BrandedId<"OrganizationMembershipId">;
 export type ProductRecordId = BrandedId<"ProductRecordId">;
 export type InvitationId = BrandedId<"InvitationId">;
 
+export type OrganizationApprovalStatus = "pending" | "approved" | "rejected";
+
 export const newSubjectId = (): SubjectId => randomUUID() as SubjectId;
 export const newMembershipId = (): MembershipId => randomUUID() as MembershipId;
 export const newApiKeyId = (): ApiKeyId => randomUUID() as ApiKeyId;
@@ -59,6 +61,8 @@ export interface OrganizationRecord {
   schemaVersion: 1;
   organizationId: OrganizationId;
   name: string;
+  /** Missing on records created before platform approval was introduced. */
+  approvalStatus?: OrganizationApprovalStatus;
   createdBySubjectId: SubjectId;
   createdAt: string;
   updatedAt: string;
@@ -71,9 +75,13 @@ export interface OrganizationMembershipRecord {
   schemaVersion: 1;
   organizationMembershipId: OrganizationMembershipId;
   organizationId: OrganizationId;
+  /** Absent for an organization catalog manager; present for a product member. */
+  productId?: ProductId;
   subjectId: SubjectId;
   role: OrganizationRole;
   status: "active" | "disabled";
+  /** Product permission grants are embedded in the product member document. */
+  permissionGrants?: MembershipRecord[];
   createdAt: string;
   updatedAt: string;
 }
@@ -98,6 +106,8 @@ export interface OrganizationInvitationRecord {
   schemaVersion: 1;
   invitationId: InvitationId;
   organizationId: OrganizationId;
+  /** Product-scoped invitations are the only invitations created after the v2 cutover. */
+  productId?: ProductId;
   email: string;
   role: Exclude<OrganizationRole, "owner">;
   verifierDigestHex: string;

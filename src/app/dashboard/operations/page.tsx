@@ -1,11 +1,16 @@
 import Link from "next/link";
-import { retireLegacyAccessAction, updateAccountStatusAction } from "@/app/actions";
+import {
+  retireLegacyAccessAction,
+  reviewOrganizationRequestAction,
+  updateAccountStatusAction,
+} from "@/app/actions";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { SiteFooter, SiteHeader } from "@/components/site-shell";
 import {
   getCurrentSession,
   isAdministrator,
   listAccountsForAdministrator,
+  listPendingOrganizationsForAdministrator,
   listPlatformAudit,
   previewLegacyAccessRetirement,
 } from "@/lib/auth/service";
@@ -19,8 +24,9 @@ export default async function OperationsPage({
   const current = await getCurrentSession();
   if (!current) redirect("/login");
   if (!isAdministrator(current.subject)) redirect("/dashboard");
-  const [accounts, legacy, activity, query] = await Promise.all([
+  const [accounts, organizations, legacy, activity, query] = await Promise.all([
     listAccountsForAdministrator(current.subject.subjectId),
+    listPendingOrganizationsForAdministrator(current.subject.subjectId),
     previewLegacyAccessRetirement(current.subject.subjectId),
     listPlatformAudit(current.subject.subjectId),
     searchParams,
@@ -36,7 +42,7 @@ export default async function OperationsPage({
           <DashboardHeading
             eyebrow="Restricted tools"
             title="Platform operations"
-            description="Account support and one-time retirement of unscoped legacy access."
+            description="Review organization requests, support accounts, and retire unscoped legacy access."
           />
           {query.error === "migration" ? (
             <DashboardNotice
@@ -53,6 +59,70 @@ export default async function OperationsPage({
           {query.notice === "account-updated" ? (
             <DashboardNotice message="Account status updated." kind="success" />
           ) : null}
+          {query.error === "organization-review" ? (
+            <DashboardNotice
+              message="That organization request could not be reviewed. It may already have a decision."
+              kind="error"
+            />
+          ) : null}
+          {query.notice === "organization-approved" ? (
+            <DashboardNotice message="Organization approved." kind="success" />
+          ) : null}
+          {query.notice === "organization-rejected" ? (
+            <DashboardNotice message="Organization request rejected." kind="success" />
+          ) : null}
+          <section className="dashboard-card operations-organizations">
+            <div className="dashboard-card-heading">
+              <div>
+                <h2>Organization requests</h2>
+                <p>{organizations.length} waiting for review</p>
+              </div>
+            </div>
+            {organizations.length ? (
+              <div className="record-list">
+                {organizations.map((organization) => (
+                  <article className="record-item" key={organization.organizationId}>
+                    <div className="record-item-head">
+                      <div>
+                        <strong>{organization.name}</strong>
+                        <span className="record-meta">
+                          {organization.requesterEmail ?? "Requester email unavailable"} · Submitted{" "}
+                          {new Date(organization.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <span className="record-badge pending">Pending</span>
+                    </div>
+                    <div className="record-actions">
+                      <form action={reviewOrganizationRequestAction}>
+                        <input
+                          type="hidden"
+                          name="organizationId"
+                          value={organization.organizationId}
+                        />
+                        <input type="hidden" name="approvalStatus" value="approved" />
+                        <button className="button button-primary" type="submit">
+                          Approve
+                        </button>
+                      </form>
+                      <form action={reviewOrganizationRequestAction}>
+                        <input
+                          type="hidden"
+                          name="organizationId"
+                          value={organization.organizationId}
+                        />
+                        <input type="hidden" name="approvalStatus" value="rejected" />
+                        <button className="button button-secondary" type="submit">
+                          Reject
+                        </button>
+                      </form>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="empty-list">No organization requests are waiting for review.</p>
+            )}
+          </section>
           <section className="dashboard-card operations-migration">
             <div>
               <h2>Retire legacy access</h2>

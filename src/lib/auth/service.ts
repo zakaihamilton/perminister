@@ -6,12 +6,6 @@ import { authMutationQueue } from "./mutation-queue";
 import { withOrganizationMutationLock } from "./coordination";
 import { processLocalLoginThrottle } from "./login-throttle";
 import {
-  appendDirectoryRegistrationAndCheckIntegrity,
-  appendEventAndCheckIntegrity,
-  assertNoConflictingAggregateRevisions,
-  assertUniqueDirectoryRegistrations,
-} from "./integrity";
-import {
   assertOpaqueId,
   newApiKeyId,
   newEmailActionId,
@@ -32,7 +26,6 @@ import {
   type AuthRecord,
   type AuthRecordFor,
   type AuthRecordKind,
-  type DirectoryId,
   type EmailActionId,
   type EmailActionRecord,
   type EventId,
@@ -40,6 +33,7 @@ import {
   type MembershipId,
   type MembershipRecord,
   type OrganizationId,
+  type OrganizationApprovalStatus,
   type OrganizationInvitationRecord,
   type OrganizationMembershipId,
   type OrganizationMembershipRecord,
@@ -63,8 +57,6 @@ import { createSpacesAuthStoreFromEnv, type VersionedRecord } from "./storage/sp
 const SESSION_COOKIE = "perminister_session";
 const SESSION_LIFETIME_MS = 12 * 60 * 60 * 1000;
 const EMAIL_ACTION_LIFETIME_MS = 30 * 60 * 1000;
-const DIRECTORY_ID = "00000000-0000-4000-8000-000000000001" as DirectoryId;
-const DIRECTORY_AGGREGATE: AuthAggregate = { kind: "directory", id: DIRECTORY_ID };
 const SCRYPT_OPTIONS = { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 
 let storeSingleton: ReturnType<typeof createSpacesAuthStoreFromEnv> | undefined;
@@ -222,121 +214,97 @@ function aggregateFor(kind: AuthRecordKind, id: string): AuthAggregate {
   }
 }
 
-function recordFromEvent<Kind extends AuthRecordKind>(
-  value: unknown,
-  kind: Kind,
-  id: string,
-): value is AuthRecordFor<Kind> {
-  if (typeof value !== "object" || value === null) return false;
-  const record = value as Partial<AuthRecord>;
-  if (record.kind !== kind || record.schemaVersion !== 1) return false;
-  try {
-    return recordId(record as AuthRecord) === id;
-  } catch {
-    return false;
-  }
-}
-
 async function loadRecord<Kind extends AuthRecordKind>(
   kind: Kind,
   id: string,
 ): Promise<VersionedRecord<AuthRecordFor<Kind>> | null> {
-  const objectStore = store();
-  const aggregate = aggregateFor(kind, id);
-  const [snapshot, events] = await Promise.all([
-    objectStore.readRecord(kind, id),
-    objectStore.listEvents(aggregate),
-  ]);
-  assertNoConflictingAggregateRevisions(events);
-  let latest: { revision: number; record: AuthRecordFor<Kind> } | null = null;
-  for (const event of events) {
-    const value = event.payload.record;
-    if (!recordFromEvent(value, kind, id)) {
-      throw new Error(`Malformed ${kind} event for ${id} at revision ${event.aggregateVersion}`);
-    }
-    latest = { revision: event.aggregateVersion, record: value };
-  }
+  return store().readRecord(kind, id);
+}
 
-  if (latest && (!snapshot || latest.revision > snapshot.revision)) {
-    await objectStore.writeRecord(latest.record, latest.revision);
-    return {
-      formatVersion: 1,
-      revision: latest.revision,
-      writtenAt: new Date().toISOString(),
-      record: latest.record,
-    };
+function activityPayload(record: AuthRecord): AuthEvent["payload"] {
+  const payload: AuthEvent["payload"] = {};
+  if (record.kind === "organization") {
+    payload.organizationId = record.organizationId;
+  } else if (record.kind === "organization-membership") {
+    payload.organizationId = record.organizationId;
+    payload.subjectId = record.subjectId;
+    if (record.productId) payload.productId = record.productId;
+  } else if (record.kind === "product") {
+    payload.organizationId = record.organizationId;
+    payload.productId = record.productId;
+  } else if (record.kind === "organization-invitation") {
+    payload.organizationId = record.organizationId;
+    if (record.productId) payload.productId = record.productId;
+    payload.subjectId = record.createdBySubjectId;
+  } else if (record.kind === "membership") {
+    payload.organizationId = record.scope.organizationId;
+    payload.productId = record.scope.productId;
+    payload.subjectId = record.subjectId;
+  } else if (record.kind === "service-principal") {
+    payload.organizationId = record.organizationId;
+    payload.productId = record.productId;
+    payload.subjectId = record.createdBySubjectId;
+  } else if (record.kind === "api-key") {
+    payload.organizationId = record.scope.organizationId;
+    payload.productId = record.scope.productId;
+    if (record.owner.kind === "subject") payload.subjectId = record.owner.subjectId;
+  } else if (record.kind === "session" || record.kind === "email-action") {
+    payload.subjectId = record.subjectId;
+  } else {
+    payload.subjectId = record.subjectId;
   }
-  return snapshot;
+  return payload;
 }
 
 async function persistRecord(record: AuthRecord, type: string, actor: AuthActor): Promise<void> {
   const objectStore = store();
   const id = recordId(record);
   const aggregate = aggregateFor(record.kind, id);
-  const [snapshot, events] = await Promise.all([
-    objectStore.readRecord(record.kind, id),
-    objectStore.listEvents(aggregate),
-  ]);
-  assertNoConflictingAggregateRevisions(events);
-  const revision =
-    Math.max(snapshot?.revision ?? 0, ...events.map((event) => event.aggregateVersion)) + 1;
+  const now = new Date().toISOString();
+  if (record.kind === "membership") {
+    const productMembership = await objectStore.readOrganizationMembership(
+      record.scope.organizationId,
+      record.subjectId,
+      record.scope.productId,
+    );
+    if (!productMembership) throw new Error("Product membership not found.");
+    const grants = productMembership.permissionGrants ?? [];
+    const nextGrants = grants.some((grant) => grant.membershipId === record.membershipId)
+      ? grants.map((grant) => (grant.membershipId === record.membershipId ? record : grant))
+      : [...grants, record];
+    await objectStore.writeRecord({
+      ...productMembership,
+      permissionGrants: nextGrants,
+      updatedAt: now,
+    });
+  } else {
+    await objectStore.writeRecord(record);
+  }
   const event: AuthEvent = {
     schemaVersion: 1,
     eventId: newEventId(),
     aggregate,
-    aggregateVersion: revision,
-    occurredAt: new Date().toISOString(),
+    aggregateVersion: 1,
+    occurredAt: now,
     actor,
     type,
-    payload: { record: record as unknown as JsonValue },
+    payload: activityPayload(record),
   };
-  await appendEventAndCheckIntegrity(objectStore, event);
-  await objectStore.writeRecord(record, revision);
-}
-
-function systemActor(): AuthActor {
-  return { kind: "system" };
-}
-
-interface DirectoryEntry {
-  email: string;
-  subjectId: SubjectId;
-  record: SubjectRecord;
-}
-
-function directoryEntry(event: AuthEvent): DirectoryEntry | null {
-  if (event.type !== "identity.registered") return null;
-  const email = event.payload.email;
-  const subjectId = event.payload.subjectId;
-  const record = event.payload.record;
-  if (
-    typeof email !== "string" ||
-    typeof subjectId !== "string" ||
-    !recordFromEvent(record, "subject", subjectId) ||
-    record.primaryEmail !== email
-  ) {
-    throw new Error(`Malformed identity directory event ${event.eventId}`);
+  try {
+    await objectStore.appendEvent(event);
+  } catch (error) {
+    console.error("Canonical auth record committed but activity append failed", {
+      kind: record.kind,
+      id,
+      eventId: event.eventId,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
-  return { email, subjectId: subjectId as SubjectId, record };
-}
-
-async function directoryEntries(): Promise<DirectoryEntry[]> {
-  const events = await store().listEvents(DIRECTORY_AGGREGATE);
-  assertNoConflictingAggregateRevisions(events);
-  assertUniqueDirectoryRegistrations(events);
-  return events.flatMap((event) => {
-    const entry = directoryEntry(event);
-    return entry ? [entry] : [];
-  });
 }
 
 async function loadSubjectByEmailUnlocked(email: string): Promise<SubjectRecord | null> {
-  const entry = (await directoryEntries()).find((candidate) => candidate.email === email);
-  if (!entry) return null;
-  const current = await loadRecord("subject", entry.subjectId);
-  if (current) return current.record;
-  await persistRecord(entry.record, "identity.registration.recovered", systemActor());
-  return entry.record;
+  const subjectId = await store().findSubjectIdByEmail(email);
+  return subjectId ? loadSubjectUnlocked(subjectId) : null;
 }
 
 async function loadSubjectUnlocked(subjectId: string): Promise<SubjectRecord | null> {
@@ -367,24 +335,6 @@ export async function registerAccount(
       createdAt: now,
       updatedAt: now,
     };
-    const directoryEvents = await store().listEvents(DIRECTORY_AGGREGATE);
-    assertNoConflictingAggregateRevisions(directoryEvents);
-    assertUniqueDirectoryRegistrations(directoryEvents);
-    const event: AuthEvent = {
-      schemaVersion: 1,
-      eventId: newEventId(),
-      aggregate: DIRECTORY_AGGREGATE,
-      aggregateVersion: Math.max(0, ...directoryEvents.map((item) => item.aggregateVersion)) + 1,
-      occurredAt: now,
-      actor: systemActor(),
-      type: "identity.registered",
-      payload: {
-        email,
-        subjectId: subject.subjectId,
-        record: subject as unknown as JsonValue,
-      },
-    };
-    await appendDirectoryRegistrationAndCheckIntegrity(store(), event);
     await persistRecord(subject, "identity.registered", {
       kind: "subject",
       subjectId: subject.subjectId,
@@ -637,12 +587,37 @@ const ORGANIZATION_INVITATION_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
 export interface OrganizationSummary {
   organization: OrganizationRecord;
   membership: OrganizationMembershipRecord;
+  catalogManager: boolean;
+}
+
+export interface OrganizationRequestSummary {
+  organization: OrganizationRecord;
+  status: "pending" | "rejected";
+}
+
+export interface OrganizationReviewRequest {
+  organizationId: OrganizationId;
+  name: string;
+  requesterEmail: string | null;
+  createdAt: string;
 }
 
 export interface OrganizationMemberView {
   membership: OrganizationMembershipRecord;
   email: string | null;
   emailVerified: boolean;
+}
+
+export interface ProductMemberView {
+  membership: OrganizationMembershipRecord;
+  email: string | null;
+  emailVerified: boolean;
+}
+
+export interface ProductAccessSummary {
+  product: ProductRecord;
+  membership: OrganizationMembershipRecord | null;
+  catalogManager: boolean;
 }
 
 export interface OrganizationActivityEntry {
@@ -678,30 +653,39 @@ function organizationName(value: string): string {
   return name;
 }
 
-function organizationMemberships(
+function organizationApprovalStatus(organization: OrganizationRecord): OrganizationApprovalStatus {
+  return organization.approvalStatus === undefined ? "approved" : organization.approvalStatus;
+}
+
+async function loadApprovedOrganizationUnlocked(
+  organizationId: string,
+): Promise<OrganizationRecord | null> {
+  const organization = await loadRecord("organization", organizationId);
+  if (!organization || organizationApprovalStatus(organization.record) !== "approved") return null;
+  return organization.record;
+}
+
+async function listOrganizationRequestsForSubjectUnlocked(
   subjectId: SubjectId,
-  records: readonly OrganizationMembershipRecord[],
-): OrganizationMembershipRecord[] {
-  return records
-    .filter((record) => record.subjectId === subjectId && record.status === "active")
-    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+): Promise<OrganizationRequestSummary[]> {
+  const organizations = (await listRecordsWithRecovery("organization"))
+    .map((item) => item.record)
+    .filter((organization) => organization.createdBySubjectId === subjectId)
+    .flatMap((organization) => {
+      const status = organizationApprovalStatus(organization);
+      return status === "pending" || status === "rejected" ? [{ organization, status }] : [];
+    });
+  return organizations.sort((left, right) =>
+    right.organization.createdAt.localeCompare(left.organization.createdAt),
+  );
 }
 
 async function organizationMembershipUnlocked(
   organizationId: string,
   subjectId: SubjectId,
 ): Promise<OrganizationMembershipRecord | null> {
-  const records = await listRecordsWithRecovery("organization-membership");
-  return (
-    records
-      .map((item) => item.record)
-      .find(
-        (record) =>
-          record.organizationId === organizationId &&
-          record.subjectId === subjectId &&
-          record.status === "active",
-      ) ?? null
-  );
+  const membership = await store().readOrganizationMembership(organizationId, subjectId);
+  return membership?.status === "active" ? membership : null;
 }
 
 async function requireOrganizationRoleUnlocked(
@@ -712,7 +696,7 @@ async function requireOrganizationRoleUnlocked(
   assertOpaqueId(organizationId);
   const actor = await loadSubjectUnlocked(actorId);
   requireVerifiedActiveSubject(actor);
-  const organization = await loadRecord("organization", organizationId);
+  const organization = await loadApprovedOrganizationUnlocked(organizationId);
   if (!organization) throw new Error("Organization not found.");
   const membership = await organizationMembershipUnlocked(organizationId, actorId);
   if (!membership || !roles.includes(membership.role)) {
@@ -729,17 +713,22 @@ export async function createOrganization(
   return authMutationQueue.run(async () => {
     const subject = await loadSubjectUnlocked(subjectId);
     requireVerifiedActiveSubject(subject);
+    const pendingRequests = await listOrganizationRequestsForSubjectUnlocked(subjectId);
+    if (pendingRequests.some((request) => request.status === "pending")) {
+      throw new Error("An organization request is already pending.");
+    }
     const now = new Date().toISOString();
     const organization: OrganizationRecord = {
       kind: "organization",
       schemaVersion: 1,
       organizationId: newOrganizationId(),
       name,
+      approvalStatus: "pending",
       createdBySubjectId: subjectId,
       createdAt: now,
       updatedAt: now,
     };
-    await persistRecord(organization, "organization.created", { kind: "subject", subjectId });
+    await persistRecord(organization, "organization.requested", { kind: "subject", subjectId });
     const membership: OrganizationMembershipRecord = {
       kind: "organization-membership",
       schemaVersion: 1,
@@ -760,16 +749,104 @@ export async function listOrganizationsForSubject(
   subjectId: SubjectId,
 ): Promise<OrganizationSummary[]> {
   return authMutationQueue.run(async () => {
-    const records = (await listRecordsWithRecovery("organization-membership")).map(
-      (item) => item.record,
+    const memberships = (await store().listMembershipsForSubject(subjectId)).filter(
+      (record) => record.status === "active",
     );
-    const memberships = organizationMemberships(subjectId, records);
-    const summaries: OrganizationSummary[] = [];
+    const byOrganization = new Map<string, OrganizationMembershipRecord[]>();
     for (const membership of memberships) {
-      const organization = await loadRecord("organization", membership.organizationId);
-      if (organization) summaries.push({ organization: organization.record, membership });
+      const entries = byOrganization.get(membership.organizationId) ?? [];
+      entries.push(membership);
+      byOrganization.set(membership.organizationId, entries);
     }
-    return summaries;
+    const summaries: OrganizationSummary[] = [];
+    for (const [organizationId, entries] of byOrganization) {
+      const organization = await loadRecord("organization", organizationId);
+      if (organization && organizationApprovalStatus(organization.record) === "approved") {
+        const catalogManager = entries.find((membership) => !membership.productId);
+        const productMember = entries.find((membership) => membership.productId);
+        if (catalogManager)
+          summaries.push({
+            organization: organization.record,
+            membership: catalogManager,
+            catalogManager: true,
+          });
+        else if (productMember) {
+          summaries.push({
+            organization: organization.record,
+            membership: {
+              ...productMember,
+              role: "member",
+              productId: undefined,
+              permissionGrants: undefined,
+            },
+            catalogManager: false,
+          });
+        }
+      }
+    }
+    return summaries.sort((left, right) =>
+      left.organization.name.localeCompare(right.organization.name),
+    );
+  });
+}
+
+export async function listOrganizationRequestsForSubject(
+  subjectId: SubjectId,
+): Promise<OrganizationRequestSummary[]> {
+  return authMutationQueue.run(async () => {
+    const subject = await loadSubjectUnlocked(subjectId);
+    if (!subject || subject.status !== "active") {
+      throw new Error("An active account is required.");
+    }
+    return listOrganizationRequestsForSubjectUnlocked(subjectId);
+  });
+}
+
+export async function listPendingOrganizationsForAdministrator(
+  actorId: SubjectId,
+): Promise<OrganizationReviewRequest[]> {
+  return authMutationQueue.run(async () => {
+    await requireAdministrator(actorId);
+    const organizations = (await listRecordsWithRecovery("organization"))
+      .map((item) => item.record)
+      .filter((organization) => organizationApprovalStatus(organization) === "pending")
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    const requests: OrganizationReviewRequest[] = [];
+    for (const organization of organizations) {
+      const requester = await loadSubjectUnlocked(organization.createdBySubjectId);
+      requests.push({
+        organizationId: organization.organizationId,
+        name: organization.name,
+        requesterEmail: requester?.primaryEmail ?? null,
+        createdAt: organization.createdAt,
+      });
+    }
+    return requests;
+  });
+}
+
+export async function decideOrganizationRequest(
+  actorId: SubjectId,
+  organizationId: string,
+  approvalStatus: "approved" | "rejected",
+): Promise<void> {
+  assertOpaqueId(organizationId);
+  await authMutationQueue.run(async () => {
+    const actor = await requireAdministrator(actorId);
+    const current = await loadRecord("organization", organizationId);
+    if (!current || organizationApprovalStatus(current.record) !== "pending") {
+      throw new Error("Only pending organization requests can be reviewed.");
+    }
+    const next: OrganizationRecord = {
+      ...current.record,
+      approvalStatus,
+      updatedAt: new Date().toISOString(),
+    };
+    await persistRecord(
+      next,
+      approvalStatus === "approved" ? "organization.approved" : "organization.rejected",
+      { kind: "subject", subjectId: actor.subjectId },
+    );
   });
 }
 
@@ -835,10 +912,30 @@ export async function getOrganizationForSubject(
   organizationId: string,
 ): Promise<OrganizationSummary> {
   return authMutationQueue.run(async () => {
-    const membership = await organizationMembershipUnlocked(organizationId, subjectId);
+    const catalogManager = await organizationMembershipUnlocked(organizationId, subjectId);
+    const productMembership = catalogManager
+      ? null
+      : ((await store().listMembershipsForSubject(subjectId)).find(
+          (entry) =>
+            entry.organizationId === organizationId &&
+            !!entry.productId &&
+            entry.status === "active",
+        ) ?? null);
     const organization = await loadRecord("organization", organizationId);
-    if (!membership || !organization) throw new Error("Organization not found.");
-    return { organization: organization.record, membership };
+    if (
+      (!catalogManager && !productMembership) ||
+      !organization ||
+      organizationApprovalStatus(organization.record) !== "approved"
+    ) {
+      throw new Error("Organization not found.");
+    }
+    const membership = catalogManager ?? {
+      ...productMembership!,
+      role: "member" as const,
+      productId: undefined,
+      permissionGrants: undefined,
+    };
+    return { organization: organization.record, membership, catalogManager: !!catalogManager };
   });
 }
 
@@ -868,7 +965,12 @@ export async function listOrganizationMembers(
     await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
     const memberships = (await listRecordsWithRecovery("organization-membership"))
       .map((item) => item.record)
-      .filter((record) => record.organizationId === organizationId && record.status === "active")
+      .filter(
+        (record) =>
+          record.organizationId === organizationId &&
+          !record.productId &&
+          record.status === "active",
+      )
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
     const result: OrganizationMemberView[] = [];
     for (const membership of memberships) {
@@ -894,6 +996,7 @@ async function requireOrganizationOwnerAndMemberUnlocked(
   if (
     !membership ||
     membership.record.organizationId !== organizationId ||
+    !!membership.record.productId ||
     (requireActive && membership.record.status !== "active")
   ) {
     throw new Error("Organization member not found.");
@@ -905,7 +1008,7 @@ export async function updateOrganizationMemberRole(
   actorId: SubjectId,
   organizationId: string,
   membershipId: string,
-  role: OrganizationRole,
+  role: Exclude<OrganizationRole, "member">,
 ): Promise<void> {
   assertOpaqueId(membershipId);
   await authMutationQueue.run(() =>
@@ -923,6 +1026,7 @@ export async function updateOrganizationMemberRole(
       const owners = all.filter(
         (item) =>
           item.organizationId === organizationId &&
+          !item.productId &&
           item.role === "owner" &&
           item.status === "active",
       );
@@ -936,44 +1040,6 @@ export async function updateOrganizationMemberRole(
       });
     }),
   );
-}
-
-async function revokeSubjectOrganizationAccessUnlocked(
-  subjectId: SubjectId,
-  organizationId: string,
-  actorId: SubjectId,
-): Promise<void> {
-  const grants = (await listRecordsWithRecovery("membership"))
-    .map((item) => item.record)
-    .filter(
-      (grant) =>
-        grant.subjectId === subjectId &&
-        grant.scope.organizationId === organizationId &&
-        grant.status === "active",
-    );
-  for (const grant of grants) {
-    await persistRecord(
-      { ...grant, status: "disabled", updatedAt: new Date().toISOString() },
-      "organization.member-grants-revoked",
-      { kind: "subject", subjectId: actorId },
-    );
-  }
-  const keys = (await listRecordsWithRecovery("api-key"))
-    .map((item) => item.record)
-    .filter(
-      (key) =>
-        key.owner.kind === "subject" &&
-        key.owner.subjectId === subjectId &&
-        key.scope.organizationId === organizationId &&
-        key.status === "active",
-    );
-  for (const key of keys) {
-    await persistRecord(
-      { ...key, status: "revoked", revokedAt: new Date().toISOString() },
-      "organization.member-keys-revoked",
-      { kind: "subject", subjectId: actorId },
-    );
-  }
 }
 
 export async function removeOrganizationMember(
@@ -996,6 +1062,7 @@ export async function removeOrganizationMember(
           .filter(
             (item) =>
               item.organizationId === organizationId &&
+              !item.productId &&
               item.role === "owner" &&
               item.status === "active",
           );
@@ -1008,11 +1075,6 @@ export async function removeOrganizationMember(
           { kind: "subject", subjectId: actorMembership.subjectId },
         );
       }
-      await revokeSubjectOrganizationAccessUnlocked(
-        membership.subjectId,
-        organizationId,
-        actorMembership.subjectId,
-      );
     }),
   );
 }
@@ -1096,7 +1158,7 @@ export async function createOrganizationProduct(
         "owner",
         "admin",
       ]);
-      const products = (await listRecordsWithRecovery("product")).map((item) => item.record);
+      const products = await store().listProducts(organizationId);
       if (
         products.some(
           (product) => product.organizationId === organizationId && product.productId === productId,
@@ -1119,6 +1181,23 @@ export async function createOrganizationProduct(
       await persistRecord(product, "product.created", {
         kind: "subject",
         subjectId: manager.subjectId,
+      });
+      const ownerMembership: OrganizationMembershipRecord = {
+        kind: "organization-membership",
+        schemaVersion: 1,
+        organizationMembershipId: newOrganizationMembershipId(),
+        organizationId: organizationId as OrganizationId,
+        productId,
+        subjectId: actorId,
+        role: "owner",
+        status: "active",
+        permissionGrants: [],
+        createdAt: now,
+        updatedAt: now,
+      };
+      await persistRecord(ownerMembership, "product.owner-assigned", {
+        kind: "subject",
+        subjectId: actorId,
       });
       return product;
     }),
@@ -1161,10 +1240,21 @@ export async function listProductsForOrganization(
   organizationId: string,
 ): Promise<ProductRecord[]> {
   return authMutationQueue.run(async () => {
-    await requireOrganizationRoleUnlocked(subjectId, organizationId, ["owner", "admin", "member"]);
-    return (await listRecordsWithRecovery("product"))
-      .map((item) => item.record)
-      .filter((product) => product.organizationId === organizationId)
+    const organization = await loadApprovedOrganizationUnlocked(organizationId);
+    if (!organization) throw new Error("Organization not found.");
+    const catalogManager = await organizationMembershipUnlocked(organizationId, subjectId);
+    const memberRows = catalogManager ? [] : await store().listMembershipsForSubject(subjectId);
+    const allowedProducts = new Set(
+      memberRows
+        .filter(
+          (row) =>
+            row.organizationId === organizationId && row.productId && row.status === "active",
+        )
+        .map((row) => row.productId!),
+    );
+    if (!catalogManager && allowedProducts.size === 0) throw new Error("Organization not found.");
+    return (await store().listProducts(organizationId))
+      .filter((product) => !!catalogManager || allowedProducts.has(product.productId))
       .sort((left, right) => left.name.localeCompare(right.name));
   });
 }
@@ -1175,21 +1265,216 @@ export async function getProductForOrganization(
   productId: string,
 ): Promise<ProductRecord> {
   return authMutationQueue.run(async () => {
-    await requireOrganizationRoleUnlocked(subjectId, organizationId, ["owner", "admin", "member"]);
-    const products = (await listRecordsWithRecovery("product")).map((item) => item.record);
-    const product = products.find(
-      (item) => item.organizationId === organizationId && item.productId === productId,
+    return getProductAccessUnlocked(subjectId, organizationId, productId).then(
+      ({ product }) => product,
     );
-    if (!product) throw new Error("Product not found.");
-    return product;
   });
+}
+
+async function getProductAccessUnlocked(
+  subjectId: SubjectId,
+  organizationId: string,
+  productId: string,
+): Promise<ProductAccessSummary> {
+  const organization = await loadApprovedOrganizationUnlocked(organizationId);
+  if (!organization) throw new Error("Organization not found.");
+  const product = await store().readProduct(organizationId, productId);
+  if (!product) throw new Error("Product not found.");
+  const [catalog, membership] = await Promise.all([
+    organizationMembershipUnlocked(organizationId, subjectId),
+    store().readOrganizationMembership(organizationId, subjectId, productId),
+  ]);
+  if (!catalog && (!membership || membership.status !== "active")) {
+    throw new Error("Product not found.");
+  }
+  return {
+    product,
+    membership: membership?.status === "active" ? membership : null,
+    catalogManager: !!catalog,
+  };
+}
+
+export async function getProductAccessForSubject(
+  subjectId: SubjectId,
+  organizationId: string,
+  productId: string,
+): Promise<ProductAccessSummary> {
+  return authMutationQueue.run(() =>
+    getProductAccessUnlocked(subjectId, organizationId, productId),
+  );
+}
+
+async function requireProductRoleUnlocked(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  roles: readonly OrganizationRole[],
+): Promise<OrganizationMembershipRecord> {
+  assertOpaqueId(organizationId);
+  const actor = await loadSubjectUnlocked(actorId);
+  requireVerifiedActiveSubject(actor);
+  if (!(await loadApprovedOrganizationUnlocked(organizationId)))
+    throw new Error("Product not found.");
+  if (!(await store().readProduct(organizationId, productId)))
+    throw new Error("Product not found.");
+  const membership = await store().readOrganizationMembership(organizationId, actorId, productId);
+  if (!membership || membership.status !== "active" || !roles.includes(membership.role)) {
+    throw new Error("You do not have permission to manage this product.");
+  }
+  return membership;
+}
+
+export async function listProductMembers(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+): Promise<ProductMemberView[]> {
+  return authMutationQueue.run(async () => {
+    await requireProductRoleUnlocked(actorId, organizationId, productId, ["owner", "admin"]);
+    const memberships = (await store().listOrganizationMemberships(organizationId))
+      .filter((record) => record.productId === productId && record.status === "active")
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    const result: ProductMemberView[] = [];
+    for (const membership of memberships) {
+      const subject = await loadSubjectUnlocked(membership.subjectId);
+      result.push({
+        membership,
+        email: subject?.primaryEmail ?? null,
+        emailVerified: !!subject?.emailVerifiedAt,
+      });
+    }
+    return result;
+  });
+}
+
+export async function listProductPermissionGrants(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+): Promise<MembershipRecord[]> {
+  return authMutationQueue.run(async () => {
+    const actor = await requireProductRoleUnlocked(actorId, organizationId, productId, [
+      "owner",
+      "admin",
+      "member",
+    ]);
+    return (await store().listOrganizationMemberships(organizationId))
+      .filter((membership) => membership.productId === productId)
+      .flatMap((membership) => membership.permissionGrants ?? [])
+      .filter(
+        (grant) =>
+          grant.scope.productId === productId &&
+          (actor.role !== "member" || grant.subjectId === actorId),
+      )
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  });
+}
+
+export async function updateProductMemberRole(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  subjectId: string,
+  role: OrganizationRole,
+): Promise<void> {
+  assertOpaqueId(subjectId);
+  await authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      const owner = await requireProductRoleUnlocked(actorId, organizationId, productId, ["owner"]);
+      const current = await store().readOrganizationMembership(
+        organizationId,
+        subjectId as SubjectId,
+        productId,
+      );
+      if (!current || current.status !== "active") throw new Error("Product member not found.");
+      if (current.role === role) return;
+      const members = await store().listOrganizationMemberships(organizationId);
+      const owners = members.filter(
+        (membership) =>
+          membership.productId === productId &&
+          membership.role === "owner" &&
+          membership.status === "active",
+      );
+      if (current.role === "owner" && role !== "owner" && owners.length <= 1) {
+        throw new Error("A product must keep at least one owner.");
+      }
+      await persistRecord(
+        { ...current, role, updatedAt: new Date().toISOString() },
+        "product.member-role-updated",
+        { kind: "subject", subjectId: owner.subjectId },
+      );
+    }),
+  );
+}
+
+export async function removeProductMember(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  subjectId: string,
+): Promise<void> {
+  assertOpaqueId(subjectId);
+  await authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      const owner = await requireProductRoleUnlocked(actorId, organizationId, productId, ["owner"]);
+      const current = await store().readOrganizationMembership(
+        organizationId,
+        subjectId as SubjectId,
+        productId,
+      );
+      if (!current) throw new Error("Product member not found.");
+      if (current.status === "active" && current.role === "owner") {
+        const owners = (await store().listOrganizationMemberships(organizationId)).filter(
+          (membership) =>
+            membership.productId === productId &&
+            membership.role === "owner" &&
+            membership.status === "active",
+        );
+        if (owners.length <= 1) throw new Error("A product must keep at least one owner.");
+      }
+      if (current.status === "active") {
+        const now = new Date().toISOString();
+        const disabled = {
+          ...current,
+          status: "disabled" as const,
+          permissionGrants: (current.permissionGrants ?? []).map((grant) => ({
+            ...grant,
+            status: "disabled" as const,
+            updatedAt: now,
+          })),
+          updatedAt: now,
+        };
+        await persistRecord(disabled, "product.member-removed", {
+          kind: "subject",
+          subjectId: owner.subjectId,
+        });
+      }
+      const keys = (await listRecordsWithRecovery("api-key"))
+        .map((entry) => entry.record)
+        .filter(
+          (key) =>
+            key.owner.kind === "subject" &&
+            key.owner.subjectId === subjectId &&
+            key.scope.organizationId === organizationId &&
+            key.scope.productId === productId &&
+            key.status === "active",
+        );
+      for (const key of keys) {
+        await persistRecord(
+          { ...key, status: "revoked", revokedAt: new Date().toISOString() },
+          "product.member-keys-revoked",
+          { kind: "subject", subjectId: owner.subjectId },
+        );
+      }
+    }),
+  );
 }
 
 export async function createOrganizationInvitation(
   actorId: SubjectId,
   organizationId: string,
   emailInput: string,
-  role: "admin" | "member",
+  role: "admin",
 ): Promise<{ invitation: OrganizationInvitationRecord; token: string; organizationName: string }> {
   const email = canonicalEmail(emailInput);
   return authMutationQueue.run(() =>
@@ -1198,14 +1483,14 @@ export async function createOrganizationInvitation(
         "owner",
         "admin",
       ]);
-      if (role === "admin" && actorMembership.role !== "owner") {
+      if (actorMembership.role !== "owner") {
         throw new Error("Only an organization owner can invite an administrator.");
       }
       const organization = await loadRecord("organization", organizationId);
       if (!organization) throw new Error("Organization not found.");
       const target = await loadSubjectByEmailUnlocked(email);
       if (target && (await organizationMembershipUnlocked(organizationId, target.subjectId))) {
-        throw new Error("This person is already a member of the organization.");
+        throw new Error("This person is already a catalog manager.");
       }
       const invites = (await listRecordsWithRecovery("organization-invitation")).map(
         (item) => item.record,
@@ -1249,6 +1534,79 @@ export async function createOrganizationInvitation(
   );
 }
 
+export async function createProductInvitation(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  emailInput: string,
+  role: "admin" | "member",
+): Promise<{ invitation: OrganizationInvitationRecord; token: string; productName: string }> {
+  const email = canonicalEmail(emailInput);
+  return authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      const actor = await requireProductRoleUnlocked(actorId, organizationId, productId, [
+        "owner",
+        "admin",
+      ]);
+      if (role === "admin" && actor.role !== "owner") {
+        throw new Error("Only a product owner can invite a product administrator.");
+      }
+      const product = await store().readProduct(organizationId, productId);
+      if (!product) throw new Error("Product not found.");
+      const target = await loadSubjectByEmailUnlocked(email);
+      if (target) {
+        const existing = await store().readOrganizationMembership(
+          organizationId,
+          target.subjectId,
+          productId,
+        );
+        if (existing?.status === "active")
+          throw new Error("This person is already a product member.");
+      }
+      const invitations = (await listRecordsWithRecovery("organization-invitation"))
+        .map((entry) => entry.record)
+        .filter(
+          (invite) =>
+            invite.organizationId === organizationId &&
+            invite.productId === productId &&
+            invite.email === email &&
+            !invite.consumedAt &&
+            !invite.revokedAt,
+        );
+      for (const previous of invitations) {
+        await persistRecord(
+          { ...previous, revokedAt: new Date().toISOString() },
+          "product.invitation-replaced",
+          { kind: "subject", subjectId: actorId },
+        );
+      }
+      const invitationId = newInvitationId();
+      const token = `${invitationId}.${randomBytes(32).toString("base64url")}`;
+      const now = new Date();
+      const invitation: OrganizationInvitationRecord = {
+        kind: "organization-invitation",
+        schemaVersion: 1,
+        invitationId,
+        organizationId: organizationId as OrganizationId,
+        productId,
+        email,
+        role,
+        verifierDigestHex: hashHex(token),
+        createdBySubjectId: actorId,
+        createdAt: now.toISOString(),
+        expiresAt: new Date(now.getTime() + ORGANIZATION_INVITATION_LIFETIME_MS).toISOString(),
+        consumedAt: null,
+        revokedAt: null,
+      };
+      await persistRecord(invitation, "product.invitation-created", {
+        kind: "subject",
+        subjectId: actorId,
+      });
+      return { invitation, token, productName: product.name };
+    }),
+  );
+}
+
 export async function listOrganizationInvitations(
   actorId: SubjectId,
   organizationId: string,
@@ -1260,6 +1618,28 @@ export async function listOrganizationInvitations(
       .filter(
         (invite) =>
           invite.organizationId === organizationId &&
+          !invite.productId &&
+          !invite.consumedAt &&
+          !invite.revokedAt &&
+          Date.parse(invite.expiresAt) > Date.now(),
+      )
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  });
+}
+
+export async function listProductInvitations(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+): Promise<OrganizationInvitationRecord[]> {
+  return authMutationQueue.run(async () => {
+    await requireProductRoleUnlocked(actorId, organizationId, productId, ["owner", "admin"]);
+    return (await listRecordsWithRecovery("organization-invitation"))
+      .map((entry) => entry.record)
+      .filter(
+        (invite) =>
+          invite.organizationId === organizationId &&
+          invite.productId === productId &&
           !invite.consumedAt &&
           !invite.revokedAt &&
           Date.parse(invite.expiresAt) > Date.now(),
@@ -1283,11 +1663,43 @@ export async function revokeOrganizationInvitation(
       const current = await loadRecord("organization-invitation", invitationId);
       if (!current || current.record.organizationId !== organizationId)
         throw new Error("Invitation not found.");
+      if (current.record.productId) throw new Error("Invitation not found.");
       if (current.record.consumedAt || current.record.revokedAt) return;
       await persistRecord(
         { ...current.record, revokedAt: new Date().toISOString() },
         "organization.invitation-revoked",
         { kind: "subject", subjectId: actorMembership.subjectId },
+      );
+    }),
+  );
+}
+
+export async function revokeProductInvitation(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  invitationId: string,
+): Promise<void> {
+  assertOpaqueId(invitationId);
+  await authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      const actor = await requireProductRoleUnlocked(actorId, organizationId, productId, [
+        "owner",
+        "admin",
+      ]);
+      const current = await loadRecord("organization-invitation", invitationId);
+      if (
+        !current ||
+        current.record.organizationId !== organizationId ||
+        current.record.productId !== productId
+      ) {
+        throw new Error("Invitation not found.");
+      }
+      if (current.record.consumedAt || current.record.revokedAt) return;
+      await persistRecord(
+        { ...current.record, revokedAt: new Date().toISOString() },
+        "product.invitation-revoked",
+        { kind: "subject", subjectId: actor.subjectId },
       );
     }),
   );
@@ -1320,32 +1732,55 @@ export async function acceptOrganizationInvitation(
           "This invitation is invalid or expired, or it was sent to another email address.",
         );
       }
-      const existing = await organizationMembershipUnlocked(
+      if (!(await loadApprovedOrganizationUnlocked(current.record.organizationId))) {
+        throw new Error(
+          "This invitation is invalid or expired, or it was sent to another email address.",
+        );
+      }
+      const existing = await store().readOrganizationMembership(
         current.record.organizationId,
         subjectId,
+        current.record.productId,
       );
-      if (!existing) {
-        await revokeSubjectOrganizationAccessUnlocked(
-          subjectId,
-          current.record.organizationId,
-          subjectId,
-        );
+      if (!existing || existing.status !== "active") {
         const now = new Date().toISOString();
-        const membership: OrganizationMembershipRecord = {
-          kind: "organization-membership",
-          schemaVersion: 1,
-          organizationMembershipId: newOrganizationMembershipId(),
-          organizationId: current.record.organizationId,
-          subjectId,
-          role: current.record.role,
-          status: "active",
-          createdAt: now,
-          updatedAt: now,
-        };
-        await persistRecord(membership, "organization.invitation-accepted", {
-          kind: "subject",
-          subjectId,
-        });
+        const membership: OrganizationMembershipRecord = existing
+          ? {
+              ...existing,
+              ...(current.record.productId
+                ? {
+                    productId: current.record.productId,
+                    permissionGrants: existing.permissionGrants ?? [],
+                  }
+                : {}),
+              role: current.record.productId ? current.record.role : "admin",
+              status: "active",
+              updatedAt: now,
+            }
+          : {
+              kind: "organization-membership",
+              schemaVersion: 1,
+              organizationMembershipId: newOrganizationMembershipId(),
+              organizationId: current.record.organizationId,
+              ...(current.record.productId
+                ? { productId: current.record.productId, permissionGrants: [] }
+                : {}),
+              subjectId,
+              role: current.record.productId ? current.record.role : "admin",
+              status: "active",
+              createdAt: now,
+              updatedAt: now,
+            };
+        await persistRecord(
+          membership,
+          current.record.productId
+            ? "product.invitation-accepted"
+            : "organization.catalog-manager-invitation-accepted",
+          {
+            kind: "subject",
+            subjectId,
+          },
+        );
       }
       if (!subject.emailVerifiedAt) {
         await persistRecord(
@@ -1373,18 +1808,26 @@ export async function listOrganizationPermissionGrants(
   organizationId: string,
 ): Promise<MembershipRecord[]> {
   return authMutationQueue.run(async () => {
-    const role = await requireOrganizationRoleUnlocked(subjectId, organizationId, [
-      "owner",
-      "admin",
-      "member",
-    ]);
-    return (await listRecordsWithRecovery("membership"))
-      .map((item) => item.record)
+    const catalogManager = await organizationMembershipUnlocked(organizationId, subjectId);
+    if (!catalogManager) {
+      const memberships = await store().listMembershipsForSubject(subjectId);
+      if (
+        !memberships.some(
+          (item) =>
+            item.organizationId === organizationId && item.productId && item.status === "active",
+        )
+      ) {
+        throw new Error("Organization not found.");
+      }
+    }
+    const isCatalogManager = !!catalogManager;
+    return (await store().listOrganizationMemberships(organizationId))
+      .filter((membership) => !!membership.productId)
+      .flatMap((membership) => membership.permissionGrants ?? [])
       .filter(
         (record) =>
           record.scope.organizationId === organizationId &&
-          (role.role !== "member" || record.status === "active") &&
-          (role.role !== "member" || record.subjectId === subjectId),
+          (isCatalogManager || record.subjectId === subjectId),
       )
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   });
@@ -1396,22 +1839,24 @@ export async function listOrganizationAudit(
 ): Promise<OrganizationActivityEntry[]> {
   return authMutationQueue.run(async () => {
     await requireOrganizationRoleUnlocked(subjectId, organizationId, ["owner", "admin"]);
-    const events = await store().listAllEvents();
-    return events
-      .filter((event) => {
-        if (event.payload.organizationId === organizationId) return true;
-        const record = event.payload.record;
-        if (!record || typeof record !== "object" || Array.isArray(record)) return false;
-        if ("organizationId" in record && record.organizationId === organizationId) return true;
-        return (
-          "scope" in record &&
-          typeof record.scope === "object" &&
-          record.scope !== null &&
-          !Array.isArray(record.scope) &&
-          "organizationId" in record.scope &&
-          record.scope.organizationId === organizationId
-        );
-      })
+    return (await store().listOrganizationEvents(organizationId))
+      .slice(0, 100)
+      .map(organizationActivityEntry);
+  });
+}
+
+export async function listProductAudit(
+  subjectId: SubjectId,
+  organizationId: string,
+  productId: string,
+): Promise<OrganizationActivityEntry[]> {
+  return authMutationQueue.run(async () => {
+    await requireProductRoleUnlocked(subjectId, organizationId, productId, [
+      "owner",
+      "admin",
+      "member",
+    ]);
+    return (await store().listOrganizationEvents(organizationId, productId))
       .slice(0, 100)
       .map(organizationActivityEntry);
   });
@@ -1502,16 +1947,9 @@ export async function listAccountsForAdministrator(actorId: SubjectId): Promise<
 
 async function listAccountsForAdministratorUnlocked(actorId: SubjectId): Promise<PublicAccount[]> {
   await requireAdministrator(actorId);
-  const entries = await directoryEntries();
-  const accounts: PublicAccount[] = [];
-  for (const entry of entries) {
-    let subject = await loadSubjectUnlocked(entry.subjectId);
-    if (!subject) {
-      await persistRecord(entry.record, "identity.registration.recovered", systemActor());
-      subject = entry.record;
-    }
-    accounts.push(publicAccount(subject));
-  }
+  const accounts = (await listRecordsWithRecovery("subject"))
+    .map((entry) => publicAccount(entry.record))
+    .sort((left, right) => (left.email ?? "").localeCompare(right.email ?? ""));
   return accounts.sort((left, right) => (left.email ?? "").localeCompare(right.email ?? ""));
 }
 
@@ -1576,12 +2014,7 @@ async function requireOrganizationProductUnlocked(
   organizationId: string,
   productId: string,
 ): Promise<void> {
-  const products = (await listRecordsWithRecovery("product")).map((item) => item.record);
-  if (
-    !products.some(
-      (product) => product.organizationId === organizationId && product.productId === productId,
-    )
-  ) {
+  if (!(await store().readProduct(organizationId, productId))) {
     throw new Error("Choose a product in this organization.");
   }
 }
@@ -1597,19 +2030,24 @@ export async function createPermissionGrant(
   const actions = validateActions(actionsInput);
   return authMutationQueue.run(() =>
     withOrganizationMutationLock(scope.organizationId, async () => {
-      const actorMembership = await requireOrganizationRoleUnlocked(actorId, scope.organizationId, [
-        "owner",
-        "admin",
-      ]);
+      const actorMembership = await requireProductRoleUnlocked(
+        actorId,
+        scope.organizationId,
+        scope.productId,
+        ["owner", "admin"],
+      );
       await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
       const target = await loadSubjectUnlocked(targetSubjectId);
       if (!target || target.status !== "active" || !target.emailVerifiedAt) {
         throw new Error("Choose an active, email-verified account.");
       }
-      if (
-        !(await organizationMembershipUnlocked(scope.organizationId, targetSubjectId as SubjectId))
-      ) {
-        throw new Error("Choose a member of this organization.");
+      const targetMembership = await store().readOrganizationMembership(
+        scope.organizationId,
+        targetSubjectId as SubjectId,
+        scope.productId,
+      );
+      if (!targetMembership || targetMembership.status !== "active") {
+        throw new Error("Choose a member of this product.");
       }
       const now = new Date().toISOString();
       const membership: MembershipRecord = {
@@ -1647,21 +2085,23 @@ export async function updateGrantStatus(
       const current = await loadRecord("membership", membershipId);
       if (!current || current.record.scope.organizationId !== initial.record.scope.organizationId)
         throw new Error("Permission grant not found.");
-      const actorMembership = await requireOrganizationRoleUnlocked(
+      const actorMembership = await requireProductRoleUnlocked(
         actorId,
         current.record.scope.organizationId,
+        current.record.scope.productId,
         ["owner", "admin"],
       );
       if (
         status === "active" &&
-        !(await organizationMembershipUnlocked(
-          current.record.scope.organizationId,
-          current.record.subjectId,
-        ))
+        (
+          await store().readOrganizationMembership(
+            current.record.scope.organizationId,
+            current.record.subjectId,
+            current.record.scope.productId,
+          )
+        )?.status !== "active"
       ) {
-        throw new Error(
-          "The person must be an active organization member before restoring access.",
-        );
+        throw new Error("The person must be an active product member before restoring access.");
       }
       if (current.record.status === status) return;
       await persistRecord(
@@ -1675,25 +2115,8 @@ export async function updateGrantStatus(
 
 async function listRecordsWithRecovery<Kind extends AuthRecordKind>(
   kind: Kind,
-  knownEvents?: readonly AuthEvent[],
 ): Promise<VersionedRecord<AuthRecordFor<Kind>>[]> {
-  const objectStore = store();
-  const [snapshots, allEvents] = await Promise.all([
-    objectStore.listRecords(kind),
-    knownEvents ? Promise.resolve(knownEvents) : objectStore.listAllEvents(),
-  ]);
-  assertNoConflictingAggregateRevisions(allEvents);
-  assertUniqueDirectoryRegistrations(allEvents);
-  const ids = new Set<string>(snapshots.map((snapshot) => recordId(snapshot.record)));
-  for (const event of allEvents) {
-    if (event.aggregate.kind === kind) ids.add(event.aggregate.id);
-  }
-  const values: VersionedRecord<AuthRecordFor<Kind>>[] = [];
-  for (const id of ids) {
-    const record = await loadRecord(kind, id);
-    if (record) values.push(record);
-  }
-  return values;
+  return store().listRecords(kind);
 }
 
 export async function listMembershipsForSubject(subjectId: SubjectId): Promise<MembershipRecord[]> {
@@ -1703,8 +2126,8 @@ export async function listMembershipsForSubject(subjectId: SubjectId): Promise<M
 async function listMembershipsForSubjectUnlocked(
   subjectId: SubjectId,
 ): Promise<MembershipRecord[]> {
-  return (await listRecordsWithRecovery("membership"))
-    .map((item) => item.record)
+  return (await store().listMembershipsForSubject(subjectId))
+    .flatMap((membership) => membership.permissionGrants ?? [])
     .filter((record) => record.subjectId === subjectId)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
@@ -2025,12 +2448,20 @@ export async function createApiKeyForSubject(
       if (!subject || subject.status !== "active" || !subject.emailVerifiedAt) {
         throw new Error("An active, email-verified account is required to create an API key.");
       }
-      if (!(await organizationMembershipUnlocked(scope.organizationId, subjectId))) {
-        throw new Error("Join this organization before creating an API key.");
+      if (!(await loadApprovedOrganizationUnlocked(scope.organizationId))) {
+        throw new Error("Organization not found.");
+      }
+      const productMembership = await store().readOrganizationMembership(
+        scope.organizationId,
+        subjectId,
+        scope.productId,
+      );
+      if (!productMembership || productMembership.status !== "active") {
+        throw new Error("Join this product before creating an API key.");
       }
       await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
       for (const action of actions) {
-        if (!(await hasPermission(subjectId, scope, action))) {
+        if (!productMembershipHasPermission(productMembership, scope, action)) {
           throw new Error("API keys can only include actions granted to your account.");
         }
       }
@@ -2164,16 +2595,16 @@ function keyScopeAllows(keyScope: ResourceScope, request: ResourceScope): boolea
   return false;
 }
 
-async function hasPermission(
-  subjectId: SubjectId,
+function productMembershipHasPermission(
+  membership: OrganizationMembershipRecord,
   scope: ResourceScope,
   action: string,
-): Promise<boolean> {
-  const memberships = await listMembershipsForSubjectUnlocked(subjectId);
-  return memberships.some(
-    (membership) =>
-      membership.status === "active" &&
-      membership.grants.some(
+): boolean {
+  if (membership.status !== "active") return false;
+  return (membership.permissionGrants ?? []).some(
+    (grantRecord) =>
+      grantRecord.status === "active" &&
+      grantRecord.grants.some(
         (grant: PermissionGrant) =>
           scopeMatchesGrant(grant.scope, scope) && grant.actions.includes(action),
       ),
@@ -2295,9 +2726,16 @@ export async function authorizeApiKey(
   if (!subject || subject.record.status !== "active" || !subject.record.emailVerifiedAt) {
     return { authorized: false };
   }
-  if (!(await organizationMembershipUnlocked(scope.organizationId, subject.record.subjectId)))
+  if (!(await loadApprovedOrganizationUnlocked(scope.organizationId))) {
     return { authorized: false };
-  const authorized = await hasPermission(subject.record.subjectId, scope, action);
+  }
+  const productMembership = await store().readOrganizationMembership(
+    scope.organizationId,
+    subject.record.subjectId,
+    scope.productId,
+  );
+  if (!productMembership || productMembership.status !== "active") return { authorized: false };
+  const authorized = productMembershipHasPermission(productMembership, scope, action);
   return authorized
     ? { authorized: true, subjectId: subject.record.subjectId }
     : { authorized: false };
@@ -2403,15 +2841,12 @@ export async function listSessionsForSubject(subjectId: SubjectId): Promise<Sess
   return authMutationQueue.run(async () => {
     const subject = await loadSubjectUnlocked(subjectId);
     if (!subject) return [];
-    return listSessionsForSubjectUnlocked(subject, undefined);
+    return listSessionsForSubjectUnlocked(subject);
   });
 }
 
-async function listSessionsForSubjectUnlocked(
-  subject: SubjectRecord,
-  events: readonly AuthEvent[] | undefined,
-): Promise<SessionRecord[]> {
-  return (await listRecordsWithRecovery("session", events))
+async function listSessionsForSubjectUnlocked(subject: SubjectRecord): Promise<SessionRecord[]> {
+  return (await listRecordsWithRecovery("session"))
     .map((item) => item.record)
     .filter(
       (record) =>
@@ -2442,13 +2877,7 @@ function auditEntriesForEvents(events: readonly AuthEvent[], subject: SubjectRec
       if (administrator) return true;
       if (event.actor.kind === "subject" && event.actor.subjectId === subject.subjectId)
         return true;
-      const record = event.payload.record;
-      return (
-        typeof record === "object" &&
-        record !== null &&
-        "subjectId" in record &&
-        record.subjectId === subject.subjectId
-      );
+      return event.payload.subjectId === subject.subjectId;
     })
     .slice(0, 100)
     .map((event) => ({
@@ -2472,9 +2901,9 @@ export async function loadDashboardData(subject: SubjectRecord): Promise<Dashboa
   return authMutationQueue.run(async () => {
     const events = await store().listAllEvents();
     const [membershipRecords, keyRecords, sessions, accounts] = await Promise.all([
-      listRecordsWithRecovery("membership", events),
-      listRecordsWithRecovery("api-key", events),
-      listSessionsForSubjectUnlocked(subject, events),
+      listRecordsWithRecovery("membership"),
+      listRecordsWithRecovery("api-key"),
+      listSessionsForSubjectUnlocked(subject),
       isAdministrator(subject)
         ? listAccountsForAdministratorUnlocked(subject.subjectId)
         : Promise.resolve(null),

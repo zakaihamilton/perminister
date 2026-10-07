@@ -29,7 +29,7 @@ export function DashboardShell({
         </div>
         <OrganizationSwitcher organizations={organizations} organizationId={organizationId} />
         <Link className="org-create-link" href="/dashboard/new-organization">
-          ＋ Create organization
+          ＋ Request organization
         </Link>
         <DashboardNavigation organizationId={organizationId} role={role} />
         <div className="dashboard-sidebar-footer">

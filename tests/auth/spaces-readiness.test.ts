@@ -10,6 +10,7 @@ describe("Spaces readiness", () => {
     const store = new SpacesAuthStore({
       client: { send } as unknown as S3Client,
       bucket: "perminister",
+      identityIndexSecret: "x".repeat(32),
     });
 
     await store.checkReadiness();
@@ -19,7 +20,7 @@ describe("Spaces readiness", () => {
     expect(command).toBeInstanceOf(ListObjectsV2Command);
     expect(command.input).toMatchObject({
       Bucket: "perminister",
-      Prefix: "perminister/v1",
+      Prefix: "perminister/v2",
       MaxKeys: 1,
     });
   });
@@ -29,6 +30,7 @@ describe("Spaces readiness", () => {
     const store = new SpacesAuthStore({
       client: { send } as unknown as S3Client,
       bucket: "perminister",
+      identityIndexSecret: "x".repeat(32),
     });
 
     await expect(store.checkReadiness()).rejects.toThrow("Forbidden");

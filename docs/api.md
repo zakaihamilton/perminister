@@ -2,9 +2,9 @@
 
 ## Account interface
 
-The web interface provides organization onboarding and switching, product and team management, access grants, API keys, profile, sessions, activity, and organization settings. Dashboard sections are separate pages under `/dashboard/{organizationId}`. Members see their own access and account pages; owners and admins manage products, invitations, and grants; only owners manage organization roles and settings.
+The web interface provides organization requests and switching, product and team management, access grants, API keys, profile, sessions, activity, and organization settings. New organizations stay pending until a configured platform administrator approves them; pending and rejected requests are visible to their requester, and rejected requesters may submit another request. Only approved organizations appear in the workspace switcher or allow dashboard and API access. Dashboard sections are separate pages under `/dashboard/{organizationId}`. Organization catalog managers manage organization and product metadata. Product Owners and Admins manage that product's invitations and grants; only Product Owners change product roles or remove members. Members can review their own product access and account pages. Only organization Owners manage catalog-manager roles and organization settings.
 
-Registration creates a stable UUID identity and a salted scrypt password verifier. Passwords must be at least 15 characters. Email addresses are normalized to lowercase and checked against Perminister's private directory event log. Registration does not merge any existing application account. Because multiple app instances can write concurrently, Spaces alone cannot guarantee uniqueness during simultaneous registrations; detected duplicate registrations stop directory reads for manual reconciliation. Email verification is sent when Resend is configured, but an unverified account can sign in. An emailed password-recovery link proves control of the registered address and verifies it if needed.
+Registration creates a stable UUID identity and a salted scrypt password verifier. Passwords must be at least 15 characters. Email addresses are normalized to lowercase and looked up through a keyed HMAC index; the email address itself is not stored in an object key. Registration does not merge any existing application account. Because multiple app instances can write concurrently, Spaces alone cannot guarantee uniqueness during simultaneous registrations; a deployment-wide coordination layer is required if concurrent registration must be strictly unique. Email verification is sent when Resend is configured, but an unverified account can sign in. An emailed password-recovery link proves control of the registered address and verifies it if needed.
 
 Perminister dashboard sessions use a random, opaque browser token in an HttpOnly, SameSite=Lax cookie; production cookies are Secure. Only a SHA-256 verifier is stored in Spaces. Sessions expire after 12 hours. Signing out revokes the current session. Changing a password increments the account auth version, invalidating every prior session. Server Actions perform their own authorization checks and use Next.js POST and Origin/Host protections. Product sessions are separate and are accepted by the bearer authorization API only when bound to the matching configured application client and product.
 
@@ -41,7 +41,7 @@ The product stores its own profile/preferences and domain data, keyed by Permini
 
 ## Authorization endpoint
 
-`POST /api/authorize` checks a high-entropy API key against its scope/actions and, for user-owned keys, the account's active permission grants. It also accepts a product-bound consumer session token when the matching application client headers are present. Use a product session to authorize an interactive user's request and a service-principal key for background ingestion or scheduled work. Requests use a bearer token and JSON:
+`POST /api/authorize` checks a high-entropy API key against its own scope and actions, then checks the active product membership and explicit grants for user-owned keys. It also accepts a product-bound consumer session token when the matching application client headers are present, and service-principal keys for background work. Requests for pending or rejected organizations are denied. Send a bearer token and JSON:
 
 ```http
 POST /api/authorize
@@ -75,9 +75,9 @@ For example, add both `visitoring` and `postparticle` products under Sentry8, ad
 
 ## Administration
 
-Set `PERMINISTER_ADMIN_EMAILS` to a comma-separated list of account email addresses for restricted platform operations. This setting is checked on each request and is not stored as an organization role. Platform administrators can manage account status and retire legacy unscoped grants and keys. Customer product and access management uses organization membership roles: Owners and Admins manage products, invitations, and grants; only Owners manage organization roles and organization settings. A configured administrator cannot disable its own configured address; remove an address from the environment setting first if it must be disabled.
+Set `PERMINISTER_ADMIN_EMAILS` to a comma-separated list of account email addresses for restricted platform operations. This setting is checked on each request and is not stored as an organization role. Platform administrators can review organization requests, manage account status, and retire legacy unscoped grants and keys. One pending organization request is allowed per requesting account. That check uses the process-local mutation queue and can race across separate app instances because Spaces provides no distributed lock. Organization Owners and Admins manage the catalog; only Owners manage catalog-manager roles and organization settings. Product Owners and Admins manage product invitations and grants; only Product Owners change product roles or remove product members. A configured administrator cannot disable its own configured address; remove an address from the environment setting first if it must be disabled.
 
-Organizations, memberships, products, and invitations are persisted as versioned records and events alongside identity and access records. Product IDs are unique within an organization, so two organizations may use the same product ID. API-key and grant scopes include the organization ID; `POST /api/authorize` requires it and checks the matching organization, product, resource, action, active membership, and grant.
+Organizations, product memberships, products, invitations, and identity/access records are stored as schema-versioned JSON objects under `perminister/v2`. Product IDs are unique within an organization, so two organizations may use the same product ID. API-key and grant scopes include the organization ID; `POST /api/authorize` requires it and checks the matching organization, product, resource, action, active membership, and explicit grant. Current records are the source of truth; activity entries are compact audit metadata and are not replayed to construct current state.
 
 Product website lookups require an owner/admin session and are limited to 10 requests per minute per person and organization per app process. Sign-in throttling reserves capacity for pending checks and counts failures within a 15-minute window. An email is locked for 15 minutes after its eighth failed check. These limits apply per app process and are not shared between app instances.
 
@@ -87,52 +87,51 @@ Each account can manage its own API keys, including expiry, revocation, and rota
 
 ## Resend email delivery
 
-The server sends directly to Resend's `POST https://api.resend.com/emails` endpoint; no relay adapter or SDK dependency is needed. Configure `RESEND_API_KEY` with a server-side Resend API key, `PERMINISTER_MAIL_FROM` with a sender address accepted by the Resend account, and `PERMINISTER_PUBLIC_ORIGIN` with the browser-visible application origin. Use a sender address under a verified Resend domain for production.
+The server sends directly to Resend's `POST https://api.resend.com/emails` endpoint; no relay adapter or SDK dependency is needed. Configure `RESEND_API_KEY` with a server-side Resend API key and `PERMINISTER_MAIL_FROM` with a sender address accepted by the Resend account. Browser-triggered links use the request's `Origin` header. For server-to-server consumer authentication requests that have no browser or product origin, set `PERMINISTER_PUBLIC_ORIGIN` as the fallback. Use a sender address under a verified Resend domain for production.
 
 Each request uses bearer authentication and JSON fields `from`, `to`, `subject`, `text`, and `html`. The API accepts the `to` value as a single address; the application considers a 2xx response accepted and does not parse the returned message ID. The request times out after 10 seconds. Missing configuration, network errors, or non-2xx responses produce a message that no email was sent. Password recovery sends a one-time link to an active account's registered address; completing the reset proves control of that address and verifies it if needed. One-time links expire after 30 minutes and are stored as digests.
 
 Organization invitations also use Resend and expire after seven days. The invitation link is bound to the invited email address; accepting it verifies that address if it was not already verified.
 
-In local development only, `PERMINISTER_PUBLIC_ORIGIN` may use `http://localhost` or `http://127.0.0.1`. Production origins must use HTTPS.
+When used, `PERMINISTER_PUBLIC_ORIGIN` may use `http://localhost` or `http://127.0.0.1` in local development. Production origins must use HTTPS.
 
 ## Environment
 
-| Variable                                 | Required           | Purpose                                                                                     |
-| ---------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------- |
-| `PERMINISTER_SPACES_ENDPOINT`            | Yes                | Bucket endpoint, `https://perminister.sfo3.digitaloceanspaces.com`                          |
-| `PERMINISTER_SPACES_REGION`              | Yes                | Spaces region, `sfo3`                                                                       |
-| `PERMINISTER_SPACES_BUCKET`              | Yes                | Private bucket, `perminister`                                                               |
-| `PERMINISTER_SPACES_ACCESS_KEY`          | Yes                | Server-side Spaces access key                                                               |
-| `PERMINISTER_SPACES_SECRET_KEY`          | Yes                | Server-side Spaces secret key                                                               |
-| `PERMINISTER_ADMIN_EMAILS`               | For administration | Comma-separated admin account email addresses                                               |
-| `PERMINISTER_APP_CLIENT_IDS`             | For product auth   | Comma-separated first-party product client IDs                                              |
-| `PERMINISTER_APP_CLIENT_{ID}_SECRET`     | For product auth   | Server-only client secret, at least 32 characters, for each configured client ID            |
-| `PERMINISTER_APP_CLIENT_{ID}_NAME`       | Optional           | Product name used in verification and recovery emails; defaults to the client ID            |
-| `PERMINISTER_APP_CLIENT_{ID}_PRODUCT_ID` | Optional           | Product ID bound to that client; defaults to its client ID                                  |
-| `PERMINISTER_APP_CLIENT_{ID}_ORIGIN`     | Optional           | HTTPS app origin for product-branded email verification and recovery links                  |
-| `PERMINISTER_PUBLIC_ORIGIN`              | For email links    | Browser-visible application origin                                                          |
-| `RESEND_API_KEY`                         | For email delivery | Server-side Resend API key; never expose to browser code                                    |
-| `PERMINISTER_MAIL_FROM`                  | For email delivery | Sender address accepted by Resend; use a verified domain in production                      |
-| `BRAVE_SEARCH_API_KEY`                   | For name search    | Optional server-side Brave Search subscription token; direct URL import does not require it |
+| Variable                                 | Required           | Purpose                                                                                           |
+| ---------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------- |
+| `PERMINISTER_SPACES_ENDPOINT`            | Yes                | Bucket endpoint, `https://perminister.sfo3.digitaloceanspaces.com`                              |
+| `PERMINISTER_SPACES_REGION`              | Yes                | Spaces region, `sfo3`                                                                           |
+| `PERMINISTER_SPACES_BUCKET`              | Yes                | Private bucket, `perminister`                                                                   |
+| `PERMINISTER_SPACES_ACCESS_KEY`          | Yes                | Server-side Spaces access key                                                                   |
+| `PERMINISTER_SPACES_SECRET_KEY`          | Yes                | Server-side Spaces secret key                                                                   |
+| `PERMINISTER_IDENTITY_INDEX_SECRET`      | Yes                | Stable random secret, at least 32 characters, for HMAC email lookup; rebuild indexes to rotate it |
+| `PERMINISTER_ADMIN_EMAILS`               | For administration | Comma-separated admin account email addresses                                                   |
+| `PERMINISTER_APP_CLIENT_IDS`             | For product auth   | Comma-separated first-party product client IDs                                                  |
+| `PERMINISTER_APP_CLIENT_{ID}_SECRET`     | For product auth   | Server-only client secret, at least 32 characters, for each configured client ID                |
+| `PERMINISTER_APP_CLIENT_{ID}_NAME`       | Optional           | Product name used in verification and recovery emails; defaults to the client ID                |
+| `PERMINISTER_APP_CLIENT_{ID}_PRODUCT_ID` | Optional           | Product ID bound to that client; defaults to its client ID                                      |
+| `PERMINISTER_APP_CLIENT_{ID}_ORIGIN`     | Optional           | HTTPS app origin for product-branded verification and recovery links                            |
+| `PERMINISTER_PUBLIC_ORIGIN`              | Optional fallback | Origin for server-to-server email links without a browser or product origin                    |
+| `RESEND_API_KEY`                         | For email delivery | Server-side Resend API key; never expose to browser code                                        |
+| `PERMINISTER_MAIL_FROM`                  | For email delivery | Sender address accepted by Resend; use a verified domain in production                          |
+| `BRAVE_SEARCH_API_KEY`                   | For name search    | Optional server-side Brave Search subscription token; direct URL import does not require it    |
 
 There is no session signing secret: browser tokens are generated independently with 256 bits of randomness, and only their digests are persisted. Keep `.env.local` out of source control and use Vercel's environment settings for Vercel values.
 
 ## Mutation coordination and recovery
 
-Every mutation runs through a process-local `SingleWriterMutationQueue` and organization-local lock. These serialize work inside one Node.js process only. Each record update appends a versioned full-record event before writing the record snapshot. Reads replay the latest complete event to repair a missing or stale snapshot. Account registration also records the normalized email and subject snapshot in a directory event before the subject record, so a later lookup can recover a registration interrupted between those writes.
+Mutations run through a process-local `SingleWriterMutationQueue` and organization-local lock. They serialize work inside one Node.js process only. A canonical record update replaces its JSON object; compact activity metadata is appended separately. Small by-ID, by-subject, email, and activity pointers support lookups and listings. The canonical record write is the commit point: its derived lookup indexes are written first, and an activity append failure after commit is logged without reporting the mutation itself as failed. These indexes are derived data and can be rebuilt from canonical objects and activity records with `npm run storage:rebuild-v2-indexes` (dry run by default).
 
-This is recoverable per record, not a cross-object transaction. Spaces does not provide a conditional cross-object transaction or a distributed lock. Concurrent app instances can race, including on product uniqueness, owner-role limits, invitations, grants, API keys, and account registration. Duplicate aggregate revisions cause an integrity error before event replay or snapshot repair rather than an arbitrary event being selected. Duplicate directory registrations are also rejected when detected. These checks expose some races but do not prevent them; manual reconciliation may be required. Event listing and identity lookup scan S3 objects, so cost grows with history. Enable bucket versioning and keep a separate backup before production writes.
+Spaces does not provide a conditional cross-object transaction or a distributed lock. A multi-object action can stop partway through, and separate app instances can race on product uniqueness, owner-role limits, invitations, grants, API keys, and account registration. An index write failure prevents the canonical commit, though it may leave harmless or stale pointers; an activity append failure after the canonical commit is logged, and the mutation remains successful. Rebuilding indexes cannot recreate a missing audit event. Enable bucket versioning and keep a separate backup before production writes. Keep the index HMAC secret stable; changing it requires rebuilding the email index before deployments use the new value.
 
-Authorization reads current keys and grants from Spaces on every request and run outside the mutation queue. They are not cached; an update is reflected once its event has been written and no conflicting event history is present.
+Bearer API-key authorization reads four canonical objects per request. User-owned keys read the key, subject, organization, and product membership; service keys read the key, service principal, organization, and product. The product membership contains explicit grants, so these authorization paths do not list objects or read activity history. The modeled benchmark confirms four object reads and zero list requests as activity history grows; actual Spaces latency depends on network and bucket response time. Consumer-session checks use their own session validation path.
 
-### Recovering an integrity conflict
+### Recovering partial writes
 
-If an authorization or account lookup reports an event-revision or duplicate-email integrity error:
+1. Pause writes on every app instance and take a separate bucket backup. Keep Spaces object versioning enabled so earlier versions of overwritten JSON objects remain available.
+2. Inspect the relevant canonical objects under `perminister/v2`, their object versions, and recent activity records. Activity is an audit aid; it is not a full copy of the previous record.
+3. If canonical data is correct but a lookup or activity view is incomplete, run `npm run storage:rebuild-v2-indexes` and review the dry-run counts. Apply the rebuild only after confirming it will repair the affected indexes.
+4. If a canonical record needs restoration, restore the verified prior object version from the bucket backup/version history, then rebuild derived indexes. Do not infer current state from the activity stream.
+5. Verify sign-in, account lookup, product membership, authorization, and activity views before resuming writes.
 
-1. Pause writes on every app instance and take a separate backup of the bucket. Keep Spaces object versioning enabled so prior object versions remain available.
-2. Inspect the private event objects under `perminister/v1/events/{aggregate-kind}/{aggregate-id}/`. Compare aggregate versions, event IDs, event bodies, matching record snapshots, and the related audit history.
-3. For a duplicated aggregate revision, preserve a copy of every conflicting event, then move the event that does not match the confirmed operation out of the active event prefix. Keep exactly one event for each aggregate revision.
-4. For a duplicate email registration, identify the account that owns the intended identity. Review grants, API keys, sessions, and organization memberships that refer to each subject before removing a duplicate directory entry; the application does not merge accounts automatically.
-5. Restart writes only after the active history contains one event per revision and one directory identity for the normalized email. A normal read can then rebuild a missing or stale snapshot from the remaining event history. Recheck account lookup and authorization before resuming traffic.
-
-Do not edit or remove the only copy of an event during recovery. If the intended state cannot be established from Spaces versions and audit evidence, keep writes paused and preserve both histories for investigation.
+The v1 prefix is retained read-only after migration. Do not modify it as part of v2 recovery.
