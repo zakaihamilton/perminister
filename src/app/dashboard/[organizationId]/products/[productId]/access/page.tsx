@@ -1,6 +1,6 @@
 import { createGrantAction, updateGrantStatusAction } from "@/app/actions";
+import { AccessGrantScopeFields } from "@/components/access-grant-scope-fields";
 import { CustomDropdown } from "@/components/custom-dropdown";
-import { Tooltip } from "@/components/tooltip";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import {
   getCurrentSession,
@@ -99,8 +99,8 @@ export default async function ProductAccessPage({
         title="Access"
         description={
           canManage
-            ? "Grant explicit API actions to members of this product."
-            : "Review the API actions assigned to you in this product."
+            ? "Give product members the API actions they need, at the right scope."
+            : "Review the API actions assigned to you and where they apply."
         }
       />
       {query.notice === "grant-created" ? (
@@ -111,10 +111,56 @@ export default async function ProductAccessPage({
       ) : null}
       {query.error === "grant-failed" ? (
         <DashboardNotice
-          message="That access change could not be completed. Check the member, scope, and action names."
+          message="That access grant could not be created. Check the selected member, required resource ID, and 1–32 exact action names."
           kind="error"
         />
       ) : null}
+
+      <section className="dashboard-card access-explainer" aria-labelledby="access-explainer-title">
+        <div className="dashboard-card-heading">
+          <div>
+            <h2 id="access-explainer-title">What is an access grant?</h2>
+            <p>
+              A grant lets a product member use specific API actions within a chosen part of the
+              product. Membership lets someone collaborate in the product; it does not give them API
+              permissions by itself.
+            </p>
+          </div>
+        </div>
+        <div className="access-scope-guide" role="group" aria-label="Grant scopes">
+          <article>
+            <h3>Entire product</h3>
+            <p>The selected actions can be used across all resources in this product.</p>
+          </article>
+          <article>
+            <h3>One project</h3>
+            <p>The selected actions apply to one project. Enter that project&apos;s exact ID.</p>
+          </article>
+          <article>
+            <h3>One workspace</h3>
+            <p>
+              The selected actions apply to one workspace. Enter that workspace&apos;s exact ID.
+            </p>
+          </article>
+        </div>
+        <div className="access-action-help">
+          <h3>Actions are product-specific</h3>
+          <p>
+            Enter the exact action names the connected product checks during authorization. Separate
+            multiple names with commas. For example, <code>project.read</code> or{" "}
+            <code>workspace.update</code>; these are examples only, not a built-in list. Ask the
+            product developer for the names to use.
+          </p>
+        </div>
+        <p className="access-explainer-guidance">
+          {canManage
+            ? "To grant access, choose an active product member, decide which resources the grant covers, then list the API actions they need."
+            : "A product Owner or Admin manages grants. Contact one if you need different API actions or scope."}
+        </p>
+        <p className="access-explainer-note">
+          API keys can use only actions included in a member&apos;s active grants.
+        </p>
+      </section>
 
       {grants.length ? (
         <div className="access-grant-list">
@@ -152,9 +198,7 @@ export default async function ProductAccessPage({
           <div className="dashboard-card-heading">
             <div>
               <h2>Grant access</h2>
-              <p>
-                Membership provides product collaboration; grants authorize specific API actions.
-              </p>
+              <p>Choose who gets access, where it applies, and which actions they can use.</p>
             </div>
           </div>
           {eligibleMembers.length ? (
@@ -177,45 +221,21 @@ export default async function ProductAccessPage({
                     }))}
                   />
                 </label>
-                <div className="form-field-with-tooltip">
-                  <div className="form-label-row">
-                    <label htmlFor="grant-scope">Scope</label>
-                    <Tooltip content="A product grant covers all resources in this product. Project and workspace grants narrow access to one resource." />
-                  </div>
-                  <CustomDropdown
-                    aria-label="Scope"
-                    id="grant-scope"
-                    name="scopeKind"
-                    defaultValue="product"
-                    options={[
-                      { value: "product", label: "Entire product" },
-                      { value: "project", label: "One project" },
-                      { value: "workspace", label: "One workspace" },
-                    ]}
-                  />
-                </div>
-                <div className="form-field-with-tooltip">
-                  <div className="form-label-row">
-                    <label htmlFor="grant-resource-id">Project or workspace ID</label>
-                    <Tooltip content="Enter the exact project or workspace ID. Leave blank for product-wide access." />
-                  </div>
-                  <input
-                    id="grant-resource-id"
-                    name="resourceId"
-                    maxLength={128}
-                    placeholder="Optional for product access"
-                  />
-                </div>
+                <AccessGrantScopeFields />
                 <label htmlFor="grant-actions">
-                  Actions
+                  API actions
                   <input
                     id="grant-actions"
                     name="actions"
                     required
                     maxLength={2048}
-                    placeholder="project.read, workspace.update"
+                    placeholder="Enter product-defined action names"
+                    aria-describedby="grant-actions-help"
                   />
-                  <small>Comma-separated action names.</small>
+                  <small className="access-form-field-help" id="grant-actions-help">
+                    Enter 1–32 comma-separated names that match the connected product&apos;s
+                    actions.
+                  </small>
                 </label>
               </div>
               <button className="button button-primary" type="submit">
@@ -229,10 +249,6 @@ export default async function ProductAccessPage({
           )}
         </section>
       ) : null}
-      <p className="role-help">
-        A product role never grants API actions by itself. API keys are limited to the actions in
-        active grants.
-      </p>
     </>
   );
 }

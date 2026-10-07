@@ -20,6 +20,7 @@ interface CustomDropdownProps {
   disabled?: boolean;
   className?: string;
   "aria-label"?: string;
+  "aria-describedby"?: string;
   onValueChange?: (value: string) => void;
 }
 
@@ -34,6 +35,7 @@ export function CustomDropdown({
   disabled = false,
   className = "",
   "aria-label": ariaLabel,
+  "aria-describedby": ariaDescribedBy,
   onValueChange,
 }: CustomDropdownProps) {
   const generatedId = useId();
@@ -172,6 +174,7 @@ export function CustomDropdown({
     >
       <button
         aria-controls={open ? listboxId : undefined}
+        aria-describedby={ariaDescribedBy}
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-invalid={invalid || undefined}
