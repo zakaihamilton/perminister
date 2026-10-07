@@ -491,6 +491,15 @@ button:focus-visible {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
+.access-form .form-grid {
+  align-items: start;
+}
+.access-form .form-grid > label {
+  grid-template-rows: minmax(18px, auto) auto auto;
+}
+.access-form .form-grid > .form-field-with-tooltip {
+  align-content: start;
+}
 .management-form .auth-form {
   gap: 12px;
 }
@@ -2742,6 +2751,14 @@ button:focus-visible {
 }
 .dashboard-heading-action {
   flex: 0 0 auto;
+}
+.product-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.product-detail-actions .button {
+  padding: 10px 14px;
 }
 .dashboard-notice {
   border: 1px solid #d5dff8;
