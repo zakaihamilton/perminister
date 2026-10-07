@@ -7,7 +7,7 @@ const sections = [
     href: "/developers/getting-started",
     number: "01",
     title: "Getting started",
-    description: "Organization setup, products, invitations, and the current API surface.",
+    description: "Connect backend sessions, choose organizations, and check protected actions.",
   },
   {
     href: "/developers/permissions",
@@ -21,12 +21,6 @@ const sections = [
     title: "API keys",
     description: "Create, rotate, expire, and revoke server-only bearer keys.",
   },
-  {
-    href: "/developers/storage",
-    number: "04",
-    title: "Storage & readiness",
-    description: "Spaces event recovery, write concurrency, and required settings.",
-  },
 ];
 
 export default function DevelopersPage() {
@@ -35,21 +29,20 @@ export default function DevelopersPage() {
       active="overview"
       eyebrow="Developer guide"
       title="Build with Perminister"
-      intro="Perminister provides central identities, password credentials, sessions, scoped permissions, and API keys. Consumer applications keep their branded portals, app-local sessions, domain data, and resource enforcement."
+      intro="Share identity and access across your applications. Each app keeps its own sign-in experience, sessions, and data."
     >
-      <div className="guide-notice guide-notice-wide" aria-label="Current API routes">
+      <div className="guide-notice guide-notice-wide" aria-label="Application integration boundary">
         <p>
-          Perminister includes account and key management in the dashboard,{" "}
-          <code className="code-label">GET /api/auth/session</code> for a browser session, and{" "}
-          <code className="code-label">POST /api/authorize</code> for bearer-key checks.{" "}
-          <code className="code-label">GET /api/health</code> reports process liveness only.
+          App backends use Perminister for shared identity and access checks. Keep application
+          credentials and sessions on your server; your application owns its data and enforces
+          access to its resources.
         </p>
       </div>
 
       <section className="developer-index" aria-labelledby="guide-sections-title">
         <div className="developer-index-heading">
           <h2 id="guide-sections-title">Choose a guide</h2>
-          <p>Each section covers current behavior and the configuration it needs.</p>
+          <p>Start with your app backend, then set up permissions and keys.</p>
         </div>
         <div className="developer-index-grid">
           {sections.map((section) => (
@@ -67,10 +60,10 @@ export default function DevelopersPage() {
 
       <section className="guide-panel foundation-panel" aria-labelledby="foundation-title">
         <div className="guide-panel-head">
-          <h2 id="foundation-title">Implemented service boundary</h2>
+          <h2 id="foundation-title">What Perminister provides</h2>
           <p>
-            Perminister stores identity and access state; consumer applications own their domain
-            data and final resource checks.
+            Use Perminister for shared identity and access. Your applications keep their own
+            experiences, data, and resource checks.
           </p>
         </div>
         <ul className="secure-list">
@@ -80,7 +73,7 @@ export default function DevelopersPage() {
           </li>
           <li>
             <CheckIcon />
-            Organization-owned products and Owner/Admin/Member roles
+            Product teams and organization memberships
           </li>
           <li>
             <CheckIcon />
@@ -89,10 +82,6 @@ export default function DevelopersPage() {
           <li>
             <CheckIcon />
             API-key lifecycle with one-time secret display
-          </li>
-          <li>
-            <CheckIcon />
-            Private DigitalOcean Spaces records and recoverable event snapshots
           </li>
         </ul>
       </section>

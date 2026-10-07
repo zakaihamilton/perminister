@@ -112,20 +112,13 @@ export default function PermissionsPage() {
           </section>
         </div>
 
-        <aside className="guide-aside" aria-label="Permission implementation notes">
+        <aside className="guide-aside" aria-label="Permission guidance">
           <section className="aside-card">
-            <h2>Preserve legacy meaning</h2>
+            <h2>Use current grants</h2>
             <p>
-              During migration, map fine-grained actions and platform-wide administrator semantics
-              explicitly. Avoid flattening roles into a single broad grant.
-            </p>
-          </section>
-          <section className="aside-card">
-            <h2>Authorization is current per request</h2>
-            <p>
-              The endpoint reads current key and grant state from Spaces and returns no cached
-              decision. Consumer applications that add their own cache must choose a maximum age and
-              outage behavior.
+              Perminister evaluates the current key and grant state for each authorization request.
+              If your application caches decisions, choose an expiration that fits your access
+              revocation needs.
             </p>
             <ul className="secure-list">
               <li>

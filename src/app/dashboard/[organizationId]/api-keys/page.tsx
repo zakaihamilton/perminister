@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { revokeApiKeyAction } from "@/app/actions";
-import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
+import { DashboardHeading } from "@/components/dashboard-shell";
+import { ApiKeyItem, ApiKeyNotices } from "@/components/api-key-item";
 import {
   getCurrentSession,
   getOrganizationForSubject,
@@ -8,7 +8,7 @@ import {
   listOrganizationPermissionGrants,
   listProductsForOrganization,
 } from "@/lib/auth/service";
-import type { ApiKeyRecord, ResourceScope } from "@/lib/auth/domain";
+import type { ResourceScope } from "@/lib/auth/domain";
 import { redirect } from "next/navigation";
 
 function scopeText(scope: ResourceScope, productNames: Map<string, string>): string {
@@ -48,6 +48,11 @@ export default async function ApiKeysPage({
       ? `/dashboard/${organizationId}/products/${encodeURIComponent(allowedProducts[0].productId)}/api-keys`
       : "#api-key-products";
 
+  // This request-rendered page must compare key expiry against the current time.
+  const now =
+    // eslint-disable-next-line react-hooks/purity
+    Date.now();
+
   return (
     <>
       <DashboardHeading
@@ -66,63 +71,41 @@ export default async function ApiKeysPage({
           )
         }
       />
-      {query.notice === "key-revoked" ? (
-        <DashboardNotice message="API key revoked." kind="success" />
-      ) : null}
-      {query.error === "key-revoke-failed" ? (
-        <DashboardNotice message="The API key could not be revoked." kind="error" />
-      ) : null}
-      {!current.subject.emailVerifiedAt ? (
-        <DashboardNotice message="Verify your email before creating API keys. Open Profile to request a verification link." />
-      ) : null}
+      <ApiKeyNotices
+        error={query.error}
+        isEmailVerified={!!current.subject.emailVerifiedAt}
+        notice={query.notice}
+      />
 
-      {keys.length ? (
-        <div className="record-list api-key-list">
-          {keys.map((key) => {
-            const expired = !!key.expiresAt && Date.parse(key.expiresAt) <= Date.now();
-            const status = key.status === "revoked" ? "revoked" : expired ? "expired" : "active";
-            const productHref = `/dashboard/${organizationId}/products/${encodeURIComponent(key.scope.productId)}/api-keys`;
-            return (
-              <article className="record-item" key={key.apiKeyId}>
-                <div className="record-item-head">
-                  <div>
-                    <strong>Integration key</strong>
-                    <span className="record-meta">{scopeText(key.scope, productNames)}</span>
-                    <span className="record-meta">Actions: {key.actions.join(", ")}</span>
-                    <span className="record-meta">
-                      Created {new Date(key.createdAt).toLocaleString()} ·{" "}
-                      {key.expiresAt
-                        ? `Expires ${new Date(key.expiresAt).toLocaleString()}`
-                        : "No expiration"}
-                    </span>
-                  </div>
-                  <span className={`record-badge ${status}`}>{status}</span>
-                </div>
-                <div className="record-actions">
-                  {status === "active" ? (
-                    <form action={revokeApiKeyAction}>
-                      <input type="hidden" name="apiKeyId" value={key.apiKeyId} />
-                      <input type="hidden" name="returnTo" value={returnTo} />
-                      <button className="button button-secondary" type="submit">
-                        Revoke
-                      </button>
-                    </form>
-                  ) : null}
-                  <Link className="button button-secondary" href={productHref}>
-                    Manage product keys
-                  </Link>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      ) : (
+      {keys.length === 0 ? (
         <section className="dashboard-empty-card api-key-empty-card">
           <div>
             <h2>No API keys yet</h2>
             <p>Choose a product below to view its keys or create one when access is granted.</p>
           </div>
         </section>
+      ) : (
+        <div className="record-list api-key-list">
+          {keys.map((key) => {
+            const expired = !!key.expiresAt && Date.parse(key.expiresAt) <= now;
+            const status = key.status === "revoked" ? "revoked" : expired ? "expired" : "active";
+            const productHref = `/dashboard/${organizationId}/products/${encodeURIComponent(key.scope.productId)}/api-keys`;
+            return (
+              <ApiKeyItem
+                apiKey={key}
+                extraActions={
+                  <Link className="button button-secondary" href={productHref}>
+                    Manage product keys
+                  </Link>
+                }
+                key={key.apiKeyId}
+                returnTo={returnTo}
+                scopeLabel={scopeText(key.scope, productNames)}
+                status={status}
+              />
+            );
+          })}
+        </div>
       )}
 
       {products.length ? (

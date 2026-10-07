@@ -6,32 +6,31 @@ import { withCanonical } from "@/lib/site-metadata";
 export const metadata = withCanonical(
   {
     title: "Getting started",
-    description:
-      "Set up a Perminister organization, add a product, grant access, and make server-side authorization checks.",
+    description: "Connect an application backend to Perminister authentication and authorization.",
   },
   "/developers/getting-started",
 );
 
 const steps = [
   {
-    title: "Request an organization",
-    body: "Register and verify your account, then submit an organization request. A platform administrator must approve it before the workspace becomes available; you become its Owner after approval.",
+    title: "Set up the product in Perminister",
+    body: "Add the product to the organization that will use it. Keep its product ID stable; the app client is bound to that ID, while each organization's members and grants remain separate.",
   },
   {
-    title: "Add a product",
-    body: "Owners and Admins can enter a website URL, then edit the suggested product name, ID, description, website, and icon before saving.",
+    title: "Connect the app backend",
+    body: "Have a Perminister administrator provision a client ID and secret for the product. The backend sends them in X-Perminister-Client-Id and X-Perminister-Client-Secret headers; never include the secret in browser code or logs.",
   },
   {
-    title: "Connect the consumer app",
-    body: "Configure one server-side client ID and secret for the app, bound to its stable product ID. The app backend calls Perminister for identity and organization access, then keeps the app's own session and data. The same product ID can be added under several organizations; their people and grants remain separate.",
+    title: "Keep the app's own session",
+    body: "The backend calls Perminister's consumer registration, login, and session endpoints. Store the returned session token in your app's Secure, HttpOnly, SameSite cookie and keep it out of browser JavaScript. The token is bound to that app.",
   },
   {
-    title: "Invite people and assign access",
-    body: "A Product Owner or Admin invites people and creates reusable access roles in the product's Access page. Each role bundles exact action names the app checks; the role can then be assigned at product, project, or workspace scope. Product membership roles do not grant app permissions by themselves.",
+    title: "Select an organization and grant access",
+    body: "Use the organizations and grants returned for the signed-in account. Each authorization request includes the organization, product, resource, and exact action; product membership alone does not grant an action.",
   },
   {
-    title: "Authorize app requests",
-    body: "The app backend keeps the Perminister consumer session in its own HttpOnly cookie and can check a person's organization, resource, and action with POST /api/authorize. For background integrations such as telemetry writers, use a separate service principal and a narrowly scoped API key.",
+    title: "Authorize protected requests",
+    body: "Call POST /api/authorize from the backend before serving a protected operation. Load the app's own resource and enforce the decision there. For background work, use a separate service principal and a narrowly scoped API key.",
   },
 ];
 
@@ -46,10 +45,10 @@ export default function GettingStartedPage() {
       <div className="guide-grid">
         <section className="guide-panel" aria-labelledby="flow-title">
           <div className="guide-panel-head">
-            <h2 id="flow-title">First integration flow</h2>
+            <h2 id="flow-title">App integration flow</h2>
             <p>
-              Request an organization, add the app once, then invite people and assign scoped
-              access.
+              Keep identity shared, sessions app-specific, and resource authorization on the app
+              backend.
             </p>
           </div>
           <div className="steps">
@@ -64,9 +63,13 @@ export default function GettingStartedPage() {
             ))}
           </div>
           <p className="storage-config-note">
-            See the <Link href="/dashboard">dashboard</Link> to request organizations and create
-            keys, and the <Link href="/developers/api-keys">API-key guide</Link> for the
-            authorization payload.
+            See the <Link href="/developers/api-keys">API-key guide</Link> for the authorization
+            request and the <Link href="/developers/permissions">permissions guide</Link> for scope
+            rules. Read the{" "}
+            <a href="https://github.com/zakaihamilton/perminister/blob/main/docs/api.md">
+              full application API contract
+            </a>{" "}
+            for endpoint details.
           </p>
         </section>
 
@@ -89,12 +92,11 @@ export default function GettingStartedPage() {
             </ul>
           </section>
           <section className="aside-card">
-            <h2>Platform-wide email delivery</h2>
+            <h2>Verification and recovery</h2>
             <p>
-              Configure Resend once for Perminister; organizations use the shared email service and
-              do not configure Resend separately. Email verification, password recovery, and
-              invitations require the platform configuration. Sign-in itself works without email
-              delivery.
+              Consumer endpoints can request email verification and password recovery. Your app can
+              provide branded completion pages; email delivery and link routing are configured by
+              the Perminister platform operator.
             </p>
           </section>
         </aside>
