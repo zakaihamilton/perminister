@@ -6,6 +6,7 @@ import { DashboardNavigation } from "@/components/dashboard-navigation";
 import { OrganizationSwitcher } from "@/components/organization-switcher";
 import Link from "next/link";
 import { ThemeControl } from "@/components/theme-control";
+import { Tooltip } from "@/components/tooltip";
 
 export function DashboardShell({
   organizationId,
@@ -33,9 +34,20 @@ export function DashboardShell({
         <DashboardNavigation organizationId={organizationId} role={role} />
         <div className="dashboard-sidebar-footer">
           {email ? (
-            <span className="sidebar-email" title={email}>
-              {email}
-            </span>
+            <div className="sidebar-email-tooltip">
+              <Tooltip
+                content={email}
+                trigger={
+                  <button
+                    aria-label="Show full email address"
+                    className="sidebar-email"
+                    type="button"
+                  >
+                    {email}
+                  </button>
+                }
+              />
+            </div>
           ) : null}
           <form action={signOutAction}>
             <button className="sidebar-signout" type="submit">

@@ -2666,11 +2666,31 @@ button:focus-visible {
   padding: 16px 7px 0;
 }
 .sidebar-email {
+  display: block;
+  width: 100%;
+  min-width: 0;
   overflow: hidden;
+  border: 0;
+  padding: 0;
   color: var(--muted);
+  background: transparent;
+  font-family: inherit;
   font-size: 13px;
+  line-height: 1.5;
+  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: help;
+}
+.sidebar-email-tooltip,
+.sidebar-email-tooltip .tooltip-anchor {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+.sidebar-email-tooltip .tooltip-bubble {
+  width: 100%;
+  overflow-wrap: anywhere;
 }
 .sidebar-signout {
   min-height: 44px;
@@ -5813,6 +5833,52 @@ html[data-theme="dark"] .home-page {
 .home-page-main {
   padding-bottom: 1px;
 }
+@keyframes welcome-copy-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes welcome-figure-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+@keyframes welcome-status-halo {
+  0% {
+    opacity: 0.36;
+    transform: scale(0.7);
+  }
+  75%,
+  100% {
+    opacity: 0;
+    transform: scale(1.65);
+  }
+}
+.welcome-hero-copy > * {
+  animation: welcome-copy-enter 650ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.welcome-hero-copy > :nth-child(1) {
+  animation-delay: 60ms;
+}
+.welcome-hero-copy > :nth-child(2) {
+  animation-delay: 130ms;
+}
+.welcome-hero-copy > :nth-child(3) {
+  animation-delay: 200ms;
+}
+.welcome-hero-copy > :nth-child(4) {
+  animation-delay: 270ms;
+}
 .welcome-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr);
@@ -5850,32 +5916,17 @@ html[data-theme="dark"] .home-page {
 .welcome-hero-figure {
   min-width: 0;
   margin: 0;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: clamp(16px, 2.5vw, 28px);
-  background: var(--surface);
-  box-shadow: var(--shadow);
+  animation: welcome-figure-enter 850ms cubic-bezier(0.2, 0.7, 0.2, 1) 120ms both;
+}
+.welcome-graphic-status-halo {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: welcome-status-halo 2.8s ease-out 900ms infinite;
 }
 .welcome-hero-illustration {
   display: block;
   width: 100%;
   height: auto;
-}
-.welcome-hero-figure figcaption {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  border-top: 1px solid var(--line);
-  margin-top: 8px;
-  padding-top: 15px;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.4;
-}
-.welcome-hero-figure figcaption span + span {
-  border-left: 1px solid var(--line);
-  padding-left: 12px;
 }
 .home-benefits {
   border-top: 1px solid var(--line);
@@ -5912,6 +5963,16 @@ html[data-theme="dark"] .home-page {
   padding: 24px;
   background: var(--surface);
   box-shadow: 0 10px 25px rgba(33, 48, 68, 0.04);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+.home-benefit-card:hover,
+.home-benefit-card:focus-within {
+  transform: translateY(-4px);
+  border-color: var(--line-strong);
+  box-shadow: 0 16px 32px rgba(33, 48, 68, 0.09);
 }
 .home-card-label {
   margin: 0 0 16px;
@@ -5952,6 +6013,16 @@ html[data-theme="dark"] .home-page {
   border-radius: 14px;
   padding: 23px 24px;
   background: var(--surface-2);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+.home-access-card:hover,
+.home-access-card:focus-within {
+  transform: translateY(-4px);
+  border-color: var(--line-strong);
+  box-shadow: 0 16px 32px rgba(33, 48, 68, 0.07);
 }
 .home-access-number {
   display: inline-block;
@@ -6016,6 +6087,16 @@ html[data-theme="dark"] .home-page {
 .home-closing-button:hover {
   color: #18324f;
   background: #e9f0f9;
+}
+.home-page .welcome-hero-actions .button svg,
+.home-page .home-closing-button svg {
+  transition: transform 180ms ease;
+}
+.home-page .welcome-hero-actions .button:hover svg,
+.home-page .welcome-hero-actions .button:focus-visible svg,
+.home-page .home-closing-button:hover svg,
+.home-page .home-closing-button:focus-visible svg {
+  transform: translateX(3px);
 }
 html[data-theme="dark"] .home-closing-button,
 html[data-theme="dark"] .home-closing-button:hover {
@@ -6268,17 +6349,6 @@ html[data-theme="dark"] .home-closing-button:hover {
     width: 100%;
     justify-content: center;
   }
-  .welcome-hero-figure {
-    padding: 12px;
-  }
-  .welcome-hero-figure figcaption {
-    gap: 5px;
-    padding-top: 12px;
-    font-size: 14px;
-  }
-  .welcome-hero-figure figcaption span + span {
-    padding-left: 7px;
-  }
   .home-benefits,
   .home-access-section {
     padding-top: 44px;
@@ -6316,5 +6386,24 @@ html[data-theme="dark"] .home-closing-button:hover {
   }
   .home-closing-cta h2 {
     font-size: 30px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-page .welcome-hero-copy > *,
+  .home-page .welcome-hero-figure,
+  .home-page .welcome-graphic-status-halo {
+    animation: none;
+  }
+  .home-page .home-benefit-card,
+  .home-page .home-access-card,
+  .home-page .welcome-hero-actions .button svg,
+  .home-page .home-closing-button svg {
+    transition: none;
+  }
+  .home-page .home-benefit-card:hover,
+  .home-page .home-benefit-card:focus-within,
+  .home-page .home-access-card:hover,
+  .home-page .home-access-card:focus-within {
+    transform: none;
   }
 }
