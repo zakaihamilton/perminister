@@ -1,4 +1,10 @@
-import { createGrantAction, updateGrantStatusAction } from "@/app/actions";
+import {
+  createGrantAction,
+  createProductAccessRoleAction,
+  removeProductAccessRoleAction,
+  updateGrantStatusAction,
+} from "@/app/actions";
+import { AccessGrantActionsFields } from "@/components/access-grant-actions-fields";
 import { AccessGrantScopeFields } from "@/components/access-grant-scope-fields";
 import { CustomDropdown } from "@/components/custom-dropdown";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
@@ -9,6 +15,7 @@ import {
   listProductPermissionGrants,
 } from "@/lib/auth/service";
 import type { MembershipRecord, ResourceScope } from "@/lib/auth/domain";
+import { getConsumerClientsForProduct } from "@/lib/auth/consumer-clients";
 import { notFound, redirect } from "next/navigation";
 
 function scopeLabel(scope: ResourceScope): string {
@@ -30,13 +37,21 @@ function GrantCard({
   organizationId: string;
   productId: string;
 }) {
+  const actions = grant.grants.flatMap((item) => item.actions);
   return (
     <article className="access-grant-card">
       <div className="access-grant-main">
         <div>
           <strong>{email ?? "Product member"}</strong>
           <span>{scopeLabel(grant.scope)}</span>
-          <small>{grant.grants.flatMap((item) => item.actions).join(", ")}</small>
+          <small>
+            {grant.accessRole?.name ?? "Custom actions"} · {actions.length} app permission
+            {actions.length === 1 ? "" : "s"}
+          </small>
+          <details className="access-role-details">
+            <summary>View action names</summary>
+            <small>{actions.join(", ")}</small>
+          </details>
         </div>
         <span className={`record-badge ${grant.status}`}>{grant.status}</span>
       </div>
@@ -91,6 +106,9 @@ export default async function ProductAccessPage({
   const eligibleMembers = members.filter(
     (member) => member.emailVerified && member.membership.status === "active",
   );
+  const connectedClients = getConsumerClientsForProduct(productId);
+  const roleClient = connectedClients.length === 1 ? connectedClients[0] : null;
+  const accessRoles = access.product.accessRoles ?? [];
 
   return (
     <>
@@ -99,8 +117,8 @@ export default async function ProductAccessPage({
         title="Access"
         description={
           canManage
-            ? "Give product members the API actions they need, at the right scope."
-            : "Review the API actions assigned to you and where they apply."
+            ? "Choose what product members can do and which resources it applies to."
+            : "Review the app permissions assigned to you and where they apply."
         }
       />
       {query.notice === "grant-created" ? (
@@ -109,9 +127,21 @@ export default async function ProductAccessPage({
       {query.notice === "grant-updated" ? (
         <DashboardNotice message="Access grant updated." kind="success" />
       ) : null}
+      {query.notice === "access-role-created" ? (
+        <DashboardNotice message="Access role added." kind="success" />
+      ) : null}
+      {query.notice === "access-role-removed" ? (
+        <DashboardNotice message="Access role removed." kind="success" />
+      ) : null}
+      {query.error === "access-role" ? (
+        <DashboardNotice
+          message="The access role could not be saved. Use a unique role name and 1–32 valid action names."
+          kind="error"
+        />
+      ) : null}
       {query.error === "grant-failed" ? (
         <DashboardNotice
-          message="That access grant could not be created. Check the selected member, required resource ID, and 1–32 exact action names."
+          message="That access grant could not be created. Check the member and resource ID, or confirm the selected role is still configured."
           kind="error"
         />
       ) : null}
@@ -121,46 +151,144 @@ export default async function ProductAccessPage({
           <div>
             <h2 id="access-explainer-title">What is an access grant?</h2>
             <p>
-              A grant lets a product member use specific API actions within a chosen part of the
-              product. Membership lets someone collaborate in the product; it does not give them API
-              permissions by itself.
+              A grant lets a product member use app permissions within a chosen part of the product.
+              Membership lets someone collaborate; an access grant controls what their account can
+              do in the app.
             </p>
           </div>
         </div>
         <div className="access-scope-guide" role="group" aria-label="Grant scopes">
           <article>
             <h3>Entire product</h3>
-            <p>The selected actions can be used across all resources in this product.</p>
+            <p>The selected permissions apply across all resources in this product.</p>
           </article>
           <article>
             <h3>One project</h3>
-            <p>The selected actions apply to one project. Enter that project&apos;s exact ID.</p>
+            <p>
+              The selected permissions apply to one project. Enter that project&apos;s exact ID.
+            </p>
           </article>
           <article>
             <h3>One workspace</h3>
             <p>
-              The selected actions apply to one workspace. Enter that workspace&apos;s exact ID.
+              The selected permissions apply to one workspace. Enter that workspace&apos;s exact ID.
             </p>
           </article>
         </div>
         <div className="access-action-help">
-          <h3>Actions are product-specific</h3>
+          <h3>Choose what this person can do</h3>
           <p>
-            Enter the exact action names the connected product checks during authorization. Separate
-            multiple names with commas. For example, <code>project.read</code> or{" "}
-            <code>workspace.update</code>; these are examples only, not a built-in list. Ask the
-            product developer for the names to use.
+            {accessRoles.length
+              ? "Choose a role your organization has set up for this product, then choose where it applies."
+              : connectedClients.length > 1
+                ? `Multiple application clients have credentials configured. This does not verify the app backend. ${canManage ? "You can define roles below." : "Ask a product Owner or Admin to define roles."}`
+                : roleClient
+                  ? `${roleClient.appName} has client credentials configured. This does not verify the app backend. ${canManage ? "Define reusable roles below." : "Ask a product Owner or Admin to define roles."}`
+                  : `No application client credentials are configured yet. ${canManage ? "You can define roles, then connect and test the app separately." : "Ask a product Owner or Admin to set up access roles."}`}
           </p>
         </div>
         <p className="access-explainer-guidance">
           {canManage
-            ? "To grant access, choose an active product member, decide which resources the grant covers, then list the API actions they need."
+            ? "To grant access, choose an active product member, pick a saved role or enter exact app action names, then choose which resources it covers."
             : "A product Owner or Admin manages grants. Contact one if you need different API actions or scope."}
         </p>
         <p className="access-explainer-note">
           API keys can use only actions included in a member&apos;s active grants.
         </p>
       </section>
+
+      {canManage ? (
+        <section className="dashboard-card access-role-catalog-card">
+          <div className="dashboard-card-heading">
+            <div>
+              <h2>Access roles</h2>
+              <p>
+                Save common permission sets once for this organization&apos;s product, then reuse
+                them when granting people access.
+              </p>
+            </div>
+          </div>
+          {accessRoles.length ? (
+            <div className="access-role-list">
+              {accessRoles.map((accessRole) => (
+                <article className="access-role-item" key={accessRole.id}>
+                  <div>
+                    <strong>{accessRole.name}</strong>
+                    <span>
+                      {accessRole.description || "No description"} · {accessRole.actions.length}{" "}
+                      permission{accessRole.actions.length === 1 ? "" : "s"}
+                    </span>
+                    <details className="access-role-details">
+                      <summary>View action names</summary>
+                      <small>{accessRole.actions.join(", ")}</small>
+                    </details>
+                  </div>
+                  <form action={removeProductAccessRoleAction}>
+                    <input type="hidden" name="organizationId" value={organizationId} />
+                    <input type="hidden" name="productId" value={productId} />
+                    <input type="hidden" name="accessRoleId" value={accessRole.id} />
+                    <button className="button button-secondary" type="submit">
+                      Remove role
+                    </button>
+                  </form>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="form-hint">No roles yet. Create a role below to reuse its permissions.</p>
+          )}
+          <p className="access-role-catalog-note">
+            Use the exact action names your app checks. Removing a role only removes it from future
+            grants; existing grants keep their current permissions.
+          </p>
+          <form
+            action={createProductAccessRoleAction}
+            className="auth-form access-role-create-form"
+          >
+            <input type="hidden" name="organizationId" value={organizationId} />
+            <input type="hidden" name="productId" value={productId} />
+            <label>
+              Role name
+              <input
+                name="roleName"
+                required
+                maxLength={80}
+                placeholder="For example, Telemetry viewer"
+              />
+            </label>
+            <label>
+              Description <span className="form-hint">Optional</span>
+              <input
+                name="roleDescription"
+                maxLength={240}
+                placeholder="What a person with this role can do"
+              />
+            </label>
+            <label>
+              App permissions
+              <textarea
+                name="actions"
+                required
+                maxLength={2048}
+                rows={2}
+                placeholder="Enter exact action names, separated by commas"
+                aria-describedby="access-role-actions-help"
+              />
+              <small className="access-form-field-help" id="access-role-actions-help">
+                Ask the app developer if you do not know the exact action names. You only need to
+                define this set once for this organization&apos;s product.
+              </small>
+            </label>
+            <button
+              className="button button-primary"
+              type="submit"
+              disabled={accessRoles.length >= 32}
+            >
+              Add access role
+            </button>
+          </form>
+        </section>
+      ) : null}
 
       {grants.length ? (
         <div className="access-grant-list">
@@ -186,8 +314,8 @@ export default async function ProductAccessPage({
             <h2>No access grants yet</h2>
             <p>
               {canManage
-                ? "Add a grant when a member needs API actions."
-                : "A product Owner or Admin can assign API actions to you."}
+                ? "Add access when a member needs to use app features."
+                : "A product Owner or Admin can assign app permissions to you."}
             </p>
           </div>
         </section>
@@ -198,7 +326,10 @@ export default async function ProductAccessPage({
           <div className="dashboard-card-heading">
             <div>
               <h2>Grant access</h2>
-              <p>Choose who gets access, where it applies, and which actions they can use.</p>
+              <p>
+                Choose a person, set where access applies, then pick a named role or enter custom
+                actions.
+              </p>
             </div>
           </div>
           {eligibleMembers.length ? (
@@ -222,21 +353,7 @@ export default async function ProductAccessPage({
                   />
                 </label>
                 <AccessGrantScopeFields />
-                <label htmlFor="grant-actions">
-                  API actions
-                  <input
-                    id="grant-actions"
-                    name="actions"
-                    required
-                    maxLength={2048}
-                    placeholder="Enter product-defined action names"
-                    aria-describedby="grant-actions-help"
-                  />
-                  <small className="access-form-field-help" id="grant-actions-help">
-                    Enter 1–32 comma-separated names that match the connected product&apos;s
-                    actions.
-                  </small>
-                </label>
+                <AccessGrantActionsFields roles={accessRoles} />
               </div>
               <button className="button button-primary" type="submit">
                 Create access grant
@@ -244,7 +361,7 @@ export default async function ProductAccessPage({
             </form>
           ) : (
             <p className="form-hint">
-              Invite and verify a product member before assigning API actions.
+              Invite and verify a product member before assigning app permissions.
             </p>
           )}
         </section>

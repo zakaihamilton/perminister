@@ -52,6 +52,7 @@ import {
   type ServicePrincipalRecord,
 } from "./domain";
 import { createSpacesAuthStoreFromEnv, type VersionedRecord } from "./storage/spaces";
+import type { ProductAccessRole } from "./access-roles";
 
 const SESSION_COOKIE = "perminister_session";
 const SESSION_LIFETIME_MS = 12 * 60 * 60 * 1000;
@@ -1234,6 +1235,77 @@ export async function updateOrganizationProduct(
   );
 }
 
+export async function createProductAccessRole(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  input: { name: string; description: string; actions: readonly string[] },
+): Promise<ProductAccessRole> {
+  const name = input.name.trim().replace(/\s+/g, " ");
+  const description = input.description.trim();
+  if (!name || name.length > 80 || /[\u0000-\u001f\u007f]/.test(name)) {
+    throw new Error("Enter a role name up to 80 characters.");
+  }
+  if (description.length > 240 || /[\u0000-\u001f\u007f]/.test(description)) {
+    throw new Error("The role description must be 240 characters or fewer.");
+  }
+  const actions = validateActions(input.actions);
+  return authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      const actor = await requireProductRoleUnlocked(actorId, organizationId, productId, [
+        "owner",
+        "admin",
+      ]);
+      const product = await store().readProduct(organizationId, productId);
+      if (!product) throw new Error("Choose a product in this organization.");
+      const roles = product.accessRoles ?? [];
+      if (roles.length >= 32) throw new Error("A product can have up to 32 access roles.");
+      if (roles.some((role) => role.name.toLowerCase() === name.toLowerCase())) {
+        throw new Error("An access role with that name already exists.");
+      }
+      const role: ProductAccessRole = {
+        id: `role-${randomBytes(16).toString("hex")}`,
+        name,
+        description,
+        actions,
+      };
+      await persistRecord(
+        { ...product, accessRoles: [...roles, role], updatedAt: new Date().toISOString() },
+        "product.access-role-created",
+        { kind: "subject", subjectId: actor.subjectId },
+      );
+      return role;
+    }),
+  );
+}
+
+export async function removeProductAccessRole(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  accessRoleId: string,
+): Promise<void> {
+  if (!/^role-[0-9a-f]{32}$/.test(accessRoleId)) throw new Error("Choose an access role.");
+  await authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      const actor = await requireProductRoleUnlocked(actorId, organizationId, productId, [
+        "owner",
+        "admin",
+      ]);
+      const product = await store().readProduct(organizationId, productId);
+      if (!product) throw new Error("Choose a product in this organization.");
+      const roles = product.accessRoles ?? [];
+      const nextRoles = roles.filter((role) => role.id !== accessRoleId);
+      if (nextRoles.length === roles.length) throw new Error("Access role not found.");
+      await persistRecord(
+        { ...product, accessRoles: nextRoles, updatedAt: new Date().toISOString() },
+        "product.access-role-removed",
+        { kind: "subject", subjectId: actor.subjectId },
+      );
+    }),
+  );
+}
+
 export async function listProductsForOrganization(
   subjectId: SubjectId,
   organizationId: string,
@@ -2023,10 +2095,15 @@ export async function createPermissionGrant(
   targetSubjectId: string,
   scopeInput: ResourceScope,
   actionsInput: readonly string[],
+  accessRoleIdInput?: string,
 ): Promise<MembershipRecord> {
   assertOpaqueId(targetSubjectId);
   const scope = validateScope(scopeInput);
-  const actions = validateActions(actionsInput);
+  const accessRoleId = accessRoleIdInput?.trim();
+  if (accessRoleId && !/^role-[0-9a-f]{32}$/.test(accessRoleId)) {
+    throw new Error("Choose a valid product access role.");
+  }
+  const customActions = accessRoleId ? null : validateActions(actionsInput);
   return authMutationQueue.run(() =>
     withOrganizationMutationLock(scope.organizationId, async () => {
       const actorMembership = await requireProductRoleUnlocked(
@@ -2035,7 +2112,16 @@ export async function createPermissionGrant(
         scope.productId,
         ["owner", "admin"],
       );
-      await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
+      const product = await store().readProduct(scope.organizationId, scope.productId);
+      if (!product) throw new Error("Choose a product in this organization.");
+      const role = accessRoleId
+        ? product.accessRoles?.find((item) => item.id === accessRoleId)
+        : undefined;
+      if (accessRoleId && !role) {
+        throw new Error("Choose an access role configured for this product.");
+      }
+      const actions = role ? validateActions(role.actions) : customActions;
+      if (!actions) throw new Error("Enter 1 to 32 valid action names.");
       const target = await loadSubjectUnlocked(targetSubjectId);
       if (!target || target.status !== "active" || !target.emailVerifiedAt) {
         throw new Error("Choose an active, email-verified account.");
@@ -2056,6 +2142,7 @@ export async function createPermissionGrant(
         subjectId: target.subjectId,
         scope,
         grants: [{ scope, actions }],
+        ...(role ? { accessRole: { id: role.id, name: role.name } } : {}),
         status: "active",
         createdAt: now,
         updatedAt: now,

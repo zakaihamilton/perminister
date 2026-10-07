@@ -67,6 +67,29 @@ export function getConsumerClient(clientId: string): ConsumerClient | null {
   return { clientId: canonicalClientId, appName, productId, secret, appOrigin };
 }
 
+export function getConsumerClientsForProduct(productId: string): ConsumerClient[] {
+  const normalizedProductId = productId.trim().toLowerCase();
+  if (!normalizedProductId) return [];
+  const configuredIds = (process.env.PERMINISTER_APP_CLIENT_IDS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const seen = new Set<string>();
+  const clients: ConsumerClient[] = [];
+  for (const clientId of configuredIds) {
+    const client = getConsumerClient(clientId);
+    if (
+      client &&
+      client.productId === normalizedProductId &&
+      !seen.has(client.clientId.toLowerCase())
+    ) {
+      seen.add(client.clientId.toLowerCase());
+      clients.push(client);
+    }
+  }
+  return clients;
+}
+
 function digest(value: string): Buffer {
   return createHash("sha256").update(value, "utf8").digest();
 }
