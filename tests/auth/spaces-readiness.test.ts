@@ -20,7 +20,7 @@ describe("Spaces readiness", () => {
     expect(command).toBeInstanceOf(ListObjectsV2Command);
     expect(command.input).toMatchObject({
       Bucket: "perminister",
-      Prefix: "perminister/v2",
+      Prefix: "",
       MaxKeys: 1,
     });
   });

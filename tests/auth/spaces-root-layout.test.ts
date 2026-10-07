@@ -10,7 +10,7 @@ import { SpacesAuthStore } from "../../src/lib/auth/storage/spaces";
 
 vi.mock("server-only", () => ({}));
 
-describe("v2 Spaces object layout", () => {
+describe("root-level Spaces object layout", () => {
   it("writes direct ID-keyed JSON documents and HMAC email indexes", async () => {
     const send = vi.fn().mockResolvedValue({});
     const store = new SpacesAuthStore({
@@ -51,18 +51,18 @@ describe("v2 Spaces object layout", () => {
 
     const puts = send.mock.calls.map(([command]) => command).filter((command) => command instanceof PutObjectCommand);
     const keys = puts.map((command) => command.input.Key).filter((key): key is string => typeof key === "string");
-    expect(keys).toContain(`perminister/v2/subjects/${subject.subjectId}.json`);
-    expect(keys).toContain(`perminister/v2/orgs/${organizationId}/products/atlas-product-id/members/${subject.subjectId}.json`);
-    expect(keys).toContain(`perminister/v2/indexes/by-subject/${subject.subjectId}/products/${organizationId}/atlas-product-id.json`);
+    expect(keys).toContain(`subjects/${subject.subjectId}.json`);
+    expect(keys).toContain(`orgs/${organizationId}/products/atlas-product-id/members/${subject.subjectId}.json`);
+    expect(keys).toContain(`indexes/by-subject/${subject.subjectId}/products/${organizationId}/atlas-product-id.json`);
     expect(keys.every((key) => !key.includes("/records/") && !key.includes("/events/"))).toBe(true);
-    const subjectBody = puts.find((command) => command.input.Key === `perminister/v2/subjects/${subject.subjectId}.json`)?.input.Body;
+    const subjectBody = puts.find((command) => command.input.Key === `subjects/${subject.subjectId}.json`)?.input.Body;
     expect(JSON.parse(String(subjectBody))).toEqual(subject);
     expect(JSON.parse(String(subjectBody))).not.toHaveProperty("record");
 
-    const emailIndex = puts.find((command) => command.input.Key?.startsWith("perminister/v2/indexes/by-email/"));
+    const emailIndex = puts.find((command) => command.input.Key?.startsWith("indexes/by-email/"));
     const expectedEmailDigest = createHmac("sha256", "i".repeat(32)).update("person@example.com").digest("hex");
     expect(emailIndex).toBeDefined();
-    expect(emailIndex?.input.Key).toBe(`perminister/v2/indexes/by-email/${expectedEmailDigest}.json`);
+    expect(emailIndex?.input.Key).toBe(`indexes/by-email/${expectedEmailDigest}.json`);
     expect(JSON.parse(String(emailIndex?.input.Body))).toEqual({ subjectId: subject.subjectId });
   });
 
@@ -89,9 +89,9 @@ describe("v2 Spaces object layout", () => {
 
     const puts = send.mock.calls.map(([command]) => command).filter((command) => command instanceof PutObjectCommand);
     const keys = puts.map((command) => command.input.Key);
-    expect(keys).toContain(`perminister/v2/activity/events/2026-06-03/2026-06-03T15-04-05.000Z-${event.eventId}.json`);
-    expect(keys).toContain(`perminister/v2/activity/by-organization/${organizationId}/2026-06-03/${event.eventId}.json`);
-    expect(keys).toContain(`perminister/v2/activity/by-product/${organizationId}/atlas-product-id/2026-06-03/${event.eventId}.json`);
+    expect(keys).toContain(`activity/events/2026-06-03/2026-06-03T15-04-05.000Z-${event.eventId}.json`);
+    expect(keys).toContain(`activity/by-organization/${organizationId}/2026-06-03/${event.eventId}.json`);
+    expect(keys).toContain(`activity/by-product/${organizationId}/atlas-product-id/2026-06-03/${event.eventId}.json`);
     const body = puts.find((command) => command.input.Key?.includes("/activity/events/"))?.input.Body;
     expect(JSON.parse(String(body))).toEqual(event);
     expect(String(body)).not.toContain("password");

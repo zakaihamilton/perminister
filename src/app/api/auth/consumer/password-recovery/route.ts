@@ -101,8 +101,13 @@ export async function POST(request: Request) {
   }
   try {
     const action = await issueRecoveryAction(body.email);
-    if (action)
-      await sendRecoveryEmail(action.email, action.token, client.appOrigin, client.appName);
+    if (action) {
+      await sendRecoveryEmail(action.email, action.token, {
+        origin: request.headers.get("origin"),
+        appOrigin: client.appOrigin,
+        appName: client.appName,
+      });
+    }
   } catch {
     // Do not reveal whether an email address belongs to an account.
   }

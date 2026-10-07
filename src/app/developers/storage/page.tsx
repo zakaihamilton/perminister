@@ -6,7 +6,7 @@ import { withCanonical } from "@/lib/site-metadata";
 export const metadata = withCanonical({
   title: "Storage and readiness",
   description:
-    "Review Perminister's ID-keyed DigitalOcean Spaces layout, migration path, and concurrency limits.",
+    "Review Perminister's root-level DigitalOcean Spaces layout and concurrency limits.",
 }, "/developers/storage");
 
 export default function StoragePage() {
@@ -102,11 +102,11 @@ export default function StoragePage() {
               <article className="step">
                 <span className="step-number">04</span>
                 <div>
-                  <h3>Run the v1 to v2 cutover</h3>
+                  <h3>Store records at the bucket root</h3>
                   <p>
-                    Pause app writes and back up the bucket. Run <code>npm run storage:migrate-v1-v2</code>
-                    for a dry run, review the counts, then rerun with <code>-- --apply</code>. The
-                    v1 prefix remains read-only after deployment.
+                    Objects are written directly under <code>subjects/</code>, <code>orgs/</code>,{" "}
+                    <code>api-keys/</code>, <code>activity/</code>, and other data folders. The
+                    application adds no bucket-name or version prefix.
                   </p>
                 </div>
               </article>
@@ -154,16 +154,18 @@ export default function StoragePage() {
           <section className="aside-card">
             <h2>Rebuild lookup pointers</h2>
             <p>
-              Run <code>npm run storage:rebuild-v2-indexes</code> for a dry run. Add <code>-- --apply</code>
+              Run <code>npm run storage:rebuild-indexes</code> for a dry run. Add <code>-- --apply</code>
               after reviewing the count to rebuild HMAC email, subject, record, and activity indexes.
             </p>
           </section>
           <section className="aside-card">
             <h2>Optional email settings</h2>
             <p>
-              Password recovery and verification require <code>RESEND_API_KEY</code>,{" "}
-              <code>PERMINISTER_MAIL_FROM</code>, and <code>PERMINISTER_PUBLIC_ORIGIN</code>. Resend
-              must accept the configured sender; missing configuration means no email is sent.
+              Password recovery, verification, and invitations require <code>RESEND_API_KEY</code>{" "}
+              and <code>PERMINISTER_MAIL_FROM</code>. Browser-triggered links use the incoming
+              browser origin. <code>PERMINISTER_PUBLIC_ORIGIN</code> is a fallback for
+              server-to-server requests without a browser or product origin. Resend must accept the
+              configured sender; missing configuration means no email is sent.
             </p>
           </section>
           <p className="health-note">

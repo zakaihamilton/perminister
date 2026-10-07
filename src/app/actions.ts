@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   authenticate,
@@ -38,6 +38,7 @@ import {
 } from "@/lib/auth/service";
 import type { ResourceScope } from "@/lib/auth/domain";
 import {
+  browserOriginFromHeaders,
   isMailDeliveryConfigured,
   sendRecoveryEmail,
   sendOrganizationInvitationEmail,
@@ -195,7 +196,10 @@ export async function registerAction(formData: FormData): Promise<void> {
   if (isMailDeliveryConfigured()) {
     try {
       const verification = await issueEmailAction(subject.subjectId, "verify-email");
-      if (verification) await sendVerificationEmail(verification.email, verification.token);
+      if (verification) {
+        const origin = browserOriginFromHeaders(await headers());
+        await sendVerificationEmail(verification.email, verification.token, { origin });
+      }
       notice = verification ? "verification-sent" : "account-created";
     } catch {
       notice = "verification-delivery-failed";
@@ -253,7 +257,10 @@ export async function requestVerificationAction(formData: FormData): Promise<voi
   let verification: { email: string; token: string } | null = null;
   try {
     verification = await issueEmailAction(current.subject.subjectId, "verify-email");
-    if (verification) await sendVerificationEmail(verification.email, verification.token);
+    if (verification) {
+      const origin = browserOriginFromHeaders(await headers());
+      await sendVerificationEmail(verification.email, verification.token, { origin });
+    }
   } catch {
     redirect(`${returnTo}?notice=verification-delivery-failed`);
   }
@@ -280,7 +287,8 @@ export async function requestPasswordRecoveryAction(formData: FormData): Promise
   }
   if (!delivery) redirect("/forgot-password?notice=requested");
   try {
-    await sendRecoveryEmail(delivery.email, delivery.token);
+    const origin = browserOriginFromHeaders(await headers());
+    await sendRecoveryEmail(delivery.email, delivery.token, { origin });
   } catch {
     redirect("/forgot-password?error=delivery-failed");
   }
@@ -471,6 +479,7 @@ export async function inviteOrganizationMemberAction(formData: FormData): Promis
       result.token,
       result.organizationName,
       result.invitation.role,
+      { origin: browserOriginFromHeaders(await headers()) },
     );
   } catch (error) {
     const message = publicActionError(error);
@@ -505,6 +514,7 @@ export async function inviteProductMemberAction(formData: FormData): Promise<voi
       result.token,
       result.productName,
       result.invitation.role,
+      { origin: browserOriginFromHeaders(await headers()) },
     );
   } catch (error) {
     const message = publicActionError(error);

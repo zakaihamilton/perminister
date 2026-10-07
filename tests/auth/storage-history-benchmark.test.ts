@@ -200,7 +200,7 @@ function historyEvents(count: number): AuthEvent[] {
   })) as AuthEvent[];
 }
 
-describe("modeled v2 Spaces authorization benchmark", () => {
+describe("modeled Spaces authorization benchmark", () => {
   let store: ModeledSpacesStore;
   let authorizeApiKey: (typeof import("../../src/lib/auth/service"))["authorizeApiKey"];
 

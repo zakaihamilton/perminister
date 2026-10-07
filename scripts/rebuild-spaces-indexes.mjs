@@ -6,7 +6,8 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 
-const ROOT = "perminister/v2";
+const ROOT = "";
+const ROOT_PREFIX = ROOT ? `${ROOT}/` : "";
 const apply = process.argv.includes("--apply");
 
 function required(name) {
@@ -102,14 +103,14 @@ async function main() {
   const indexes = new Map();
   let scanned = 0;
   const prefixes = [
-    `${ROOT}/subjects/`,
-    `${ROOT}/orgs/`,
-    `${ROOT}/invitations/`,
-    `${ROOT}/service-principals/`,
-    `${ROOT}/api-keys/`,
-    `${ROOT}/sessions/`,
-    `${ROOT}/email-actions/`,
-    `${ROOT}/activity/events/`,
+    `${ROOT_PREFIX}subjects/`,
+    `${ROOT_PREFIX}orgs/`,
+    `${ROOT_PREFIX}invitations/`,
+    `${ROOT_PREFIX}service-principals/`,
+    `${ROOT_PREFIX}api-keys/`,
+    `${ROOT_PREFIX}sessions/`,
+    `${ROOT_PREFIX}email-actions/`,
+    `${ROOT_PREFIX}activity/events/`,
   ];
 
   for (const prefix of prefixes) {
@@ -117,74 +118,74 @@ async function main() {
       if (!key.endsWith(".json") || key.includes("/indexes/")) continue;
       const record = await readJson(key);
       scanned += 1;
-      if (prefix === `${ROOT}/subjects/`) {
+      if (prefix === `${ROOT_PREFIX}subjects/`) {
         if (record.kind !== "subject" || !uuid(record.subjectId))
           throw new Error(`Malformed subject at ${key}`);
-        add(indexes, `${ROOT}/indexes/by-id/subject/${record.subjectId}.json`, { key });
+        add(indexes, `${ROOT_PREFIX}indexes/by-id/subject/${record.subjectId}.json`, { key });
         if (record.primaryEmail) {
           const digest = createHmac("sha256", identityIndexSecret)
             .update(record.primaryEmail.trim().toLowerCase())
             .digest("hex");
-          add(indexes, `${ROOT}/indexes/by-email/${digest}.json`, { subjectId: record.subjectId });
+          add(indexes, `${ROOT_PREFIX}indexes/by-email/${digest}.json`, { subjectId: record.subjectId });
         }
       } else if (key.endsWith("/organization.json")) {
         if (record.kind !== "organization") throw new Error(`Malformed organization at ${key}`);
-        add(indexes, `${ROOT}/indexes/by-id/organization/${record.organizationId}.json`, { key });
+        add(indexes, `${ROOT_PREFIX}indexes/by-id/organization/${record.organizationId}.json`, { key });
       } else if (key.endsWith("/product.json")) {
         if (record.kind !== "product") throw new Error(`Malformed product at ${key}`);
-        add(indexes, `${ROOT}/indexes/by-id/product/${record.productRecordId}.json`, { key });
+        add(indexes, `${ROOT_PREFIX}indexes/by-id/product/${record.productRecordId}.json`, { key });
       } else if (/\/(catalog-managers|members)\/[^/]+\.json$/.test(key)) {
         if (record.kind !== "organization-membership")
           throw new Error(`Malformed membership at ${key}`);
         const id = record.organizationMembershipId;
         const productPart = record.productId ? safeSegment(record.productId) : "_catalog";
-        add(indexes, `${ROOT}/indexes/by-id/organization-membership/${id}.json`, { key });
+        add(indexes, `${ROOT_PREFIX}indexes/by-id/organization-membership/${id}.json`, { key });
         add(
           indexes,
-          `${ROOT}/indexes/by-subject/${record.subjectId}/products/${record.organizationId}/${productPart}.json`,
+          `${ROOT_PREFIX}indexes/by-subject/${record.subjectId}/products/${record.organizationId}/${productPart}.json`,
           { key },
         );
         for (const grant of record.permissionGrants ?? []) {
           if (!uuid(grant.membershipId))
             throw new Error(`Malformed permission grant embedded at ${key}`);
-          add(indexes, `${ROOT}/indexes/by-id/membership/${grant.membershipId}.json`, { key });
+          add(indexes, `${ROOT_PREFIX}indexes/by-id/membership/${grant.membershipId}.json`, { key });
         }
-      } else if (/\/invitations\/[^/]+\.json$/.test(key) || prefix === `${ROOT}/invitations/`) {
+      } else if (/\/invitations\/[^/]+\.json$/.test(key) || prefix === `${ROOT_PREFIX}invitations/`) {
         if (record.kind !== "organization-invitation")
           throw new Error(`Malformed invitation at ${key}`);
-        add(indexes, `${ROOT}/indexes/by-id/organization-invitation/${record.invitationId}.json`, {
+        add(indexes, `${ROOT_PREFIX}indexes/by-id/organization-invitation/${record.invitationId}.json`, {
           key,
         });
-      } else if (prefix === `${ROOT}/api-keys/`) {
+      } else if (prefix === `${ROOT_PREFIX}api-keys/`) {
         if (record.kind !== "api-key") throw new Error(`Malformed API key at ${key}`);
-        add(indexes, `${ROOT}/indexes/by-id/api-key/${record.apiKeyId}.json`, { key });
+        add(indexes, `${ROOT_PREFIX}indexes/by-id/api-key/${record.apiKeyId}.json`, { key });
         if (record.owner?.kind === "subject") {
           add(
             indexes,
-            `${ROOT}/indexes/by-subject/${record.owner.subjectId}/api-keys/${record.apiKeyId}.json`,
+            `${ROOT_PREFIX}indexes/by-subject/${record.owner.subjectId}/api-keys/${record.apiKeyId}.json`,
             { key },
           );
         }
-      } else if (prefix === `${ROOT}/service-principals/`) {
+      } else if (prefix === `${ROOT_PREFIX}service-principals/`) {
         if (record.kind !== "service-principal" || !uuid(record.servicePrincipalId))
           throw new Error(`Malformed service principal at ${key}`);
         add(
           indexes,
-          `${ROOT}/indexes/by-id/service-principal/${record.servicePrincipalId}.json`,
+          `${ROOT_PREFIX}indexes/by-id/service-principal/${record.servicePrincipalId}.json`,
           { key },
         );
-      } else if (prefix === `${ROOT}/sessions/`) {
+      } else if (prefix === `${ROOT_PREFIX}sessions/`) {
         if (record.kind !== "session") throw new Error(`Malformed session at ${key}`);
-        add(indexes, `${ROOT}/indexes/by-id/session/${record.sessionId}.json`, { key });
+        add(indexes, `${ROOT_PREFIX}indexes/by-id/session/${record.sessionId}.json`, { key });
         add(
           indexes,
-          `${ROOT}/indexes/by-subject/${record.subjectId}/sessions/${record.sessionId}.json`,
+          `${ROOT_PREFIX}indexes/by-subject/${record.subjectId}/sessions/${record.sessionId}.json`,
           { key },
         );
-      } else if (prefix === `${ROOT}/email-actions/`) {
+      } else if (prefix === `${ROOT_PREFIX}email-actions/`) {
         if (record.kind !== "email-action") throw new Error(`Malformed email action at ${key}`);
-        add(indexes, `${ROOT}/indexes/by-id/email-action/${record.actionId}.json`, { key });
-      } else if (prefix === `${ROOT}/activity/events/`) {
+        add(indexes, `${ROOT_PREFIX}indexes/by-id/email-action/${record.actionId}.json`, { key });
+      } else if (prefix === `${ROOT_PREFIX}activity/events/`) {
         if (
           record.schemaVersion !== 1 ||
           !uuid(record.eventId) ||
@@ -195,7 +196,7 @@ async function main() {
         const date = datePart(record.occurredAt);
         add(
           indexes,
-          `${ROOT}/activity/by-aggregate/${record.aggregate.kind}/${record.aggregate.id}/${record.eventId}.json`,
+          `${ROOT_PREFIX}activity/by-aggregate/${record.aggregate.kind}/${record.aggregate.id}/${record.eventId}.json`,
           { key },
         );
         if (record.payload?.organizationId) {
@@ -203,14 +204,14 @@ async function main() {
             throw new Error(`Invalid organization ID in activity at ${key}`);
           add(
             indexes,
-            `${ROOT}/activity/by-organization/${record.payload.organizationId}/${date}/${record.eventId}.json`,
+            `${ROOT_PREFIX}activity/by-organization/${record.payload.organizationId}/${date}/${record.eventId}.json`,
             { key },
           );
         }
         if (record.payload?.organizationId && record.payload?.productId) {
           add(
             indexes,
-            `${ROOT}/activity/by-product/${record.payload.organizationId}/${safeSegment(record.payload.productId)}/${date}/${record.eventId}.json`,
+            `${ROOT_PREFIX}activity/by-product/${record.payload.organizationId}/${safeSegment(record.payload.productId)}/${date}/${record.eventId}.json`,
             { key },
           );
         }
@@ -219,7 +220,7 @@ async function main() {
             throw new Error(`Invalid subject ID in activity at ${key}`);
           add(
             indexes,
-            `${ROOT}/activity/by-subject/${record.payload.subjectId}/${date}/${record.eventId}.json`,
+            `${ROOT_PREFIX}activity/by-subject/${record.payload.subjectId}/${date}/${record.eventId}.json`,
             { key },
           );
         }
@@ -240,7 +241,7 @@ async function main() {
   );
   if (!apply) {
     console.log(
-      "Dry run only. Add --apply to rebuild lookup and activity pointers from v2 canonical objects.",
+      "Dry run only. Add --apply to rebuild lookup and activity pointers from canonical objects at the bucket root.",
     );
     return;
   }
@@ -262,7 +263,7 @@ async function main() {
       ),
     );
   }
-  console.log(`Rebuilt ${indexes.size} v2 lookup and activity indexes.`);
+  console.log(`Rebuilt ${indexes.size} lookup and activity indexes.`);
 }
 
 main().catch((error) => {

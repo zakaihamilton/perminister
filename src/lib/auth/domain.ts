@@ -106,7 +106,7 @@ export interface OrganizationInvitationRecord {
   schemaVersion: 1;
   invitationId: InvitationId;
   organizationId: OrganizationId;
-  /** Product-scoped invitations are the only invitations created after the v2 cutover. */
+  /** Product-scoped invitations are the only invitations created by the current service. */
   productId?: ProductId;
   email: string;
   role: Exclude<OrganizationRole, "owner">;

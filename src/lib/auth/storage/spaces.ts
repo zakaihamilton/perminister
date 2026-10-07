@@ -19,12 +19,13 @@ import type {
 } from "../domain";
 import { assertOpaqueId } from "../domain";
 
-const OBJECT_ROOT = "perminister/v2";
-const INDEX_ROOT = `${OBJECT_ROOT}/indexes`;
+const OBJECT_ROOT = "";
+const OBJECT_PREFIX = OBJECT_ROOT ? `${OBJECT_ROOT}/` : "";
+const INDEX_ROOT = `${OBJECT_PREFIX}indexes`;
 const ID_INDEX_ROOT = `${INDEX_ROOT}/by-id`;
 
 export interface VersionedRecord<RecordType extends AuthRecord = AuthRecord> {
-  /** Compatibility shape for service callers; v2 stores the record itself, not this envelope. */
+  /** Compatibility shape for service callers; Spaces stores the record itself, not this envelope. */
   formatVersion: 1;
   revision: number;
   writtenAt: string;
@@ -96,29 +97,29 @@ function safeSegment(value: string): string {
 function recordKey(record: AuthRecord): string {
   switch (record.kind) {
     case "subject":
-      return `${OBJECT_ROOT}/subjects/${record.subjectId}.json`;
+      return `${OBJECT_PREFIX}subjects/${record.subjectId}.json`;
     case "organization":
-      return `${OBJECT_ROOT}/orgs/${record.organizationId}/organization.json`;
+      return `${OBJECT_PREFIX}orgs/${record.organizationId}/organization.json`;
     case "organization-membership":
       return record.productId
-        ? `${OBJECT_ROOT}/orgs/${record.organizationId}/products/${safeSegment(record.productId)}/members/${record.subjectId}.json`
-        : `${OBJECT_ROOT}/orgs/${record.organizationId}/catalog-managers/${record.subjectId}.json`;
+        ? `${OBJECT_PREFIX}orgs/${record.organizationId}/products/${safeSegment(record.productId)}/members/${record.subjectId}.json`
+        : `${OBJECT_PREFIX}orgs/${record.organizationId}/catalog-managers/${record.subjectId}.json`;
     case "product":
-      return `${OBJECT_ROOT}/orgs/${record.organizationId}/products/${safeSegment(record.productId)}/product.json`;
+      return `${OBJECT_PREFIX}orgs/${record.organizationId}/products/${safeSegment(record.productId)}/product.json`;
     case "service-principal":
-      return `${OBJECT_ROOT}/service-principals/${record.servicePrincipalId}.json`;
+      return `${OBJECT_PREFIX}service-principals/${record.servicePrincipalId}.json`;
     case "organization-invitation":
       return record.productId
-        ? `${OBJECT_ROOT}/orgs/${record.organizationId}/products/${safeSegment(record.productId)}/invitations/${record.invitationId}.json`
-        : `${OBJECT_ROOT}/invitations/${record.invitationId}.json`;
+        ? `${OBJECT_PREFIX}orgs/${record.organizationId}/products/${safeSegment(record.productId)}/invitations/${record.invitationId}.json`
+        : `${OBJECT_PREFIX}invitations/${record.invitationId}.json`;
     case "membership":
-      return `${OBJECT_ROOT}/orgs/${record.scope.organizationId}/products/${safeSegment(record.scope.productId)}/members/${record.subjectId}/grants/${record.membershipId}.json`;
+      return `${OBJECT_PREFIX}orgs/${record.scope.organizationId}/products/${safeSegment(record.scope.productId)}/members/${record.subjectId}/grants/${record.membershipId}.json`;
     case "api-key":
-      return `${OBJECT_ROOT}/api-keys/${record.apiKeyId}.json`;
+      return `${OBJECT_PREFIX}api-keys/${record.apiKeyId}.json`;
     case "session":
-      return `${OBJECT_ROOT}/sessions/${record.sessionId}.json`;
+      return `${OBJECT_PREFIX}sessions/${record.sessionId}.json`;
     case "email-action":
-      return `${OBJECT_ROOT}/email-actions/${record.actionId}.json`;
+      return `${OBJECT_PREFIX}email-actions/${record.actionId}.json`;
   }
 }
 
@@ -138,7 +139,7 @@ function datePart(occurredAt: string): string {
 }
 
 function eventKey(event: AuthEvent): string {
-  return `${OBJECT_ROOT}/activity/events/${datePart(event.occurredAt)}/${event.occurredAt.replaceAll(":", "-")}-${eventIdentity(event)}.json`;
+  return `${OBJECT_PREFIX}activity/events/${datePart(event.occurredAt)}/${event.occurredAt.replaceAll(":", "-")}-${eventIdentity(event)}.json`;
 }
 
 function isMissingObject(error: unknown): boolean {
@@ -223,8 +224,8 @@ export class SpacesAuthStore {
     assertOpaqueId(organizationId);
     assertOpaqueId(subjectId);
     const key = productId
-      ? `${OBJECT_ROOT}/orgs/${organizationId}/products/${safeSegment(productId)}/members/${subjectId}.json`
-      : `${OBJECT_ROOT}/orgs/${organizationId}/catalog-managers/${subjectId}.json`;
+      ? `${OBJECT_PREFIX}orgs/${organizationId}/products/${safeSegment(productId)}/members/${subjectId}.json`
+      : `${OBJECT_PREFIX}orgs/${organizationId}/catalog-managers/${subjectId}.json`;
     const value = await this.readJson<unknown>(key);
     if (value === null) return null;
     const record = this.unwrapRecord(value);
@@ -247,7 +248,7 @@ export class SpacesAuthStore {
     organizationId: string,
   ): Promise<OrganizationMembershipRecord[]> {
     assertOpaqueId(organizationId);
-    const prefix = `${OBJECT_ROOT}/orgs/${organizationId}/`;
+    const prefix = `${OBJECT_PREFIX}orgs/${organizationId}/`;
     const keys = (await this.listKeys(prefix)).filter((key) =>
       /\/(catalog-managers|members)\/[^/]+\.json$/.test(key),
     );
@@ -286,7 +287,7 @@ export class SpacesAuthStore {
 
   async readProduct(organizationId: string, productId: string): Promise<ProductRecord | null> {
     assertOpaqueId(organizationId);
-    const key = `${OBJECT_ROOT}/orgs/${organizationId}/products/${safeSegment(productId)}/product.json`;
+    const key = `${OBJECT_PREFIX}orgs/${organizationId}/products/${safeSegment(productId)}/product.json`;
     const raw = await this.readJson<unknown>(key);
     if (raw === null) return null;
     const record = this.unwrapRecord(raw);
@@ -300,7 +301,7 @@ export class SpacesAuthStore {
 
   async listProducts(organizationId: string): Promise<ProductRecord[]> {
     assertOpaqueId(organizationId);
-    const prefix = `${OBJECT_ROOT}/orgs/${organizationId}/products/`;
+    const prefix = `${OBJECT_PREFIX}orgs/${organizationId}/products/`;
     const keys = (await this.listKeys(prefix)).filter((key) => key.endsWith("/product.json"));
     const products: ProductRecord[] = [];
     for (const key of keys) {
@@ -371,7 +372,7 @@ export class SpacesAuthStore {
     await this.writeJson(key, event);
     const date = datePart(event.occurredAt);
     await this.writeJson(
-      `${OBJECT_ROOT}/activity/by-aggregate/${event.aggregate.kind}/${event.aggregate.id}/${event.eventId}.json`,
+      `${OBJECT_PREFIX}activity/by-aggregate/${event.aggregate.kind}/${event.aggregate.id}/${event.eventId}.json`,
       { key },
     );
     const organizationId =
@@ -391,20 +392,20 @@ export class SpacesAuthStore {
     if (organizationId) {
       assertOpaqueId(organizationId);
       await this.writeJson(
-        `${OBJECT_ROOT}/activity/by-organization/${organizationId}/${date}/${event.eventId}.json`,
+        `${OBJECT_PREFIX}activity/by-organization/${organizationId}/${date}/${event.eventId}.json`,
         { key },
       );
     }
     if (organizationId && productId) {
       await this.writeJson(
-        `${OBJECT_ROOT}/activity/by-product/${organizationId}/${safeSegment(productId)}/${date}/${event.eventId}.json`,
+        `${OBJECT_PREFIX}activity/by-product/${organizationId}/${safeSegment(productId)}/${date}/${event.eventId}.json`,
         { key },
       );
     }
     if (subjectId) {
       assertOpaqueId(subjectId);
       await this.writeJson(
-        `${OBJECT_ROOT}/activity/by-subject/${subjectId}/${date}/${event.eventId}.json`,
+        `${OBJECT_PREFIX}activity/by-subject/${subjectId}/${date}/${event.eventId}.json`,
         { key },
       );
     }
@@ -413,7 +414,7 @@ export class SpacesAuthStore {
   async readEvent(aggregate: AuthEvent["aggregate"], eventId: EventId): Promise<AuthEvent | null> {
     assertOpaqueId(eventId);
     const pointer = await this.readJson<{ key?: unknown }>(
-      `${OBJECT_ROOT}/activity/by-aggregate/${aggregate.kind}/${aggregate.id}/${eventId}.json`,
+      `${OBJECT_PREFIX}activity/by-aggregate/${aggregate.kind}/${aggregate.id}/${eventId}.json`,
     );
     if (typeof pointer?.key !== "string") return null;
     const event = await this.readJson<AuthEvent>(pointer.key);
@@ -423,20 +424,20 @@ export class SpacesAuthStore {
   }
 
   async listEvents(aggregate: AuthEvent["aggregate"]): Promise<AuthEvent[]> {
-    const prefix = `${OBJECT_ROOT}/activity/by-aggregate/${aggregate.kind}/${aggregate.id}/`;
+    const prefix = `${OBJECT_PREFIX}activity/by-aggregate/${aggregate.kind}/${aggregate.id}/`;
     return this.readEventsFromPointers(prefix);
   }
 
   async listOrganizationEvents(organizationId: string, productId?: string): Promise<AuthEvent[]> {
     assertOpaqueId(organizationId);
     const prefix = productId
-      ? `${OBJECT_ROOT}/activity/by-product/${organizationId}/${safeSegment(productId)}/`
-      : `${OBJECT_ROOT}/activity/by-organization/${organizationId}/`;
+      ? `${OBJECT_PREFIX}activity/by-product/${organizationId}/${safeSegment(productId)}/`
+      : `${OBJECT_PREFIX}activity/by-organization/${organizationId}/`;
     return this.readEventsFromPointers(prefix);
   }
 
   async listAllEvents(): Promise<AuthEvent[]> {
-    const keys = await this.listKeys(`${OBJECT_ROOT}/activity/events/`);
+    const keys = await this.listKeys(`${OBJECT_PREFIX}activity/events/`);
     const events: AuthEvent[] = [];
     for (const key of keys) {
       const event = await this.readJson<AuthEvent>(key);
@@ -452,16 +453,16 @@ export class SpacesAuthStore {
     kind: Kind,
   ): Promise<VersionedRecord<AuthRecordFor<Kind>>[]> {
     const prefixes: Record<AuthRecordKind, string[]> = {
-      organization: [`${OBJECT_ROOT}/orgs/`],
-      "organization-membership": [`${OBJECT_ROOT}/orgs/`],
-      product: [`${OBJECT_ROOT}/orgs/`],
-      "organization-invitation": [`${OBJECT_ROOT}/invitations/`, `${OBJECT_ROOT}/orgs/`],
-      subject: [`${OBJECT_ROOT}/subjects/`],
-      membership: [`${OBJECT_ROOT}/orgs/`],
-      "service-principal": [`${OBJECT_ROOT}/service-principals/`],
-      "api-key": [`${OBJECT_ROOT}/api-keys/`],
-      session: [`${OBJECT_ROOT}/sessions/`],
-      "email-action": [`${OBJECT_ROOT}/email-actions/`],
+      organization: [`${OBJECT_PREFIX}orgs/`],
+      "organization-membership": [`${OBJECT_PREFIX}orgs/`],
+      product: [`${OBJECT_PREFIX}orgs/`],
+      "organization-invitation": [`${OBJECT_PREFIX}invitations/`, `${OBJECT_PREFIX}orgs/`],
+      subject: [`${OBJECT_PREFIX}subjects/`],
+      membership: [`${OBJECT_PREFIX}orgs/`],
+      "service-principal": [`${OBJECT_PREFIX}service-principals/`],
+      "api-key": [`${OBJECT_PREFIX}api-keys/`],
+      session: [`${OBJECT_PREFIX}sessions/`],
+      "email-action": [`${OBJECT_PREFIX}email-actions/`],
     };
     const keys = (await Promise.all(prefixes[kind].map((prefix) => this.listKeys(prefix)))).flat();
     const result: VersionedRecord<AuthRecordFor<Kind>>[] = [];
@@ -485,32 +486,32 @@ export class SpacesAuthStore {
   private fallbackRecordKey(kind: AuthRecordKind, id: string): string {
     assertOpaqueId(id);
     const direct: Partial<Record<AuthRecordKind, string>> = {
-      subject: `${OBJECT_ROOT}/subjects/${id}.json`,
-      organization: `${OBJECT_ROOT}/orgs/${id}/organization.json`,
-      "api-key": `${OBJECT_ROOT}/api-keys/${id}.json`,
-      session: `${OBJECT_ROOT}/sessions/${id}.json`,
-      "email-action": `${OBJECT_ROOT}/email-actions/${id}.json`,
-      "service-principal": `${OBJECT_ROOT}/service-principals/${id}.json`,
-      "organization-invitation": `${OBJECT_ROOT}/invitations/${id}.json`,
+      subject: `${OBJECT_PREFIX}subjects/${id}.json`,
+      organization: `${OBJECT_PREFIX}orgs/${id}/organization.json`,
+      "api-key": `${OBJECT_PREFIX}api-keys/${id}.json`,
+      session: `${OBJECT_PREFIX}sessions/${id}.json`,
+      "email-action": `${OBJECT_PREFIX}email-actions/${id}.json`,
+      "service-principal": `${OBJECT_PREFIX}service-principals/${id}.json`,
+      "organization-invitation": `${OBJECT_PREFIX}invitations/${id}.json`,
     };
     if (direct[kind]) return direct[kind]!;
-    throw new Error(`A v2 identity index is required to load ${kind} ${id}`);
+    throw new Error(`An identity index is required to load ${kind} ${id}`);
   }
 
   private directRecordKey(kind: AuthRecordKind, id: string): string | null {
     switch (kind) {
       case "subject":
-        return `${OBJECT_ROOT}/subjects/${id}.json`;
+        return `${OBJECT_PREFIX}subjects/${id}.json`;
       case "organization":
-        return `${OBJECT_ROOT}/orgs/${id}/organization.json`;
+        return `${OBJECT_PREFIX}orgs/${id}/organization.json`;
       case "api-key":
-        return `${OBJECT_ROOT}/api-keys/${id}.json`;
+        return `${OBJECT_PREFIX}api-keys/${id}.json`;
       case "session":
-        return `${OBJECT_ROOT}/sessions/${id}.json`;
+        return `${OBJECT_PREFIX}sessions/${id}.json`;
       case "email-action":
-        return `${OBJECT_ROOT}/email-actions/${id}.json`;
+        return `${OBJECT_PREFIX}email-actions/${id}.json`;
       case "service-principal":
-        return `${OBJECT_ROOT}/service-principals/${id}.json`;
+        return `${OBJECT_PREFIX}service-principals/${id}.json`;
       default:
         return null;
     }

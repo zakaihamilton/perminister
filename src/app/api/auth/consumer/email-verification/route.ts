@@ -97,7 +97,11 @@ export async function POST(request: Request) {
     if (subject && subject.status === "active" && !subject.emailVerifiedAt) {
       const action = await issueEmailAction(subject.subjectId, "verify-email");
       if (action) {
-        await sendVerificationEmail(action.email, action.token, client.appOrigin, client.appName);
+        await sendVerificationEmail(action.email, action.token, {
+          origin: request.headers.get("origin"),
+          appOrigin: client.appOrigin,
+          appName: client.appName,
+        });
       }
     }
   } catch {

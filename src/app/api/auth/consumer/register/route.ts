@@ -26,11 +26,14 @@ async function sendVerificationIfNeeded(
   email: string,
   appOrigin: string | null,
   appName: string,
+  origin: string | null,
 ): Promise<void> {
   const subject = await findAccountByEmail(email);
   if (!subject || subject.status !== "active" || subject.emailVerifiedAt) return;
   const action = await issueEmailAction(subject.subjectId, "verify-email");
-  if (action) await sendVerificationEmail(action.email, action.token, appOrigin, appName);
+  if (action) {
+    await sendVerificationEmail(action.email, action.token, { origin, appOrigin, appName });
+  }
 }
 
 export async function POST(request: Request) {
@@ -94,7 +97,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    await sendVerificationIfNeeded(body.email, client.appOrigin, client.appName);
+    await sendVerificationIfNeeded(
+      body.email,
+      client.appOrigin,
+      client.appName,
+      request.headers.get("origin"),
+    );
   } catch {
     // Keep the response identical for new and existing addresses.
   }

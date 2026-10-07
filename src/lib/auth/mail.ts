@@ -5,7 +5,12 @@ import { MailDeliveryUnavailableError } from "./service";
 interface ResendConfiguration {
   apiKey: string;
   from: string;
-  publicOrigin: URL;
+}
+
+interface EmailLinkOptions {
+  origin?: string | null;
+  appOrigin?: string | null;
+  appName?: string;
 }
 
 export interface OutboundEmail {
@@ -18,28 +23,56 @@ export interface OutboundEmail {
 function readResendConfiguration(): ResendConfiguration | null {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const from = process.env.PERMINISTER_MAIL_FROM?.trim();
-  const publicOriginValue = process.env.PERMINISTER_PUBLIC_ORIGIN?.trim();
-  if (!apiKey || !from || !publicOriginValue) return null;
+  if (!apiKey || !from) return null;
+  return { apiKey, from };
+}
+
+function parsePublicOrigin(value: string): URL | null {
   try {
-    const publicOrigin = new URL(publicOriginValue);
+    const origin = new URL(value);
     const allowLocalHttp = process.env.NODE_ENV !== "production";
     const isSecure =
-      publicOrigin.protocol === "https:" ||
+      origin.protocol === "https:" ||
       (allowLocalHttp &&
-        publicOrigin.protocol === "http:" &&
-        ["localhost", "127.0.0.1"].includes(publicOrigin.hostname));
+        origin.protocol === "http:" &&
+        ["localhost", "127.0.0.1"].includes(origin.hostname));
     if (
       !isSecure ||
-      publicOrigin.username ||
-      publicOrigin.password ||
-      publicOrigin.search ||
-      publicOrigin.hash
+      origin.username ||
+      origin.password ||
+      origin.pathname !== "/" ||
+      origin.search ||
+      origin.hash
     )
       return null;
-    return { apiKey, from, publicOrigin };
+    return origin;
   } catch {
     return null;
   }
+}
+
+function emailLinkOrigin(options: EmailLinkOptions = {}): URL {
+  const requestOrigin = options.origin?.trim();
+  if (requestOrigin) {
+    const origin = parsePublicOrigin(requestOrigin);
+    if (origin) return origin;
+  }
+
+  const appOrigin = options.appOrigin?.trim();
+  if (appOrigin) {
+    const origin = parsePublicOrigin(appOrigin);
+    if (!origin) throw new MailDeliveryUnavailableError();
+    return origin;
+  }
+  return publicOrigin();
+}
+
+export function browserOriginFromHeaders(requestHeaders: Headers): string {
+  const value = requestHeaders.get("origin")?.trim();
+  if (!value || !parsePublicOrigin(value)) {
+    throw new Error("The browser origin is unavailable.");
+  }
+  return new URL(value).origin;
 }
 
 export function isMailDeliveryConfigured(): boolean {
@@ -47,9 +80,10 @@ export function isMailDeliveryConfigured(): boolean {
 }
 
 export function publicOrigin(): URL {
-  const configuration = readResendConfiguration();
-  if (!configuration) throw new MailDeliveryUnavailableError();
-  return configuration.publicOrigin;
+  const value = process.env.PERMINISTER_PUBLIC_ORIGIN?.trim();
+  const origin = value ? parsePublicOrigin(value) : null;
+  if (!origin) throw new MailDeliveryUnavailableError();
+  return origin;
 }
 
 async function sendWithResend(message: OutboundEmail): Promise<void> {
@@ -88,12 +122,12 @@ function escapeHtml(value: string): string {
 export async function sendVerificationEmail(
   email: string,
   token: string,
-  appOrigin?: string | null,
-  appName = "Perminister",
+  options: EmailLinkOptions = {},
 ): Promise<void> {
-  const origin = appOrigin ? new URL(appOrigin) : publicOrigin();
+  const origin = emailLinkOrigin(options);
+  const appName = options.appName ?? "Perminister";
   const safeAppName = escapeHtml(appName);
-  const link = new URL(appOrigin ? "/auth/verify-email" : "/verify-email", origin);
+  const link = new URL(options.appOrigin ? "/auth/verify-email" : "/verify-email", origin);
   link.searchParams.set("token", token);
   const safeLink = link.toString();
   await sendWithResend({
@@ -107,12 +141,12 @@ export async function sendVerificationEmail(
 export async function sendRecoveryEmail(
   email: string,
   token: string,
-  appOrigin?: string | null,
-  appName = "Perminister",
+  options: EmailLinkOptions = {},
 ): Promise<void> {
-  const origin = appOrigin ? new URL(appOrigin) : publicOrigin();
+  const origin = emailLinkOrigin(options);
+  const appName = options.appName ?? "Perminister";
   const safeAppName = escapeHtml(appName);
-  const link = new URL(appOrigin ? "/auth/reset-password" : "/reset-password", origin);
+  const link = new URL(options.appOrigin ? "/auth/reset-password" : "/reset-password", origin);
   link.searchParams.set("token", token);
   const safeLink = link.toString();
   await sendWithResend({
@@ -128,8 +162,9 @@ export async function sendOrganizationInvitationEmail(
   token: string,
   organizationName: string,
   role: "admin" | "member",
+  options: Pick<EmailLinkOptions, "origin"> = {},
 ): Promise<void> {
-  const origin = publicOrigin();
+  const origin = emailLinkOrigin(options);
   const link = new URL("/accept-invitation", origin);
   link.searchParams.set("token", token);
   const safeLink = link.toString();
@@ -147,8 +182,9 @@ export async function sendProductInvitationEmail(
   token: string,
   productName: string,
   role: "admin" | "member",
+  options: Pick<EmailLinkOptions, "origin"> = {},
 ): Promise<void> {
-  const origin = publicOrigin();
+  const origin = emailLinkOrigin(options);
   const link = new URL("/accept-invitation", origin);
   link.searchParams.set("token", token);
   const safeLink = link.toString();
@@ -160,18 +196,4 @@ export async function sendProductInvitationEmail(
     text: `You have been invited to join the ${productName} product as a ${productRole}. This invitation applies to this product only. Accept the invitation within 7 days: ${safeLink}`,
     html: `<p>You have been invited to join the <strong>${safeName}</strong> product as a ${productRole}.</p><p>This invitation applies to this product only.</p><p><a href="${safeLink}">Accept invitation</a></p><p>This invitation expires in 7 days.</p>`,
   });
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(
-    /[&<>"']/g,
-    (character) =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      })[character] ?? character,
-  );
 }
