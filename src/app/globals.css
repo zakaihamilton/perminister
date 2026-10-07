@@ -4448,6 +4448,10 @@ summary:focus-visible {
   color: var(--blue-dark);
   text-decoration: underline;
 }
+.dashboard-breadcrumb-current {
+  color: var(--ink-soft);
+  font-weight: 650;
+}
 .dashboard-page-title {
   margin: 0;
   margin-bottom: 10px;
