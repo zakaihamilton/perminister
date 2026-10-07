@@ -295,22 +295,19 @@ export async function fetchProductSiteSuggestion(
     "og:description",
     "twitter:description",
   ]).slice(0, 500);
-  let icon = metaValue(html, ["og:image", "twitter:image"]);
-  if (!icon) {
-    for (const match of html.matchAll(/<link\b[^>]*>/gi)) {
-      const attrs = attributes(match[0]);
-      if (
-        attrs.rel
-          ?.toLowerCase()
-          .split(/\s+/)
-          .some((part) => part === "icon" || part === "apple-touch-icon") &&
-        attrs.href
-      ) {
-        icon = attrs.href;
-        break;
-      }
+  let icon = "";
+  let touchIcon = "";
+  for (const match of html.matchAll(/<link\b[^>]*>/gi)) {
+    const attrs = attributes(match[0]);
+    const relations = attrs.rel?.toLowerCase().split(/\s+/) ?? [];
+    if (!attrs.href) continue;
+    if (relations.includes("icon")) {
+      icon = attrs.href;
+      break;
     }
+    if (!touchIcon && relations.includes("apple-touch-icon")) touchIcon = attrs.href;
   }
+  if (!icon) icon = touchIcon || metaValue(html, ["og:image", "twitter:image"]);
   let iconUrl = "";
   if (icon) {
     try {
