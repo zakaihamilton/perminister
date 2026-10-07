@@ -47,6 +47,12 @@ export default async function ProductPage({
               </Link>
               <Link
                 className="button button-secondary"
+                href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/api-keys`}
+              >
+                API keys
+              </Link>
+              <Link
+                className="button button-secondary"
                 href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/activity`}
               >
                 Activity
@@ -59,6 +65,12 @@ export default async function ProductPage({
                 href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access`}
               >
                 My access
+              </Link>
+              <Link
+                className="button button-secondary"
+                href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/api-keys`}
+              >
+                API keys
               </Link>
               <Link
                 className="button button-secondary"

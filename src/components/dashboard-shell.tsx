@@ -32,6 +32,9 @@ export function DashboardShell({
           ＋ Request organization
         </Link>
         <DashboardNavigation organizationId={organizationId} role={role} />
+        <div className="dashboard-sidebar-theme">
+          <ThemeControl />
+        </div>
         <div className="dashboard-sidebar-footer">
           {email ? (
             <div className="sidebar-email-tooltip">
@@ -50,7 +53,7 @@ export function DashboardShell({
             </div>
           ) : null}
           <form action={signOutAction}>
-            <button className="sidebar-signout" type="submit">
+            <button className="button button-secondary sidebar-signout" type="submit">
               Sign out
             </button>
           </form>
@@ -60,14 +63,6 @@ export function DashboardShell({
         <div className="dashboard-mobile-brand">
           <Brand />
         </div>
-        <header aria-label="Workspace controls" className="dashboard-topbar">
-          <span className="dashboard-topbar-context">
-            {organizations.find(
-              ({ organization }) => organization.organizationId === organizationId,
-            )?.organization.name ?? "Workspace"}
-          </span>
-          <ThemeControl />
-        </header>
         <div className="dashboard-main-inner">{children}</div>
       </main>
     </div>
