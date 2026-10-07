@@ -64,15 +64,13 @@ export async function SiteHeader({
   );
 }
 
-export type DeveloperSection =
-  "overview" | "getting-started" | "permissions" | "api-keys" | "storage";
+export type DeveloperSection = "overview" | "getting-started" | "permissions" | "api-keys";
 
 const developerSections: ReadonlyArray<{ id: DeveloperSection; label: string; href: string }> = [
   { id: "overview", label: "Overview", href: "/developers" },
   { id: "getting-started", label: "Getting started", href: "/developers/getting-started" },
   { id: "permissions", label: "Permissions", href: "/developers/permissions" },
   { id: "api-keys", label: "API keys", href: "/developers/api-keys" },
-  { id: "storage", label: "Storage & readiness", href: "/developers/storage" },
 ];
 
 export function DeveloperGuideNav({ active }: { active: DeveloperSection }) {
@@ -128,15 +126,6 @@ export function ArrowRight() {
   return (
     <svg className="arrow-icon" aria-hidden="true" viewBox="0 0 20 20" fill="none">
       <path d="M3.5 10h13m-5-5 5 5-5 5" />
-    </svg>
-  );
-}
-
-export function LockIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
-      <rect x="4.5" y="10" width="15" height="11" rx="2.5" />
-      <path d="M8 10V7a4 4 0 1 1 8 0v3m-4 4v3" />
     </svg>
   );
 }

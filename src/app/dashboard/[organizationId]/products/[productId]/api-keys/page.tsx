@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { revokeApiKeyAction } from "@/app/actions";
 import { ApiKeyForm } from "@/components/api-key-form";
-import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
+import { ApiKeyItem, ApiKeyNotices } from "@/components/api-key-item";
+import { DashboardHeading } from "@/components/dashboard-shell";
 import {
   getCurrentSession,
   getProductAccessForSubject,
@@ -86,65 +86,42 @@ export default async function ProductApiKeysPage({
           </div>
         }
       />
-      {query.notice === "key-revoked" ? (
-        <DashboardNotice message="API key revoked." kind="success" />
-      ) : null}
-      {query.error === "key-revoke-failed" ? (
-        <DashboardNotice message="The API key could not be revoked." kind="error" />
-      ) : null}
-      {!current.subject.emailVerifiedAt ? (
-        <DashboardNotice message="Verify your email before creating API keys. Open Profile to request a verification link." />
-      ) : null}
+      <ApiKeyNotices
+        notice={query.notice}
+        error={query.error}
+        isEmailVerified={!!current.subject.emailVerifiedAt}
+      />
 
       {keys.length ? (
         <div className="record-list api-key-list">
           {keys.map((key) => {
             const status = keyStatus(key);
             return (
-              <article className="record-item" key={key.apiKeyId}>
-                <div className="record-item-head">
-                  <div>
-                    <strong>Integration key</strong>
-                    <span className="record-meta">{scopeText(key.scope)}</span>
-                    <span className="record-meta">Actions: {key.actions.join(", ")}</span>
-                    <span className="record-meta">
-                      Created {new Date(key.createdAt).toLocaleString()} ·{" "}
-                      {key.expiresAt
-                        ? `Expires ${new Date(key.expiresAt).toLocaleString()}`
-                        : "No expiration"}
-                    </span>
-                  </div>
-                  <span className={`record-badge ${status}`}>{status}</span>
-                </div>
-                {status === "active" ? (
-                  <div className="record-actions">
-                    <form action={revokeApiKeyAction}>
-                      <input type="hidden" name="apiKeyId" value={key.apiKeyId} />
-                      <input type="hidden" name="returnTo" value={returnTo} />
-                      <button className="button button-secondary" type="submit">
-                        Revoke
-                      </button>
-                    </form>
-                  </div>
-                ) : null}
+              <ApiKeyItem
+                apiKey={key}
+                key={key.apiKeyId}
+                returnTo={returnTo}
+                scopeLabel={scopeText(key.scope)}
+                status={status}
+              >
                 {status === "active" && canCreate ? (
                   <details className="rotate-details">
                     <summary>Rotate this key</summary>
                     <ApiKeyForm
-                      organizationId={organizationId}
-                      products={[access.product]}
-                      returnTo={returnTo}
-                      rotateFromApiKeyId={key.apiKeyId}
-                      submitLabel="Create replacement key"
                       defaults={{
                         scope: key.scope,
                         actions: key.actions,
                         expiresInDays: key.expiresAt ? "30" : "never",
                       }}
+                      organizationId={organizationId}
+                      products={[access.product]}
+                      returnTo={returnTo}
+                      rotateFromApiKeyId={key.apiKeyId}
+                      submitLabel="Create replacement key"
                     />
                   </details>
                 ) : null}
-              </article>
+              </ApiKeyItem>
             );
           })}
         </div>

@@ -10,7 +10,7 @@ const lifecycle = [
   },
   {
     title: "Copy the secret once",
-    body: "The dashboard returns a random bearer key in the creation response. Spaces stores only its SHA-256 verifier; refresh the page and the raw key is gone.",
+    body: "The dashboard shows a random bearer key only when it is created. Save it securely then; refresh the page and the raw key is gone.",
   },
   {
     title: "Rotate, expire, or revoke",
@@ -63,7 +63,7 @@ export default function ApiKeysPage() {
             <h2>Authorization request</h2>
             <pre className="code-block">
               <code>{`POST /api/authorize
-Authorization: Bearer pmk_<uuid>_<secret>
+Authorization: Bearer <API_KEY>
 Content-Type: application/json
 
 {
@@ -99,7 +99,7 @@ Content-Type: application/json
         </aside>
       </div>
       <p className="guide-next-link">
-        Next: <Link href="/developers/storage">review storage and readiness</Link>.
+        Next: <Link href="/developers/permissions">review permission scopes</Link>.
       </p>
     </DeveloperGuideLayout>
   );
