@@ -78,13 +78,15 @@ export async function POST(request: Request) {
   try {
     await registerAccount(body.email, body.password);
   } catch (error) {
-    if (!(error instanceof Error) || !error.message.startsWith("An account with this email")) {
-      const status =
-        error instanceof Error && /valid email|password/i.test(error.message) ? 400 : 503;
+    const message = error instanceof Error ? error.message : "";
+    if (!message.startsWith("An account with this email")) {
+      const isInputError = /valid email|password/i.test(message);
       return Response.json(
-        { error: status === 400 ? error.message : "Registration is temporarily unavailable." },
         {
-          status,
+          error: isInputError ? message : "Registration is temporarily unavailable.",
+        },
+        {
+          status: isInputError ? 400 : 503,
           headers: NO_STORE_HEADERS,
         },
       );

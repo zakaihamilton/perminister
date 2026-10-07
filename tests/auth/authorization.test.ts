@@ -28,6 +28,31 @@ const SCOPE: ResourceScope = {
   productId: "atlas",
 };
 
+function storedId(record: AuthRecord): string {
+  switch (record.kind) {
+    case "organization":
+      return record.organizationId;
+    case "organization-membership":
+      return record.organizationMembershipId;
+    case "product":
+      return record.productRecordId;
+    case "organization-invitation":
+      return record.invitationId;
+    case "subject":
+      return record.subjectId;
+    case "membership":
+      return record.membershipId;
+    case "service-principal":
+      return record.servicePrincipalId;
+    case "api-key":
+      return record.apiKeyId;
+    case "session":
+      return record.sessionId;
+    case "email-action":
+      return record.actionId;
+  }
+}
+
 class MemoryStore {
   readonly records = new Map<
     string,
@@ -46,25 +71,7 @@ class MemoryStore {
   }
 
   seed(record: AuthRecord) {
-    const id =
-      record.kind === "subject"
-        ? record.subjectId
-        : record.kind === "api-key"
-          ? record.apiKeyId
-          : record.kind === "organization-membership"
-            ? record.organizationMembershipId
-            : record.kind === "membership"
-              ? record.membershipId
-              : record.kind === "organization"
-                ? record.organizationId
-                : record.kind === "product"
-                  ? record.productRecordId
-                  : record.kind === "organization-invitation"
-                    ? record.invitationId
-                    : record.kind === "session"
-                      ? record.sessionId
-                      : record.actionId;
-    this.records.set(this.key(record.kind, id), {
+    this.records.set(this.key(record.kind, storedId(record)), {
       formatVersion: 1,
       revision: 1,
       writtenAt: new Date().toISOString(),
@@ -92,25 +99,7 @@ class MemoryStore {
 
   async writeRecord(record: AuthRecord, revision: number) {
     this.writes.push(record);
-    const id =
-      record.kind === "subject"
-        ? record.subjectId
-        : record.kind === "api-key"
-          ? record.apiKeyId
-          : record.kind === "organization-membership"
-            ? record.organizationMembershipId
-            : record.kind === "membership"
-              ? record.membershipId
-              : record.kind === "organization"
-                ? record.organizationId
-                : record.kind === "product"
-                  ? record.productRecordId
-                  : record.kind === "organization-invitation"
-                    ? record.invitationId
-                    : record.kind === "session"
-                      ? record.sessionId
-                      : record.actionId;
-    this.records.set(this.key(record.kind, id), {
+    this.records.set(this.key(record.kind, storedId(record)), {
       formatVersion: 1,
       revision,
       writtenAt: new Date().toISOString(),

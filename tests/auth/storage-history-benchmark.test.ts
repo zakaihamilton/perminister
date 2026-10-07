@@ -40,6 +40,8 @@ function storedId(record: AuthRecord): string {
       return record.subjectId;
     case "membership":
       return record.membershipId;
+    case "service-principal":
+      return record.servicePrincipalId;
     case "api-key":
       return record.apiKeyId;
     case "session":
