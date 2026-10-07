@@ -18,7 +18,7 @@ import type {
   ProductRecord,
   SubjectId,
 } from "../domain";
-import { assertOpaqueId } from "../domain";
+import { assertOpaqueId, authRecordId } from "../domain";
 import { mapWithConcurrency } from "../concurrency";
 
 const OBJECT_ROOT = "";
@@ -61,31 +61,6 @@ function assertNoPlaintextSecrets(value: unknown, path = "record"): void {
       throw new Error(`Refusing to persist plaintext credential field at ${path}.${key}`);
     }
     assertNoPlaintextSecrets(nested, `${path}.${key}`);
-  }
-}
-
-function recordId(record: AuthRecord): string {
-  switch (record.kind) {
-    case "organization":
-      return record.organizationId;
-    case "organization-membership":
-      return record.organizationMembershipId;
-    case "product":
-      return record.productRecordId;
-    case "organization-invitation":
-      return record.invitationId;
-    case "subject":
-      return record.subjectId;
-    case "membership":
-      return record.membershipId;
-    case "service-principal":
-      return record.servicePrincipalId;
-    case "api-key":
-      return record.apiKeyId;
-    case "session":
-      return record.sessionId;
-    case "email-action":
-      return record.actionId;
   }
 }
 
@@ -159,7 +134,7 @@ function isAuthRecord(value: unknown, kind: AuthRecordKind, id?: string): value 
   if (record.schemaVersion !== 1 || record.kind !== kind) return false;
   if (id !== undefined) {
     try {
-      return recordId(record as AuthRecord) === id;
+      return authRecordId(record as AuthRecord) === id;
     } catch {
       return false;
     }
@@ -366,10 +341,10 @@ export class SpacesAuthStore {
 
   async writeRecord(record: AuthRecord): Promise<void> {
     if (record.schemaVersion !== 1) throw new Error("Unsupported auth record schema version");
-    assertOpaqueId(recordId(record));
+    assertOpaqueId(authRecordId(record));
     assertNoPlaintextSecrets(record);
     const key = recordKey(record);
-    await this.writeJson(identityIndexKey(record.kind, recordId(record)), { key });
+    await this.writeJson(identityIndexKey(record.kind, authRecordId(record)), { key });
 
     if (record.kind === "subject" && record.primaryEmail) {
       const normalized = record.primaryEmail.trim().toLowerCase();

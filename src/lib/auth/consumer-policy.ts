@@ -1,7 +1,10 @@
 import type { ResourceScope } from "./domain";
 
 export type ConsumerScopeKind = "workspace" | "project";
-export type ConsumerMemberRole = "admin" | "editor" | "viewer";
+
+const ORGANIZATION_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const RESOURCE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
 export interface ConsumerProductPolicy {
   scopeKind: ConsumerScopeKind;
@@ -48,6 +51,28 @@ export function consumerProductPolicy(clientId: string): ConsumerProductPolicy |
 
 export function consumerRoleActions(clientId: string, role: string): readonly string[] | null {
   return consumerProductPolicy(clientId)?.roles[role] ?? null;
+}
+
+export function isOrganizationId(value: unknown): value is string {
+  return typeof value === "string" && ORGANIZATION_ID_PATTERN.test(value);
+}
+
+export function isConsumerResourceScope(value: Record<string, unknown>): boolean {
+  return (
+    isOrganizationId(value.organizationId) &&
+    (value.scopeKind === "workspace" || value.scopeKind === "project") &&
+    typeof value.resourceId === "string" &&
+    RESOURCE_ID_PATTERN.test(value.resourceId)
+  );
+}
+
+export function consumerMemberScopeInput(value: Record<string, unknown>, productId: string) {
+  return {
+    organizationId: value.organizationId as string,
+    productId,
+    scopeKind: value.scopeKind as ConsumerScopeKind,
+    resourceId: value.resourceId as string,
+  };
 }
 
 export function scopeResourceId(scope: ResourceScope): string | null {

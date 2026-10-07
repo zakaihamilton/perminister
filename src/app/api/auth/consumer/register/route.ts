@@ -1,13 +1,7 @@
 import { findAccountByEmail, issueEmailAction, registerAccount } from "@/lib/auth/service";
 import { sendVerificationEmail } from "@/lib/auth/mail";
-import { authenticateConsumerClient } from "@/lib/auth/consumer-clients";
-import {
-  isJsonObject,
-  isJsonRequest,
-  NO_STORE_HEADERS,
-  readBoundedJson,
-  RequestBodyTooLargeError,
-} from "@/lib/auth/http";
+import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
+import { readConsumerJsonBody, requireConsumerClient } from "@/lib/auth/consumer-route";
 
 export const runtime = "nodejs";
 
@@ -45,46 +39,16 @@ async function sendVerificationIfNeeded(
 }
 
 export async function POST(request: Request) {
-  const client = authenticateConsumerClient(request);
-  if (!client) {
-    return Response.json(
-      { error: "Invalid application credentials." },
-      {
-        status: 401,
-        headers: NO_STORE_HEADERS,
-      },
-    );
-  }
+  const client = requireConsumerClient(request);
+  if (client instanceof Response) return client;
   if (!client.selfRegistrationEnabled) {
     return Response.json(
       { error: "self_registration_disabled" },
       { status: 403, headers: NO_STORE_HEADERS },
     );
   }
-  if (!isJsonRequest(request)) {
-    return Response.json(
-      { error: "Content-Type must be application/json." },
-      {
-        status: 415,
-        headers: NO_STORE_HEADERS,
-      },
-    );
-  }
-
-  let body: unknown;
-  try {
-    body = await readBoundedJson(request);
-  } catch (error) {
-    return Response.json(
-      {
-        error:
-          error instanceof RequestBodyTooLargeError
-            ? "Request body is too large."
-            : "Request body must be valid JSON.",
-      },
-      { status: error instanceof RequestBodyTooLargeError ? 413 : 400, headers: NO_STORE_HEADERS },
-    );
-  }
+  const body = await readConsumerJsonBody(request, 8 * 1024);
+  if (body instanceof Response) return body;
   if (!validRegistration(body)) {
     return Response.json(
       {

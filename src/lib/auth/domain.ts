@@ -278,6 +278,31 @@ export type AuthRecord =
 export type AuthRecordKind = AuthRecord["kind"];
 export type AuthRecordFor<Kind extends AuthRecordKind> = Extract<AuthRecord, { kind: Kind }>;
 
+export function authRecordId(record: AuthRecord): string {
+  switch (record.kind) {
+    case "organization":
+      return record.organizationId;
+    case "organization-membership":
+      return record.organizationMembershipId;
+    case "product":
+      return record.productRecordId;
+    case "organization-invitation":
+      return record.invitationId;
+    case "subject":
+      return record.subjectId;
+    case "membership":
+      return record.membershipId;
+    case "service-principal":
+      return record.servicePrincipalId;
+    case "api-key":
+      return record.apiKeyId;
+    case "session":
+      return record.sessionId;
+    case "email-action":
+      return record.actionId;
+  }
+}
+
 export type AuthAggregate =
   | { kind: "organization"; id: OrganizationId }
   | { kind: "organization-membership"; id: OrganizationMembershipId }

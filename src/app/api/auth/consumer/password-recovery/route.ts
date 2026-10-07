@@ -1,5 +1,4 @@
 import { after } from "next/server";
-import { authenticateConsumerClient } from "@/lib/auth/consumer-clients";
 import { sendRecoveryEmail } from "@/lib/auth/mail";
 import { consumePasswordRecoveryRateLimit } from "@/lib/auth/coordination";
 import {
@@ -7,50 +6,18 @@ import {
   InvalidAuthActionError,
   issueRecoveryAction,
 } from "@/lib/auth/service";
+import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
 import {
-  isJsonObject,
-  isJsonRequest,
-  NO_STORE_HEADERS,
-  readBoundedJson,
-  RequestBodyTooLargeError,
-} from "@/lib/auth/http";
+  invalidConsumerEmailResponse,
+  requireConsumerClientJsonBody,
+} from "@/lib/auth/consumer-route";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const client = authenticateConsumerClient(request);
-  if (!client) {
-    return Response.json(
-      { error: "Invalid application credentials." },
-      {
-        status: 401,
-        headers: NO_STORE_HEADERS,
-      },
-    );
-  }
-  if (!isJsonRequest(request)) {
-    return Response.json(
-      { error: "Content-Type must be application/json." },
-      {
-        status: 415,
-        headers: NO_STORE_HEADERS,
-      },
-    );
-  }
-  let body: unknown;
-  try {
-    body = await readBoundedJson(request);
-  } catch (error) {
-    return Response.json(
-      {
-        error:
-          error instanceof RequestBodyTooLargeError
-            ? "Request body is too large."
-            : "Request body must be valid JSON.",
-      },
-      { status: error instanceof RequestBodyTooLargeError ? 413 : 400, headers: NO_STORE_HEADERS },
-    );
-  }
+  const parsed = await requireConsumerClientJsonBody(request, 8 * 1024);
+  if (parsed instanceof Response) return parsed;
+  const { body, client } = parsed;
   if (!isJsonObject(body)) {
     return Response.json(
       { error: "Provide an email address or recovery token and new password." },
@@ -93,13 +60,7 @@ export async function POST(request: Request) {
     }
   }
   if (typeof body.email !== "string" || body.email.length > 254) {
-    return Response.json(
-      { error: "Provide a valid email address." },
-      {
-        status: 400,
-        headers: NO_STORE_HEADERS,
-      },
-    );
+    return invalidConsumerEmailResponse();
   }
   const email = body.email;
   if (!consumePasswordRecoveryRateLimit(email, `client:${client.clientId}`, 300)) {

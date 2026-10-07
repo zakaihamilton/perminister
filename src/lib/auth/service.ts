@@ -10,6 +10,7 @@ import { withOrganizationMutationLock } from "./coordination";
 import { processLocalLoginThrottle } from "./login-throttle";
 import {
   assertOpaqueId,
+  authRecordId,
   newApiKeyId,
   newEmailActionId,
   newEventId,
@@ -22,6 +23,7 @@ import {
   newServicePrincipalId,
   newSubjectId,
   type ApiKeyId,
+  type ApiKeyOwner,
   type ApiKeyRecord,
   type AuthActor,
   type AuthAggregate,
@@ -203,6 +205,34 @@ async function createPasswordCredential(password: string): Promise<PasswordCrede
   };
 }
 
+async function createAdminProvisionedSubject(
+  email: string | null,
+  password: string,
+  actorId: SubjectId,
+): Promise<SubjectRecord> {
+  const now = new Date().toISOString();
+  const subject: SubjectRecord = {
+    kind: "subject",
+    schemaVersion: 1,
+    subjectId: newSubjectId(),
+    status: "active",
+    primaryEmail: email,
+    emailVerifiedAt: null,
+    emailVerificationExempt: true,
+    loginIdentifiers: [],
+    legacySources: [],
+    passwordCredential: await createPasswordCredential(password),
+    authVersion: 1,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await persistRecord(subject, "identity.admin-provisioned", {
+    kind: "subject",
+    subjectId: actorId,
+  });
+  return subject;
+}
+
 async function verifyPassword(
   password: string,
   credential: PasswordCredential | null,
@@ -259,31 +289,6 @@ async function verifyPassword(
     return timingSafeEqual(expected, actual);
   } catch {
     return false;
-  }
-}
-
-function recordId(record: AuthRecord): string {
-  switch (record.kind) {
-    case "organization":
-      return record.organizationId;
-    case "organization-membership":
-      return record.organizationMembershipId;
-    case "product":
-      return record.productRecordId;
-    case "organization-invitation":
-      return record.invitationId;
-    case "subject":
-      return record.subjectId;
-    case "membership":
-      return record.membershipId;
-    case "service-principal":
-      return record.servicePrincipalId;
-    case "api-key":
-      return record.apiKeyId;
-    case "session":
-      return record.sessionId;
-    case "email-action":
-      return record.actionId;
   }
 }
 
@@ -357,7 +362,7 @@ function activityPayload(record: AuthRecord): AuthEvent["payload"] {
 
 async function persistRecord(record: AuthRecord, type: string, actor: AuthActor): Promise<void> {
   const objectStore = store();
-  const id = recordId(record);
+  const id = authRecordId(record);
   const aggregate = aggregateFor(record.kind, id);
   const now = new Date().toISOString();
   if (record.kind === "membership") {
@@ -1694,6 +1699,17 @@ export async function listProductPermissionGrants(
   });
 }
 
+async function productMemberMutationContextUnlocked(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  subjectId: SubjectId,
+) {
+  const owner = await requireProductRoleUnlocked(actorId, organizationId, productId, ["owner"]);
+  const current = await store().readOrganizationMembership(organizationId, subjectId, productId);
+  return { owner, current };
+}
+
 export async function updateProductMemberRole(
   actorId: SubjectId,
   organizationId: string,
@@ -1704,11 +1720,11 @@ export async function updateProductMemberRole(
   assertOpaqueId(subjectId);
   await authMutationQueue.run(() =>
     withOrganizationMutationLock(organizationId, async () => {
-      const owner = await requireProductRoleUnlocked(actorId, organizationId, productId, ["owner"]);
-      const current = await store().readOrganizationMembership(
+      const { owner, current } = await productMemberMutationContextUnlocked(
+        actorId,
         organizationId,
-        subjectId as SubjectId,
         productId,
+        subjectId as SubjectId,
       );
       if (!current || current.status !== "active") throw new Error("Product member not found.");
       if (current.role === role) return;
@@ -1740,11 +1756,11 @@ export async function removeProductMember(
   assertOpaqueId(subjectId);
   await authMutationQueue.run(() =>
     withOrganizationMutationLock(organizationId, async () => {
-      const owner = await requireProductRoleUnlocked(actorId, organizationId, productId, ["owner"]);
-      const current = await store().readOrganizationMembership(
+      const { owner, current } = await productMemberMutationContextUnlocked(
+        actorId,
         organizationId,
-        subjectId as SubjectId,
         productId,
+        subjectId as SubjectId,
       );
       if (!current) throw new Error("Product member not found.");
       if (current.status === "active" && current.role === "owner") {
@@ -2267,26 +2283,11 @@ export async function createConsumerMember(
         if (clientId.toLowerCase() === "postparticle" && !platformAdmin) {
           throw new Error("A platform administrator must create this account first.");
         }
-        const now = new Date().toISOString();
-        subject = {
-          kind: "subject",
-          schemaVersion: 1,
-          subjectId: newSubjectId(),
-          status: "active",
-          primaryEmail: email,
-          emailVerifiedAt: null,
-          emailVerificationExempt: true,
-          loginIdentifiers: [],
-          legacySources: [],
-          passwordCredential: await createPasswordCredential(input.password),
-          authVersion: 1,
-          createdAt: now,
-          updatedAt: now,
-        };
-        await persistRecord(subject, "identity.admin-provisioned", {
-          kind: "subject",
-          subjectId: actorMembership.subjectId,
-        });
+        subject = await createAdminProvisionedSubject(
+          email,
+          input.password,
+          actorMembership.subjectId,
+        );
       }
       if (
         subject.status !== "active" ||
@@ -2541,26 +2542,7 @@ export async function createConsumerAccount(
       let subject = byEmail ?? byUsername;
       const created = !subject;
       if (!subject) {
-        const now = new Date().toISOString();
-        subject = {
-          kind: "subject",
-          schemaVersion: 1,
-          subjectId: newSubjectId(),
-          status: "active",
-          primaryEmail: email,
-          emailVerifiedAt: null,
-          emailVerificationExempt: true,
-          loginIdentifiers: [],
-          legacySources: [],
-          passwordCredential: await createPasswordCredential(input.password),
-          authVersion: 1,
-          createdAt: now,
-          updatedAt: now,
-        };
-        await persistRecord(subject, "identity.admin-provisioned", {
-          kind: "subject",
-          subjectId: actorId,
-        });
+        subject = await createAdminProvisionedSubject(email, input.password, actorId);
       }
       if (
         subject.status !== "active" ||
@@ -3243,6 +3225,53 @@ export async function importLegacyAuthData(
   });
 }
 
+function createInvitationDraft(
+  actorId: SubjectId,
+  organizationId: string,
+  email: string,
+  role: OrganizationInvitationRecord["role"],
+  productId?: string,
+): { invitation: OrganizationInvitationRecord; token: string } {
+  const invitationId = newInvitationId();
+  const token = `${invitationId}.${randomBytes(32).toString("base64url")}`;
+  const now = new Date();
+  return {
+    token,
+    invitation: {
+      kind: "organization-invitation",
+      schemaVersion: 1,
+      invitationId,
+      organizationId: organizationId as OrganizationId,
+      ...(productId ? { productId } : {}),
+      email,
+      role,
+      verifierDigestHex: hashHex(token),
+      createdBySubjectId: actorId,
+      createdAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + ORGANIZATION_INVITATION_LIFETIME_MS).toISOString(),
+      consumedAt: null,
+      revokedAt: null,
+    },
+  };
+}
+
+function activeInvitationsForScope(
+  invitations: OrganizationInvitationRecord[],
+  organizationId: string,
+  productId?: string,
+): OrganizationInvitationRecord[] {
+  return invitations
+    .filter(
+      (invite) =>
+        invite.organizationId === organizationId &&
+        (productId === undefined ? !invite.productId : invite.productId === productId) &&
+        !invite.consumedAt &&
+        !invite.revokedAt &&
+        Date.parse(invite.expiresAt) > Date.now(),
+    )
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
 export async function createOrganizationInvitation(
   actorId: SubjectId,
   organizationId: string,
@@ -3281,23 +3310,7 @@ export async function createOrganizationInvitation(
           { kind: "subject", subjectId: actorId },
         );
       }
-      const invitationId = newInvitationId();
-      const token = `${invitationId}.${randomBytes(32).toString("base64url")}`;
-      const now = new Date();
-      const invitation: OrganizationInvitationRecord = {
-        kind: "organization-invitation",
-        schemaVersion: 1,
-        invitationId,
-        organizationId: organizationId as OrganizationId,
-        email,
-        role,
-        verifierDigestHex: hashHex(token),
-        createdBySubjectId: actorId,
-        createdAt: now.toISOString(),
-        expiresAt: new Date(now.getTime() + ORGANIZATION_INVITATION_LIFETIME_MS).toISOString(),
-        consumedAt: null,
-        revokedAt: null,
-      };
+      const { invitation, token } = createInvitationDraft(actorId, organizationId, email, role);
       await persistRecord(invitation, "organization.invitation-created", {
         kind: "subject",
         subjectId: actorId,
@@ -3353,24 +3366,13 @@ export async function createProductInvitation(
           { kind: "subject", subjectId: actorId },
         );
       }
-      const invitationId = newInvitationId();
-      const token = `${invitationId}.${randomBytes(32).toString("base64url")}`;
-      const now = new Date();
-      const invitation: OrganizationInvitationRecord = {
-        kind: "organization-invitation",
-        schemaVersion: 1,
-        invitationId,
-        organizationId: organizationId as OrganizationId,
-        productId,
+      const { invitation, token } = createInvitationDraft(
+        actorId,
+        organizationId,
         email,
         role,
-        verifierDigestHex: hashHex(token),
-        createdBySubjectId: actorId,
-        createdAt: now.toISOString(),
-        expiresAt: new Date(now.getTime() + ORGANIZATION_INVITATION_LIFETIME_MS).toISOString(),
-        consumedAt: null,
-        revokedAt: null,
-      };
+        productId,
+      );
       await persistRecord(invitation, "product.invitation-created", {
         kind: "subject",
         subjectId: actorId,
@@ -3386,17 +3388,10 @@ export async function listOrganizationInvitations(
 ): Promise<OrganizationInvitationRecord[]> {
   return authMutationQueue.run(async () => {
     await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
-    return (await listRecordsWithRecovery("organization-invitation"))
-      .map((item) => item.record)
-      .filter(
-        (invite) =>
-          invite.organizationId === organizationId &&
-          !invite.productId &&
-          !invite.consumedAt &&
-          !invite.revokedAt &&
-          Date.parse(invite.expiresAt) > Date.now(),
-      )
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    const invitations = (await listRecordsWithRecovery("organization-invitation")).map(
+      (item) => item.record,
+    );
+    return activeInvitationsForScope(invitations, organizationId);
   });
 }
 
@@ -3407,17 +3402,10 @@ export async function listProductInvitations(
 ): Promise<OrganizationInvitationRecord[]> {
   return authMutationQueue.run(async () => {
     await requireProductRoleUnlocked(actorId, organizationId, productId, ["owner", "admin"]);
-    return (await listRecordsWithRecovery("organization-invitation"))
-      .map((entry) => entry.record)
-      .filter(
-        (invite) =>
-          invite.organizationId === organizationId &&
-          invite.productId === productId &&
-          !invite.consumedAt &&
-          !invite.revokedAt &&
-          Date.parse(invite.expiresAt) > Date.now(),
-      )
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    const invitations = (await listRecordsWithRecovery("organization-invitation")).map(
+      (item) => item.record,
+    );
+    return activeInvitationsForScope(invitations, organizationId, productId);
   });
 }
 
@@ -3939,6 +3927,75 @@ export interface CreateApiKeyOptions {
   rotateFromApiKeyId?: string;
 }
 
+function validateApiKeyOptions(options: CreateApiKeyOptions) {
+  const scope = validateScope(options.scope);
+  const actions = validateActions(options.actions);
+  if (
+    options.expiresAt &&
+    (!Number.isFinite(Date.parse(options.expiresAt)) || Date.parse(options.expiresAt) <= Date.now())
+  ) {
+    throw new Error("Choose a future expiration time.");
+  }
+  const rotateId = options.rotateFromApiKeyId;
+  if (rotateId) assertOpaqueId(rotateId);
+  return { scope, actions, rotateId };
+}
+
+function createApiKeyDraft(
+  owner: ApiKeyOwner,
+  scope: ResourceScope,
+  actions: readonly string[],
+  expiresAt: string | null,
+  previous: ApiKeyRecord | null,
+): { record: ApiKeyRecord; token: string } {
+  const apiKeyId = newApiKeyId();
+  const token = `pmk_${apiKeyId}_${randomBytes(32).toString("base64url")}`;
+  const record: ApiKeyRecord = {
+    kind: "api-key",
+    schemaVersion: 1,
+    apiKeyId,
+    keyClass: "integration",
+    owner,
+    scope,
+    actions,
+    verifier: { algorithm: "sha256", digestHex: hashHex(token) },
+    status: "active",
+    createdAt: new Date().toISOString(),
+    expiresAt,
+    revokedAt: null,
+    rotatedFromApiKeyId: previous?.apiKeyId ?? null,
+  };
+  return { record, token };
+}
+
+async function findApiKeyToRotate(
+  apiKeyId: string | undefined,
+  owner: ApiKeyOwner,
+  organizationId: string,
+  ownerError: string,
+): Promise<ApiKeyRecord | null> {
+  if (!apiKeyId) return null;
+  const existing = await loadRecord("api-key", apiKeyId);
+  const matchesOwner =
+    existing &&
+    (owner.kind === "subject"
+      ? existing.record.owner.kind === "subject" &&
+        existing.record.owner.subjectId === owner.subjectId
+      : existing.record.owner.kind === "service" &&
+        existing.record.owner.servicePrincipalId === owner.servicePrincipalId);
+  if (!existing || !matchesOwner) throw new Error(ownerError);
+  if (
+    existing.record.status !== "active" ||
+    (existing.record.expiresAt && Date.parse(existing.record.expiresAt) <= Date.now())
+  ) {
+    throw new Error("Only an active, unexpired API key can be rotated.");
+  }
+  if (existing.record.scope.organizationId !== organizationId) {
+    throw new Error("A key can only be rotated within its organization.");
+  }
+  return existing.record;
+}
+
 export interface CreatedApiKey {
   record: ApiKeyRecord;
   token: string;
@@ -4072,16 +4129,7 @@ export async function createApiKeyForServicePrincipal(
   options: CreateApiKeyOptions,
 ): Promise<CreatedApiKey> {
   assertOpaqueId(servicePrincipalId);
-  const scope = validateScope(options.scope);
-  const actions = validateActions(options.actions);
-  if (
-    options.expiresAt &&
-    (!Number.isFinite(Date.parse(options.expiresAt)) || Date.parse(options.expiresAt) <= Date.now())
-  ) {
-    throw new Error("Choose a future expiration time.");
-  }
-  const rotateId = options.rotateFromApiKeyId;
-  if (rotateId) assertOpaqueId(rotateId);
+  const { scope, actions, rotateId } = validateApiKeyOptions(options);
   return authMutationQueue.run(() =>
     withOrganizationMutationLock(scope.organizationId, async () => {
       const actor = await requireOrganizationRoleUnlocked(actorId, scope.organizationId, [
@@ -4097,46 +4145,20 @@ export async function createApiKeyForServicePrincipal(
       ) {
         throw new Error("Choose an active integration for this organization and product.");
       }
-      let previous: ApiKeyRecord | null = null;
-      if (rotateId) {
-        const old = await loadRecord("api-key", rotateId);
-        if (
-          !old ||
-          old.record.owner.kind !== "service" ||
-          old.record.owner.servicePrincipalId !== servicePrincipalId
-        ) {
-          throw new Error("Choose one of this integration's API keys to rotate.");
-        }
-        if (
-          old.record.status !== "active" ||
-          (old.record.expiresAt && Date.parse(old.record.expiresAt) <= Date.now())
-        ) {
-          throw new Error("Only an active, unexpired API key can be rotated.");
-        }
-        if (old.record.scope.organizationId !== scope.organizationId) {
-          throw new Error("A key can only be rotated within its organization.");
-        }
-        previous = old.record;
-      }
+      const previous = await findApiKeyToRotate(
+        rotateId,
+        { kind: "service", servicePrincipalId: servicePrincipalId as ServicePrincipalId },
+        scope.organizationId,
+        "Choose one of this integration's API keys to rotate.",
+      );
       await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
-      const apiKeyId = newApiKeyId();
-      const token = `pmk_${apiKeyId}_${randomBytes(32).toString("base64url")}`;
-      const now = new Date().toISOString();
-      const record: ApiKeyRecord = {
-        kind: "api-key",
-        schemaVersion: 1,
-        apiKeyId,
-        keyClass: "integration",
-        owner: { kind: "service", servicePrincipalId: servicePrincipalId as ServicePrincipalId },
+      const { record, token } = createApiKeyDraft(
+        { kind: "service", servicePrincipalId: servicePrincipalId as ServicePrincipalId },
         scope,
         actions,
-        verifier: { algorithm: "sha256", digestHex: hashHex(token) },
-        status: "active",
-        createdAt: now,
-        expiresAt: options.expiresAt,
-        revokedAt: null,
-        rotatedFromApiKeyId: previous?.apiKeyId ?? null,
-      };
+        options.expiresAt,
+        previous,
+      );
       await persistRecord(
         record,
         previous ? "api-key.service-rotated.created" : "api-key.service-created",
@@ -4232,16 +4254,7 @@ export async function createApiKeyForSubject(
   subjectId: SubjectId,
   options: CreateApiKeyOptions,
 ): Promise<CreatedApiKey> {
-  const scope = validateScope(options.scope);
-  const actions = validateActions(options.actions);
-  if (
-    options.expiresAt &&
-    (!Number.isFinite(Date.parse(options.expiresAt)) || Date.parse(options.expiresAt) <= Date.now())
-  ) {
-    throw new Error("Choose a future expiration time.");
-  }
-  const rotateId = options.rotateFromApiKeyId;
-  if (rotateId) assertOpaqueId(rotateId);
+  const { scope, actions, rotateId } = validateApiKeyOptions(options);
   return authMutationQueue.run(() =>
     withOrganizationMutationLock(scope.organizationId, async () => {
       const subject = await loadSubjectUnlocked(subjectId);
@@ -4265,45 +4278,19 @@ export async function createApiKeyForSubject(
           throw new Error("API keys can only include actions granted to your account.");
         }
       }
-      let previous: ApiKeyRecord | null = null;
-      if (rotateId) {
-        const old = await loadRecord("api-key", rotateId);
-        if (
-          !old ||
-          old.record.owner.kind !== "subject" ||
-          old.record.owner.subjectId !== subjectId
-        ) {
-          throw new Error("Choose one of your own API keys to rotate.");
-        }
-        if (
-          old.record.status !== "active" ||
-          (old.record.expiresAt && Date.parse(old.record.expiresAt) <= Date.now())
-        ) {
-          throw new Error("Only an active, unexpired API key can be rotated.");
-        }
-        if (old.record.scope.organizationId !== scope.organizationId) {
-          throw new Error("A key can only be rotated within its organization.");
-        }
-        previous = old.record;
-      }
-      const apiKeyId = newApiKeyId();
-      const token = `pmk_${apiKeyId}_${randomBytes(32).toString("base64url")}`;
-      const now = new Date().toISOString();
-      const record: ApiKeyRecord = {
-        kind: "api-key",
-        schemaVersion: 1,
-        apiKeyId,
-        keyClass: "integration",
-        owner: { kind: "subject", subjectId },
+      const previous = await findApiKeyToRotate(
+        rotateId,
+        { kind: "subject", subjectId },
+        scope.organizationId,
+        "Choose one of your own API keys to rotate.",
+      );
+      const { record, token } = createApiKeyDraft(
+        { kind: "subject", subjectId },
         scope,
         actions,
-        verifier: { algorithm: "sha256", digestHex: hashHex(token) },
-        status: "active",
-        createdAt: now,
-        expiresAt: options.expiresAt,
-        revokedAt: null,
-        rotatedFromApiKeyId: previous?.apiKeyId ?? null,
-      };
+        options.expiresAt,
+        previous,
+      );
       await persistRecord(record, previous ? "api-key.rotated.created" : "api-key.created", {
         kind: "subject",
         subjectId,

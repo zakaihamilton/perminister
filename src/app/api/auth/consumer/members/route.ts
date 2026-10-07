@@ -1,45 +1,24 @@
-import {
-  isJsonObject,
-  isJsonRequest,
-  NO_STORE_HEADERS,
-  readBoundedJson,
-  RequestBodyTooLargeError,
-} from "@/lib/auth/http";
+import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
 import {
   consumerServiceError,
-  consumerRequestContext,
-  authenticationRequired,
+  requireConsumerRequestContext,
+  requireConsumerJsonRequest,
 } from "@/lib/auth/consumer-route";
-import { consumerProductPolicy } from "@/lib/auth/consumer-policy";
+import { consumerProductPolicy, isConsumerResourceScope } from "@/lib/auth/consumer-policy";
 import { createConsumerMember, listConsumerMembers } from "@/lib/auth/service";
 
 export const runtime = "nodejs";
 
-const organizationIdPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const resourceIdPattern = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
-
-function validScope(value: Record<string, unknown>) {
-  return (
-    typeof value.organizationId === "string" &&
-    organizationIdPattern.test(value.organizationId) &&
-    (value.scopeKind === "workspace" || value.scopeKind === "project") &&
-    typeof value.resourceId === "string" &&
-    resourceIdPattern.test(value.resourceId)
-  );
-}
-
 export async function GET(request: Request) {
-  const context = await consumerRequestContext(request);
+  const context = await requireConsumerRequestContext(request);
   if (context instanceof Response) return context;
-  if (!context) return authenticationRequired();
   const params = new URL(request.url).searchParams;
   const scope = {
     organizationId: params.get("organizationId") ?? "",
     scopeKind: params.get("scopeKind") ?? "",
     resourceId: params.get("resourceId") ?? "",
   };
-  if (!validScope(scope)) {
+  if (!isConsumerResourceScope(scope)) {
     return Response.json(
       { error: "Provide organizationId, scopeKind, and resourceId." },
       { status: 400, headers: NO_STORE_HEADERS },
@@ -62,33 +41,13 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const context = await consumerRequestContext(request);
-  if (context instanceof Response) return context;
-  if (!context) return authenticationRequired();
-  if (!isJsonRequest(request)) {
-    return Response.json(
-      { error: "Content-Type must be application/json." },
-      { status: 415, headers: NO_STORE_HEADERS },
-    );
-  }
-  let body: unknown;
-  try {
-    body = await readBoundedJson(request, 16 * 1024);
-  } catch (error) {
-    return Response.json(
-      {
-        error:
-          error instanceof RequestBodyTooLargeError
-            ? "Request body is too large."
-            : "Request body must be valid JSON.",
-      },
-      { status: error instanceof RequestBodyTooLargeError ? 413 : 400, headers: NO_STORE_HEADERS },
-    );
-  }
+  const parsed = await requireConsumerJsonRequest(request, 16 * 1024);
+  if (parsed instanceof Response) return parsed;
+  const { body, ...context } = parsed;
   const policy = consumerProductPolicy(context.client.clientId);
   if (
     !isJsonObject(body) ||
-    !validScope(body) ||
+    !isConsumerResourceScope(body) ||
     !policy ||
     body.scopeKind !== policy.scopeKind ||
     typeof body.role !== "string" ||

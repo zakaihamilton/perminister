@@ -1,35 +1,17 @@
-import { authenticateConsumerClient } from "@/lib/auth/consumer-clients";
-import { bearerToken, NO_STORE_HEADERS } from "@/lib/auth/http";
-import { getConsumerSessionFromToken, revokeServicePrincipalApiKey } from "@/lib/auth/service";
+import { NO_STORE_HEADERS } from "@/lib/auth/http";
+import { requireConsumerRequestContext } from "@/lib/auth/consumer-route";
+import { revokeServicePrincipalApiKey } from "@/lib/auth/service";
 
 export const runtime = "nodejs";
 
 type RouteContext = { params: Promise<{ servicePrincipalId: string; apiKeyId: string }> };
 
 export async function DELETE(request: Request, context: RouteContext) {
-  const client = authenticateConsumerClient(request);
-  const token = bearerToken(request);
-  if (!client || !token) {
-    return Response.json(
-      { error: "Authentication is required." },
-      {
-        status: 401,
-        headers: NO_STORE_HEADERS,
-      },
-    );
-  }
+  const auth = await requireConsumerRequestContext(request);
+  if (auth instanceof Response) return auth;
+  const { client, current } = auth;
   const { servicePrincipalId, apiKeyId } = await context.params;
   try {
-    const current = await getConsumerSessionFromToken(token, client.clientId);
-    if (!current || current.session.productId !== client.productId) {
-      return Response.json(
-        { error: "Authentication is required." },
-        {
-          status: 401,
-          headers: NO_STORE_HEADERS,
-        },
-      );
-    }
     await revokeServicePrincipalApiKey(
       current.subject.subjectId,
       servicePrincipalId,

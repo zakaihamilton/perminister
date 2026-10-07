@@ -1,50 +1,19 @@
-import {
-  isJsonObject,
-  isJsonRequest,
-  NO_STORE_HEADERS,
-  readBoundedJson,
-  RequestBodyTooLargeError,
-} from "@/lib/auth/http";
-import {
-  authenticationRequired,
-  consumerRequestContext,
-  consumerServiceError,
-} from "@/lib/auth/consumer-route";
+import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
+import { consumerServiceError, requireConsumerJsonRequest } from "@/lib/auth/consumer-route";
+import { isOrganizationId } from "@/lib/auth/consumer-policy";
 import { updateConsumerAccount } from "@/lib/auth/service";
 
 export const runtime = "nodejs";
 
 type RouteContext = { params: Promise<{ subjectId: string }> };
-const organizationIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
 
 export async function PATCH(request: Request, context: RouteContext) {
-  const auth = await consumerRequestContext(request);
-  if (auth instanceof Response) return auth;
-  if (!auth) return authenticationRequired();
-  if (!isJsonRequest(request)) {
-    return Response.json(
-      { error: "Content-Type must be application/json." },
-      { status: 415, headers: NO_STORE_HEADERS },
-    );
-  }
-  let body: unknown;
-  try {
-    body = await readBoundedJson(request, 16 * 1024);
-  } catch (error) {
-    return Response.json(
-      {
-        error:
-          error instanceof RequestBodyTooLargeError
-            ? "Request body is too large."
-            : "Request body must be valid JSON.",
-      },
-      { status: error instanceof RequestBodyTooLargeError ? 413 : 400, headers: NO_STORE_HEADERS },
-    );
-  }
+  const parsed = await requireConsumerJsonRequest(request, 16 * 1024);
+  if (parsed instanceof Response) return parsed;
+  const { body, ...auth } = parsed;
   if (
     !isJsonObject(body) ||
-    typeof body.organizationId !== "string" ||
-    !organizationIdPattern.test(body.organizationId) ||
+    !isOrganizationId(body.organizationId) ||
     (body.status !== undefined && body.status !== "active" && body.status !== "disabled") ||
     (body.password !== undefined && typeof body.password !== "string") ||
     (body.revokeSessions !== undefined && typeof body.revokeSessions !== "boolean") ||
