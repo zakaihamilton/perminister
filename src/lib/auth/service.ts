@@ -826,37 +826,37 @@ export const listOrganizationsForSubject = cache(async function listOrganization
       entries.push(membership);
       byOrganization.set(membership.organizationId, entries);
     }
-    const summaries = await mapWithConcurrency(
-      [...byOrganization.entries()],
-      async ([organizationId, entries]) => {
-        const organization = await loadRecord("organization", organizationId);
-        if (!organization || organizationApprovalStatus(organization.record) !== "approved") {
-          return null;
-        }
-        const catalogManager = entries.find((membership) => !membership.productId);
-        const productMember = entries.find((membership) => membership.productId);
-        if (catalogManager) {
-          return {
-            organization: organization.record,
-            membership: catalogManager,
-            catalogManager: true,
-          } satisfies OrganizationSummary;
-        }
-        if (productMember) {
-          return {
-            organization: organization.record,
-            membership: {
-              ...productMember,
-              role: "member",
-              productId: undefined,
-              permissionGrants: undefined,
-            },
-            catalogManager: false,
-          } satisfies OrganizationSummary;
-        }
+    const summaries = await mapWithConcurrency<
+      [string, OrganizationMembershipRecord[]],
+      OrganizationSummary | null
+    >([...byOrganization.entries()], async ([organizationId, entries]) => {
+      const organization = await loadRecord("organization", organizationId);
+      if (!organization || organizationApprovalStatus(organization.record) !== "approved") {
         return null;
-      },
-    );
+      }
+      const catalogManager = entries.find((membership) => !membership.productId);
+      const productMember = entries.find((membership) => membership.productId);
+      if (catalogManager) {
+        return {
+          organization: organization.record,
+          membership: catalogManager,
+          catalogManager: true,
+        } satisfies OrganizationSummary;
+      }
+      if (productMember) {
+        return {
+          organization: organization.record,
+          membership: {
+            ...productMember,
+            role: "member",
+            productId: undefined,
+            permissionGrants: undefined,
+          },
+          catalogManager: false,
+        } satisfies OrganizationSummary;
+      }
+      return null;
+    });
     return summaries
       .filter((summary): summary is OrganizationSummary => summary !== null)
       .sort((left, right) => left.organization.name.localeCompare(right.organization.name));

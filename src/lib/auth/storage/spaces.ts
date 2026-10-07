@@ -323,10 +323,10 @@ export class SpacesAuthStore {
       const value = await this.readJson<unknown>(key);
       if (value === null) return null;
       const record = this.unwrapRecord(value);
-      return isAuthRecord(record, "api-key") &&
-        (record as ApiKeyRecord).owner.kind === "subject" &&
-        (record as ApiKeyRecord).owner.subjectId === subjectId
-        ? (record as ApiKeyRecord)
+      if (!isAuthRecord(record, "api-key")) return null;
+      const apiKey = record as ApiKeyRecord;
+      return apiKey.owner.kind === "subject" && apiKey.owner.subjectId === subjectId
+        ? apiKey
         : null;
     });
     return records.filter((record): record is ApiKeyRecord => record !== null);
