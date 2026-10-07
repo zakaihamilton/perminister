@@ -1785,21 +1785,37 @@ export async function listConsumerClientsForProduct(
   });
 }
 
-export async function createConsumerClient(
+async function withConsumerClientManager<Result>(
   actorId: SubjectId,
   organizationId: string,
   productId: string,
-  options: CreateConsumerClientOptions,
-): Promise<ConsumerClientCredential> {
+  operation: (actor: OrganizationMembershipRecord, normalizedProductId: string) => Promise<Result>,
+): Promise<Result> {
   assertOpaqueId(organizationId);
   const normalizedProductId = validateProductId(productId);
-  const validated = validateConsumerClientOptions(normalizedProductId, options);
   return authMutationQueue.run(() =>
     withOrganizationMutationLock(organizationId, async () => {
       const actor = await requireProductRoleUnlocked(actorId, organizationId, normalizedProductId, [
         "owner",
         "admin",
       ]);
+      return operation(actor, normalizedProductId);
+    }),
+  );
+}
+
+export async function createConsumerClient(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  options: CreateConsumerClientOptions,
+): Promise<ConsumerClientCredential> {
+  return withConsumerClientManager(
+    actorId,
+    organizationId,
+    productId,
+    async (actor, normalizedProductId) => {
+      const validated = validateConsumerClientOptions(normalizedProductId, options);
       const consumerClientId = newConsumerClientId();
       const secret = `pmc_${consumerClientId}_${randomBytes(32).toString("base64url")}`;
       const now = new Date().toISOString();
@@ -1824,7 +1840,7 @@ export async function createConsumerClient(
         subjectId: actor.subjectId,
       });
       return { clientId: consumerClientId, secret };
-    }),
+    },
   );
 }
 
@@ -1834,15 +1850,12 @@ export async function rotateConsumerClient(
   productId: string,
   clientId: string,
 ): Promise<ConsumerClientCredential> {
-  assertOpaqueId(organizationId);
   assertOpaqueId(clientId);
-  const normalizedProductId = validateProductId(productId);
-  return authMutationQueue.run(() =>
-    withOrganizationMutationLock(organizationId, async () => {
-      const actor = await requireProductRoleUnlocked(actorId, organizationId, normalizedProductId, [
-        "owner",
-        "admin",
-      ]);
+  return withConsumerClientManager(
+    actorId,
+    organizationId,
+    productId,
+    async (actor, normalizedProductId) => {
       const found = await loadRecord("consumer-client", clientId);
       if (
         !found ||
@@ -1862,7 +1875,7 @@ export async function rotateConsumerClient(
         subjectId: actor.subjectId,
       });
       return { clientId: next.consumerClientId, secret };
-    }),
+    },
   );
 }
 
@@ -1872,15 +1885,12 @@ export async function revokeConsumerClient(
   productId: string,
   clientId: string,
 ): Promise<void> {
-  assertOpaqueId(organizationId);
   assertOpaqueId(clientId);
-  const normalizedProductId = validateProductId(productId);
-  await authMutationQueue.run(() =>
-    withOrganizationMutationLock(organizationId, async () => {
-      const actor = await requireProductRoleUnlocked(actorId, organizationId, normalizedProductId, [
-        "owner",
-        "admin",
-      ]);
+  await withConsumerClientManager(
+    actorId,
+    organizationId,
+    productId,
+    async (actor, normalizedProductId) => {
       const found = await loadRecord("consumer-client", clientId);
       if (!found || found.record.productId !== normalizedProductId) {
         throw new Error("Application client not found.");
@@ -1892,7 +1902,7 @@ export async function revokeConsumerClient(
         "consumer-client.revoked",
         { kind: "subject", subjectId: actor.subjectId },
       );
-    }),
+    },
   );
 }
 

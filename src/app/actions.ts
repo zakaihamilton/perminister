@@ -376,16 +376,25 @@ export interface ConsumerClientActionState {
   error?: string;
 }
 
+async function consumerClientActionContext(formData: FormData) {
+  const current = await getCurrentSession();
+  if (!current) return null;
+  return {
+    current,
+    organizationId: firstValue(formData, "organizationId"),
+    productId: firstValue(formData, "productId"),
+    clientId: firstValue(formData, "clientId"),
+    returnTo: dashboardReturnTo(formData),
+  };
+}
+
 export async function createOrRotateConsumerClientAction(
   _previous: ConsumerClientActionState,
   formData: FormData,
 ): Promise<ConsumerClientActionState> {
-  const current = await getCurrentSession();
-  if (!current) return { error: "Sign in again to manage application clients." };
-  const organizationId = firstValue(formData, "organizationId");
-  const productId = firstValue(formData, "productId");
-  const returnTo = dashboardReturnTo(formData);
-  const clientId = firstValue(formData, "clientId");
+  const context = await consumerClientActionContext(formData);
+  if (!context) return { error: "Sign in again to manage application clients." };
+  const { current, organizationId, productId, returnTo, clientId } = context;
   try {
     let credential: ConsumerClientCredential;
     if (clientId) {
@@ -421,12 +430,9 @@ export async function createOrRotateConsumerClientAction(
 }
 
 export async function revokeConsumerClientAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const organizationId = firstValue(formData, "organizationId");
-  const productId = firstValue(formData, "productId");
-  const clientId = firstValue(formData, "clientId");
-  const returnTo = dashboardReturnTo(formData);
+  const context = await consumerClientActionContext(formData);
+  if (!context) redirect("/login");
+  const { current, organizationId, productId, clientId, returnTo } = context;
   try {
     await revokeConsumerClient(current.subject.subjectId, organizationId, productId, clientId);
   } catch (error) {
