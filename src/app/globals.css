@@ -5821,6 +5821,11 @@ button:disabled {
   min-height: 100vh;
   color: var(--ink);
 }
+.home-page .eyebrow {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.5;
+}
 html[data-theme="dark"] .home-page {
   --blue: #80a7d4;
   --blue-dark: #a2bee0;
@@ -5981,7 +5986,7 @@ html[data-theme="dark"] .home-page {
 .home-card-label {
   margin: 0 0 16px;
   color: var(--blue-dark);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.015em;
 }
@@ -6032,7 +6037,7 @@ html[data-theme="dark"] .home-page {
   display: inline-block;
   margin-bottom: 15px;
   color: var(--blue-dark);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -6062,7 +6067,7 @@ html[data-theme="dark"] .home-page {
 .home-cta-label {
   margin: 0 0 10px;
   color: #d8e5f5;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
 }
 .home-closing-cta h2 {
