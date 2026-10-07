@@ -3155,7 +3155,11 @@ button:focus-visible {
   padding: 10px 12px;
   color: var(--ink);
   background: var(--surface-inset);
-  font: 500 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font:
+    500 14px/1.4 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 }
 .product-source-form input::placeholder {
   color: var(--muted);

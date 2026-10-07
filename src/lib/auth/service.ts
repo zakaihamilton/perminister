@@ -1252,12 +1252,11 @@ export async function createProductAccessRole(
   const actions = validateActions(input.actions);
   return authMutationQueue.run(() =>
     withOrganizationMutationLock(organizationId, async () => {
-      const actor = await requireProductRoleUnlocked(actorId, organizationId, productId, [
-        "owner",
-        "admin",
-      ]);
-      const product = await store().readProduct(organizationId, productId);
-      if (!product) throw new Error("Choose a product in this organization.");
+      const { actor, product } = await requireManageableProductUnlocked(
+        actorId,
+        organizationId,
+        productId,
+      );
       const roles = product.accessRoles ?? [];
       if (roles.length >= 32) throw new Error("A product can have up to 32 access roles.");
       if (roles.some((role) => role.name.toLowerCase() === name.toLowerCase())) {
@@ -1288,12 +1287,11 @@ export async function removeProductAccessRole(
   if (!/^role-[0-9a-f]{32}$/.test(accessRoleId)) throw new Error("Choose an access role.");
   await authMutationQueue.run(() =>
     withOrganizationMutationLock(organizationId, async () => {
-      const actor = await requireProductRoleUnlocked(actorId, organizationId, productId, [
-        "owner",
-        "admin",
-      ]);
-      const product = await store().readProduct(organizationId, productId);
-      if (!product) throw new Error("Choose a product in this organization.");
+      const { actor, product } = await requireManageableProductUnlocked(
+        actorId,
+        organizationId,
+        productId,
+      );
       const roles = product.accessRoles ?? [];
       const nextRoles = roles.filter((role) => role.id !== accessRoleId);
       if (nextRoles.length === roles.length) throw new Error("Access role not found.");
@@ -1304,6 +1302,20 @@ export async function removeProductAccessRole(
       );
     }),
   );
+}
+
+async function requireManageableProductUnlocked(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+): Promise<{ actor: OrganizationMembershipRecord; product: ProductRecord }> {
+  const actor = await requireProductRoleUnlocked(actorId, organizationId, productId, [
+    "owner",
+    "admin",
+  ]);
+  const product = await store().readProduct(organizationId, productId);
+  if (!product) throw new Error("Choose a product in this organization.");
+  return { actor, product };
 }
 
 export async function listProductsForOrganization(
