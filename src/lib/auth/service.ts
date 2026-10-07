@@ -22,6 +22,7 @@ import {
   newOrganizationMembershipId,
   newProductRecordId,
   newSessionId,
+  newServicePrincipalId,
   newSubjectId,
   type ApiKeyId,
   type ApiKeyRecord,
@@ -53,6 +54,8 @@ import {
   type SessionRecord,
   type SubjectId,
   type SubjectRecord,
+  type ServicePrincipalId,
+  type ServicePrincipalRecord,
   type JsonValue,
 } from "./domain";
 import { createSpacesAuthStoreFromEnv, type VersionedRecord } from "./storage/spaces";
@@ -182,6 +185,8 @@ function recordId(record: AuthRecord): string {
       return record.subjectId;
     case "membership":
       return record.membershipId;
+    case "service-principal":
+      return record.servicePrincipalId;
     case "api-key":
       return record.apiKeyId;
     case "session":
@@ -206,6 +211,8 @@ function aggregateFor(kind: AuthRecordKind, id: string): AuthAggregate {
       return { kind, id: id as SubjectId };
     case "membership":
       return { kind, id: id as MembershipId };
+    case "service-principal":
+      return { kind, id: id as ServicePrincipalId };
     case "api-key":
       return { kind, id: id as ApiKeyId };
     case "session":
@@ -404,6 +411,32 @@ export async function authenticate(emailInput: string, password: string): Promis
   }
 }
 
+export async function changePasswordForSubject(
+  subjectId: SubjectId,
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  await authMutationQueue.run(async () => {
+    const current = await loadSubjectUnlocked(subjectId);
+    if (!current || current.status !== "active")
+      throw new Error("This account cannot change its password.");
+    if (!(await verifyPassword(currentPassword, current.passwordCredential))) {
+      throw new Error("Current password is incorrect.");
+    }
+    const passwordCredential = await createPasswordCredential(newPassword);
+    const next: SubjectRecord = {
+      ...current,
+      passwordCredential,
+      authVersion: current.authVersion + 1,
+      updatedAt: new Date().toISOString(),
+    };
+    await persistRecord(next, "credential.password-changed", {
+      kind: "subject",
+      subjectId,
+    });
+  });
+}
+
 export async function createSession(
   subjectId: SubjectId,
 ): Promise<{ session: SessionRecord; token: string }> {
@@ -426,6 +459,42 @@ export async function createSession(
       revokedAt: null,
     };
     await persistRecord(session, "session.created", { kind: "subject", subjectId });
+    return { session, token };
+  });
+}
+
+export async function createConsumerSession(
+  subjectId: SubjectId,
+  clientId: string,
+  productId: string,
+): Promise<{ session: SessionRecord; token: string }> {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(clientId)) {
+    throw new Error("Choose a valid application client.");
+  }
+  const normalizedProductId = validateProductId(productId);
+  return authMutationQueue.run(async () => {
+    const subject = await loadSubjectUnlocked(subjectId);
+    requireVerifiedActiveSubject(subject);
+    const sessionId = newSessionId();
+    const token = `${sessionId}.${randomBytes(32).toString("base64url")}`;
+    const now = new Date();
+    const session: SessionRecord = {
+      kind: "session",
+      schemaVersion: 1,
+      sessionId,
+      subjectId,
+      verifierDigestHex: hashHex(token),
+      authVersion: subject.authVersion,
+      applicationClientId: clientId,
+      productId: normalizedProductId,
+      createdAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + SESSION_LIFETIME_MS).toISOString(),
+      revokedAt: null,
+    };
+    await persistRecord(session, "session.consumer-created", {
+      kind: "subject",
+      subjectId,
+    });
     return { session, token };
   });
 }
@@ -490,7 +559,27 @@ export async function getSessionFromToken(
 
 export async function getCurrentSession(): Promise<AuthenticatedSession | null> {
   const cookieStore = await cookies();
-  return getSessionFromToken(cookieStore.get(SESSION_COOKIE)?.value);
+  const current = await getSessionFromToken(cookieStore.get(SESSION_COOKIE)?.value);
+  return current?.session.applicationClientId ? null : current;
+}
+
+export async function getConsumerSessionFromToken(
+  token: string | null | undefined,
+  clientId: string,
+): Promise<AuthenticatedSession | null> {
+  const current = await getSessionFromToken(token);
+  if (!current || current.session.applicationClientId !== clientId || !current.session.productId) {
+    return null;
+  }
+  return current;
+}
+
+export async function revokeConsumerSession(
+  token: string | null | undefined,
+  clientId: string,
+): Promise<void> {
+  const current = await getConsumerSessionFromToken(token, clientId);
+  if (current) await revokeSession(current.session.sessionId, current.subject.subjectId);
 }
 
 export async function revokeSession(sessionId: string, actorSubjectId: SubjectId): Promise<void> {
@@ -681,6 +770,63 @@ export async function listOrganizationsForSubject(
       if (organization) summaries.push({ organization: organization.record, membership });
     }
     return summaries;
+  });
+}
+
+export interface ConsumerOrganizationAccess {
+  organizationId: OrganizationId;
+  organizationName: string;
+  organizationRole: OrganizationRole;
+  productId: string;
+  permissions: PermissionGrant[];
+}
+
+export async function listConsumerOrganizationsForSubject(
+  subjectId: SubjectId,
+  productId: string,
+): Promise<ConsumerOrganizationAccess[]> {
+  const normalizedProductId = validateProductId(productId);
+  return authMutationQueue.run(async () => {
+    const [organizationMemberships, products, grants] = await Promise.all([
+      listRecordsWithRecovery("organization-membership"),
+      listRecordsWithRecovery("product"),
+      listRecordsWithRecovery("membership"),
+    ]);
+    const activeMemberships = organizationMemberships
+      .map((item) => item.record)
+      .filter((membership) => membership.subjectId === subjectId && membership.status === "active");
+    const productRecords = products.map((item) => item.record);
+    const subjectGrants = grants
+      .map((item) => item.record)
+      .filter((grant) => grant.subjectId === subjectId && grant.status === "active");
+    const results: ConsumerOrganizationAccess[] = [];
+    for (const membership of activeMemberships) {
+      const product = productRecords.find(
+        (candidate) =>
+          candidate.organizationId === membership.organizationId &&
+          candidate.productId === normalizedProductId,
+      );
+      if (!product) continue;
+      const organization = await loadRecord("organization", membership.organizationId);
+      if (!organization) continue;
+      const permissions = subjectGrants
+        .filter(
+          (grant) =>
+            grant.scope.organizationId === membership.organizationId &&
+            grant.scope.productId === normalizedProductId,
+        )
+        .flatMap((grant) => grant.grants);
+      results.push({
+        organizationId: membership.organizationId,
+        organizationName: organization.record.name,
+        organizationRole: membership.role,
+        productId: normalizedProductId,
+        permissions,
+      });
+    }
+    return results.sort((left, right) =>
+      left.organizationName.localeCompare(right.organizationName),
+    );
   });
 }
 
@@ -1576,6 +1722,289 @@ export interface CreatedApiKey {
   rotationWarning: string | null;
 }
 
+export async function createServicePrincipal(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  nameInput: string,
+): Promise<ServicePrincipalRecord> {
+  const scope = validateScope({
+    kind: "product",
+    organizationId: organizationId as OrganizationId,
+    productId,
+  });
+  const name = nameInput.trim().replace(/\s+/g, " ");
+  if (name.length < 2 || name.length > 80) {
+    throw new Error("Integration names must be 2 to 80 characters.");
+  }
+  return authMutationQueue.run(() =>
+    withOrganizationMutationLock(scope.organizationId, async () => {
+      const actor = await requireOrganizationRoleUnlocked(actorId, organizationId, [
+        "owner",
+        "admin",
+      ]);
+      await requireOrganizationProductUnlocked(organizationId, scope.productId);
+      const now = new Date().toISOString();
+      const principal: ServicePrincipalRecord = {
+        kind: "service-principal",
+        schemaVersion: 1,
+        servicePrincipalId: newServicePrincipalId(),
+        organizationId: scope.organizationId,
+        productId: scope.productId,
+        name,
+        status: "active",
+        createdBySubjectId: actor.subjectId,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await persistRecord(principal, "service-principal.created", {
+        kind: "subject",
+        subjectId: actor.subjectId,
+      });
+      return principal;
+    }),
+  );
+}
+
+export async function listServicePrincipalsForOrganization(
+  actorId: SubjectId,
+  organizationId: string,
+  productId?: string,
+): Promise<ServicePrincipalRecord[]> {
+  const normalizedProductId = productId === undefined ? undefined : validateProductId(productId);
+  return authMutationQueue.run(async () => {
+    await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
+    return (await listRecordsWithRecovery("service-principal"))
+      .map((item) => item.record)
+      .filter(
+        (principal) =>
+          principal.organizationId === organizationId &&
+          (normalizedProductId === undefined || principal.productId === normalizedProductId),
+      )
+      .sort((left, right) => left.name.localeCompare(right.name));
+  });
+}
+
+export async function updateServicePrincipalStatus(
+  actorId: SubjectId,
+  servicePrincipalId: string,
+  status: "active" | "disabled",
+  expectedProductId?: string,
+): Promise<void> {
+  assertOpaqueId(servicePrincipalId);
+  const normalizedProductId =
+    expectedProductId === undefined ? undefined : validateProductId(expectedProductId);
+  const initial = await loadRecord("service-principal", servicePrincipalId);
+  if (
+    !initial ||
+    (normalizedProductId !== undefined && initial.record.productId !== normalizedProductId)
+  ) {
+    throw new Error("Integration not found.");
+  }
+  await authMutationQueue.run(() =>
+    withOrganizationMutationLock(initial.record.organizationId, async () => {
+      const actor = await requireOrganizationRoleUnlocked(actorId, initial.record.organizationId, [
+        "owner",
+        "admin",
+      ]);
+      const current = await loadRecord("service-principal", servicePrincipalId);
+      if (
+        !current ||
+        current.record.organizationId !== initial.record.organizationId ||
+        (normalizedProductId !== undefined && current.record.productId !== normalizedProductId)
+      ) {
+        throw new Error("Integration not found.");
+      }
+      if (current.record.status === status) return;
+      const updated: ServicePrincipalRecord = {
+        ...current.record,
+        status,
+        updatedAt: new Date().toISOString(),
+      };
+      await persistRecord(
+        updated,
+        status === "disabled" ? "service-principal.disabled" : "service-principal.enabled",
+        { kind: "subject", subjectId: actor.subjectId },
+      );
+      if (status === "disabled") {
+        const keys = (await listRecordsWithRecovery("api-key")).map((item) => item.record);
+        for (const key of keys) {
+          if (key.owner.kind !== "service" || key.owner.servicePrincipalId !== servicePrincipalId)
+            continue;
+          if (key.status === "revoked") continue;
+          await persistRecord(
+            { ...key, status: "revoked", revokedAt: new Date().toISOString() },
+            "api-key.service-principal-disabled",
+            { kind: "subject", subjectId: actor.subjectId },
+          );
+        }
+      }
+    }),
+  );
+}
+
+export async function createApiKeyForServicePrincipal(
+  actorId: SubjectId,
+  servicePrincipalId: string,
+  options: CreateApiKeyOptions,
+): Promise<CreatedApiKey> {
+  assertOpaqueId(servicePrincipalId);
+  const scope = validateScope(options.scope);
+  const actions = validateActions(options.actions);
+  if (
+    options.expiresAt &&
+    (!Number.isFinite(Date.parse(options.expiresAt)) || Date.parse(options.expiresAt) <= Date.now())
+  ) {
+    throw new Error("Choose a future expiration time.");
+  }
+  const rotateId = options.rotateFromApiKeyId;
+  if (rotateId) assertOpaqueId(rotateId);
+  return authMutationQueue.run(() =>
+    withOrganizationMutationLock(scope.organizationId, async () => {
+      const actor = await requireOrganizationRoleUnlocked(actorId, scope.organizationId, [
+        "owner",
+        "admin",
+      ]);
+      const principal = await loadRecord("service-principal", servicePrincipalId);
+      if (
+        !principal ||
+        principal.record.status !== "active" ||
+        principal.record.organizationId !== scope.organizationId ||
+        principal.record.productId !== scope.productId
+      ) {
+        throw new Error("Choose an active integration for this organization and product.");
+      }
+      let previous: ApiKeyRecord | null = null;
+      if (rotateId) {
+        const old = await loadRecord("api-key", rotateId);
+        if (
+          !old ||
+          old.record.owner.kind !== "service" ||
+          old.record.owner.servicePrincipalId !== servicePrincipalId
+        ) {
+          throw new Error("Choose one of this integration's API keys to rotate.");
+        }
+        if (
+          old.record.status !== "active" ||
+          (old.record.expiresAt && Date.parse(old.record.expiresAt) <= Date.now())
+        ) {
+          throw new Error("Only an active, unexpired API key can be rotated.");
+        }
+        if (old.record.scope.organizationId !== scope.organizationId) {
+          throw new Error("A key can only be rotated within its organization.");
+        }
+        previous = old.record;
+      }
+      await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
+      const apiKeyId = newApiKeyId();
+      const token = `pmk_${apiKeyId}_${randomBytes(32).toString("base64url")}`;
+      const now = new Date().toISOString();
+      const record: ApiKeyRecord = {
+        kind: "api-key",
+        schemaVersion: 1,
+        apiKeyId,
+        keyClass: "integration",
+        owner: { kind: "service", servicePrincipalId: servicePrincipalId as ServicePrincipalId },
+        scope,
+        actions,
+        verifier: { algorithm: "sha256", digestHex: hashHex(token) },
+        status: "active",
+        createdAt: now,
+        expiresAt: options.expiresAt,
+        revokedAt: null,
+        rotatedFromApiKeyId: previous?.apiKeyId ?? null,
+      };
+      await persistRecord(
+        record,
+        previous ? "api-key.service-rotated.created" : "api-key.service-created",
+        {
+          kind: "subject",
+          subjectId: actor.subjectId,
+        },
+      );
+      let rotationWarning: string | null = null;
+      if (previous) {
+        try {
+          await persistRecord(
+            { ...previous, status: "revoked", revokedAt: new Date().toISOString() },
+            "api-key.service-rotated.revoked-previous",
+            { kind: "subject", subjectId: actor.subjectId },
+          );
+        } catch {
+          rotationWarning =
+            "The new key was created, but the previous key could not be revoked. Revoke it from the integration key list.";
+        }
+      }
+      return { record, token, rotationWarning };
+    }),
+  );
+}
+
+export async function listApiKeysForServicePrincipal(
+  actorId: SubjectId,
+  servicePrincipalId: string,
+  expectedProductId?: string,
+): Promise<ApiKeyRecord[]> {
+  assertOpaqueId(servicePrincipalId);
+  const normalizedProductId =
+    expectedProductId === undefined ? undefined : validateProductId(expectedProductId);
+  return authMutationQueue.run(async () => {
+    const principal = await loadRecord("service-principal", servicePrincipalId);
+    if (
+      !principal ||
+      (normalizedProductId !== undefined && principal.record.productId !== normalizedProductId)
+    ) {
+      throw new Error("Integration not found.");
+    }
+    await requireOrganizationRoleUnlocked(actorId, principal.record.organizationId, [
+      "owner",
+      "admin",
+    ]);
+    return (await listRecordsWithRecovery("api-key"))
+      .map((item) => item.record)
+      .filter(
+        (key) =>
+          key.owner.kind === "service" && key.owner.servicePrincipalId === servicePrincipalId,
+      )
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  });
+}
+
+export async function revokeServicePrincipalApiKey(
+  actorId: SubjectId,
+  servicePrincipalId: string,
+  apiKeyId: string,
+  expectedProductId?: string,
+): Promise<void> {
+  assertOpaqueId(servicePrincipalId);
+  assertOpaqueId(apiKeyId);
+  const normalizedProductId =
+    expectedProductId === undefined ? undefined : validateProductId(expectedProductId);
+  await authMutationQueue.run(async () => {
+    const principal = await loadRecord("service-principal", servicePrincipalId);
+    const key = await loadRecord("api-key", apiKeyId);
+    if (
+      !principal ||
+      !key ||
+      (normalizedProductId !== undefined && principal.record.productId !== normalizedProductId) ||
+      key.record.owner.kind !== "service" ||
+      key.record.owner.servicePrincipalId !== servicePrincipalId
+    ) {
+      throw new Error("Integration key not found.");
+    }
+    const actor = await requireOrganizationRoleUnlocked(actorId, principal.record.organizationId, [
+      "owner",
+      "admin",
+    ]);
+    if (key.record.status === "revoked") return;
+    await persistRecord(
+      { ...key.record, status: "revoked", revokedAt: new Date().toISOString() },
+      "api-key.service-revoked",
+      { kind: "subject", subjectId: actor.subjectId },
+    );
+  });
+}
+
 export async function createApiKeyForSubject(
   subjectId: SubjectId,
   options: CreateApiKeyOptions,
@@ -1799,11 +2228,42 @@ function parseApiKeyId(token: string): ApiKeyId | null {
 export async function authorizeApiKey(
   token: string,
   input: AuthorizationRequest,
-): Promise<{ authorized: boolean; subjectId?: SubjectId }> {
+  applicationClientId?: string,
+): Promise<{
+  authorized: boolean;
+  subjectId?: SubjectId;
+  servicePrincipalId?: ServicePrincipalId;
+}> {
   const keyId = parseApiKeyId(token);
-  if (!keyId) return { authorized: false };
   const scope = requestScope(input);
   const action = validateActions([input.action])[0];
+  if (!keyId) {
+    const currentSession = await getSessionFromToken(token);
+    if (
+      !currentSession ||
+      !currentSession.session.applicationClientId ||
+      !applicationClientId ||
+      currentSession.session.applicationClientId !== applicationClientId ||
+      currentSession.session.productId !== scope.productId
+    ) {
+      return { authorized: false };
+    }
+    return authMutationQueue.run(async () => {
+      if (
+        !(await organizationMembershipUnlocked(
+          scope.organizationId,
+          currentSession.subject.subjectId,
+        ))
+      ) {
+        return { authorized: false };
+      }
+      await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
+      const authorized = await hasPermission(currentSession.subject.subjectId, scope, action);
+      return authorized
+        ? { authorized: true, subjectId: currentSession.subject.subjectId }
+        : { authorized: false };
+    });
+  }
   const current = await loadRecord("api-key", keyId);
   if (!current) return { authorized: false };
   const key = current.record;
@@ -1812,10 +2272,25 @@ export async function authorizeApiKey(
     (key.expiresAt && Date.parse(key.expiresAt) <= Date.now()) ||
     !equalHex(key.verifier.digestHex, hashHex(token)) ||
     !key.actions.includes(action) ||
-    !keyScopeAllows(key.scope, scope) ||
-    key.owner.kind !== "subject"
+    !keyScopeAllows(key.scope, scope)
   )
     return { authorized: false };
+  if (key.owner.kind === "service") {
+    const principal = await loadRecord("service-principal", key.owner.servicePrincipalId);
+    if (
+      !principal ||
+      principal.record.status !== "active" ||
+      principal.record.organizationId !== scope.organizationId ||
+      principal.record.productId !== scope.productId
+    ) {
+      return { authorized: false };
+    }
+    await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
+    return {
+      authorized: true,
+      servicePrincipalId: principal.record.servicePrincipalId,
+    };
+  }
   const subject = await loadRecord("subject", key.owner.subjectId);
   if (!subject || subject.record.status !== "active" || !subject.record.emailVerifiedAt) {
     return { authorized: false };

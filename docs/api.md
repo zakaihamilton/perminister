@@ -6,17 +6,50 @@ The web interface provides organization onboarding and switching, product and te
 
 Registration creates a stable UUID identity and a salted scrypt password verifier. Passwords must be at least 15 characters. Email addresses are normalized to lowercase and checked against Perminister's private directory event log. Registration does not merge any existing application account. Because multiple app instances can write concurrently, Spaces alone cannot guarantee uniqueness during simultaneous registrations; detected duplicate registrations stop directory reads for manual reconciliation. Email verification is sent when Resend is configured, but an unverified account can sign in. An emailed password-recovery link proves control of the registered address and verifies it if needed.
 
-Human sessions use a random, opaque browser token in an HttpOnly, SameSite=Lax cookie; production cookies are Secure. Only a SHA-256 verifier is stored in Spaces. Sessions expire after 12 hours. Signing out revokes the current session. Changing a password increments the account auth version, invalidating every prior session. Server Actions perform their own authorization checks and use Next.js POST and Origin/Host protections; the browser session cookie is not accepted by the bearer authorization API.
+Perminister dashboard sessions use a random, opaque browser token in an HttpOnly, SameSite=Lax cookie; production cookies are Secure. Only a SHA-256 verifier is stored in Spaces. Sessions expire after 12 hours. Signing out revokes the current session. Changing a password increments the account auth version, invalidating every prior session. Server Actions perform their own authorization checks and use Next.js POST and Origin/Host protections. Product sessions are separate and are accepted by the bearer authorization API only when bound to the matching configured application client and product.
+
+## Consumer application authentication
+
+Visitoring, PostParticle, and other first-party product servers can authenticate users through Perminister while keeping their own branded login, registration, verification, and recovery screens. The flow is browser → product backend → Perminister. Only the trusted product backend calls these endpoints and sends the product credentials in `X-Perminister-Client-Id` and `X-Perminister-Client-Secret`; never put the client secret in browser code or logs. The product backend puts the returned session token in that product's own Secure, HttpOnly, SameSite cookie. Browser sessions remain independent between products.
+
+Configure `PERMINISTER_APP_CLIENT_IDS` as a comma-separated allowlist. For each ID, configure `PERMINISTER_APP_CLIENT_{ID}_SECRET` with a random secret of at least 32 characters. For example, `visitoring` can be bound to product ID `visitoring`, and `postparticle` to `postparticle`. Product IDs are lowercased and must match the ID used in that organization's Perminister product catalog. The optional `PERMINISTER_APP_CLIENT_{ID}_ORIGIN` must be an HTTPS origin in production; verification and recovery emails then link to the product's `/auth/verify-email` and `/auth/reset-password` pages with a one-time token. Those pages submit the token to the corresponding Perminister endpoint. Without an app origin, email links use Perminister's own pages.
+
+`POST /api/auth/consumer/register` accepts `email` and `password`. It creates one central identity and requests email verification, returning the same `202 {"accepted":true}` response for new and existing addresses. The endpoint does not join the new identity to an organization; an organization invitation or manager action grants that access.
+
+`POST /api/auth/consumer/login` accepts `email` and `password`. A verified account receives an opaque 12-hour `sessionToken`, the stable `subjectId`, and the organizations where that account is an active member and the configured product exists. The response includes the product-specific permissions for each organization. The product backend should set its own Secure, HttpOnly, SameSite cookie containing the session token and keep the token out of browser JavaScript. `GET /api/auth/consumer/session` validates that token and returns the current account and eligible organizations. `DELETE` on the same path revokes it. Password reset and password change increment the account auth version and invalidate every product session.
+
+The product backend sends login requests like this:
+
+```http
+POST /api/auth/consumer/login
+X-Perminister-Client-Id: visitoring
+X-Perminister-Client-Secret: <server-only-secret>
+Content-Type: application/json
+```
+
+```json
+{ "email": "person@example.com", "password": "<password>" }
+```
+
+The response includes `account.subjectId` and an `organizations` array with each organization's ID, display name, role, product ID, and scoped permission grants. Store `sessionToken` in the product's HttpOnly cookie; use `subjectId` and the selected `organizationId` as the stable identity and tenant keys in product-owned records. An unverified account receives `403` with `{"error":"email_verification_required"}`.
+
+`POST /api/auth/consumer/email-verification` accepts either an `email` to request a verification email or a `token` to complete verification. `POST /api/auth/consumer/password-recovery` accepts either an `email` to request recovery or a `token` and new `password` to complete it. Requests by email return a generic accepted response to avoid account enumeration. `PATCH /api/auth/consumer/password` requires the product session plus `currentPassword` and `newPassword`.
+
+Product backends should rate-limit public registration, verification, and recovery requests and add bot protection where appropriate. Perminister throttles failed sign-ins in process memory; like other process-local limits, it is not shared across deployment instances.
+
+The product stores its own profile/preferences and domain data, keyed by Perminister's `subjectId` and the active `organizationId`. It does not create a second password account or treat matching email addresses as linked identities. The app session is product-bound, but organization access is checked separately so a person can switch among organizations that use the same product. The product must still tenant-scope every resource lookup and enforce the authorization decision against its own data. Perminister does not automatically migrate or merge existing Visitoring/PostParticle accounts; each product needs an explicit verified migration or account-linking flow before replacing its current login.
 
 ## Authorization endpoint
 
-`POST /api/authorize` checks a high-entropy API key against both its own scope/actions and the account's active permission grants. Requests use a bearer key and JSON:
+`POST /api/authorize` checks a high-entropy API key against its scope/actions and, for user-owned keys, the account's active permission grants. It also accepts a product-bound consumer session token when the matching application client headers are present. Use a product session to authorize an interactive user's request and a service-principal key for background ingestion or scheduled work. Requests use a bearer token and JSON:
 
 ```http
 POST /api/authorize
 Authorization: Bearer pmk_<api-key-uuid>_<secret>
 Content-Type: application/json
 ```
+
+For a product session, send the same request with `Authorization: Bearer <sessionToken>` and both `X-Perminister-Client-Id` and `X-Perminister-Client-Secret` headers from the product backend.
 
 ```json
 {
@@ -30,7 +63,13 @@ Content-Type: application/json
 
 `resourceKind` is `product`, `project`, or `workspace`. A resource ID is required for the latter two. A product grant can authorize a project or workspace within that product; project and workspace grants must match their corresponding resource. A key must independently allow the requested action and cover the requested scope.
 
-An accepted request returns `200` with `{"authorized":true,"subjectId":"..."}`. A denied, expired, revoked, unknown, or out-of-scope key returns `403` with `{"authorized":false}`. Invalid JSON or fields return `400`; missing bearer credentials return `401`. Responses are not cached. Consumer applications must still load and authorize their own domain resource on their server; the endpoint does not fetch consumer data.
+An accepted user request returns `200` with `{"authorized":true,"subjectId":"..."}`. An accepted service-key request returns `{"authorized":true,"servicePrincipalId":"..."}`. A denied, expired, revoked, unknown, or out-of-scope token returns `403` with `{"authorized":false}`. Invalid JSON or fields return `400`; missing bearer credentials return `401`. Responses are not cached. Consumer applications must still load and authorize their own domain resource on their server; the endpoint does not fetch consumer data.
+
+Organization Owners and Admins can manage server integrations through the consumer-authenticated API. These integration records are scoped to the authenticated product and organization. `GET /api/auth/consumer/integrations?organizationId=...` lists that product's integrations; `POST` to the same route creates one with `organizationId` and `name`. `PATCH /api/auth/consumer/integrations/{servicePrincipalId}` enables or disables an integration. Disabling it revokes its active keys.
+
+`GET` and `POST /api/auth/consumer/integrations/{servicePrincipalId}/keys` list keys or create a key. Creation accepts `organizationId`, `scopeKind` (`product`, `project`, or `workspace`), optional `resourceId`, `actions`, and `expiresAt`; it may also accept `rotateFromApiKeyId` to rotate an existing key. The configured consumer product ID is applied by Perminister. The raw secret is returned only in the create response. `DELETE /api/auth/consumer/integrations/{servicePrincipalId}/keys/{apiKeyId}` revokes a key. For telemetry writers, use a project-scoped key with a narrow action such as `telemetry:write`.
+
+For example, add both `visitoring` and `postparticle` products under Sentry8, add `visitoring` under My Projects, and add `visitoring` under Yochanan. Create an integration under each organization. Under My Projects, issue separate project-scoped `telemetry:write` keys for ShiftingFront, Puzzimori, and HostPresent; those projects can share an integration principal while each key remains limited to its project. All three Visitoring products use the same configured `visitoring` product ID while their organization IDs, memberships, grants, integration principals, and keys remain separate.
 
 `GET /api/auth/session` returns the current account and session expiry for the browser session cookie. It returns `401` when the session is absent or invalid. `GET /api/health` checks process liveness only. `GET /api/ready` makes a limited read request to the configured Spaces bucket and returns `503` when the required storage is unavailable.
 
@@ -58,18 +97,23 @@ In local development only, `PERMINISTER_PUBLIC_ORIGIN` may use `http://localhost
 
 ## Environment
 
-| Variable                        | Required           | Purpose                                                                                     |
-| ------------------------------- | ------------------ | ------------------------------------------------------------------------------------------- |
-| `PERMINISTER_SPACES_ENDPOINT`   | Yes                | Bucket endpoint, `https://perminister.sfo3.digitaloceanspaces.com`                          |
-| `PERMINISTER_SPACES_REGION`     | Yes                | Spaces region, `sfo3`                                                                       |
-| `PERMINISTER_SPACES_BUCKET`     | Yes                | Private bucket, `perminister`                                                               |
-| `PERMINISTER_SPACES_ACCESS_KEY` | Yes                | Server-side Spaces access key                                                               |
-| `PERMINISTER_SPACES_SECRET_KEY` | Yes                | Server-side Spaces secret key                                                               |
-| `PERMINISTER_ADMIN_EMAILS`      | For administration | Comma-separated admin account email addresses                                               |
-| `PERMINISTER_PUBLIC_ORIGIN`     | For email links    | Browser-visible application origin                                                          |
-| `RESEND_API_KEY`                | For email delivery | Server-side Resend API key; never expose to browser code                                    |
-| `PERMINISTER_MAIL_FROM`         | For email delivery | Sender address accepted by Resend; use a verified domain in production                      |
-| `BRAVE_SEARCH_API_KEY`          | For name search    | Optional server-side Brave Search subscription token; direct URL import does not require it |
+| Variable                                 | Required           | Purpose                                                                                     |
+| ---------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------- |
+| `PERMINISTER_SPACES_ENDPOINT`            | Yes                | Bucket endpoint, `https://perminister.sfo3.digitaloceanspaces.com`                          |
+| `PERMINISTER_SPACES_REGION`              | Yes                | Spaces region, `sfo3`                                                                       |
+| `PERMINISTER_SPACES_BUCKET`              | Yes                | Private bucket, `perminister`                                                               |
+| `PERMINISTER_SPACES_ACCESS_KEY`          | Yes                | Server-side Spaces access key                                                               |
+| `PERMINISTER_SPACES_SECRET_KEY`          | Yes                | Server-side Spaces secret key                                                               |
+| `PERMINISTER_ADMIN_EMAILS`               | For administration | Comma-separated admin account email addresses                                               |
+| `PERMINISTER_APP_CLIENT_IDS`             | For product auth   | Comma-separated first-party product client IDs                                              |
+| `PERMINISTER_APP_CLIENT_{ID}_SECRET`     | For product auth   | Server-only client secret, at least 32 characters, for each configured client ID            |
+| `PERMINISTER_APP_CLIENT_{ID}_NAME`       | Optional           | Product name used in verification and recovery emails; defaults to the client ID            |
+| `PERMINISTER_APP_CLIENT_{ID}_PRODUCT_ID` | Optional           | Product ID bound to that client; defaults to its client ID                                  |
+| `PERMINISTER_APP_CLIENT_{ID}_ORIGIN`     | Optional           | HTTPS app origin for product-branded email verification and recovery links                  |
+| `PERMINISTER_PUBLIC_ORIGIN`              | For email links    | Browser-visible application origin                                                          |
+| `RESEND_API_KEY`                         | For email delivery | Server-side Resend API key; never expose to browser code                                    |
+| `PERMINISTER_MAIL_FROM`                  | For email delivery | Sender address accepted by Resend; use a verified domain in production                      |
+| `BRAVE_SEARCH_API_KEY`                   | For name search    | Optional server-side Brave Search subscription token; direct URL import does not require it |
 
 There is no session signing secret: browser tokens are generated independently with 256 bits of randomness, and only their digests are persisted. Keep `.env.local` out of source control and use Vercel's environment settings for Vercel values.
 

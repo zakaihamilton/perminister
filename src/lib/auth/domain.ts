@@ -18,6 +18,7 @@ export type InvitationId = BrandedId<"InvitationId">;
 export const newSubjectId = (): SubjectId => randomUUID() as SubjectId;
 export const newMembershipId = (): MembershipId => randomUUID() as MembershipId;
 export const newApiKeyId = (): ApiKeyId => randomUUID() as ApiKeyId;
+export const newServicePrincipalId = (): ServicePrincipalId => randomUUID() as ServicePrincipalId;
 export const newEventId = (): EventId => randomUUID() as EventId;
 export const newSessionId = (): SessionId => randomUUID() as SessionId;
 export const newEmailActionId = (): EmailActionId => randomUUID() as EmailActionId;
@@ -147,6 +148,19 @@ export interface MembershipRecord {
   updatedAt: string;
 }
 
+export interface ServicePrincipalRecord {
+  kind: "service-principal";
+  schemaVersion: 1;
+  servicePrincipalId: ServicePrincipalId;
+  organizationId: OrganizationId;
+  productId: ProductId;
+  name: string;
+  status: "active" | "disabled";
+  createdBySubjectId: SubjectId;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type ApiKeyOwner =
   | { kind: "subject"; subjectId: SubjectId }
   | { kind: "service"; servicePrincipalId: ServicePrincipalId };
@@ -176,6 +190,10 @@ export interface SessionRecord {
   /** Digest of the browser-held random session secret. */
   verifierDigestHex: string;
   authVersion: number;
+  /** Present when this session was created for a consumer application. */
+  applicationClientId?: string;
+  /** Product audience for consumer application sessions. */
+  productId?: ProductId;
   createdAt: string;
   expiresAt: string;
   revokedAt: string | null;
@@ -201,6 +219,7 @@ export type AuthRecord =
   | OrganizationInvitationRecord
   | SubjectRecord
   | MembershipRecord
+  | ServicePrincipalRecord
   | ApiKeyRecord
   | SessionRecord
   | EmailActionRecord;
@@ -214,6 +233,7 @@ export type AuthAggregate =
   | { kind: "organization-invitation"; id: InvitationId }
   | { kind: "subject"; id: SubjectId }
   | { kind: "membership"; id: MembershipId }
+  | { kind: "service-principal"; id: ServicePrincipalId }
   | { kind: "api-key"; id: ApiKeyId }
   | { kind: "session"; id: SessionId }
   | { kind: "email-action"; id: EmailActionId }

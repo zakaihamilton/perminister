@@ -1,10 +1,11 @@
 import { authorizeApiKey, type AuthorizationRequest } from "@/lib/auth/service";
+import { authenticateConsumerClient } from "@/lib/auth/consumer-clients";
 
 export const runtime = "nodejs";
 
 const noStoreHeaders = {
   "Cache-Control": "no-store",
-  Vary: "Authorization",
+  Vary: "Authorization, X-Perminister-Client-Id",
 };
 
 class RequestBodyTooLargeError extends Error {}
@@ -106,9 +107,20 @@ export async function POST(request: Request) {
     );
   }
   try {
-    const result = await authorizeApiKey(match[1], body);
+    const isApiKey = /^pmk_[0-9a-f-]{36}_/i.test(match[1]);
+    const client = isApiKey ? null : authenticateConsumerClient(request);
+    if (!isApiKey && (!client || client.productId !== body.productId)) {
+      return Response.json({ authorized: false }, { status: 403, headers: noStoreHeaders });
+    }
+    const result = await authorizeApiKey(match[1], body, client?.clientId);
     return Response.json(
-      result.authorized ? { authorized: true, subjectId: result.subjectId } : { authorized: false },
+      result.authorized
+        ? {
+            authorized: true,
+            ...(result.subjectId ? { subjectId: result.subjectId } : {}),
+            ...(result.servicePrincipalId ? { servicePrincipalId: result.servicePrincipalId } : {}),
+          }
+        : { authorized: false },
       { status: result.authorized ? 200 : 403, headers: noStoreHeaders },
     );
   } catch {

@@ -24,6 +24,7 @@ const RECORD_COLLECTION: Record<AuthRecordKind, string> = {
   "organization-invitation": "organization-invitations",
   subject: "subjects",
   membership: "memberships",
+  "service-principal": "service-principals",
   "api-key": "api-keys",
   session: "sessions",
   "email-action": "email-actions",
@@ -79,6 +80,8 @@ function recordId(record: AuthRecord): string {
       return record.subjectId;
     case "membership":
       return record.membershipId;
+    case "service-principal":
+      return record.servicePrincipalId;
     case "api-key":
       return record.apiKeyId;
     case "session":

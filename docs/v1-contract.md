@@ -13,7 +13,8 @@ Provide a standalone service where organizations manage products, people, and pr
 - Organizations are the customer boundary. Owner, Admin, and Member roles control dashboard pages and actions; the configured platform administrator is restricted to operations work.
 - Each organization owns its product catalog. Product IDs are unique within an organization, and permission/API-key scopes carry the organization ID.
 - Perminister owns user identities, credentials, permission assignments, and API-key creation, rotation, expiration, and revocation.
-- Consumer applications remain entry points and keep their own app sessions, domain data, and server-side resource enforcement. The generic bearer authorization API is available; a branded redirect/callback integration contract remains open.
+- Consumer applications remain entry points and keep branded login pages, their own app sessions, product profile/preferences, domain data, and server-side resource enforcement. Product backends authenticate users through the first-party consumer API and product-bound sessions; redirect-based OIDC is not part of this integration.
+- One product ID can be registered under many organizations. A product-bound application client is restricted to that product, while organization IDs, users, grants, integration identities, and credentials stay tenant-scoped.
 - Perminister checks API-key expiry, revocation, scope, actions, and current grants on each authorization request. This implementation does not cache permission or key status.
 - Account linking remains unimplemented. Any future link must be an explicit, separately verified flow; email matching alone never merges identities.
 
@@ -45,8 +46,8 @@ Provide a standalone service where organizations manage products, people, and pr
 - Each Perminister identity has a stable UUID subject ID, normalized email, scrypt verifier, active/disabled status, email verification time, and auth version. Directory checks enforce uniqueness in ordinary operation; concurrent registrations across app instances can still race because Spaces alone provides no uniqueness primitive.
 - Existing project/workspace accounts are not linked automatically. An explicit verified migration/linking flow is still required for each consumer.
 - Grants carry organization, product, optional project/workspace scope, and action names. Organization Owners and Admins assign them through the dashboard; consumer applications enforce each decision against their own resources.
-- API keys are subject-owned machine credentials with an explicit scope, action list, status, expiry, revocation time, and rotation relationship. The application stores only a SHA-256 verifier of the 256-bit random key secret and displays the raw key only in the create response.
-- Perminister browser sessions use 12-hour HttpOnly, SameSite=Lax cookies (Secure in production). Consumer-app session lifetime, handoff, callback, and logout integration remain open; apps retain their own sessions.
+- User API keys are subject-owned credentials. Service principals are organization/product-scoped machine identities with API keys that carry an explicit resource scope, action list, status, expiry, revocation time, and rotation relationship. The application stores only a SHA-256 verifier of each 256-bit random key secret and displays the raw key only in the create response.
+- Perminister dashboard sessions and product-bound consumer sessions last 12 hours. Product servers exchange credentials with Perminister and maintain their own HttpOnly, SameSite cookies (Secure in production); they call Perminister to validate sessions, list eligible organizations, revoke sessions, and authorize requests.
 
 ## Spaces storage requirements
 
@@ -59,7 +60,7 @@ Provide a standalone service where organizations manage products, people, and pr
 
 ## Implemented code and selected storage contract
 
-The repository contains account registration and sign-in, organization creation/switching, membership and invitation management, product setup from URLs or optional Brave Search, scoped grants, profile and session pages, API-key create/list/rotate/expire/revoke, organization activity, platform operations, and bearer-key authorization. Passwords use Node.js `scrypt` with a random salt and fixed explicit parameters. The app has no external database or local-storage fallback. Email delivery is optional and uses the Resend Email API; verification, recovery, and invitations stay unavailable until the Resend key, sender, and public origin are configured.
+The repository contains account registration and sign-in, organization creation/switching, membership and invitation management, product setup from URLs or optional Brave Search, scoped grants, profile and session pages, user API-key create/list/rotate/expire/revoke, organization activity, platform operations, consumer registration/login/verification/recovery/session APIs, product-bound authorization, and organization/product-scoped service principals with scoped machine keys. Passwords use Node.js `scrypt` with a random salt and fixed explicit parameters. The app has no external database or local-storage fallback. Email delivery is optional and uses the Resend Email API; verification, recovery, and invitations stay unavailable until the Resend key, sender, and public origin are configured.
 
 The adapter uses one private Spaces bucket and these prefixes:
 
@@ -70,6 +71,7 @@ perminister/v1/records/organization-memberships/{organization-membership-uuid}.j
 perminister/v1/records/products/{product-record-uuid}.json
 perminister/v1/records/organization-invitations/{invitation-uuid}.json
 perminister/v1/records/memberships/{membership-uuid}.json
+perminister/v1/records/service-principals/{service-principal-uuid}.json
 perminister/v1/records/api-keys/{api-key-uuid}.json
 perminister/v1/records/sessions/{session-uuid}.json
 perminister/v1/records/email-actions/{action-uuid}.json
@@ -79,6 +81,7 @@ perminister/v1/events/organization-membership/{organization-membership-uuid}/{ev
 perminister/v1/events/product/{product-record-uuid}/{event-uuid}.json
 perminister/v1/events/organization-invitation/{invitation-uuid}/{event-uuid}.json
 perminister/v1/events/membership/{membership-uuid}/{event-uuid}.json
+perminister/v1/events/service-principal/{service-principal-uuid}/{event-uuid}.json
 perminister/v1/events/api-key/{api-key-uuid}/{event-uuid}.json
 perminister/v1/events/session/{session-uuid}/{event-uuid}.json
 perminister/v1/events/email-action/{action-uuid}/{event-uuid}.json
@@ -113,17 +116,16 @@ References: [Spaces S3 compatibility](https://docs.digitalocean.com/products/spa
 
 ## Remaining decisions and deployment work
 
-1. Consumer-app redirect/callback integration and how each app establishes its own local session.
-2. A verified legacy account-linking and migration contract.
-3. All mutations use process-local coordination only and can race across serverless instances. Duplicate event revisions and duplicate directory registrations are rejected when detected, but Spaces alone cannot guarantee cross-instance mutual exclusion or uniqueness.
-4. If consumer apps cache authorization responses, each integration must choose a maximum cache age and outage behavior. The current authorization route itself does not cache.
-5. Decide whether new API-key classes beyond user-owned integration keys are needed.
-6. Define event compaction and retention before directory and audit history becomes large.
-7. Configure a Resend API key and a sender from a verified domain before enabling email verification/recovery in production.
+1. Integrate Visitoring and PostParticle backends with the consumer APIs, set their product-owned session cookies, and implement their branded verification/recovery pages. Add a verified legacy account-linking or migration flow before replacing each product's existing login.
+2. All mutations use process-local coordination only and can race across serverless instances. Duplicate event revisions and duplicate directory registrations are rejected when detected, but Spaces alone cannot guarantee cross-instance mutual exclusion or uniqueness.
+3. If consumer apps cache authorization responses, each integration must choose a maximum cache age and outage behavior. The current authorization route itself does not cache.
+4. Define event compaction and retention before directory and audit history becomes large.
+5. Configure a Resend API key and a sender from a verified domain before enabling email verification/recovery in production.
 
 ## First vertical slice
 
-1. Register and verify a new Perminister identity, create an organization, and invite a teammate.
-2. Add a product, grant a product/project/workspace action, and verify it with `POST /api/authorize` using the matching organization ID and a narrowly scoped API key.
-3. Rotate, expire, and revoke the API key; confirm the authorization route reflects the changes from Spaces.
-4. Exercise replay after an interrupted event/snapshot write and document the multi-record recovery procedure before production writes.
+1. Register and verify a new Perminister identity, create an organization, add a product, and invite a teammate.
+2. Configure a first-party app client, sign in through the consumer API, store the product-bound session in the product's cookie, and verify organization discovery and interactive authorization.
+3. Create an organization/product service principal, issue a project-scoped machine key, and verify telemetry authorization for that project while another project's request is denied.
+4. Rotate, expire, and revoke the user and service keys; confirm the authorization route reflects the changes from Spaces.
+5. Exercise replay after an interrupted event/snapshot write and document the multi-record recovery procedure before production writes.

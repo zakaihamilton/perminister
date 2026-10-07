@@ -76,29 +76,50 @@ async function sendWithResend(message: OutboundEmail): Promise<void> {
   }
 }
 
-export async function sendVerificationEmail(email: string, token: string): Promise<void> {
-  const origin = publicOrigin();
-  const link = new URL("/verify-email", origin);
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character] ??
+      character,
+  );
+}
+
+export async function sendVerificationEmail(
+  email: string,
+  token: string,
+  appOrigin?: string | null,
+  appName = "Perminister",
+): Promise<void> {
+  const origin = appOrigin ? new URL(appOrigin) : publicOrigin();
+  const safeAppName = escapeHtml(appName);
+  const link = new URL(appOrigin ? "/auth/verify-email" : "/verify-email", origin);
   link.searchParams.set("token", token);
   const safeLink = link.toString();
   await sendWithResend({
     to: email,
-    subject: "Verify your Perminister email address",
-    text: `Confirm your Perminister email address within 30 minutes: ${safeLink}`,
-    html: `<p>Confirm your Perminister email address within 30 minutes:</p><p><a href="${safeLink}">Verify email</a></p>`,
+    subject: `Verify your ${appName} account`,
+    text: `Confirm your ${appName} account within 30 minutes: ${safeLink}`,
+    html: `<p>Confirm your ${safeAppName} account within 30 minutes:</p><p><a href="${safeLink}">Verify email</a></p>`,
   });
 }
 
-export async function sendRecoveryEmail(email: string, token: string): Promise<void> {
-  const origin = publicOrigin();
-  const link = new URL("/reset-password", origin);
+export async function sendRecoveryEmail(
+  email: string,
+  token: string,
+  appOrigin?: string | null,
+  appName = "Perminister",
+): Promise<void> {
+  const origin = appOrigin ? new URL(appOrigin) : publicOrigin();
+  const safeAppName = escapeHtml(appName);
+  const link = new URL(appOrigin ? "/auth/reset-password" : "/reset-password", origin);
   link.searchParams.set("token", token);
   const safeLink = link.toString();
   await sendWithResend({
     to: email,
-    subject: "Reset your Perminister password",
-    text: `Reset your Perminister password within 30 minutes: ${safeLink}`,
-    html: `<p>Reset your Perminister password within 30 minutes:</p><p><a href="${safeLink}">Reset password</a></p>`,
+    subject: `Reset your ${appName} password`,
+    text: `Reset your ${appName} password within 30 minutes: ${safeLink}`,
+    html: `<p>Reset your ${safeAppName} password within 30 minutes:</p><p><a href="${safeLink}">Reset password</a></p>`,
   });
 }
 

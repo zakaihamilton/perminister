@@ -40,7 +40,9 @@ export default async function SessionsPage({
                   <strong>
                     {session.sessionId === current.session.sessionId
                       ? "This device"
-                      : "Signed-in device"}
+                      : session.applicationClientId
+                        ? `${session.applicationClientId} app session`
+                        : "Signed-in device"}
                   </strong>
                   <span className="record-meta">
                     Signed in {new Date(session.createdAt).toLocaleString()}
