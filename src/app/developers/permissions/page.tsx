@@ -73,8 +73,10 @@ export default function PermissionsPage() {
               <h2 id="enforcement-title">Enforcement stays with the consumer</h2>
               <p>
                 <code className="code-label">POST /api/authorize</code> checks the organization,
-                product, resource, action, membership, bearer key, and current grants. The consumer
-                application still loads and enforces access against its own resource.
+                product, resource, and action. App sessions and user-owned keys require an active
+                product membership and current grant. Service-principal keys use their configured
+                scope and actions and require an active integration. The consumer application still
+                loads and enforces access against its own resource.
               </p>
             </div>
             <div className="steps">
@@ -93,8 +95,10 @@ export default function PermissionsPage() {
                 <div>
                   <h3>Compare scope and actions</h3>
                   <p>
-                    Check that the identity or API key has a grant for the correct consumer and
-                    resource, with the action required by the request.
+                    For an app session or user-owned key, check that the account has an active grant
+                    for the requested action and resource. For a service-principal key, Perminister
+                    checks that key&apos;s configured scope and actions and the integration&apos;s
+                    active status.
                   </p>
                 </div>
               </article>
@@ -114,11 +118,15 @@ export default function PermissionsPage() {
 
         <aside className="guide-aside" aria-label="Permission guidance">
           <section className="aside-card">
-            <h2>Use current grants</h2>
+            <h2>Use current authorization state</h2>
             <p>
-              Perminister evaluates the current key and grant state for each authorization request.
-              If your application caches decisions, choose an expiration that fits your access
-              revocation needs.
+              Perminister evaluates current memberships and grants for app sessions and user-owned
+              keys. Service-principal keys are checked against their own scope, actions, and active
+              integration status. Deny a protected operation unless authorization returns
+              <code className="code-label">200</code> with{" "}
+              <code className="code-label">authorized: true</code>; treat errors and timeouts as
+              denied. If your application caches decisions, choose an expiration that fits your
+              access revocation needs.
             </p>
             <ul className="secure-list">
               <li>

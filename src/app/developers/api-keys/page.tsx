@@ -6,7 +6,7 @@ import { CheckIcon, KeyIcon } from "@/components/site-shell";
 const lifecycle = [
   {
     title: "Create with a narrow scope",
-    body: "Choose product, project, or workspace scope, only the actions needed, and an expiration. The effective authorization is limited by the account's active grants too.",
+    body: "For a user-owned key, choose product, project, or workspace scope, only the actions needed, and an expiration. Its effective authorization is also limited by the owner's current active grants.",
   },
   {
     title: "Copy the secret once",
@@ -29,8 +29,8 @@ export default function ApiKeysPage() {
       <div className="guide-grid">
         <section className="guide-panel" aria-labelledby="lifecycle-title">
           <div className="guide-panel-head">
-            <h2 id="lifecycle-title">Key lifecycle</h2>
-            <p>Create and manage keys from the signed-in dashboard.</p>
+            <h2 id="lifecycle-title">User-owned key lifecycle</h2>
+            <p>Create and manage user-owned keys from the signed-in dashboard.</p>
           </div>
           <div className="steps">
             {lifecycle.map((item, index) => (
@@ -60,6 +60,19 @@ export default function ApiKeysPage() {
             </p>
           </section>
           <section className="aside-card">
+            <h2>Choose the right key owner</h2>
+            <p>
+              User-owned keys follow the owner&apos;s current product membership and grants on every
+              authorization request. Use a service-principal key for unattended work: its configured
+              scope and actions apply while the integration is active, independent of the
+              creator&apos;s later grants. Create and manage service keys through the{" "}
+              <a href="https://github.com/zakaihamilton/perminister/blob/main/docs/api.md">
+                consumer integration API
+              </a>
+              . Disabling an integration revokes its keys; re-enabling it does not restore them.
+            </p>
+          </section>
+          <section className="aside-card">
             <h2>Authorization request</h2>
             <pre className="code-block">
               <code>{`POST /api/authorize
@@ -76,7 +89,7 @@ Content-Type: application/json
             </pre>
             <p>
               See <Link href="/developers/permissions">permission scopes</Link> for evaluation rules
-              and <Link href="/dashboard">the dashboard</Link> to create a key.
+              and <Link href="/dashboard">the dashboard</Link> to create a user-owned key.
             </p>
           </section>
           <section className="aside-card">
@@ -98,9 +111,6 @@ Content-Type: application/json
           </section>
         </aside>
       </div>
-      <p className="guide-next-link">
-        Next: <Link href="/developers/permissions">review permission scopes</Link>.
-      </p>
     </DeveloperGuideLayout>
   );
 }
