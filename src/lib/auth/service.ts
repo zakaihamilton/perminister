@@ -2680,16 +2680,19 @@ export async function authorizeApiKey(
       return { authorized: false };
     }
     return authMutationQueue.run(async () => {
-      if (
-        !(await organizationMembershipUnlocked(
-          scope.organizationId,
-          currentSession.subject.subjectId,
-        ))
-      ) {
+      if (!(await loadApprovedOrganizationUnlocked(scope.organizationId))) {
+        return { authorized: false };
+      }
+      const productMembership = await store().readOrganizationMembership(
+        scope.organizationId,
+        currentSession.subject.subjectId,
+        scope.productId,
+      );
+      if (!productMembership || productMembership.status !== "active") {
         return { authorized: false };
       }
       await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
-      const authorized = await hasPermission(currentSession.subject.subjectId, scope, action);
+      const authorized = productMembershipHasPermission(productMembership, scope, action);
       return authorized
         ? { authorized: true, subjectId: currentSession.subject.subjectId }
         : { authorized: false };
