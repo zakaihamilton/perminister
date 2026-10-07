@@ -40,7 +40,8 @@ const accessLevels = [
 function WelcomeAccessIllustration() {
   return (
     <svg
-      aria-labelledby="welcome-graphic-title welcome-graphic-description"
+      aria-describedby="welcome-graphic-description"
+      aria-label="Organization access overview"
       className="welcome-hero-illustration"
       focusable="false"
       height="760"
@@ -49,7 +50,6 @@ function WelcomeAccessIllustration() {
       width="1000"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <title id="welcome-graphic-title">Organization access overview</title>
       <desc id="welcome-graphic-description">
         A workspace dashboard groups an organization, its products, team members, and protected
         permissions.
@@ -132,6 +132,7 @@ function WelcomeAccessIllustration() {
         <rect x="131" y="75" width="130" height="12" rx="6" fill="#20354d" />
         <rect x="131" y="94" width="84" height="7" rx="3.5" fill="#a6b5c6" />
         <rect x="772" y="73" width="111" height="34" rx="17" fill="#f1f5f9" />
+        <circle className="welcome-graphic-status-halo" cx="791" cy="90" r="9" fill="#48a77c" />
         <circle cx="791" cy="90" r="5" fill="#48a77c" />
         <rect x="803" y="86" width="61" height="8" rx="4" fill="#728398" />
         <circle cx="909" cy="90" r="19" fill="#dbe8f4" />
@@ -434,11 +435,6 @@ export default function HomePage() {
 
           <figure className="welcome-hero-figure">
             <WelcomeAccessIllustration />
-            <figcaption>
-              <span>Organization</span>
-              <span>People</span>
-              <span>Product access</span>
-            </figcaption>
           </figure>
         </section>
 
