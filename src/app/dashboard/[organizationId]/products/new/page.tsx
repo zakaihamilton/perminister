@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { ProductSetupForm } from "@/components/product-setup-form";
-import { getCurrentSession, getOrganizationForSubject } from "@/lib/auth/service";
+import { getOrganizationForSubject } from "@/lib/auth/service";
+import { getOrganizationDashboardRequestContext } from "@/lib/auth/organization-dashboard-context";
 
 export default async function NewProductPage({
   params,
@@ -11,9 +12,10 @@ export default async function NewProductPage({
   params: Promise<{ organizationId: string }>;
   searchParams: Promise<{ error?: string }>;
 }) {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const [{ organizationId }, query] = await Promise.all([params, searchParams]);
+  const { current, organizationId, query } = await getOrganizationDashboardRequestContext(
+    params,
+    searchParams,
+  );
   const organization = await getOrganizationForSubject(
     current.subject.subjectId,
     organizationId,
@@ -23,8 +25,6 @@ export default async function NewProductPage({
   return (
     <>
       <DashboardHeading
-        eyebrow="Products"
-        title="Create a product"
         description="Start with your website and review the details before adding the product."
         action={
           <Link className="button button-secondary" href={`/dashboard/${organizationId}/products`}>

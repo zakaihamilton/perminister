@@ -1,10 +1,10 @@
-import Link from "next/link";
 import {
   retireLegacyAccessAction,
   reviewOrganizationRequestAction,
   updateAccountStatusAction,
 } from "@/app/actions";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
+import { BreadcrumbBar } from "@/components/dashboard-breadcrumbs";
 import { SiteFooter, SiteHeader } from "@/components/site-shell";
 import {
   getCurrentSession,
@@ -36,14 +36,10 @@ export default async function OperationsPage({
       <SiteHeader active="dashboard" authenticated />
       <main className="page-shell operations-page-shell">
         <div className="container operations-page">
-          <header className="operations-topline">
-            <Link href="/dashboard">← Back to dashboard</Link>
-          </header>
-          <DashboardHeading
-            eyebrow="Restricted tools"
-            title="Platform operations"
-            description="Review organization requests, support accounts, and retire unscoped legacy access."
+          <BreadcrumbBar
+            items={[{ label: "Dashboard", href: "/dashboard" }, { label: "Platform operations" }]}
           />
+          <DashboardHeading description="Review organization requests, support accounts, and retire unscoped legacy access." />
           {query.error === "migration" ? (
             <DashboardNotice
               message="Legacy access could not be retired. Check storage and retry."

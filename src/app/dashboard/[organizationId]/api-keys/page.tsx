@@ -56,8 +56,6 @@ export default async function ApiKeysPage({
   return (
     <>
       <DashboardHeading
-        eyebrow="Workspace"
-        title="API keys"
         description="Review your keys here. Create and manage them from the product they belong to."
         action={
           canCreate ? (

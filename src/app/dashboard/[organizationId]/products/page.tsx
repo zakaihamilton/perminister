@@ -27,8 +27,6 @@ export default async function ProductsPage({
   return (
     <>
       <DashboardHeading
-        eyebrow="Workspace"
-        title="Products"
         description="Manage the products in this organization and the access attached to each one."
         action={
           canManage ? (

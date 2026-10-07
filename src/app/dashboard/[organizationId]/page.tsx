@@ -45,8 +45,6 @@ export default async function OrganizationOverview({
   return (
     <>
       <DashboardHeading
-        eyebrow={organization.organization.name}
-        title="Overview"
         description={
           managers
             ? "Manage the organization catalog, then manage each product’s members and access inside that product."

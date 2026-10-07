@@ -36,8 +36,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
   return (
     <>
       <DashboardHeading
-        eyebrow="Products"
-        title={product.name}
         description={product.description || "Product details and stable integration ID."}
         action={
           productActionLinks.length ? (

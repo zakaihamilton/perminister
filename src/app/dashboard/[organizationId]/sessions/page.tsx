@@ -20,11 +20,7 @@ export default async function SessionsPage({
   const returnTo = `/dashboard/${organizationId}/sessions`;
   return (
     <>
-      <DashboardHeading
-        eyebrow="Your account"
-        title="Sessions"
-        description="Review and revoke the devices signed in to your account."
-      />
+      <DashboardHeading description="Review and revoke the devices signed in to your account." />
       {query.notice === "session-revoked" ? (
         <DashboardNotice message="Session revoked." kind="success" />
       ) : null}

@@ -5,13 +5,14 @@ import {
   updateOrganizationMemberRoleAction,
 } from "@/app/actions";
 import { CustomDropdown } from "@/components/custom-dropdown";
+import { PendingInvitations } from "@/components/pending-invitations";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import {
-  getCurrentSession,
   getOrganizationForSubject,
   listOrganizationInvitations,
   listOrganizationMembers,
 } from "@/lib/auth/service";
+import { getOrganizationDashboardRequestContext } from "@/lib/auth/organization-dashboard-context";
 import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 import { redirect } from "next/navigation";
 
@@ -22,9 +23,10 @@ export default async function PeoplePage({
   params: Promise<{ organizationId: string }>;
   searchParams: Promise<{ notice?: string; error?: string }>;
 }) {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const [{ organizationId }, query] = await Promise.all([params, searchParams]);
+  const { current, organizationId, query } = await getOrganizationDashboardRequestContext(
+    params,
+    searchParams,
+  );
   const organization = await getOrganizationForSubject(current.subject.subjectId, organizationId);
   if (organization.membership.role === "member") redirect(`/dashboard/${organizationId}/products`);
   const [members, invitations] = await Promise.all([
@@ -42,11 +44,7 @@ export default async function PeoplePage({
 
   return (
     <>
-      <DashboardHeading
-        eyebrow="Workspace"
-        title="Catalog managers"
-        description="Catalog managers maintain organization and product details. Product roles and permissions are managed inside each product."
-      />
+      <DashboardHeading description="Catalog managers maintain organization and product details. Product roles and permissions are managed inside each product." />
       {query.notice === "invite-sent" ? (
         <DashboardNotice message="Invitation email sent." kind="success" />
       ) : null}
@@ -179,33 +177,11 @@ export default async function PeoplePage({
         </section>
       ) : null}
 
-      {invitations.length ? (
-        <section className="dashboard-card pending-invitations">
-          <div className="dashboard-card-heading">
-            <div>
-              <h2>Pending invitations</h2>
-              <p>Invitations expire after seven days.</p>
-            </div>
-          </div>
-          {invitations.map((invitation) => (
-            <div className="pending-invite-row" key={invitation.invitationId}>
-              <span>
-                <strong>{invitation.email}</strong>
-                <small>
-                  {invitation.role} · expires {new Date(invitation.expiresAt).toLocaleDateString()}
-                </small>
-              </span>
-              <form action={revokeOrganizationInvitationAction}>
-                <input type="hidden" name="organizationId" value={organizationId} />
-                <input type="hidden" name="invitationId" value={invitation.invitationId} />
-                <button className="button button-secondary" type="submit">
-                  Revoke invitation
-                </button>
-              </form>
-            </div>
-          ))}
-        </section>
-      ) : null}
+      <PendingInvitations
+        invitations={invitations}
+        organizationId={organizationId}
+        formAction={revokeOrganizationInvitationAction}
+      />
       <p className="role-help">
         Product Owner and Admin roles, invitations, and permission grants are managed in that
         product’s People and Access pages.
