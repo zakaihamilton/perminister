@@ -33,7 +33,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
   const { subjectId } = await context.params;
   try {
-    await updateConsumerAccount(auth.current.subject.subjectId, auth.client.clientId, subjectId, {
+    await updateConsumerAccount(auth.current.subject.subjectId, auth.client.productId, subjectId, {
       organizationId: body.organizationId,
       productId: auth.client.productId,
       ...(body.status === "active" || body.status === "disabled" ? { status: body.status } : {}),

@@ -192,13 +192,13 @@
       "line": 163
     },
     {
-      "fingerprint": "cdf17bb97cc5552e196b86bb",
+      "fingerprint": "a7a9e0078cbab719dc7e674d",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "lib/auth/service.ts",
-      "line": 1971
+      "line": 1996
     }
   ]
 }

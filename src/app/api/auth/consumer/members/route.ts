@@ -27,7 +27,7 @@ export async function GET(request: Request) {
   try {
     const members = await listConsumerMembers(
       context.current.subject.subjectId,
-      context.client.clientId,
+      context.client.productId,
       {
         ...scope,
         scopeKind: scope.scopeKind as "workspace" | "project",
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   const parsed = await requireConsumerJsonRequest(request, 16 * 1024);
   if (parsed instanceof Response) return parsed;
   const { body, ...context } = parsed;
-  const policy = consumerProductPolicy(context.client.clientId);
+  const policy = consumerProductPolicy(context.client.productId);
   if (
     !isJsonObject(body) ||
     !isConsumerResourceScope(body) ||
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
   try {
     const result = await createConsumerMember(
       context.current.subject.subjectId,
-      context.client.clientId,
+      context.client.productId,
       {
         organizationId: body.organizationId as string,
         productId: context.client.productId,

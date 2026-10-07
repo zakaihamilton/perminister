@@ -15,7 +15,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   const parsed = await requireConsumerJsonRequest(request, 16 * 1024);
   if (parsed instanceof Response) return parsed;
   const { body, ...auth } = parsed;
-  const policy = consumerProductPolicy(auth.client.clientId);
+  const policy = consumerProductPolicy(auth.client.productId);
   if (
     !isJsonObject(body) ||
     !isConsumerResourceScope(body) ||
@@ -33,7 +33,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
   const { subjectId } = await context.params;
   try {
-    await updateConsumerMember(auth.current.subject.subjectId, auth.client.clientId, subjectId, {
+    await updateConsumerMember(auth.current.subject.subjectId, auth.client.productId, subjectId, {
       ...consumerMemberScopeInput(body, auth.client.productId),
       ...(typeof body.role === "string" ? { role: body.role } : {}),
       ...(body.status === "active" || body.status === "disabled" ? { status: body.status } : {}),
@@ -49,7 +49,7 @@ export async function DELETE(request: Request, context: RouteContext) {
   const parsed = await requireConsumerJsonRequest(request, 16 * 1024);
   if (parsed instanceof Response) return parsed;
   const { body, ...auth } = parsed;
-  const policy = consumerProductPolicy(auth.client.clientId);
+  const policy = consumerProductPolicy(auth.client.productId);
   if (
     !isJsonObject(body) ||
     !isConsumerResourceScope(body) ||
@@ -63,7 +63,7 @@ export async function DELETE(request: Request, context: RouteContext) {
   }
   const { subjectId } = await context.params;
   try {
-    await removeConsumerMember(auth.current.subject.subjectId, auth.client.clientId, subjectId, {
+    await removeConsumerMember(auth.current.subject.subjectId, auth.client.productId, subjectId, {
       ...consumerMemberScopeInput(body, auth.client.productId),
     });
     return Response.json({ removed: true }, { headers: NO_STORE_HEADERS });

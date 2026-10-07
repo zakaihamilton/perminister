@@ -358,6 +358,7 @@ function activityPayload(record: AuthRecord): AuthEvent["payload"] {
     payload.productId = record.scope.productId;
     if (record.owner.kind === "subject") payload.subjectId = record.owner.subjectId;
   } else if (record.kind === "consumer-client") {
+    if (record.organizationId) payload.organizationId = record.organizationId;
     payload.productId = record.productId;
     payload.subjectId = record.createdBySubjectId;
   } else if (record.kind === "session" || record.kind === "email-action") {
@@ -1701,6 +1702,15 @@ function consumerClientSummary(record: ConsumerClientRecord): ConsumerClientSumm
   };
 }
 
+function consumerClientIsManageableInOrganization(
+  record: ConsumerClientRecord,
+  organizationId: string,
+): boolean {
+  // Older records did not store their managing organization. A product ID alone cannot prove
+  // which organization owns them when product IDs may be reused across organizations.
+  return record.organizationId === organizationId;
+}
+
 function validateConsumerClientOptions(productId: string, options: CreateConsumerClientOptions) {
   const appName = options.appName.trim().replace(/\s+/g, " ");
   if (!appName || appName.length > 80 || /[\u0000-\u001f\u007f]/.test(appName)) {
@@ -1779,7 +1789,11 @@ export async function listConsumerClientsForProduct(
     ]);
     return (await listRecordsWithRecovery("consumer-client"))
       .map((item) => item.record)
-      .filter((record) => record.productId === normalizedProductId)
+      .filter(
+        (record) =>
+          record.productId === normalizedProductId &&
+          consumerClientIsManageableInOrganization(record, organizationId),
+      )
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
       .map(consumerClientSummary);
   });
@@ -1823,6 +1837,7 @@ export async function createConsumerClient(
         kind: "consumer-client",
         schemaVersion: 1,
         consumerClientId,
+        organizationId: organizationId as OrganizationId,
         productId: normalizedProductId,
         appName: validated.appName,
         appOrigin: validated.appOrigin,
@@ -1860,7 +1875,8 @@ export async function rotateConsumerClient(
       if (
         !found ||
         found.record.productId !== normalizedProductId ||
-        found.record.status !== "active"
+        found.record.status !== "active" ||
+        !consumerClientIsManageableInOrganization(found.record, organizationId)
       ) {
         throw new Error("Choose an active application client for this product.");
       }
@@ -1892,13 +1908,22 @@ export async function revokeConsumerClient(
     productId,
     async (actor, normalizedProductId) => {
       const found = await loadRecord("consumer-client", clientId);
-      if (!found || found.record.productId !== normalizedProductId) {
+      if (
+        !found ||
+        found.record.productId !== normalizedProductId ||
+        !consumerClientIsManageableInOrganization(found.record, organizationId)
+      ) {
         throw new Error("Application client not found.");
       }
       if (found.record.status === "revoked") return;
       const now = new Date().toISOString();
       await persistRecord(
-        { ...found.record, status: "revoked", revokedAt: now, updatedAt: now },
+        {
+          ...found.record,
+          status: "revoked",
+          revokedAt: now,
+          updatedAt: now,
+        },
         "consumer-client.revoked",
         { kind: "subject", subjectId: actor.subjectId },
       );
@@ -2079,8 +2104,15 @@ export interface ConsumerScopedMemberView {
   role: string;
 }
 
-function consumerResourceScope(clientId: string, input: ConsumerMemberScopeInput): ResourceScope {
-  const policy = consumerProductPolicy(clientId);
+function consumerResourceScope(
+  authenticatedProductId: string,
+  input: ConsumerMemberScopeInput,
+): ResourceScope {
+  const normalizedProductId = validateProductId(authenticatedProductId);
+  if (validateProductId(input.productId) !== normalizedProductId) {
+    throw new Error("This application does not manage that product.");
+  }
+  const policy = consumerProductPolicy(normalizedProductId);
   if (!policy || policy.scopeKind !== input.scopeKind) {
     throw new Error("This application does not manage that resource type.");
   }
@@ -2089,13 +2121,13 @@ function consumerResourceScope(clientId: string, input: ConsumerMemberScopeInput
       ? {
           kind: "workspace",
           organizationId: input.organizationId as OrganizationId,
-          productId: input.productId,
+          productId: normalizedProductId,
           workspaceId: input.resourceId,
         }
       : {
           kind: "project",
           organizationId: input.organizationId as OrganizationId,
-          productId: input.productId,
+          productId: normalizedProductId,
           projectId: input.resourceId,
         },
   );
@@ -2111,7 +2143,7 @@ function sameResourceScope(left: ResourceScope, right: ResourceScope): boolean {
 }
 
 function roleGrant(
-  clientId: string,
+  authenticatedProductId: string,
   subjectId: SubjectId,
   scope: ResourceScope,
   role: string,
@@ -2119,7 +2151,7 @@ function roleGrant(
   existing?: MembershipRecord,
 ): MembershipRecord {
   const id = createHash("sha256")
-    .update(`${clientId}:${scope.kind}:${role}`)
+    .update(`${authenticatedProductId}:${scope.kind}:${role}`)
     .digest("hex")
     .slice(0, 32);
   const now = new Date().toISOString();
@@ -2139,10 +2171,10 @@ function roleGrant(
 
 async function requireConsumerScopeManagerUnlocked(
   actorId: SubjectId,
-  clientId: string,
+  authenticatedProductId: string,
   scope: ResourceScope,
 ): Promise<OrganizationMembershipRecord> {
-  const policy = consumerProductPolicy(clientId);
+  const policy = consumerProductPolicy(authenticatedProductId);
   const actor = await loadSubjectUnlocked(actorId);
   requireVerifiedActiveSubject(actor);
   if (consumerProductState(actor, scope.productId).status !== "active") {
@@ -2172,7 +2204,6 @@ async function requireConsumerScopeManagerUnlocked(
 }
 
 function hasConsumerPlatformPermission(
-  clientId: string,
   productMembership: OrganizationMembershipRecord,
   action: string,
 ): boolean {
@@ -2186,11 +2217,15 @@ function hasConsumerPlatformPermission(
 
 async function requireConsumerAccountManagerUnlocked(
   actorId: SubjectId,
-  clientId: string,
+  authenticatedProductId: string,
   organizationId: string,
   productId: string,
 ): Promise<OrganizationMembershipRecord> {
-  const policy = consumerProductPolicy(clientId);
+  const normalizedProductId = validateProductId(authenticatedProductId);
+  if (normalizedProductId !== validateProductId(productId)) {
+    throw new Error("This application does not manage that product.");
+  }
+  const policy = consumerProductPolicy(normalizedProductId);
   if (!policy?.accountManagementAction) {
     throw new Error("This application does not expose global account management.");
   }
@@ -2207,7 +2242,7 @@ async function requireConsumerAccountManagerUnlocked(
   if (
     !membership ||
     membership.status !== "active" ||
-    !hasConsumerPlatformPermission(clientId, membership, policy.accountManagementAction)
+    !hasConsumerPlatformPermission(membership, policy.accountManagementAction)
   ) {
     throw new Error("Platform administrator access is required.");
   }
@@ -2233,12 +2268,12 @@ function usernameForProduct(subject: SubjectRecord, productId: string): string |
 
 export async function listConsumerMembers(
   actorId: SubjectId,
-  clientId: string,
+  authenticatedProductId: string,
   input: ConsumerMemberScopeInput,
 ): Promise<ConsumerScopedMemberView[]> {
-  const scope = consumerResourceScope(clientId, input);
+  const scope = consumerResourceScope(authenticatedProductId, input);
   return authMutationQueue.run(async () => {
-    await requireConsumerScopeManagerUnlocked(actorId, clientId, scope);
+    await requireConsumerScopeManagerUnlocked(actorId, authenticatedProductId, scope);
     const rows = (await store().listOrganizationMemberships(scope.organizationId)).filter(
       (membership) =>
         membership.productId === scope.productId &&
@@ -2360,13 +2395,13 @@ async function ensureConsumerProductMembershipUnlocked(
 }
 
 async function setConsumerMemberRoleUnlocked(
-  clientId: string,
+  authenticatedProductId: string,
   subjectId: SubjectId,
   scope: ResourceScope,
   role: string,
   existing?: MembershipRecord,
 ): Promise<MembershipRecord> {
-  const actions = consumerRoleActions(clientId, role);
+  const actions = consumerRoleActions(authenticatedProductId, role);
   if (!actions) throw new Error("Choose a role supported by this application.");
   const membership = await store().readOrganizationMembership(
     scope.organizationId,
@@ -2376,7 +2411,7 @@ async function setConsumerMemberRoleUnlocked(
   if (!membership || membership.status !== "active") {
     throw new Error("The account is not an active member of this product.");
   }
-  const grant = roleGrant(clientId, subjectId, scope, role, actions, existing);
+  const grant = roleGrant(authenticatedProductId, subjectId, scope, role, actions, existing);
   await persistRecord(grant, "consumer.member-role-updated", {
     kind: "subject",
     subjectId: membership.subjectId,
@@ -2386,29 +2421,29 @@ async function setConsumerMemberRoleUnlocked(
 
 async function isConsumerPlatformAdminUnlocked(
   actorId: SubjectId,
-  clientId: string,
+  authenticatedProductId: string,
   organizationId: string,
   productId: string,
 ): Promise<boolean> {
-  const policy = consumerProductPolicy(clientId);
+  const policy = consumerProductPolicy(authenticatedProductId);
   if (!policy?.accountManagementAction) return false;
   const membership = await store().readOrganizationMembership(organizationId, actorId, productId);
   return (
     !!membership &&
     membership.status === "active" &&
-    hasConsumerPlatformPermission(clientId, membership, policy.accountManagementAction)
+    hasConsumerPlatformPermission(membership, policy.accountManagementAction)
   );
 }
 
 async function setConsumerPlatformAdminUnlocked(
   actorId: SubjectId,
-  clientId: string,
+  authenticatedProductId: string,
   subject: SubjectRecord,
   organizationId: string,
   productId: string,
   enabled: boolean,
 ): Promise<void> {
-  const policy = consumerProductPolicy(clientId);
+  const policy = consumerProductPolicy(authenticatedProductId);
   if (!policy?.accountManagementAction || !policy.platformAdminActions) {
     throw new Error("This application does not expose platform administrator management.");
   }
@@ -2425,7 +2460,7 @@ async function setConsumerPlatformAdminUnlocked(
   const currentGrant = consumerMemberGrant(productMembership, productScope);
   if (enabled) {
     const nextGrant = roleGrant(
-      clientId,
+      authenticatedProductId,
       subject.subjectId,
       productScope,
       "platform-admin",
@@ -2447,14 +2482,14 @@ async function setConsumerPlatformAdminUnlocked(
 
 async function isConsumerIdentitySharedAcrossProductsUnlocked(
   subject: SubjectRecord,
-  clientId: string,
+  authenticatedProductId: string,
   productId: string,
 ): Promise<boolean> {
-  const normalizedClientId = clientId.toLowerCase();
+  const normalizedProductId = authenticatedProductId.toLowerCase();
   if (
     subject.loginIdentifiers?.some((identifier) => identifier.productId !== productId) ||
     subject.consumerProductStates?.some((state) => state.productId !== productId) ||
-    subject.legacySources?.some((source) => source.source !== normalizedClientId)
+    subject.legacySources?.some((source) => source.source !== normalizedProductId)
   ) {
     return true;
   }
@@ -2465,7 +2500,7 @@ async function isConsumerIdentitySharedAcrossProductsUnlocked(
 }
 
 async function protectLastVisitoringAdminUnlocked(
-  clientId: string,
+  authenticatedProductId: string,
   targetId: SubjectId,
   scope: ResourceScope,
   currentGrant: MembershipRecord,
@@ -2473,7 +2508,7 @@ async function protectLastVisitoringAdminUnlocked(
   nextStatus: "active" | "disabled",
 ): Promise<void> {
   if (
-    clientId.toLowerCase() !== "visitoring" ||
+    authenticatedProductId.toLowerCase() !== "visitoring" ||
     currentGrant.status !== "active" ||
     currentGrant.accessRole?.name !== "admin" ||
     (nextRole === "admin" && nextStatus === "active")
@@ -2502,7 +2537,7 @@ async function protectLastVisitoringAdminUnlocked(
 
 export async function createConsumerMember(
   actorId: SubjectId,
-  clientId: string,
+  authenticatedProductId: string,
   input: ConsumerMemberScopeInput & {
     email?: string;
     username?: string;
@@ -2510,8 +2545,8 @@ export async function createConsumerMember(
     role: string;
   },
 ): Promise<{ member: ConsumerScopedMemberView; created: boolean }> {
-  const scope = consumerResourceScope(clientId, input);
-  if (!consumerRoleActions(clientId, input.role)) {
+  const scope = consumerResourceScope(authenticatedProductId, input);
+  if (!consumerRoleActions(authenticatedProductId, input.role)) {
     throw new Error("Choose a role supported by this application.");
   }
   const email = input.email === undefined ? null : canonicalEmail(input.email);
@@ -2520,20 +2555,24 @@ export async function createConsumerMember(
   if (input.password !== undefined) validatePassword(input.password);
   return authMutationQueue.run(() =>
     withOrganizationMutationLock(scope.organizationId, async () => {
-      const actorMembership = await requireConsumerScopeManagerUnlocked(actorId, clientId, scope);
+      const actorMembership = await requireConsumerScopeManagerUnlocked(
+        actorId,
+        authenticatedProductId,
+        scope,
+      );
       let subject = (
         await findConsumerSubjectUnlocked(input.productId, input.email, input.username)
       ).subject;
       const created = !subject;
       const platformAdmin = await isConsumerPlatformAdminUnlocked(
         actorId,
-        clientId,
+        authenticatedProductId,
         scope.organizationId,
         scope.productId,
       );
       if (!subject) {
         if (!input.password) throw new Error("Provide an initial password for the new account.");
-        if (clientId.toLowerCase() === "postparticle" && !platformAdmin) {
+        if (authenticatedProductId.toLowerCase() === "postparticle" && !platformAdmin) {
           throw new Error("A platform administrator must create this account first.");
         }
         subject = await createAdminProvisionedSubject(
@@ -2550,7 +2589,11 @@ export async function createConsumerMember(
       }
       if (username) {
         const alreadyLinked = usernameForProduct(subject, input.productId) === username;
-        if (!alreadyLinked && !platformAdmin && clientId.toLowerCase() === "postparticle") {
+        if (
+          !alreadyLinked &&
+          !platformAdmin &&
+          authenticatedProductId.toLowerCase() === "postparticle"
+        ) {
           throw new Error("A platform administrator must assign a new PostParticle username.");
         }
         subject = await ensureConsumerUsernameUnlocked(subject, input.productId, username);
@@ -2563,7 +2606,7 @@ export async function createConsumerMember(
       );
       const priorGrant = productMembership ? consumerMemberGrant(productMembership, scope) : null;
       const grant = await setConsumerMemberRoleUnlocked(
-        clientId,
+        authenticatedProductId,
         subject.subjectId,
         scope,
         input.role,
@@ -2586,7 +2629,7 @@ export async function createConsumerMember(
 
 export async function updateConsumerMember(
   actorId: SubjectId,
-  clientId: string,
+  authenticatedProductId: string,
   subjectIdInput: string,
   input: ConsumerMemberScopeInput & {
     role?: string;
@@ -2596,8 +2639,8 @@ export async function updateConsumerMember(
 ): Promise<void> {
   assertOpaqueId(subjectIdInput);
   const subjectId = subjectIdInput as SubjectId;
-  const scope = consumerResourceScope(clientId, input);
-  if (input.role !== undefined && !consumerRoleActions(clientId, input.role)) {
+  const scope = consumerResourceScope(authenticatedProductId, input);
+  if (input.role !== undefined && !consumerRoleActions(authenticatedProductId, input.role)) {
     throw new Error("Choose a role supported by this application.");
   }
   if (input.status === undefined && input.role === undefined && input.password === undefined) {
@@ -2606,14 +2649,17 @@ export async function updateConsumerMember(
   if (input.password !== undefined) validatePassword(input.password);
   await authMutationQueue.run(() =>
     withOrganizationMutationLock(scope.organizationId, async () => {
-      await requireConsumerScopeManagerUnlocked(actorId, clientId, scope);
+      await requireConsumerScopeManagerUnlocked(actorId, authenticatedProductId, scope);
       const platformAdmin = await isConsumerPlatformAdminUnlocked(
         actorId,
-        clientId,
+        authenticatedProductId,
         scope.organizationId,
         scope.productId,
       );
-      if (actorId === subjectId && (clientId.toLowerCase() === "visitoring" || !platformAdmin)) {
+      if (
+        actorId === subjectId &&
+        (authenticatedProductId.toLowerCase() === "visitoring" || !platformAdmin)
+      ) {
         throw new Error("Ask another administrator to change your account.");
       }
       const productMembership = await store().readOrganizationMembership(
@@ -2629,7 +2675,11 @@ export async function updateConsumerMember(
       }
       if (
         subject &&
-        (await isConsumerIdentitySharedAcrossProductsUnlocked(subject, clientId, scope.productId))
+        (await isConsumerIdentitySharedAcrossProductsUnlocked(
+          subject,
+          authenticatedProductId,
+          scope.productId,
+        ))
       ) {
         throw new Error(
           "An administrator cannot reset shared credentials across products; the account owner must.",
@@ -2638,7 +2688,7 @@ export async function updateConsumerMember(
       const nextRole = input.role ?? currentGrant.accessRole?.name ?? null;
       const nextStatus = input.status ?? currentGrant.status;
       await protectLastVisitoringAdminUnlocked(
-        clientId,
+        authenticatedProductId,
         subjectId,
         scope,
         currentGrant,
@@ -2655,7 +2705,7 @@ export async function updateConsumerMember(
       }
       if (input.role !== undefined) {
         nextGrant = await setConsumerMemberRoleUnlocked(
-          clientId,
+          authenticatedProductId,
           subjectId,
           scope,
           input.role,
@@ -2711,11 +2761,14 @@ export async function updateConsumerMember(
 
 export async function removeConsumerMember(
   actorId: SubjectId,
-  clientId: string,
+  authenticatedProductId: string,
   subjectId: string,
   input: ConsumerMemberScopeInput,
 ): Promise<void> {
-  return updateConsumerMember(actorId, clientId, subjectId, { ...input, status: "disabled" });
+  return updateConsumerMember(actorId, authenticatedProductId, subjectId, {
+    ...input,
+    status: "disabled",
+  });
 }
 
 export interface ConsumerAccountView {
@@ -2728,13 +2781,21 @@ export interface ConsumerAccountView {
 
 export async function listConsumerAccounts(
   actorId: SubjectId,
-  clientId: string,
+  authenticatedProductId: string,
   organizationId: string,
   productId: string,
 ): Promise<ConsumerAccountView[]> {
+  if (validateProductId(authenticatedProductId) !== validateProductId(productId)) {
+    throw new Error("This application does not manage that product.");
+  }
   return authMutationQueue.run(async () => {
-    await requireConsumerAccountManagerUnlocked(actorId, clientId, organizationId, productId);
-    const policy = consumerProductPolicy(clientId)!;
+    await requireConsumerAccountManagerUnlocked(
+      actorId,
+      authenticatedProductId,
+      organizationId,
+      productId,
+    );
+    const policy = consumerProductPolicy(authenticatedProductId)!;
     const subjects = (await listRecordsWithRecovery("subject")).map((item) => item.record);
     const result: ConsumerAccountView[] = [];
     for (const subject of subjects) {
@@ -2752,7 +2813,7 @@ export async function listConsumerAccounts(
         status: consumerProductState(subject, productId).status,
         platformAdmin:
           !!membership &&
-          hasConsumerPlatformPermission(clientId, membership, policy.accountManagementAction ?? ""),
+          hasConsumerPlatformPermission(membership, policy.accountManagementAction ?? ""),
       });
     }
     return result.sort((left, right) => left.username.localeCompare(right.username));
@@ -2761,7 +2822,7 @@ export async function listConsumerAccounts(
 
 export async function createConsumerAccount(
   actorId: SubjectId,
-  clientId: string,
+  authenticatedProductId: string,
   input: {
     organizationId: string;
     productId: string;
@@ -2771,8 +2832,11 @@ export async function createConsumerAccount(
     platformAdmin?: boolean;
   },
 ): Promise<{ account: ConsumerAccountView; created: boolean }> {
-  const policy = consumerProductPolicy(clientId);
-  if (clientId.toLowerCase() !== "postparticle" || !policy?.accountManagementAction) {
+  if (validateProductId(authenticatedProductId) !== validateProductId(input.productId)) {
+    throw new Error("This application does not manage that product.");
+  }
+  const policy = consumerProductPolicy(validateProductId(authenticatedProductId));
+  if (authenticatedProductId.toLowerCase() !== "postparticle" || !policy?.accountManagementAction) {
     throw new Error("This application does not expose global account provisioning.");
   }
   const accountManagementAction = policy.accountManagementAction;
@@ -2783,7 +2847,7 @@ export async function createConsumerAccount(
     withOrganizationMutationLock(input.organizationId, async () => {
       await requireConsumerAccountManagerUnlocked(
         actorId,
-        clientId,
+        authenticatedProductId,
         input.organizationId,
         input.productId,
       );
@@ -2808,7 +2872,7 @@ export async function createConsumerAccount(
       if (input.platformAdmin === true) {
         await setConsumerPlatformAdminUnlocked(
           actorId,
-          clientId,
+          authenticatedProductId,
           subject,
           input.organizationId,
           input.productId,
@@ -2822,7 +2886,7 @@ export async function createConsumerAccount(
       );
       const hasPlatformRole =
         !!updatedMembership &&
-        hasConsumerPlatformPermission(clientId, updatedMembership, accountManagementAction);
+        hasConsumerPlatformPermission(updatedMembership, accountManagementAction);
       return {
         created,
         account: {
@@ -2839,7 +2903,7 @@ export async function createConsumerAccount(
 
 export async function updateConsumerAccount(
   actorId: SubjectId,
-  clientId: string,
+  authenticatedProductId: string,
   subjectIdInput: string,
   input: {
     organizationId: string;
@@ -2851,6 +2915,9 @@ export async function updateConsumerAccount(
   },
 ): Promise<void> {
   assertOpaqueId(subjectIdInput);
+  if (validateProductId(authenticatedProductId) !== validateProductId(input.productId)) {
+    throw new Error("This application does not manage that product.");
+  }
   if (actorId === subjectIdInput) throw new Error("You cannot change your own account here.");
   if (
     input.status === undefined &&
@@ -2865,7 +2932,7 @@ export async function updateConsumerAccount(
     withOrganizationMutationLock(input.organizationId, async () => {
       await requireConsumerAccountManagerUnlocked(
         actorId,
-        clientId,
+        authenticatedProductId,
         input.organizationId,
         input.productId,
       );
@@ -2876,7 +2943,11 @@ export async function updateConsumerAccount(
       const currentProductState = consumerProductState(current, input.productId);
       if (
         input.password !== undefined &&
-        (await isConsumerIdentitySharedAcrossProductsUnlocked(current, clientId, input.productId))
+        (await isConsumerIdentitySharedAcrossProductsUnlocked(
+          current,
+          authenticatedProductId,
+          input.productId,
+        ))
       ) {
         throw new Error(
           "An administrator cannot reset shared credentials across products; the account owner must.",
@@ -2885,7 +2956,7 @@ export async function updateConsumerAccount(
       if (input.platformAdmin !== undefined) {
         await setConsumerPlatformAdminUnlocked(
           actorId,
-          clientId,
+          authenticatedProductId,
           current,
           input.organizationId,
           input.productId,
