@@ -112,7 +112,37 @@ export async function sendOrganizationInvitationEmail(
   const link = new URL("/accept-invitation", origin);
   link.searchParams.set("token", token);
   const safeLink = link.toString();
-  const safeName = organizationName.replace(
+  const safeName = escapeHtml(organizationName);
+  await sendWithResend({
+    to: email,
+    subject: `Invitation to join ${organizationName} on Perminister`,
+    text: `You have been invited to join ${organizationName} as an organization ${role}. Accept the invitation within 7 days: ${safeLink}`,
+    html: `<p>You have been invited to join <strong>${safeName}</strong> as an organization ${role}.</p><p><a href="${safeLink}">Accept invitation</a></p><p>This invitation expires in 7 days.</p>`,
+  });
+}
+
+export async function sendProductInvitationEmail(
+  email: string,
+  token: string,
+  productName: string,
+  role: "admin" | "member",
+): Promise<void> {
+  const origin = publicOrigin();
+  const link = new URL("/accept-invitation", origin);
+  link.searchParams.set("token", token);
+  const safeLink = link.toString();
+  const safeName = escapeHtml(productName);
+  const productRole = role === "admin" ? "Product Admin" : "Product Member";
+  await sendWithResend({
+    to: email,
+    subject: `Invitation to join ${productName} on Perminister`,
+    text: `You have been invited to join the ${productName} product as a ${productRole}. This invitation applies to this product only. Accept the invitation within 7 days: ${safeLink}`,
+    html: `<p>You have been invited to join the <strong>${safeName}</strong> product as a ${productRole}.</p><p>This invitation applies to this product only.</p><p><a href="${safeLink}">Accept invitation</a></p><p>This invitation expires in 7 days.</p>`,
+  });
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(
     /[&<>"']/g,
     (character) =>
       ({
@@ -123,10 +153,4 @@ export async function sendOrganizationInvitationEmail(
         "'": "&#39;",
       })[character] ?? character,
   );
-  await sendWithResend({
-    to: email,
-    subject: `Invitation to join ${organizationName} on Perminister`,
-    text: `You have been invited to join ${organizationName} as an organization ${role}. Accept the invitation within 7 days: ${safeLink}`,
-    html: `<p>You have been invited to join <strong>${safeName}</strong> as an organization ${role}.</p><p><a href="${safeLink}">Accept invitation</a></p><p>This invitation expires in 7 days.</p>`,
-  });
 }

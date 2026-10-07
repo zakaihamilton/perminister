@@ -5,8 +5,7 @@ import { updateOrganizationProductAction } from "@/app/actions";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import {
   getCurrentSession,
-  getOrganizationForSubject,
-  getProductForOrganization,
+  getProductAccessForSubject,
 } from "@/lib/auth/service";
 
 export default async function ProductPage({
@@ -19,15 +18,15 @@ export default async function ProductPage({
   const current = await getCurrentSession();
   if (!current) redirect("/login");
   const [{ organizationId, productId }, query] = await Promise.all([params, searchParams]);
-  const [organization, product] = await Promise.all([
-    getOrganizationForSubject(current.subject.subjectId, organizationId),
-    getProductForOrganization(current.subject.subjectId, organizationId, productId).catch(
-      () => null,
-    ),
-  ]);
-  if (!product) notFound();
-  const canManage = organization.membership.role !== "member";
-  if (!canManage) redirect(`/dashboard/${organizationId}/access`);
+  const productAccess = await getProductAccessForSubject(
+    current.subject.subjectId,
+    organizationId,
+    productId,
+  ).catch(() => null);
+  if (!productAccess) notFound();
+  const product = productAccess.product;
+  const canManageDetails = productAccess.catalogManager;
+  const productRole = productAccess.membership?.role;
   return (
     <>
       <DashboardHeading
@@ -35,9 +34,28 @@ export default async function ProductPage({
         title={product.name}
         description={product.description || "Product details and stable integration ID."}
         action={
-          <Link className="button button-secondary" href={`/dashboard/${organizationId}/access`}>
-            Manage access
-          </Link>
+          productRole === "owner" || productRole === "admin" ? (
+            <div className="product-detail-actions">
+              <Link className="button button-secondary" href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/people`}>
+                People
+              </Link>
+              <Link className="button button-secondary" href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access`}>
+                Access
+              </Link>
+              <Link className="button button-secondary" href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/activity`}>
+                Activity
+              </Link>
+            </div>
+          ) : productRole === "member" ? (
+            <div className="product-detail-actions">
+              <Link className="button button-secondary" href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access`}>
+                My access
+              </Link>
+              <Link className="button button-secondary" href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/activity`}>
+                Activity
+              </Link>
+            </div>
+          ) : undefined
         }
       />
       {query.notice === "product-created" ? (
@@ -64,7 +82,7 @@ export default async function ProductPage({
             </a>
           </div>
         </div>
-        {canManage ? (
+        {canManageDetails ? (
           <form action={updateOrganizationProductAction} className="auth-form product-edit-form">
             <input type="hidden" name="organizationId" value={organizationId} />
             <input type="hidden" name="productRecordId" value={product.productRecordId} />

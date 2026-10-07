@@ -26,7 +26,7 @@ export default async function PeoplePage({
   if (!current) redirect("/login");
   const [{ organizationId }, query] = await Promise.all([params, searchParams]);
   const organization = await getOrganizationForSubject(current.subject.subjectId, organizationId);
-  if (organization.membership.role === "member") redirect(`/dashboard/${organizationId}`);
+  if (organization.membership.role === "member") redirect(`/dashboard/${organizationId}/products`);
   const [members, invitations] = await Promise.all([
     listOrganizationMembers(current.subject.subjectId, organizationId),
     listOrganizationInvitations(current.subject.subjectId, organizationId),
@@ -44,8 +44,8 @@ export default async function PeoplePage({
     <>
       <DashboardHeading
         eyebrow="Workspace"
-        title="People"
-        description="Invite teammates and manage their organization roles."
+        title="Catalog managers"
+        description="Catalog managers maintain organization and product details. Product roles and permissions are managed inside each product."
       />
       {query.notice === "invite-sent" ? (
         <DashboardNotice message="Invitation email sent." kind="success" />
@@ -66,10 +66,8 @@ export default async function PeoplePage({
       <section className="dashboard-card people-card">
         <div className="dashboard-card-heading">
           <div>
-            <h2>Team members</h2>
-            <p>
-              {members.length} active {members.length === 1 ? "member" : "members"}
-            </p>
+            <h2>Organization catalog managers</h2>
+            <p>{members.length} active {members.length === 1 ? "manager" : "managers"}</p>
           </div>
         </div>
         <div className="people-list">
@@ -109,7 +107,6 @@ export default async function PeoplePage({
                       options={[
                         { value: "owner", label: "Owner" },
                         { value: "admin", label: "Admin" },
-                        { value: "member", label: "Member" },
                       ]}
                     />
                     <button className="button button-secondary" type="submit">
@@ -136,10 +133,10 @@ export default async function PeoplePage({
         </div>
       </section>
 
-      <section className="dashboard-card invite-card">
+      {owner ? <section className="dashboard-card invite-card">
         <div className="dashboard-card-heading">
           <div>
-            <h2>Invite someone</h2>
+            <h2>Invite a catalog manager</h2>
             <p>They’ll receive a secure invitation link by email.</p>
           </div>
         </div>
@@ -163,11 +160,8 @@ export default async function PeoplePage({
                 aria-label="Role"
                 id="invite-role"
                 name="role"
-                defaultValue="member"
-                options={[
-                  { value: "member", label: "Member" },
-                  ...(owner ? [{ value: "admin", label: "Admin" }] : []),
-                ]}
+                defaultValue="admin"
+                options={[{ value: "admin", label: "Admin" }]}
               />
             </label>
             <button className="button button-primary" type="submit">
@@ -179,7 +173,7 @@ export default async function PeoplePage({
             Invitation email is unavailable until the Perminister operator configures Resend.
           </p>
         )}
-      </section>
+      </section> : null}
 
       {invitations.length ? (
         <section className="dashboard-card pending-invitations">
@@ -209,8 +203,7 @@ export default async function PeoplePage({
         </section>
       ) : null}
       <p className="role-help">
-        Owners manage organization roles and settings. Admins manage products, invitations, and
-        access grants. Members see assigned access and manage their own keys and account.
+        Product Owner and Admin roles, invitations, and permission grants are managed in that product’s People and Access pages.
       </p>
     </>
   );

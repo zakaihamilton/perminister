@@ -1,16 +1,16 @@
 # Authorization storage benchmark
 
-Run `npm run benchmark:auth` to compare authorization work at increasing event-history sizes. The harness exercises `authorizeApiKey` against a model of the Spaces store and counts the `GetObject` and `ListObjectsV2` requests issued by the store methods. It also records the average in-process request time for ten authorizations at each history size.
+Run `npm run benchmark:auth` to model the storage work performed by `authorizeApiKey` at increasing activity-history sizes. The harness counts object reads and `ListObjectsV2` requests and records average local execution time for ten authorizations at each history size.
 
-This benchmark does not include DigitalOcean network latency or bucket response time. Treat the latency column as a local code-path comparison, and the object-read column as the number of modeled object reads. Run a separate read-only benchmark against a dedicated Spaces test tenant before making a storage decision that depends on production latency.
+This benchmark uses an in-memory model of the Spaces store. It verifies the number of object operations made by the authorization path; its local timing is not representative of DigitalOcean network or bucket latency.
 
 Measured on 2026-10-06:
 
-| Events in history | Modeled object reads per authorization | List requests per authorization | Average local time |
-| ----------------: | -------------------------------------: | ------------------------------: | -----------------: |
-|                 0 |                                      6 |                               8 |           0.124 ms |
-|               100 |                                    206 |                               8 |           0.197 ms |
-|               500 |                                  1,006 |                               8 |           0.295 ms |
-|             1,000 |                                  2,006 |                               8 |           0.570 ms |
+| Activity events in bucket | Object reads per authorization | List requests per authorization |
+| ------------------------: | -----------------------------: | ------------------------------: |
+|                         0 |                              4 |                               0 |
+|                       100 |                              4 |                               0 |
+|                       500 |                              4 |                               0 |
+|                     1,000 |                              4 |                               0 |
 
-The model grows by two reads per stored event because a permission check currently scans the full event history twice. Each authorization makes eight list requests in this fixture. These results are recorded for a future storage review; this work keeps Spaces as the only persistent record store.
+Authorization reads the API key, subject, organization, and product membership directly. Product membership contains its permission grants, so activity history does not change the request's storage cost. Product and activity pages still use indexed listings; their listing cost grows with the number of matching records.

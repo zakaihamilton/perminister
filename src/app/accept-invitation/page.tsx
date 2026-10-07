@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { acceptOrganizationInvitationAction } from "@/app/actions";
 import { SiteFooter, SiteHeader } from "@/components/site-shell";
 import { getCurrentSession } from "@/lib/auth/service";
+
+export const metadata: Metadata = {
+  title: "Accept your invitation",
+  description: "Join your organization in Perminister.",
+  robots: { index: false, follow: false },
+};
 
 export default async function AcceptInvitationPage({
   searchParams,

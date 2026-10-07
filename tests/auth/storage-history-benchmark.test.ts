@@ -77,6 +77,19 @@ class ModeledSpacesStore {
     return this.records.get(`${kind}:${id}`) ?? null;
   }
 
+  async readOrganizationMembership(organizationId: string, subjectId: string, productId?: string) {
+    this.objectReads += 1;
+    return [...this.records.values()]
+      .map((value) => value.record)
+      .find(
+        (record): record is Extract<AuthRecord, { kind: "organization-membership" }> =>
+          record.kind === "organization-membership" &&
+          record.organizationId === organizationId &&
+          record.subjectId === subjectId &&
+          (record.productId ?? undefined) === productId,
+      ) ?? null;
+  }
+
   async listEvents(aggregate: AuthEvent["aggregate"]) {
     this.listRequests += 1;
     const events = this.events.filter(
@@ -119,24 +132,36 @@ function seedAuthorizationData(store: ModeledSpacesStore) {
     updatedAt: now,
   } as AuthRecord);
   store.seed({
-    kind: "organization-membership",
+    kind: "organization",
     schemaVersion: 1,
-    organizationMembershipId: ORG_MEMBERSHIP_ID as never,
     organizationId: ORGANIZATION_ID as never,
-    subjectId: SUBJECT_ID as never,
-    role: "member",
-    status: "active",
+    name: "Legacy Organization",
+    createdBySubjectId: SUBJECT_ID as never,
     createdAt: now,
     updatedAt: now,
   } as AuthRecord);
   store.seed({
-    kind: "membership",
+    kind: "organization-membership",
     schemaVersion: 1,
-    membershipId: GRANT_ID as never,
+    organizationMembershipId: ORG_MEMBERSHIP_ID as never,
+    organizationId: ORGANIZATION_ID as never,
+    productId: SCOPE.productId,
     subjectId: SUBJECT_ID as never,
-    scope: SCOPE,
-    grants: [{ scope: SCOPE, actions: ["project.read"] }],
+    role: "member",
     status: "active",
+    permissionGrants: [
+      {
+        kind: "membership",
+        schemaVersion: 1,
+        membershipId: GRANT_ID as never,
+        subjectId: SUBJECT_ID as never,
+        scope: SCOPE,
+        grants: [{ scope: SCOPE, actions: ["project.read"] }],
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
     createdAt: now,
     updatedAt: now,
   } as AuthRecord);
@@ -173,7 +198,7 @@ function historyEvents(count: number): AuthEvent[] {
   })) as AuthEvent[];
 }
 
-describe("modeled Spaces authorization history benchmark", () => {
+describe("modeled v2 Spaces authorization benchmark", () => {
   let store: ModeledSpacesStore;
   let authorizeApiKey: (typeof import("../../src/lib/auth/service"))["authorizeApiKey"];
 
@@ -185,7 +210,7 @@ describe("modeled Spaces authorization history benchmark", () => {
     ({ authorizeApiKey } = await import("../../src/lib/auth/service"));
   });
 
-  it("records latency and object reads as unrelated event history grows", async () => {
+  it("keeps authorization at four direct reads with no list requests as history grows", async () => {
     const results: Array<{
       eventHistory: number;
       averageLatencyMs: number;
@@ -218,7 +243,7 @@ describe("modeled Spaces authorization history benchmark", () => {
     }
 
     console.info("Modeled Spaces authorization benchmark", JSON.stringify(results));
-    expect(results[3].objectReadsPerRequest).toBeGreaterThan(results[0].objectReadsPerRequest);
-    expect(results.every((result) => result.listRequestsPerRequest > 0)).toBe(true);
+    expect(results.every((result) => result.objectReadsPerRequest === 4)).toBe(true);
+    expect(results.every((result) => result.listRequestsPerRequest === 0)).toBe(true);
   });
 });

@@ -1,14 +1,21 @@
 import Link from "next/link";
 import { DeveloperGuideLayout } from "@/components/developer-guide-layout";
 import { CheckIcon, LockIcon } from "@/components/site-shell";
+import { withCanonical } from "@/lib/site-metadata";
+
+export const metadata = withCanonical({
+  title: "Storage and readiness",
+  description:
+    "Review Perminister's ID-keyed DigitalOcean Spaces layout, migration path, and concurrency limits.",
+}, "/developers/storage");
 
 export default function StoragePage() {
   return (
     <DeveloperGuideLayout
       active="storage"
       eyebrow="Developer guide / Storage & readiness"
-      title="Spaces is the only store"
-      intro="Perminister persists identities, password verifiers, sessions, grants, API-key verifiers, and audit events in the configured private DigitalOcean Spaces bucket. There is no database fallback."
+      title="Use the object layout directly"
+      intro="Perminister stores current JSON documents in a private DigitalOcean Space. Organization, product, and subject IDs are the key segments; display names and email addresses stay out of keys. There is no database fallback."
     >
       <div className="guide-grid">
         <div className="guide-main">
@@ -34,8 +41,8 @@ export default function StoragePage() {
                 <strong>perminister</strong>
               </div>
               <div className="storage-fact">
-                <span>Object IDs</span>
-                <strong>Opaque UUIDs</strong>
+                <span>Access boundary</span>
+                <strong>Members per product</strong>
               </div>
               <div className="storage-fact">
                 <span>Credentials</span>
@@ -43,18 +50,19 @@ export default function StoragePage() {
               </div>
             </div>
             <p className="storage-config-note">
-              Set <code className="code-label">PERMINISTER_SPACES_ACCESS_KEY</code> and{" "}
-              <code className="code-label">PERMINISTER_SPACES_SECRET_KEY</code> securely. Keep both
-              credential values blank in templates and out of public environment variables.
+                Set <code className="code-label">PERMINISTER_SPACES_ACCESS_KEY</code>,{" "}
+                <code className="code-label">PERMINISTER_SPACES_SECRET_KEY</code>, and a random{" "}
+                <code className="code-label">PERMINISTER_IDENTITY_INDEX_SECRET</code> securely. Keep all
+                three values server-side and out of public environment variables.
             </p>
           </section>
 
           <section className="guide-panel" aria-labelledby="recovery-title">
             <div className="guide-panel-head">
-              <h2 id="recovery-title">Recoverable mutations and write boundary</h2>
+              <h2 id="recovery-title">Object layout and write boundary</h2>
               <p>
-                Each mutation appends a versioned event before replacing its record snapshot. A
-                later read replays the newest full-record event if the snapshot is missing or stale.
+                The current JSON object is the source of truth. Activity objects record compact
+                change metadata; they do not contain snapshots of current records.
               </p>
             </div>
             <div className="steps">
@@ -64,9 +72,9 @@ export default function StoragePage() {
                   <h3>Understand the multi-instance boundary</h3>
                   <p>
                     The mutation queue and organization locks run inside one app process. Multiple
-                    Vercel instances can race when updating the same Spaces records; detected
-                    event-revision conflicts stop automatic snapshot repair and need manual
-                    reconciliation.
+                    Vercel instances can still race on uniqueness checks, role limits, invitations,
+                    and updates because Spaces does not provide cross-object transactions or a
+                    distributed lock.
                   </p>
                 </div>
               </article>
@@ -76,7 +84,7 @@ export default function StoragePage() {
                   <h3>Enable recovery support</h3>
                   <p>
                     Enable Spaces object versioning and keep a separate backup before production
-                    writes. Spaces does not provide cross-object transactions.
+                    writes. Lookup and activity pointers can be rebuilt from canonical JSON objects.
                   </p>
                 </div>
               </article>
@@ -85,9 +93,20 @@ export default function StoragePage() {
                 <div>
                   <h3>Inspect partial multi-record actions</h3>
                   <p>
-                    Account registration, password recovery, and key rotation can span several
-                    records. If a response is lost, inspect event history before retrying or
-                    manually repairing state.
+                    Account registration and credential changes can span several objects. A failed
+                    pointer write can affect listings even when the canonical record exists; use
+                    the index rebuild command after reviewing the bucket.
+                  </p>
+                </div>
+              </article>
+              <article className="step">
+                <span className="step-number">04</span>
+                <div>
+                  <h3>Run the v1 to v2 cutover</h3>
+                  <p>
+                    Pause app writes and back up the bucket. Run <code>npm run storage:migrate-v1-v2</code>
+                    for a dry run, review the counts, then rerun with <code>-- --apply</code>. The
+                    v1 prefix remains read-only after deployment.
                   </p>
                 </div>
               </article>
@@ -118,14 +137,25 @@ export default function StoragePage() {
                 <CheckIcon />
                 Spaces access key and secret in server environment
               </li>
+              <li>
+                <CheckIcon />
+                HMAC secret for the private email lookup index
+              </li>
             </ul>
           </section>
           <section className="aside-card readiness-card">
-            <h2>Multi-instance write risk</h2>
+            <h2>Four-read authorization</h2>
             <p>
-              Perminister uses DigitalOcean Spaces without a shared lock service. Mutations and rate
-              limits are coordinated per process only, so concurrent Vercel instances can race.
-              Integrity checks surface duplicate revisions, but cannot prevent every race.
+              A bearer-key check reads the key, subject, organization, and product-member JSON
+              directly. It does not list objects or replay historical events. Product membership
+              is still separate from action grants.
+            </p>
+          </section>
+          <section className="aside-card">
+            <h2>Rebuild lookup pointers</h2>
+            <p>
+              Run <code>npm run storage:rebuild-v2-indexes</code> for a dry run. Add <code>-- --apply</code>
+              after reviewing the count to rebuild HMAC email, subject, record, and activity indexes.
             </p>
           </section>
           <section className="aside-card">
@@ -134,13 +164,6 @@ export default function StoragePage() {
               Password recovery and verification require <code>RESEND_API_KEY</code>,{" "}
               <code>PERMINISTER_MAIL_FROM</code>, and <code>PERMINISTER_PUBLIC_ORIGIN</code>. Resend
               must accept the configured sender; missing configuration means no email is sent.
-            </p>
-          </section>
-          <section className="aside-card">
-            <h2>Optional product search</h2>
-            <p>
-              <code>BRAVE_SEARCH_API_KEY</code> enables server-side name search during product
-              setup. Importing directly from a public HTTPS website does not require this setting.
             </p>
           </section>
           <p className="health-note">

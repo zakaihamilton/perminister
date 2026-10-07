@@ -15,12 +15,11 @@ export function DashboardNavigation({
   const canManage = role === "owner" || role === "admin";
   const workspaceLinks = [
     { label: "Overview", href: root, key: "overview" },
-    ...(canManage ? [{ label: "Products", href: `${root}/products`, key: "products" }] : []),
-    { label: "Access", href: `${root}/access`, key: "access" },
+    { label: "Products", href: `${root}/products`, key: "products" },
     { label: "API keys", href: `${root}/api-keys`, key: "api-keys" },
     ...(canManage
       ? [
-          { label: "People", href: `${root}/people`, key: "people" },
+          { label: "Catalog managers", href: `${root}/people`, key: "people" },
           { label: "Activity", href: `${root}/activity`, key: "activity" },
         ]
       : []),
@@ -37,21 +36,19 @@ export function DashboardNavigation({
       ? "overview"
       : pathname.startsWith(`${root}/products`)
         ? "products"
-        : pathname.startsWith(`${root}/access`)
-          ? "access"
-          : pathname.startsWith(`${root}/api-keys`)
-            ? "api-keys"
-            : pathname.startsWith(`${root}/people`)
-              ? "people"
-              : pathname.startsWith(`${root}/activity`)
-                ? "activity"
-                : pathname.startsWith(`${root}/settings`)
-                  ? "settings"
-                  : pathname.startsWith(`${root}/profile`)
-                    ? "profile"
-                    : pathname.startsWith(`${root}/sessions`)
-                      ? "sessions"
-                      : undefined;
+        : pathname.startsWith(`${root}/api-keys`)
+          ? "api-keys"
+          : pathname.startsWith(`${root}/people`)
+            ? "people"
+            : pathname.startsWith(`${root}/activity`)
+              ? "activity"
+              : pathname.startsWith(`${root}/settings`)
+                ? "settings"
+                : pathname.startsWith(`${root}/profile`)
+                  ? "profile"
+                  : pathname.startsWith(`${root}/sessions`)
+                    ? "sessions"
+                    : undefined;
 
   return (
     <nav className="dashboard-nav" aria-label="Dashboard pages">
