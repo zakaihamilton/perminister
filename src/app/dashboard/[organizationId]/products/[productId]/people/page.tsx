@@ -7,33 +7,22 @@ import {
 import { CustomDropdown } from "@/components/custom-dropdown";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { isMailDeliveryConfigured } from "@/lib/auth/mail";
+import { listProductInvitations, listProductMembers } from "@/lib/auth/service";
 import {
-  getProductAccessForSubject,
-  getCurrentSession,
-  listProductInvitations,
-  listProductMembers,
-} from "@/lib/auth/service";
-import { notFound, redirect } from "next/navigation";
+  getProductPageContext,
+  requireProductManagerRole,
+  type ProductPageWithSearchParams,
+} from "@/lib/auth/product-page-context";
 
 export default async function ProductPeoplePage({
   params,
   searchParams,
-}: {
-  params: Promise<{ organizationId: string; productId: string }>;
-  searchParams: Promise<{ notice?: string; error?: string }>;
-}) {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const [{ organizationId, productId }, query] = await Promise.all([params, searchParams]);
-  const access = await getProductAccessForSubject(
-    current.subject.subjectId,
-    organizationId,
-    productId,
-  ).catch(() => null);
-  if (!access) notFound();
-  const role = access.membership?.role;
-  if (role !== "owner" && role !== "admin")
-    redirect(`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}`);
+}: ProductPageWithSearchParams) {
+  const [{ current, organizationId, productId, access }, query] = await Promise.all([
+    getProductPageContext(params),
+    searchParams,
+  ]);
+  const role = requireProductManagerRole(access.membership?.role, organizationId, productId);
 
   const [members, invitations] = await Promise.all([
     listProductMembers(current.subject.subjectId, organizationId, productId),

@@ -36,7 +36,7 @@ export function AccessGrantActionsFields({ roles }: { roles: readonly ProductAcc
       <label htmlFor="grant-access-role">Access role</label>
       <CustomDropdown
         aria-label="Access role"
-        aria-describedby="grant-access-role-help"
+        aria-describedby={customSelected ? undefined : "grant-access-role-help"}
         id="grant-access-role"
         name="accessRoleChoice"
         required

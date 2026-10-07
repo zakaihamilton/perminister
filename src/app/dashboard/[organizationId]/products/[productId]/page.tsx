@@ -1,32 +1,38 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
 import { updateOrganizationProductAction } from "@/app/actions";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { ProductIcon } from "@/components/product-icon";
-import { getCurrentSession, getProductAccessForSubject } from "@/lib/auth/service";
+import {
+  getProductPageContext,
+  type ProductPageWithSearchParams,
+} from "@/lib/auth/product-page-context";
 import { getConsumerClientsForProduct } from "@/lib/auth/consumer-clients";
 
-export default async function ProductPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ organizationId: string; productId: string }>;
-  searchParams: Promise<{ notice?: string }>;
-}) {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const [{ organizationId, productId }, query] = await Promise.all([params, searchParams]);
-  const productAccess = await getProductAccessForSubject(
-    current.subject.subjectId,
-    organizationId,
-    productId,
-  ).catch(() => null);
-  if (!productAccess) notFound();
+export default async function ProductPage({ params, searchParams }: ProductPageWithSearchParams) {
+  const [{ organizationId, productId, access: productAccess }, query] = await Promise.all([
+    getProductPageContext(params),
+    searchParams,
+  ]);
   const product = productAccess.product;
   const canManageDetails = productAccess.catalogManager;
   const productRole = productAccess.membership?.role;
   const connectedClients = getConsumerClientsForProduct(product.productId);
   const canManageProduct = productRole === "owner" || productRole === "admin";
+  const productActionLinks = canManageProduct
+    ? [
+        { path: "people", label: "People" },
+        { path: "access", label: "Access" },
+        { path: "roles", label: "Access roles" },
+        { path: "api-keys", label: "API keys" },
+        { path: "activity", label: "Activity" },
+      ]
+    : productRole === "member"
+      ? [
+          { path: "access", label: "My access" },
+          { path: "api-keys", label: "API keys" },
+          { path: "activity", label: "Activity" },
+        ]
+      : [];
   return (
     <>
       <DashboardHeading
@@ -34,53 +40,17 @@ export default async function ProductPage({
         title={product.name}
         description={product.description || "Product details and stable integration ID."}
         action={
-          productRole === "owner" || productRole === "admin" ? (
+          productActionLinks.length ? (
             <div className="product-detail-actions">
-              <Link
-                className="button button-secondary"
-                href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/people`}
-              >
-                People
-              </Link>
-              <Link
-                className="button button-secondary"
-                href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access`}
-              >
-                Access
-              </Link>
-              <Link
-                className="button button-secondary"
-                href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/api-keys`}
-              >
-                API keys
-              </Link>
-              <Link
-                className="button button-secondary"
-                href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/activity`}
-              >
-                Activity
-              </Link>
-            </div>
-          ) : productRole === "member" ? (
-            <div className="product-detail-actions">
-              <Link
-                className="button button-secondary"
-                href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access`}
-              >
-                My access
-              </Link>
-              <Link
-                className="button button-secondary"
-                href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/api-keys`}
-              >
-                API keys
-              </Link>
-              <Link
-                className="button button-secondary"
-                href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/activity`}
-              >
-                Activity
-              </Link>
+              {productActionLinks.map((link) => (
+                <Link
+                  className="button button-secondary"
+                  href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/${link.path}`}
+                  key={link.path}
+                >
+                  {link.label}
+                </Link>
+              ))}
             </div>
           ) : undefined
         }
@@ -167,17 +137,23 @@ export default async function ProductPage({
               <span className="onboarding-step">03</span>
               <div>
                 <div className="product-onboarding-step-heading">
-                  <h3>Assign access</h3>
+                  <h3>Manage access</h3>
+                  <Link
+                    className="text-link"
+                    href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/roles`}
+                  >
+                    Manage roles
+                  </Link>
                   <Link
                     className="text-link"
                     href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access`}
                   >
-                    Manage access
+                    Grant access
                   </Link>
                 </div>
                 <p>
-                  Create reusable roles for this organization&apos;s product, then choose one and
-                  set the resources it covers when granting access.
+                  Create reusable permission sets on Access roles, then assign them to people on
+                  Access and choose which resources they cover.
                 </p>
               </div>
             </li>
