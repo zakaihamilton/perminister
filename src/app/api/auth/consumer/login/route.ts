@@ -1,24 +1,27 @@
-import { authenticateConsumerClient } from "@/lib/auth/consumer-clients";
 import {
   authenticate,
   createConsumerSession,
   listConsumerOrganizationsForSubject,
 } from "@/lib/auth/service";
-import {
-  isJsonObject,
-  isJsonRequest,
-  NO_STORE_HEADERS,
-  readBoundedJson,
-  RequestBodyTooLargeError,
-} from "@/lib/auth/http";
+import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
+import { requireConsumerClientJsonBody } from "@/lib/auth/consumer-route";
 
 export const runtime = "nodejs";
 
-function isLoginRequest(value: unknown): value is { email: string; password: string } {
+function isLoginRequest(value: unknown): value is {
+  email?: string;
+  identifier?: string;
+  password: string;
+} {
+  const identifier =
+    typeof value === "object" && value !== null
+      ? ((value as Record<string, unknown>).identifier ?? (value as Record<string, unknown>).email)
+      : undefined;
   return (
     isJsonObject(value) &&
-    typeof value.email === "string" &&
-    value.email.length <= 254 &&
+    typeof identifier === "string" &&
+    identifier.length > 0 &&
+    identifier.length <= 254 &&
     typeof value.password === "string" &&
     value.password.length > 0 &&
     value.password.length <= 256
@@ -26,43 +29,12 @@ function isLoginRequest(value: unknown): value is { email: string; password: str
 }
 
 export async function POST(request: Request) {
-  const client = authenticateConsumerClient(request);
-  if (!client) {
-    return Response.json(
-      { error: "Invalid application credentials." },
-      {
-        status: 401,
-        headers: NO_STORE_HEADERS,
-      },
-    );
-  }
-  if (!isJsonRequest(request)) {
-    return Response.json(
-      { error: "Content-Type must be application/json." },
-      {
-        status: 415,
-        headers: NO_STORE_HEADERS,
-      },
-    );
-  }
-
-  let body: unknown;
-  try {
-    body = await readBoundedJson(request);
-  } catch (error) {
-    return Response.json(
-      {
-        error:
-          error instanceof RequestBodyTooLargeError
-            ? "Request body is too large."
-            : "Request body must be valid JSON.",
-      },
-      { status: error instanceof RequestBodyTooLargeError ? 413 : 400, headers: NO_STORE_HEADERS },
-    );
-  }
+  const parsed = await requireConsumerClientJsonBody(request, 8 * 1024);
+  if (parsed instanceof Response) return parsed;
+  const { body, client } = parsed;
   if (!isLoginRequest(body)) {
     return Response.json(
-      { error: "Provide an email address and password." },
+      { error: "Provide a login identifier and password." },
       {
         status: 400,
         headers: NO_STORE_HEADERS,
@@ -71,8 +43,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const subject = await authenticate(body.email, body.password);
-    if (!subject.emailVerifiedAt) {
+    const identifier = body.identifier ?? body.email!;
+    const subject = await authenticate(identifier, body.password, client.productId);
+    if (subject.primaryEmail && !subject.emailVerifiedAt && !subject.emailVerificationExempt) {
       return Response.json(
         { error: "email_verification_required" },
         {
@@ -89,6 +62,7 @@ export async function POST(request: Request) {
       subject.subjectId,
       client.clientId,
       client.productId,
+      client.sessionLifetimeMs,
     );
     return Response.json(
       {
@@ -97,6 +71,10 @@ export async function POST(request: Request) {
         account: {
           subjectId: subject.subjectId,
           email: subject.primaryEmail,
+          username:
+            subject.loginIdentifiers?.find((item) => item.productId === client.productId)?.value ??
+            null,
+          loginIdentifier: identifier,
           firstName: subject.firstName ?? null,
           lastName: subject.lastName ?? null,
         },

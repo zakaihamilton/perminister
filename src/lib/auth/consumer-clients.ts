@@ -8,6 +8,8 @@ export interface ConsumerClient {
   productId: string;
   secret: string;
   appOrigin: string | null;
+  sessionLifetimeMs: number;
+  selfRegistrationEnabled: boolean;
 }
 
 const CLIENT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
@@ -64,7 +66,46 @@ export function getConsumerClient(clientId: string): ConsumerClient | null {
       return null;
     }
   }
-  return { clientId: canonicalClientId, appName, productId, secret, appOrigin };
+  const normalizedClientId = canonicalClientId.toLowerCase();
+  const defaultSessionLifetimeSeconds =
+    normalizedClientId === "visitoring"
+      ? 30 * 24 * 60 * 60
+      : normalizedClientId === "postparticle"
+        ? 8 * 60 * 60
+        : 12 * 60 * 60;
+  const configuredSessionLifetime =
+    process.env[`PERMINISTER_APP_CLIENT_${canonicalSuffix}_SESSION_LIFETIME_SECONDS`]?.trim();
+  const sessionLifetimeSeconds = configuredSessionLifetime
+    ? Number(configuredSessionLifetime)
+    : defaultSessionLifetimeSeconds;
+  if (
+    !Number.isSafeInteger(sessionLifetimeSeconds) ||
+    sessionLifetimeSeconds < 5 * 60 ||
+    sessionLifetimeSeconds > 90 * 24 * 60 * 60
+  ) {
+    return null;
+  }
+  const configuredRegistration = process.env[
+    `PERMINISTER_APP_CLIENT_${canonicalSuffix}_SELF_REGISTRATION_ENABLED`
+  ]
+    ?.trim()
+    .toLowerCase();
+  const firstPartyClient = ["visitoring", "postparticle"].includes(normalizedClientId);
+  if (configuredRegistration && !["true", "false"].includes(configuredRegistration)) return null;
+  const selfRegistrationEnabled = firstPartyClient
+    ? false
+    : configuredRegistration
+      ? configuredRegistration === "true"
+      : true;
+  return {
+    clientId: canonicalClientId,
+    appName,
+    productId,
+    secret,
+    appOrigin,
+    sessionLifetimeMs: sessionLifetimeSeconds * 1000,
+    selfRegistrationEnabled,
+  };
 }
 
 export function getConsumerClientsForProduct(productId: string): ConsumerClient[] {

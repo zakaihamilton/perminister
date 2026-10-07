@@ -18,7 +18,7 @@ import type {
   ProductRecord,
   SubjectId,
 } from "../domain";
-import { assertOpaqueId } from "../domain";
+import { assertOpaqueId, authRecordId } from "../domain";
 import { mapWithConcurrency } from "../concurrency";
 
 const OBJECT_ROOT = "";
@@ -61,31 +61,6 @@ function assertNoPlaintextSecrets(value: unknown, path = "record"): void {
       throw new Error(`Refusing to persist plaintext credential field at ${path}.${key}`);
     }
     assertNoPlaintextSecrets(nested, `${path}.${key}`);
-  }
-}
-
-function recordId(record: AuthRecord): string {
-  switch (record.kind) {
-    case "organization":
-      return record.organizationId;
-    case "organization-membership":
-      return record.organizationMembershipId;
-    case "product":
-      return record.productRecordId;
-    case "organization-invitation":
-      return record.invitationId;
-    case "subject":
-      return record.subjectId;
-    case "membership":
-      return record.membershipId;
-    case "service-principal":
-      return record.servicePrincipalId;
-    case "api-key":
-      return record.apiKeyId;
-    case "session":
-      return record.sessionId;
-    case "email-action":
-      return record.actionId;
   }
 }
 
@@ -159,7 +134,7 @@ function isAuthRecord(value: unknown, kind: AuthRecordKind, id?: string): value 
   if (record.schemaVersion !== 1 || record.kind !== kind) return false;
   if (id !== undefined) {
     try {
-      return recordId(record as AuthRecord) === id;
+      return authRecordId(record as AuthRecord) === id;
     } catch {
       return false;
     }
@@ -350,12 +325,26 @@ export class SpacesAuthStore {
     return value.subjectId as SubjectId;
   }
 
+  async findSubjectIdByUsername(productId: string, username: string): Promise<SubjectId | null> {
+    const product = safeSegment(productId);
+    const normalized = username.trim().toLowerCase();
+    const digest = createHmac("sha256", this.identityIndexSecret)
+      .update(`${product}\0${normalized}`)
+      .digest("hex");
+    const value = await this.readJson<{ subjectId?: unknown }>(
+      `${INDEX_ROOT}/by-product-username/${product}/${digest}.json`,
+    );
+    if (typeof value?.subjectId !== "string") return null;
+    assertOpaqueId(value.subjectId);
+    return value.subjectId as SubjectId;
+  }
+
   async writeRecord(record: AuthRecord): Promise<void> {
     if (record.schemaVersion !== 1) throw new Error("Unsupported auth record schema version");
-    assertOpaqueId(recordId(record));
+    assertOpaqueId(authRecordId(record));
     assertNoPlaintextSecrets(record);
     const key = recordKey(record);
-    await this.writeJson(identityIndexKey(record.kind, recordId(record)), { key });
+    await this.writeJson(identityIndexKey(record.kind, authRecordId(record)), { key });
 
     if (record.kind === "subject" && record.primaryEmail) {
       const normalized = record.primaryEmail.trim().toLowerCase();
@@ -365,6 +354,21 @@ export class SpacesAuthStore {
       await this.writeJson(`${INDEX_ROOT}/by-email/${digest}.json`, {
         subjectId: record.subjectId,
       });
+    }
+    if (record.kind === "subject") {
+      for (const identifier of record.loginIdentifiers ?? []) {
+        const product = safeSegment(identifier.productId);
+        const normalized = identifier.normalizedValue.trim().toLowerCase();
+        if (!normalized || normalized.length > 254) {
+          throw new Error("Invalid product login identifier");
+        }
+        const digest = createHmac("sha256", this.identityIndexSecret)
+          .update(`${product}\0${normalized}`)
+          .digest("hex");
+        await this.writeJson(`${INDEX_ROOT}/by-product-username/${product}/${digest}.json`, {
+          subjectId: record.subjectId,
+        });
+      }
     }
     if (record.kind === "organization-membership") {
       const productPart = record.productId ? safeSegment(record.productId) : "_catalog";

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-07T17:50:12.997Z",
+  "generatedAt": "2026-10-07T19:15:32.344Z",
   "entries": [
     {
       "fingerprint": "a017d277a4da61975ff101f4",
@@ -48,274 +48,40 @@
       "line": 605
     },
     {
-      "fingerprint": "2c21d636cefa04ee1b5af230",
+      "fingerprint": "a0c99683e41b884510f183fc",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/api/auth/consumer/accounts/[subjectId]/route.ts",
+      "line": 4
+    },
+    {
+      "fingerprint": "e1f6451ad12db7e15a1eb6d4",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/api/auth/consumer/accounts/[subjectId]/route.ts",
+      "line": 10
+    },
+    {
+      "fingerprint": "e343daffd2308f6cfe11acd7",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/api/auth/consumer/email-verification/route.ts",
-      "line": 7
+      "line": 6
     },
     {
-      "fingerprint": "79aa9470c8fcc92860cf444b",
+      "fingerprint": "0cac68c22d1a67cc5f69bf84",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
-      "file": "app/api/auth/consumer/email-verification/route.ts",
-      "line": 19
-    },
-    {
-      "fingerprint": "5b5d748aa6125c94a7d0686f",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/email-verification/route.ts",
-      "line": 23
-    },
-    {
-      "fingerprint": "7b34fb8882617b13b23d0f1a",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/email-verification/route.ts",
-      "line": 41
-    },
-    {
-      "fingerprint": "7b34fb8882617b13b23d0f1a",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/email-verification/route.ts",
-      "line": 41
-    },
-    {
-      "fingerprint": "7b34fb8882617b13b23d0f1a",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/email-verification/route.ts",
-      "line": 41
-    },
-    {
-      "fingerprint": "a9f6cd86f5b23420878916ed",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/email-verification/route.ts",
-      "line": 80
-    },
-    {
-      "fingerprint": "6745b76bb8a218a3706c76a1",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/[servicePrincipalId]/keys/[apiKeyId]/route.ts",
-      "line": 9
-    },
-    {
-      "fingerprint": "6745b76bb8a218a3706c76a1",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/[servicePrincipalId]/keys/[apiKeyId]/route.ts",
-      "line": 9
-    },
-    {
-      "fingerprint": "6745b76bb8a218a3706c76a1",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/[servicePrincipalId]/keys/[apiKeyId]/route.ts",
-      "line": 9
-    },
-    {
-      "fingerprint": "6745b76bb8a218a3706c76a1",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/[servicePrincipalId]/keys/[apiKeyId]/route.ts",
-      "line": 9
-    },
-    {
-      "fingerprint": "a0976b67845c54c539fd3af7",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/[servicePrincipalId]/keys/[apiKeyId]/route.ts",
-      "line": 21
-    },
-    {
-      "fingerprint": "8f8ec96d6f7de0854c5fd7fb",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/[servicePrincipalId]/keys/[apiKeyId]/route.ts",
-      "line": 22
-    },
-    {
-      "fingerprint": "cb15d4d30a61e8f2bd65a1dc",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/[servicePrincipalId]/keys/[apiKeyId]/route.ts",
-      "line": 23
-    },
-    {
-      "fingerprint": "cb15d4d30a61e8f2bd65a1dc",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/[servicePrincipalId]/keys/[apiKeyId]/route.ts",
-      "line": 23
-    },
-    {
-      "fingerprint": "0355329f2cfb9c012842d774",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/[servicePrincipalId]/keys/route.ts",
-      "line": 100
-    },
-    {
-      "fingerprint": "b1d2b14d2c54f0507875ad01",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/[servicePrincipalId]/keys/route.ts",
-      "line": 107
-    },
-    {
-      "fingerprint": "0307e63dfba724caa4408a23",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/[servicePrincipalId]/keys/route.ts",
-      "line": 122
-    },
-    {
-      "fingerprint": "019d637548bfd119e3571212",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/[servicePrincipalId]/keys/route.ts",
-      "line": 146
-    },
-    {
-      "fingerprint": "019d637548bfd119e3571212",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/[servicePrincipalId]/keys/route.ts",
-      "line": 146
-    },
-    {
-      "fingerprint": "019d637548bfd119e3571212",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/[servicePrincipalId]/keys/route.ts",
-      "line": 146
-    },
-    {
-      "fingerprint": "db9b86e6e873f0c6113333e9",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/[servicePrincipalId]/keys/route.ts",
-      "line": 183
-    },
-    {
-      "fingerprint": "bc7b052e19f22d25230925b4",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/[servicePrincipalId]/route.ts",
-      "line": 40
-    },
-    {
-      "fingerprint": "bc7b052e19f22d25230925b4",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/[servicePrincipalId]/route.ts",
-      "line": 40
-    },
-    {
-      "fingerprint": "c268e0e900bc138553c2ce82",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/route.ts",
-      "line": 21
-    },
-    {
-      "fingerprint": "c268e0e900bc138553c2ce82",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/route.ts",
-      "line": 21
-    },
-    {
-      "fingerprint": "32e93f9132560039b321951b",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/route.ts",
-      "line": 36
-    },
-    {
-      "fingerprint": "32e93f9132560039b321951b",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/route.ts",
-      "line": 36
-    },
-    {
-      "fingerprint": "03fdcadc70e2a686bbc0a3c7",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/integrations/route.ts",
-      "line": 108
-    },
-    {
-      "fingerprint": "5f44a72c85bf80e9ed1fc352",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/api/auth/consumer/login/route.ts",
-      "line": 26
+      "file": "app/api/auth/consumer/members/[subjectId]/route.ts",
+      "line": 14
     },
     {
       "fingerprint": "b86c9f6d2ead14ae843d6d61",
@@ -426,85 +192,13 @@
       "line": 163
     },
     {
-      "fingerprint": "37bff72719e7473dd550f34f",
+      "fingerprint": "9e71265c08a17882ee6142f8",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "lib/auth/service.ts",
-      "line": 178
-    },
-    {
-      "fingerprint": "d18c65888f8f5dfb170c43a5",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "lib/auth/service.ts",
-      "line": 1513
-    },
-    {
-      "fingerprint": "8758ef1803ff654a6bbf117e",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "lib/auth/service.ts",
-      "line": 1642
-    },
-    {
-      "fingerprint": "8c9c9e8d2fcbcd15f4cae996",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "lib/auth/service.ts",
-      "line": 1653
-    },
-    {
-      "fingerprint": "c94f5d5187a7d080369efc74",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "lib/auth/service.ts",
-      "line": 1756
-    },
-    {
-      "fingerprint": "73c9312db853890646baec7a",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "lib/auth/service.ts",
-      "line": 2437
-    },
-    {
-      "fingerprint": "336adcdc7b1455e69179115d",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "lib/auth/service.ts",
-      "line": 2470
-    },
-    {
-      "fingerprint": "90c26f887c41db4c1f13f3d4",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "lib/auth/service.ts",
-      "line": 2484
-    },
-    {
-      "fingerprint": "b122589e8bcc104f89c099d6",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "lib/auth/service.ts",
-      "line": 2492
+      "line": 1718
     }
   ]
 }

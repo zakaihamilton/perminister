@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createHash, randomBytes, timingSafeEqual, scrypt as scryptCallback } from "node:crypto";
+import { verify as verifyArgon2id } from "@node-rs/argon2";
 import { cookies } from "next/headers";
 import { cache } from "react";
 import { mapWithConcurrency } from "./concurrency";
@@ -9,6 +10,7 @@ import { withOrganizationMutationLock } from "./coordination";
 import { processLocalLoginThrottle } from "./login-throttle";
 import {
   assertOpaqueId,
+  authRecordId,
   newApiKeyId,
   newEmailActionId,
   newEventId,
@@ -21,6 +23,7 @@ import {
   newServicePrincipalId,
   newSubjectId,
   type ApiKeyId,
+  type ApiKeyOwner,
   type ApiKeyRecord,
   type AuthActor,
   type AuthAggregate,
@@ -32,6 +35,9 @@ import {
   type EmailActionRecord,
   type EventId,
   type InvitationId,
+  type LegacyIdentitySource,
+  type ConsumerLoginIdentifier,
+  type ConsumerProductState,
   type MembershipId,
   type MembershipRecord,
   type OrganizationId,
@@ -55,6 +61,7 @@ import {
 } from "./domain";
 import { createSpacesAuthStoreFromEnv, type VersionedRecord } from "./storage/spaces";
 import type { ProductAccessRole } from "./access-roles";
+import { consumerProductPolicy, consumerRoleActions, scopeResourceId } from "./consumer-policy";
 
 const SESSION_COOKIE = "perminister_session";
 const SESSION_LIFETIME_MS = 12 * 60 * 60 * 1000;
@@ -92,6 +99,40 @@ function canonicalEmail(value: string): string {
     throw new Error("Enter a valid email address.");
   }
   return email;
+}
+
+function isEmailVerifiedOrExempt(subject: SubjectRecord): boolean {
+  return (
+    subject.primaryEmail === null || !!subject.emailVerifiedAt || !!subject.emailVerificationExempt
+  );
+}
+
+function consumerProductState(subject: SubjectRecord, productId: string): ConsumerProductState {
+  return (
+    subject.consumerProductStates?.find((state) => state.productId === productId) ?? {
+      productId,
+      status: "active",
+      sessionVersion: 1,
+    }
+  );
+}
+
+function updateConsumerProductState(
+  subject: SubjectRecord,
+  productId: string,
+  status: "active" | "disabled",
+  revokeSessions = false,
+): ConsumerProductState[] {
+  const current = consumerProductState(subject, productId);
+  const next: ConsumerProductState = {
+    productId,
+    status,
+    sessionVersion: current.sessionVersion + (current.status !== status || revokeSessions ? 1 : 0),
+  };
+  return [
+    ...(subject.consumerProductStates ?? []).filter((state) => state.productId !== productId),
+    next,
+  ];
 }
 
 const PERSON_NAME_MAX_LENGTH = 80;
@@ -137,24 +178,96 @@ function scrypt(password: string, salt: Buffer): Promise<Buffer> {
   });
 }
 
+function postParticleScrypt(password: string, salt: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    scryptCallback(
+      password,
+      salt,
+      64,
+      { N: 1 << 14, r: 8, p: 1, maxmem: 64 * 1024 * 1024 },
+      (error, derivedKey) => {
+        if (error) reject(error);
+        else resolve(derivedKey as Buffer);
+      },
+    );
+  });
+}
+
 async function createPasswordCredential(password: string): Promise<PasswordCredential> {
   validatePassword(password);
   const salt = randomBytes(16);
   const digest = await scrypt(password, salt);
   return {
     algorithm: "scrypt",
+    format: "perminister-scrypt-v1",
     encodedVerifier: `scrypt$v=1$N=32768$r=8$p=1$${salt.toString("base64url")}$${digest.toString("base64url")}`,
     updatedAt: new Date().toISOString(),
   };
+}
+
+async function createAdminProvisionedSubject(
+  email: string | null,
+  password: string,
+  actorId: SubjectId,
+): Promise<SubjectRecord> {
+  const now = new Date().toISOString();
+  const subject: SubjectRecord = {
+    kind: "subject",
+    schemaVersion: 1,
+    subjectId: newSubjectId(),
+    status: "active",
+    primaryEmail: email,
+    emailVerifiedAt: null,
+    emailVerificationExempt: true,
+    loginIdentifiers: [],
+    legacySources: [],
+    passwordCredential: await createPasswordCredential(password),
+    authVersion: 1,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await persistRecord(subject, "identity.admin-provisioned", {
+    kind: "subject",
+    subjectId: actorId,
+  });
+  return subject;
 }
 
 async function verifyPassword(
   password: string,
   credential: PasswordCredential | null,
 ): Promise<boolean> {
-  if (!credential || credential.algorithm !== "scrypt") {
+  if (!credential) {
     await scrypt(password, Buffer.alloc(16, 4));
     return false;
+  }
+  if (credential.algorithm === "argon2id") {
+    if (!/^\$argon2id\$v=\d+\$/.test(credential.encodedVerifier)) {
+      await scrypt(password, Buffer.alloc(16, 4));
+      return false;
+    }
+    try {
+      return await verifyArgon2id(credential.encodedVerifier, password);
+    } catch {
+      return false;
+    }
+  }
+  if (
+    credential.format === "postparticle-scrypt-v1" ||
+    /^[a-f0-9]{32}:[a-f0-9]{128}$/i.test(credential.encodedVerifier)
+  ) {
+    const match = /^([a-f0-9]{32}):([a-f0-9]{128})$/i.exec(credential.encodedVerifier);
+    if (!match) {
+      await scrypt(password, Buffer.alloc(16, 4));
+      return false;
+    }
+    try {
+      const expected = Buffer.from(match[2], "hex");
+      const actual = await postParticleScrypt(password, match[1]);
+      return timingSafeEqual(expected, actual);
+    } catch {
+      return false;
+    }
   }
   const parts = credential.encodedVerifier.split("$");
   if (
@@ -176,31 +289,6 @@ async function verifyPassword(
     return timingSafeEqual(expected, actual);
   } catch {
     return false;
-  }
-}
-
-function recordId(record: AuthRecord): string {
-  switch (record.kind) {
-    case "organization":
-      return record.organizationId;
-    case "organization-membership":
-      return record.organizationMembershipId;
-    case "product":
-      return record.productRecordId;
-    case "organization-invitation":
-      return record.invitationId;
-    case "subject":
-      return record.subjectId;
-    case "membership":
-      return record.membershipId;
-    case "service-principal":
-      return record.servicePrincipalId;
-    case "api-key":
-      return record.apiKeyId;
-    case "session":
-      return record.sessionId;
-    case "email-action":
-      return record.actionId;
   }
 }
 
@@ -274,7 +362,7 @@ function activityPayload(record: AuthRecord): AuthEvent["payload"] {
 
 async function persistRecord(record: AuthRecord, type: string, actor: AuthActor): Promise<void> {
   const objectStore = store();
-  const id = recordId(record);
+  const id = authRecordId(record);
   const aggregate = aggregateFor(record.kind, id);
   const now = new Date().toISOString();
   if (record.kind === "membership") {
@@ -323,6 +411,55 @@ async function loadSubjectByEmailUnlocked(email: string): Promise<SubjectRecord 
   return subjectId ? loadSubjectUnlocked(subjectId) : null;
 }
 
+async function loadSubjectByUsernameUnlocked(
+  productId: string,
+  username: string,
+): Promise<SubjectRecord | null> {
+  const subjectId = await store().findSubjectIdByUsername(productId, username);
+  return subjectId ? loadSubjectUnlocked(subjectId) : null;
+}
+
+function normalizeProductUsername(value: string): string {
+  const username = value.trim().toLowerCase();
+  const validUsername = /^[a-z0-9][a-z0-9_-]{0,79}$/.test(username);
+  const validEmail =
+    username.length <= 254 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username) &&
+    !username.includes("..");
+  if (!validUsername && !validEmail) throw new Error("Enter a valid product username.");
+  return username;
+}
+
+function needsPasswordRehash(credential: PasswordCredential | null): boolean {
+  return (
+    !!credential &&
+    (credential.algorithm !== "scrypt" ||
+      (credential.format !== "perminister-scrypt-v1" &&
+        !credential.encodedVerifier.startsWith("scrypt$v=1$N=32768$r=8$p=1$")))
+  );
+}
+
+async function rehashAfterLogin(subject: SubjectRecord, verifiedPassword: string): Promise<void> {
+  if (!needsPasswordRehash(subject.passwordCredential)) return;
+  const passwordCredential = await createPasswordCredential(verifiedPassword);
+  await authMutationQueue.run(async () => {
+    const current = await loadSubjectUnlocked(subject.subjectId);
+    if (
+      !current ||
+      current.status !== "active" ||
+      current.passwordCredential?.encodedVerifier !== subject.passwordCredential?.encodedVerifier ||
+      current.passwordCredential?.algorithm !== subject.passwordCredential?.algorithm
+    ) {
+      return;
+    }
+    await persistRecord(
+      { ...current, passwordCredential, updatedAt: new Date().toISOString() },
+      "credential.password-rehashed",
+      { kind: "subject", subjectId: subject.subjectId },
+    );
+  });
+}
+
 async function loadSubjectUnlocked(subjectId: string): Promise<SubjectRecord | null> {
   const value = await loadRecord("subject", subjectId);
   return value?.record ?? null;
@@ -351,6 +488,9 @@ export async function registerAccount(
       lastName,
       primaryEmail: email,
       emailVerifiedAt: null,
+      emailVerificationExempt: false,
+      loginIdentifiers: [],
+      legacySources: [],
       passwordCredential,
       authVersion: 1,
       createdAt: now,
@@ -389,17 +529,41 @@ export async function updateAccountProfile(
   });
 }
 
-export async function authenticate(emailInput: string, password: string): Promise<SubjectRecord> {
-  const email = canonicalEmail(emailInput);
-  const attempt = processLocalLoginThrottle.beginAttempt(email);
+export async function authenticate(
+  identifierInput: string,
+  password: string,
+  productId?: string,
+): Promise<SubjectRecord> {
+  const identifier = productId
+    ? normalizeProductUsername(identifierInput)
+    : canonicalEmail(identifierInput);
+  const attempt = processLocalLoginThrottle.beginAttempt(
+    productId ? `${productId}:${identifier}` : identifier,
+  );
   try {
-    const subject = await authMutationQueue.run(() => loadSubjectByEmailUnlocked(email));
+    const subject = await authMutationQueue.run(async () => {
+      if (!productId) return loadSubjectByEmailUnlocked(identifier);
+      const emailSubject = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)
+        ? await loadSubjectByEmailUnlocked(identifier)
+        : null;
+      const usernameSubject = await loadSubjectByUsernameUnlocked(productId, identifier);
+      if (emailSubject && usernameSubject && emailSubject.subjectId !== usernameSubject.subjectId) {
+        return null;
+      }
+      return emailSubject ?? usernameSubject;
+    });
     const matched = await verifyPassword(password, subject?.passwordCredential ?? null);
-    if (!subject || subject.status !== "active" || !matched) {
+    if (
+      !subject ||
+      subject.status !== "active" ||
+      !matched ||
+      (productId !== undefined && consumerProductState(subject, productId).status !== "active")
+    ) {
       attempt.recordFailure();
       throw new Error("Email or password is incorrect.");
     }
     attempt.recordSuccess();
+    await rehashAfterLogin(subject, password);
     return subject;
   } catch (error) {
     attempt.release();
@@ -463,14 +627,26 @@ export async function createConsumerSession(
   subjectId: SubjectId,
   clientId: string,
   productId: string,
+  sessionLifetimeMs = SESSION_LIFETIME_MS,
 ): Promise<{ session: SessionRecord; token: string }> {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(clientId)) {
     throw new Error("Choose a valid application client.");
   }
   const normalizedProductId = validateProductId(productId);
+  if (
+    !Number.isSafeInteger(sessionLifetimeMs) ||
+    sessionLifetimeMs < 5 * 60 * 1000 ||
+    sessionLifetimeMs > 90 * 24 * 60 * 60 * 1000
+  ) {
+    throw new Error("Choose a valid consumer session lifetime.");
+  }
   return authMutationQueue.run(async () => {
     const subject = await loadSubjectUnlocked(subjectId);
     requireVerifiedActiveSubject(subject);
+    const productState = consumerProductState(subject, normalizedProductId);
+    if (productState.status !== "active") {
+      throw new Error("This account is disabled for the application.");
+    }
     const sessionId = newSessionId();
     const token = `${sessionId}.${randomBytes(32).toString("base64url")}`;
     const now = new Date();
@@ -483,8 +659,9 @@ export async function createConsumerSession(
       authVersion: subject.authVersion,
       applicationClientId: clientId,
       productId: normalizedProductId,
+      productSessionVersion: productState.sessionVersion,
       createdAt: now.toISOString(),
-      expiresAt: new Date(now.getTime() + SESSION_LIFETIME_MS).toISOString(),
+      expiresAt: new Date(now.getTime() + sessionLifetimeMs).toISOString(),
       revokedAt: null,
     };
     await persistRecord(session, "session.consumer-created", {
@@ -546,7 +723,11 @@ export async function getSessionFromToken(
     if (
       !subject ||
       subject.record.status !== "active" ||
-      subject.record.authVersion !== record.authVersion
+      subject.record.authVersion !== record.authVersion ||
+      (!!record.productId &&
+        (consumerProductState(subject.record, record.productId).status !== "active" ||
+          consumerProductState(subject.record, record.productId).sessionVersion !==
+            (record.productSessionVersion ?? 1)))
     )
       return null;
     return { session: record, subject: subject.record };
@@ -689,8 +870,8 @@ function organizationActivityEntry(event: AuthEvent): OrganizationActivityEntry 
 function requireVerifiedActiveSubject(
   subject: SubjectRecord | null,
 ): asserts subject is SubjectRecord {
-  if (!subject || subject.status !== "active" || !subject.emailVerifiedAt) {
-    throw new Error("An active, email-verified account is required.");
+  if (!subject || subject.status !== "active" || !isEmailVerifiedOrExempt(subject)) {
+    throw new Error("An active account with a verified email is required.");
   }
 }
 
@@ -909,6 +1090,12 @@ export interface ConsumerOrganizationAccess {
   organizationRole: OrganizationRole;
   productId: string;
   permissions: PermissionGrant[];
+  resourceRoles: Array<{
+    scope: ResourceScope;
+    role: string | null;
+    actions: string[];
+  }>;
+  platformAdmin: boolean;
 }
 
 export async function listConsumerOrganizationsForSubject(
@@ -939,19 +1126,26 @@ export async function listConsumerOrganizationsForSubject(
       if (!product) continue;
       const organization = await loadRecord("organization", membership.organizationId);
       if (!organization) continue;
-      const permissions = subjectGrants
-        .filter(
-          (grant) =>
-            grant.scope.organizationId === membership.organizationId &&
-            grant.scope.productId === normalizedProductId,
-        )
-        .flatMap((grant) => grant.grants);
+      const scopedMemberships = subjectGrants.filter(
+        (grant) =>
+          grant.scope.organizationId === membership.organizationId &&
+          grant.scope.productId === normalizedProductId,
+      );
+      const permissions = scopedMemberships.flatMap((grant) => grant.grants);
       results.push({
         organizationId: membership.organizationId,
         organizationName: organization.record.name,
         organizationRole: membership.role,
         productId: normalizedProductId,
         permissions,
+        resourceRoles: scopedMemberships.map((grant) => ({
+          scope: grant.scope,
+          role: grant.accessRole?.name ?? null,
+          actions: grant.grants.flatMap((permission) => [...permission.actions]),
+        })),
+        platformAdmin: scopedMemberships.some(
+          (grant) => grant.scope.kind === "product" && grant.accessRole?.name === "platform-admin",
+        ),
       });
     }
     return results.sort((left, right) =>
@@ -1505,6 +1699,17 @@ export async function listProductPermissionGrants(
   });
 }
 
+async function productMemberMutationContextUnlocked(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  subjectId: SubjectId,
+) {
+  const owner = await requireProductRoleUnlocked(actorId, organizationId, productId, ["owner"]);
+  const current = await store().readOrganizationMembership(organizationId, subjectId, productId);
+  return { owner, current };
+}
+
 export async function updateProductMemberRole(
   actorId: SubjectId,
   organizationId: string,
@@ -1515,11 +1720,11 @@ export async function updateProductMemberRole(
   assertOpaqueId(subjectId);
   await authMutationQueue.run(() =>
     withOrganizationMutationLock(organizationId, async () => {
-      const owner = await requireProductRoleUnlocked(actorId, organizationId, productId, ["owner"]);
-      const current = await store().readOrganizationMembership(
+      const { owner, current } = await productMemberMutationContextUnlocked(
+        actorId,
         organizationId,
-        subjectId as SubjectId,
         productId,
+        subjectId as SubjectId,
       );
       if (!current || current.status !== "active") throw new Error("Product member not found.");
       if (current.role === role) return;
@@ -1551,11 +1756,11 @@ export async function removeProductMember(
   assertOpaqueId(subjectId);
   await authMutationQueue.run(() =>
     withOrganizationMutationLock(organizationId, async () => {
-      const owner = await requireProductRoleUnlocked(actorId, organizationId, productId, ["owner"]);
-      const current = await store().readOrganizationMembership(
+      const { owner, current } = await productMemberMutationContextUnlocked(
+        actorId,
         organizationId,
-        subjectId as SubjectId,
         productId,
+        subjectId as SubjectId,
       );
       if (!current) throw new Error("Product member not found.");
       if (current.status === "active" && current.role === "owner") {
@@ -1605,6 +1810,1468 @@ export async function removeProductMember(
   );
 }
 
+export interface ConsumerMemberScopeInput {
+  organizationId: string;
+  productId: string;
+  scopeKind: "workspace" | "project";
+  resourceId: string;
+}
+
+export interface ConsumerScopedMemberView {
+  subjectId: SubjectId;
+  email: string | null;
+  username: string | null;
+  emailVerified: boolean;
+  active: boolean;
+  role: string;
+}
+
+function consumerResourceScope(clientId: string, input: ConsumerMemberScopeInput): ResourceScope {
+  const policy = consumerProductPolicy(clientId);
+  if (!policy || policy.scopeKind !== input.scopeKind) {
+    throw new Error("This application does not manage that resource type.");
+  }
+  return validateScope(
+    input.scopeKind === "workspace"
+      ? {
+          kind: "workspace",
+          organizationId: input.organizationId as OrganizationId,
+          productId: input.productId,
+          workspaceId: input.resourceId,
+        }
+      : {
+          kind: "project",
+          organizationId: input.organizationId as OrganizationId,
+          productId: input.productId,
+          projectId: input.resourceId,
+        },
+  );
+}
+
+function sameResourceScope(left: ResourceScope, right: ResourceScope): boolean {
+  return (
+    left.organizationId === right.organizationId &&
+    left.productId === right.productId &&
+    left.kind === right.kind &&
+    scopeResourceId(left) === scopeResourceId(right)
+  );
+}
+
+function roleGrant(
+  clientId: string,
+  subjectId: SubjectId,
+  scope: ResourceScope,
+  role: string,
+  actions: readonly string[],
+  existing?: MembershipRecord,
+): MembershipRecord {
+  const id = createHash("sha256")
+    .update(`${clientId}:${scope.kind}:${role}`)
+    .digest("hex")
+    .slice(0, 32);
+  const now = new Date().toISOString();
+  return {
+    kind: "membership",
+    schemaVersion: 1,
+    membershipId: existing?.membershipId ?? newMembershipId(),
+    subjectId,
+    scope,
+    grants: [{ scope, actions: [...actions] }],
+    accessRole: { id: `role-${id}`, name: role },
+    status: "active",
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now,
+  };
+}
+
+async function requireConsumerScopeManagerUnlocked(
+  actorId: SubjectId,
+  clientId: string,
+  scope: ResourceScope,
+): Promise<OrganizationMembershipRecord> {
+  const policy = consumerProductPolicy(clientId);
+  const actor = await loadSubjectUnlocked(actorId);
+  requireVerifiedActiveSubject(actor);
+  if (consumerProductState(actor, scope.productId).status !== "active") {
+    throw new Error("This account is disabled for the application.");
+  }
+  if (
+    !policy ||
+    scope.kind !== policy.scopeKind ||
+    !(await loadApprovedOrganizationUnlocked(scope.organizationId))
+  ) {
+    throw new Error("Resource not found.");
+  }
+  await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
+  const membership = await store().readOrganizationMembership(
+    scope.organizationId,
+    actorId,
+    scope.productId,
+  );
+  if (
+    !membership ||
+    membership.status !== "active" ||
+    !productMembershipHasPermission(membership, scope, policy.memberManagementAction)
+  ) {
+    throw new Error("You do not have permission to manage this resource's members.");
+  }
+  return membership;
+}
+
+function hasConsumerPlatformPermission(
+  clientId: string,
+  productMembership: OrganizationMembershipRecord,
+  action: string,
+): boolean {
+  const productScope: ResourceScope = {
+    kind: "product",
+    organizationId: productMembership.organizationId,
+    productId: productMembership.productId ?? "",
+  };
+  return productMembershipHasPermission(productMembership, productScope, action);
+}
+
+async function requireConsumerAccountManagerUnlocked(
+  actorId: SubjectId,
+  clientId: string,
+  organizationId: string,
+  productId: string,
+): Promise<OrganizationMembershipRecord> {
+  const policy = consumerProductPolicy(clientId);
+  if (!policy?.accountManagementAction) {
+    throw new Error("This application does not expose global account management.");
+  }
+  const actor = await loadSubjectUnlocked(actorId);
+  requireVerifiedActiveSubject(actor);
+  if (consumerProductState(actor, productId).status !== "active") {
+    throw new Error("This account is disabled for the application.");
+  }
+  if (!(await loadApprovedOrganizationUnlocked(organizationId))) {
+    throw new Error("Organization not found.");
+  }
+  await requireOrganizationProductUnlocked(organizationId, productId);
+  const membership = await store().readOrganizationMembership(organizationId, actorId, productId);
+  if (
+    !membership ||
+    membership.status !== "active" ||
+    !hasConsumerPlatformPermission(clientId, membership, policy.accountManagementAction)
+  ) {
+    throw new Error("Platform administrator access is required.");
+  }
+  return membership;
+}
+
+function consumerMemberGrant(
+  membership: OrganizationMembershipRecord,
+  scope: ResourceScope,
+): MembershipRecord | null {
+  return (
+    membership.permissionGrants?.find((grant) => sameResourceScope(grant.scope, scope)) ?? null
+  );
+}
+
+function usernameForProduct(subject: SubjectRecord, productId: string): string | null {
+  return (
+    subject.loginIdentifiers?.find(
+      (identifier) => identifier.kind === "username" && identifier.productId === productId,
+    )?.value ?? null
+  );
+}
+
+export async function listConsumerMembers(
+  actorId: SubjectId,
+  clientId: string,
+  input: ConsumerMemberScopeInput,
+): Promise<ConsumerScopedMemberView[]> {
+  const scope = consumerResourceScope(clientId, input);
+  return authMutationQueue.run(async () => {
+    await requireConsumerScopeManagerUnlocked(actorId, clientId, scope);
+    const rows = (await store().listOrganizationMemberships(scope.organizationId)).filter(
+      (membership) =>
+        membership.productId === scope.productId &&
+        membership.permissionGrants?.some((grant) => sameResourceScope(grant.scope, scope)),
+    );
+    const members: ConsumerScopedMemberView[] = [];
+    for (const membership of rows) {
+      const grant = consumerMemberGrant(membership, scope);
+      if (!grant) continue;
+      const subject = await loadSubjectUnlocked(membership.subjectId);
+      if (!subject) continue;
+      members.push({
+        subjectId: subject.subjectId,
+        email: subject.primaryEmail,
+        username: usernameForProduct(subject, scope.productId),
+        emailVerified: !!subject.emailVerifiedAt,
+        active:
+          subject.status === "active" &&
+          consumerProductState(subject, scope.productId).status === "active" &&
+          membership.status === "active" &&
+          grant.status === "active",
+        role: grant.accessRole?.name ?? "",
+      });
+    }
+    return members.sort((left, right) =>
+      (left.email ?? left.username ?? "").localeCompare(right.email ?? right.username ?? ""),
+    );
+  });
+}
+
+async function findConsumerSubjectUnlocked(
+  productId: string,
+  emailInput?: string,
+  usernameInput?: string,
+): Promise<{ subject: SubjectRecord | null; email: string | null; username: string | null }> {
+  const email = emailInput === undefined ? null : canonicalEmail(emailInput);
+  const username = usernameInput === undefined ? null : normalizeProductUsername(usernameInput);
+  const byEmail = email ? await loadSubjectByEmailUnlocked(email) : null;
+  const byUsername = username ? await loadSubjectByUsernameUnlocked(productId, username) : null;
+  if (byEmail && byUsername && byEmail.subjectId !== byUsername.subjectId) {
+    throw new Error("The email and username belong to different accounts.");
+  }
+  return { subject: byEmail ?? byUsername, email, username };
+}
+
+async function ensureConsumerUsernameUnlocked(
+  subject: SubjectRecord,
+  productId: string,
+  username: string,
+): Promise<SubjectRecord> {
+  const currentUsernameId = await store().findSubjectIdByUsername(productId, username);
+  if (currentUsernameId && currentUsernameId !== subject.subjectId) {
+    throw new Error("That username is already in use.");
+  }
+  const current = subject.loginIdentifiers ?? [];
+  if (
+    current.some(
+      (identifier) =>
+        identifier.kind === "username" &&
+        identifier.productId === productId &&
+        identifier.normalizedValue === username,
+    )
+  ) {
+    return subject;
+  }
+  const next: SubjectRecord = {
+    ...subject,
+    loginIdentifiers: [
+      ...current,
+      { kind: "username", productId, value: username, normalizedValue: username },
+    ],
+    updatedAt: new Date().toISOString(),
+  };
+  await persistRecord(next, "identity.login-identifier-added", {
+    kind: "subject",
+    subjectId: subject.subjectId,
+  });
+  return next;
+}
+
+async function ensureConsumerProductMembershipUnlocked(
+  subject: SubjectRecord,
+  organizationId: string,
+  productId: string,
+): Promise<OrganizationMembershipRecord> {
+  const existing = await store().readOrganizationMembership(
+    organizationId,
+    subject.subjectId,
+    productId,
+  );
+  if (existing) {
+    if (existing.status === "active") return existing;
+    const next = { ...existing, status: "active" as const, updatedAt: new Date().toISOString() };
+    await persistRecord(next, "product.member-reactivated", {
+      kind: "subject",
+      subjectId: subject.subjectId,
+    });
+    return next;
+  }
+  const now = new Date().toISOString();
+  const membership: OrganizationMembershipRecord = {
+    kind: "organization-membership",
+    schemaVersion: 1,
+    organizationMembershipId: newOrganizationMembershipId(),
+    organizationId: organizationId as OrganizationId,
+    productId,
+    subjectId: subject.subjectId,
+    role: "member",
+    status: "active",
+    permissionGrants: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+  await persistRecord(membership, "product.member-added", {
+    kind: "subject",
+    subjectId: subject.subjectId,
+  });
+  return membership;
+}
+
+async function setConsumerMemberRoleUnlocked(
+  clientId: string,
+  subjectId: SubjectId,
+  scope: ResourceScope,
+  role: string,
+  existing?: MembershipRecord,
+): Promise<MembershipRecord> {
+  const actions = consumerRoleActions(clientId, role);
+  if (!actions) throw new Error("Choose a role supported by this application.");
+  const membership = await store().readOrganizationMembership(
+    scope.organizationId,
+    subjectId,
+    scope.productId,
+  );
+  if (!membership || membership.status !== "active") {
+    throw new Error("The account is not an active member of this product.");
+  }
+  const grant = roleGrant(clientId, subjectId, scope, role, actions, existing);
+  await persistRecord(grant, "consumer.member-role-updated", {
+    kind: "subject",
+    subjectId: membership.subjectId,
+  });
+  return grant;
+}
+
+async function isConsumerPlatformAdminUnlocked(
+  actorId: SubjectId,
+  clientId: string,
+  organizationId: string,
+  productId: string,
+): Promise<boolean> {
+  const policy = consumerProductPolicy(clientId);
+  if (!policy?.accountManagementAction) return false;
+  const membership = await store().readOrganizationMembership(organizationId, actorId, productId);
+  return (
+    !!membership &&
+    membership.status === "active" &&
+    hasConsumerPlatformPermission(clientId, membership, policy.accountManagementAction)
+  );
+}
+
+async function setConsumerPlatformAdminUnlocked(
+  actorId: SubjectId,
+  clientId: string,
+  subject: SubjectRecord,
+  organizationId: string,
+  productId: string,
+  enabled: boolean,
+): Promise<void> {
+  const policy = consumerProductPolicy(clientId);
+  if (!policy?.accountManagementAction || !policy.platformAdminActions) {
+    throw new Error("This application does not expose platform administrator management.");
+  }
+  const productMembership = await ensureConsumerProductMembershipUnlocked(
+    subject,
+    organizationId,
+    productId,
+  );
+  const productScope: ResourceScope = {
+    kind: "product",
+    organizationId: organizationId as OrganizationId,
+    productId,
+  };
+  const currentGrant = consumerMemberGrant(productMembership, productScope);
+  if (enabled) {
+    const nextGrant = roleGrant(
+      clientId,
+      subject.subjectId,
+      productScope,
+      "platform-admin",
+      policy.platformAdminActions,
+      currentGrant ?? undefined,
+    );
+    await persistRecord(nextGrant, "consumer.platform-admin-enabled", {
+      kind: "subject",
+      subjectId: actorId,
+    });
+  } else if (currentGrant?.accessRole?.name === "platform-admin") {
+    await persistRecord(
+      { ...currentGrant, status: "disabled", updatedAt: new Date().toISOString() },
+      "consumer.platform-admin-disabled",
+      { kind: "subject", subjectId: actorId },
+    );
+  }
+}
+
+async function isConsumerIdentitySharedAcrossProductsUnlocked(
+  subject: SubjectRecord,
+  clientId: string,
+  productId: string,
+): Promise<boolean> {
+  const normalizedClientId = clientId.toLowerCase();
+  if (
+    subject.loginIdentifiers?.some((identifier) => identifier.productId !== productId) ||
+    subject.consumerProductStates?.some((state) => state.productId !== productId) ||
+    subject.legacySources?.some((source) => source.source !== normalizedClientId)
+  ) {
+    return true;
+  }
+  const productMemberships = await store().listMembershipsForSubject(subject.subjectId);
+  return productMemberships.some(
+    (membership) => !!membership.productId && membership.productId !== productId,
+  );
+}
+
+async function protectLastVisitoringAdminUnlocked(
+  clientId: string,
+  targetId: SubjectId,
+  scope: ResourceScope,
+  currentGrant: MembershipRecord,
+  nextRole: string | null,
+  nextStatus: "active" | "disabled",
+): Promise<void> {
+  if (
+    clientId.toLowerCase() !== "visitoring" ||
+    currentGrant.status !== "active" ||
+    currentGrant.accessRole?.name !== "admin" ||
+    (nextRole === "admin" && nextStatus === "active")
+  ) {
+    return;
+  }
+  const memberships = await store().listOrganizationMemberships(scope.organizationId);
+  for (const membership of memberships) {
+    const hasActiveAdminGrant =
+      membership.productId === scope.productId &&
+      membership.status === "active" &&
+      membership.permissionGrants?.some(
+        (grant) =>
+          sameResourceScope(grant.scope, scope) &&
+          grant.status === "active" &&
+          grant.accessRole?.name === "admin" &&
+          grant.subjectId !== targetId,
+      );
+    if (hasActiveAdminGrant) {
+      const subject = await loadSubjectUnlocked(membership.subjectId);
+      if (subject?.status === "active") return;
+    }
+  }
+  throw new Error("The workspace must keep an active administrator.");
+}
+
+export async function createConsumerMember(
+  actorId: SubjectId,
+  clientId: string,
+  input: ConsumerMemberScopeInput & {
+    email?: string;
+    username?: string;
+    password?: string;
+    role: string;
+  },
+): Promise<{ member: ConsumerScopedMemberView; created: boolean }> {
+  const scope = consumerResourceScope(clientId, input);
+  if (!consumerRoleActions(clientId, input.role)) {
+    throw new Error("Choose a role supported by this application.");
+  }
+  const email = input.email === undefined ? null : canonicalEmail(input.email);
+  const username = input.username === undefined ? null : normalizeProductUsername(input.username);
+  if (!email && !username) throw new Error("Provide an email address or username.");
+  if (input.password !== undefined) validatePassword(input.password);
+  return authMutationQueue.run(() =>
+    withOrganizationMutationLock(scope.organizationId, async () => {
+      const actorMembership = await requireConsumerScopeManagerUnlocked(actorId, clientId, scope);
+      let subject = (
+        await findConsumerSubjectUnlocked(input.productId, input.email, input.username)
+      ).subject;
+      const created = !subject;
+      const platformAdmin = await isConsumerPlatformAdminUnlocked(
+        actorId,
+        clientId,
+        scope.organizationId,
+        scope.productId,
+      );
+      if (!subject) {
+        if (!input.password) throw new Error("Provide an initial password for the new account.");
+        if (clientId.toLowerCase() === "postparticle" && !platformAdmin) {
+          throw new Error("A platform administrator must create this account first.");
+        }
+        subject = await createAdminProvisionedSubject(
+          email,
+          input.password,
+          actorMembership.subjectId,
+        );
+      }
+      if (
+        subject.status !== "active" ||
+        consumerProductState(subject, scope.productId).status !== "active"
+      ) {
+        throw new Error("The account is disabled.");
+      }
+      if (username) {
+        const alreadyLinked = usernameForProduct(subject, input.productId) === username;
+        if (!alreadyLinked && !platformAdmin && clientId.toLowerCase() === "postparticle") {
+          throw new Error("A platform administrator must assign a new PostParticle username.");
+        }
+        subject = await ensureConsumerUsernameUnlocked(subject, input.productId, username);
+      }
+      await ensureConsumerProductMembershipUnlocked(subject, scope.organizationId, scope.productId);
+      const productMembership = await store().readOrganizationMembership(
+        scope.organizationId,
+        subject.subjectId,
+        scope.productId,
+      );
+      const priorGrant = productMembership ? consumerMemberGrant(productMembership, scope) : null;
+      const grant = await setConsumerMemberRoleUnlocked(
+        clientId,
+        subject.subjectId,
+        scope,
+        input.role,
+        priorGrant ?? undefined,
+      );
+      return {
+        created,
+        member: {
+          subjectId: subject.subjectId,
+          email: subject.primaryEmail,
+          username: usernameForProduct(subject, scope.productId),
+          emailVerified: !!subject.emailVerifiedAt,
+          active: subject.status === "active" && grant.status === "active",
+          role: grant.accessRole?.name ?? input.role,
+        },
+      };
+    }),
+  );
+}
+
+export async function updateConsumerMember(
+  actorId: SubjectId,
+  clientId: string,
+  subjectIdInput: string,
+  input: ConsumerMemberScopeInput & {
+    role?: string;
+    status?: "active" | "disabled";
+    password?: string;
+  },
+): Promise<void> {
+  assertOpaqueId(subjectIdInput);
+  const subjectId = subjectIdInput as SubjectId;
+  const scope = consumerResourceScope(clientId, input);
+  if (input.role !== undefined && !consumerRoleActions(clientId, input.role)) {
+    throw new Error("Choose a role supported by this application.");
+  }
+  if (input.status === undefined && input.role === undefined && input.password === undefined) {
+    throw new Error("Provide a role, status, or password change.");
+  }
+  if (input.password !== undefined) validatePassword(input.password);
+  await authMutationQueue.run(() =>
+    withOrganizationMutationLock(scope.organizationId, async () => {
+      await requireConsumerScopeManagerUnlocked(actorId, clientId, scope);
+      const platformAdmin = await isConsumerPlatformAdminUnlocked(
+        actorId,
+        clientId,
+        scope.organizationId,
+        scope.productId,
+      );
+      if (actorId === subjectId && (clientId.toLowerCase() === "visitoring" || !platformAdmin)) {
+        throw new Error("Ask another administrator to change your account.");
+      }
+      const productMembership = await store().readOrganizationMembership(
+        scope.organizationId,
+        subjectId,
+        scope.productId,
+      );
+      const currentGrant = productMembership ? consumerMemberGrant(productMembership, scope) : null;
+      if (!productMembership || !currentGrant) throw new Error("Member not found.");
+      const subject = input.password === undefined ? null : await loadSubjectUnlocked(subjectId);
+      if (input.password !== undefined && (!subject || subject.status !== "active")) {
+        throw new Error("Member not found.");
+      }
+      if (
+        subject &&
+        (await isConsumerIdentitySharedAcrossProductsUnlocked(subject, clientId, scope.productId))
+      ) {
+        throw new Error(
+          "An administrator cannot reset shared credentials across products; the account owner must.",
+        );
+      }
+      const nextRole = input.role ?? currentGrant.accessRole?.name ?? null;
+      const nextStatus = input.status ?? currentGrant.status;
+      await protectLastVisitoringAdminUnlocked(
+        clientId,
+        subjectId,
+        scope,
+        currentGrant,
+        nextRole,
+        nextStatus,
+      );
+      let nextGrant = currentGrant;
+      if (input.status === "active" && productMembership.status !== "active") {
+        await persistRecord(
+          { ...productMembership, status: "active", updatedAt: new Date().toISOString() },
+          "product.member-reactivated",
+          { kind: "subject", subjectId: actorId },
+        );
+      }
+      if (input.role !== undefined) {
+        nextGrant = await setConsumerMemberRoleUnlocked(
+          clientId,
+          subjectId,
+          scope,
+          input.role,
+          currentGrant,
+        );
+      }
+      if (input.status !== undefined && input.status !== nextGrant.status) {
+        await persistRecord(
+          { ...nextGrant, status: input.status, updatedAt: new Date().toISOString() },
+          input.status === "disabled" ? "consumer.member-disabled" : "consumer.member-enabled",
+          { kind: "subject", subjectId: actorId },
+        );
+      }
+      if (input.password !== undefined) {
+        await persistRecord(
+          {
+            ...subject!,
+            passwordCredential: await createPasswordCredential(input.password),
+            authVersion: subject!.authVersion + 1,
+            updatedAt: new Date().toISOString(),
+          },
+          "credential.admin-reset",
+          { kind: "subject", subjectId: actorId },
+        );
+      }
+      const updatedMembership = await store().readOrganizationMembership(
+        scope.organizationId,
+        subjectId,
+        scope.productId,
+      );
+      if (updatedMembership && updatedMembership.role !== "owner") {
+        const hasActiveGrant = (updatedMembership.permissionGrants ?? []).some(
+          (grant) => grant.status === "active",
+        );
+        const nextMembershipStatus = hasActiveGrant ? "active" : "disabled";
+        if (updatedMembership.status !== nextMembershipStatus) {
+          await persistRecord(
+            {
+              ...updatedMembership,
+              status: nextMembershipStatus,
+              updatedAt: new Date().toISOString(),
+            },
+            nextMembershipStatus === "active"
+              ? "product.member-reactivated"
+              : "product.member-removed",
+            { kind: "subject", subjectId: actorId },
+          );
+        }
+      }
+    }),
+  );
+}
+
+export async function removeConsumerMember(
+  actorId: SubjectId,
+  clientId: string,
+  subjectId: string,
+  input: ConsumerMemberScopeInput,
+): Promise<void> {
+  return updateConsumerMember(actorId, clientId, subjectId, { ...input, status: "disabled" });
+}
+
+export interface ConsumerAccountView {
+  subjectId: SubjectId;
+  email: string | null;
+  username: string;
+  status: "active" | "disabled";
+  platformAdmin: boolean;
+}
+
+export async function listConsumerAccounts(
+  actorId: SubjectId,
+  clientId: string,
+  organizationId: string,
+  productId: string,
+): Promise<ConsumerAccountView[]> {
+  return authMutationQueue.run(async () => {
+    await requireConsumerAccountManagerUnlocked(actorId, clientId, organizationId, productId);
+    const policy = consumerProductPolicy(clientId)!;
+    const subjects = (await listRecordsWithRecovery("subject")).map((item) => item.record);
+    const result: ConsumerAccountView[] = [];
+    for (const subject of subjects) {
+      const username = usernameForProduct(subject, productId);
+      if (!username) continue;
+      const membership = await store().readOrganizationMembership(
+        organizationId,
+        subject.subjectId,
+        productId,
+      );
+      result.push({
+        subjectId: subject.subjectId,
+        email: subject.primaryEmail,
+        username,
+        status: consumerProductState(subject, productId).status,
+        platformAdmin:
+          !!membership &&
+          hasConsumerPlatformPermission(clientId, membership, policy.accountManagementAction ?? ""),
+      });
+    }
+    return result.sort((left, right) => left.username.localeCompare(right.username));
+  });
+}
+
+export async function createConsumerAccount(
+  actorId: SubjectId,
+  clientId: string,
+  input: {
+    organizationId: string;
+    productId: string;
+    username: string;
+    email?: string;
+    password: string;
+    platformAdmin?: boolean;
+  },
+): Promise<{ account: ConsumerAccountView; created: boolean }> {
+  const policy = consumerProductPolicy(clientId);
+  if (clientId.toLowerCase() !== "postparticle" || !policy?.accountManagementAction) {
+    throw new Error("This application does not expose global account provisioning.");
+  }
+  const accountManagementAction = policy.accountManagementAction;
+  const username = normalizeProductUsername(input.username);
+  const email = input.email === undefined ? null : canonicalEmail(input.email);
+  validatePassword(input.password);
+  return authMutationQueue.run(() =>
+    withOrganizationMutationLock(input.organizationId, async () => {
+      await requireConsumerAccountManagerUnlocked(
+        actorId,
+        clientId,
+        input.organizationId,
+        input.productId,
+      );
+      const byUsername = await loadSubjectByUsernameUnlocked(input.productId, username);
+      const byEmail = email ? await loadSubjectByEmailUnlocked(email) : null;
+      if (byUsername && byEmail && byUsername.subjectId !== byEmail.subjectId) {
+        throw new Error("The email and username belong to different accounts.");
+      }
+      let subject = byEmail ?? byUsername;
+      const created = !subject;
+      if (!subject) {
+        subject = await createAdminProvisionedSubject(email, input.password, actorId);
+      }
+      if (
+        subject.status !== "active" ||
+        consumerProductState(subject, input.productId).status !== "active"
+      ) {
+        throw new Error("The account is disabled.");
+      }
+      subject = await ensureConsumerUsernameUnlocked(subject, input.productId, username);
+      await ensureConsumerProductMembershipUnlocked(subject, input.organizationId, input.productId);
+      if (input.platformAdmin === true) {
+        await setConsumerPlatformAdminUnlocked(
+          actorId,
+          clientId,
+          subject,
+          input.organizationId,
+          input.productId,
+          true,
+        );
+      }
+      const updatedMembership = await store().readOrganizationMembership(
+        input.organizationId,
+        subject.subjectId,
+        input.productId,
+      );
+      const hasPlatformRole =
+        !!updatedMembership &&
+        hasConsumerPlatformPermission(clientId, updatedMembership, accountManagementAction);
+      return {
+        created,
+        account: {
+          subjectId: subject.subjectId,
+          email: subject.primaryEmail,
+          username,
+          status: consumerProductState(subject, input.productId).status,
+          platformAdmin: hasPlatformRole,
+        },
+      };
+    }),
+  );
+}
+
+export async function updateConsumerAccount(
+  actorId: SubjectId,
+  clientId: string,
+  subjectIdInput: string,
+  input: {
+    organizationId: string;
+    productId: string;
+    status?: "active" | "disabled";
+    password?: string;
+    revokeSessions?: boolean;
+    platformAdmin?: boolean;
+  },
+): Promise<void> {
+  assertOpaqueId(subjectIdInput);
+  if (actorId === subjectIdInput) throw new Error("You cannot change your own account here.");
+  if (
+    input.status === undefined &&
+    input.password === undefined &&
+    !input.revokeSessions &&
+    input.platformAdmin === undefined
+  ) {
+    throw new Error("Provide a status, password, platform role, or session revocation change.");
+  }
+  if (input.password !== undefined) validatePassword(input.password);
+  await authMutationQueue.run(() =>
+    withOrganizationMutationLock(input.organizationId, async () => {
+      await requireConsumerAccountManagerUnlocked(
+        actorId,
+        clientId,
+        input.organizationId,
+        input.productId,
+      );
+      const current = await loadSubjectUnlocked(subjectIdInput);
+      if (!current || !usernameForProduct(current, input.productId)) {
+        throw new Error("Account not found.");
+      }
+      const currentProductState = consumerProductState(current, input.productId);
+      if (
+        input.password !== undefined &&
+        (await isConsumerIdentitySharedAcrossProductsUnlocked(current, clientId, input.productId))
+      ) {
+        throw new Error(
+          "An administrator cannot reset shared credentials across products; the account owner must.",
+        );
+      }
+      if (input.platformAdmin !== undefined) {
+        await setConsumerPlatformAdminUnlocked(
+          actorId,
+          clientId,
+          current,
+          input.organizationId,
+          input.productId,
+          input.platformAdmin,
+        );
+      }
+      const nextStatus = input.status ?? currentProductState.status;
+      const statusChanged = nextStatus !== currentProductState.status;
+      const nextCredential = input.password
+        ? await createPasswordCredential(input.password)
+        : current.passwordCredential;
+      if (!statusChanged && !input.password && !input.revokeSessions) {
+        return;
+      }
+      const consumerProductStates =
+        statusChanged || input.revokeSessions
+          ? updateConsumerProductState(current, input.productId, nextStatus, input.revokeSessions)
+          : current.consumerProductStates;
+      await persistRecord(
+        {
+          ...current,
+          consumerProductStates,
+          passwordCredential: nextCredential,
+          authVersion: current.authVersion + (input.password ? 1 : 0),
+          updatedAt: new Date().toISOString(),
+        },
+        input.password
+          ? "credential.admin-reset"
+          : input.revokeSessions
+            ? "session.account-revoked"
+            : nextStatus === "disabled"
+              ? "consumer.account-disabled"
+              : "consumer.account-enabled",
+        { kind: "subject", subjectId: actorId },
+      );
+    }),
+  );
+}
+
+export interface LegacyAuthImportInput {
+  visitoring?: {
+    organizationId: string;
+    users: Array<{ id: string; email: string; passwordHash: string }>;
+    memberships: Array<{
+      userId: string;
+      workspaceId: string;
+      role: "admin" | "viewer";
+      active?: boolean;
+    }>;
+  };
+  postparticle?: {
+    organizationId: string;
+    users: Array<{
+      username: string;
+      email?: string;
+      passwordHash: string;
+      platformAdmin?: boolean;
+      disabled?: boolean;
+    }>;
+    memberships: Array<{
+      username: string;
+      projectId: string;
+      role: "admin" | "editor" | "viewer" | null;
+    }>;
+  };
+  /** Map a normalized identity key to the legacy source reference whose password to retain. */
+  credentialSelections?: Record<string, string>;
+}
+
+export interface LegacyAuthImportReport {
+  dryRun: boolean;
+  applied: boolean;
+  identities: number;
+  memberships: number;
+  conflicts: Array<{ identity: string; candidates: string[] }>;
+  errors: string[];
+}
+
+interface LegacyIdentityCandidate {
+  source: "visitoring" | "postparticle";
+  accountId: string;
+  sourceRef: string;
+  email: string | null;
+  username: string | null;
+  credential: PasswordCredential;
+  disabled: boolean;
+  platformAdmin: boolean;
+}
+
+function importedCredential(
+  source: LegacyIdentityCandidate["source"],
+  encodedVerifier: string,
+): PasswordCredential {
+  if (source === "visitoring") {
+    if (!/^\$argon2id\$v=\d+\$/.test(encodedVerifier)) {
+      throw new Error("Visitoring password hashes must use the Argon2id PHC format.");
+    }
+    return {
+      algorithm: "argon2id",
+      format: "argon2id-phc",
+      encodedVerifier,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+  if (!/^[a-f0-9]{32}:[a-f0-9]{128}$/i.test(encodedVerifier)) {
+    throw new Error("PostParticle password hashes must use the legacy salt:hex format.");
+  }
+  return {
+    algorithm: "scrypt",
+    format: "postparticle-scrypt-v1",
+    encodedVerifier,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function upsertImportedRoleGrantUnlocked(
+  clientId: string,
+  subject: SubjectRecord,
+  scope: ResourceScope,
+  role: string,
+  actions: readonly string[],
+  status: "active" | "disabled" = "active",
+): Promise<void> {
+  await ensureConsumerProductMembershipUnlocked(subject, scope.organizationId, scope.productId);
+  const subjectId = subject.subjectId;
+  const membership = await store().readOrganizationMembership(
+    scope.organizationId,
+    subjectId,
+    scope.productId,
+  );
+  if (!membership) throw new Error("Could not create the product membership for import.");
+  const existing = consumerMemberGrant(membership, scope) ?? undefined;
+  const nextGrant = {
+    ...roleGrant(clientId, subjectId, scope, role, actions, existing),
+    status,
+    updatedAt: new Date().toISOString(),
+  };
+  if (
+    existing &&
+    existing.status === nextGrant.status &&
+    existing.accessRole?.name === nextGrant.accessRole?.name &&
+    JSON.stringify(existing.grants) === JSON.stringify(nextGrant.grants)
+  ) {
+    return;
+  }
+  await persistRecord(nextGrant, "legacy-import.membership", { kind: "system" });
+}
+
+function legacyIdentityKey(email: string | null, username: string | null): string {
+  return email ? `email:${email}` : `postparticle:${username ?? ""}`;
+}
+
+function legacySourceRef(source: "visitoring" | "postparticle", accountId: string): string {
+  return `${source}:${accountId}`;
+}
+
+export async function importLegacyAuthData(
+  input: LegacyAuthImportInput,
+  products: { visitoringProductId?: string; postparticleProductId?: string },
+  dryRun: boolean,
+): Promise<LegacyAuthImportReport> {
+  return authMutationQueue.run(async () => {
+    const report: LegacyAuthImportReport = {
+      dryRun,
+      applied: false,
+      identities: 0,
+      memberships: 0,
+      conflicts: [],
+      errors: [],
+    };
+    const groups = new Map<string, LegacyIdentityCandidate[]>();
+    const visitoringRefToKey = new Map<string, string>();
+    const postparticleRefToKey = new Map<string, string>();
+    const seenSourceRefs = new Set<string>();
+    const addCandidate = (candidate: LegacyIdentityCandidate) => {
+      const key = legacyIdentityKey(candidate.email, candidate.username);
+      const group = groups.get(key) ?? [];
+      if (seenSourceRefs.has(candidate.sourceRef)) {
+        report.errors.push(`Duplicate legacy account reference: ${candidate.sourceRef}`);
+        return;
+      }
+      seenSourceRefs.add(candidate.sourceRef);
+      group.push(candidate);
+      groups.set(key, group);
+      if (candidate.source === "visitoring") visitoringRefToKey.set(candidate.accountId, key);
+      else postparticleRefToKey.set(candidate.accountId, key);
+    };
+
+    if (input.visitoring) {
+      if (!products.visitoringProductId) report.errors.push("Visitoring client is not configured.");
+      if (!(await loadApprovedOrganizationUnlocked(input.visitoring.organizationId))) {
+        report.errors.push("Visitoring organization was not found or is not approved.");
+      } else if (
+        products.visitoringProductId &&
+        !(await store().readProduct(input.visitoring.organizationId, products.visitoringProductId))
+      ) {
+        report.errors.push("Visitoring product was not found in the configured organization.");
+      }
+      for (const account of input.visitoring.users) {
+        try {
+          const accountId = account.id.trim();
+          if (!accountId || accountId.length > 254)
+            throw new Error("Invalid Visitoring account ID.");
+          const email = canonicalEmail(account.email);
+          addCandidate({
+            source: "visitoring",
+            accountId,
+            sourceRef: legacySourceRef("visitoring", accountId),
+            email,
+            username: null,
+            credential: importedCredential("visitoring", account.passwordHash),
+            disabled: false,
+            platformAdmin: false,
+          });
+        } catch (error) {
+          report.errors.push(
+            error instanceof Error ? error.message : "Invalid Visitoring account.",
+          );
+        }
+      }
+      for (const membership of input.visitoring.memberships) {
+        if (!visitoringRefToKey.has(membership.userId)) {
+          report.errors.push(
+            `Visitoring membership refers to an unknown account: ${membership.userId}`,
+          );
+        }
+        try {
+          if (products.visitoringProductId) {
+            consumerResourceScope("visitoring", {
+              organizationId: input.visitoring.organizationId,
+              productId: products.visitoringProductId,
+              scopeKind: "workspace",
+              resourceId: membership.workspaceId,
+            });
+          }
+        } catch {
+          report.errors.push(`Invalid Visitoring workspace ID: ${membership.workspaceId}`);
+        }
+      }
+    }
+
+    if (input.postparticle) {
+      if (!products.postparticleProductId)
+        report.errors.push("PostParticle client is not configured.");
+      if (!(await loadApprovedOrganizationUnlocked(input.postparticle.organizationId))) {
+        report.errors.push("PostParticle organization was not found or is not approved.");
+      } else if (
+        products.postparticleProductId &&
+        !(await store().readProduct(
+          input.postparticle.organizationId,
+          products.postparticleProductId,
+        ))
+      ) {
+        report.errors.push("PostParticle product was not found in the configured organization.");
+      }
+      for (const account of input.postparticle.users) {
+        try {
+          const username = normalizeProductUsername(account.username);
+          const email = account.email
+            ? canonicalEmail(account.email)
+            : username.includes("@")
+              ? canonicalEmail(username)
+              : null;
+          addCandidate({
+            source: "postparticle",
+            accountId: username,
+            sourceRef: legacySourceRef("postparticle", username),
+            email,
+            username,
+            credential: importedCredential("postparticle", account.passwordHash),
+            disabled: !!account.disabled,
+            platformAdmin: !!account.platformAdmin,
+          });
+        } catch (error) {
+          report.errors.push(
+            error instanceof Error ? error.message : "Invalid PostParticle account.",
+          );
+        }
+      }
+      for (const membership of input.postparticle.memberships) {
+        try {
+          const username = normalizeProductUsername(membership.username);
+          if (!postparticleRefToKey.has(username)) {
+            report.errors.push(`PostParticle membership refers to an unknown account: ${username}`);
+          }
+          if (membership.role !== null && !consumerRoleActions("postparticle", membership.role)) {
+            report.errors.push(`Invalid PostParticle role for ${username}.`);
+          }
+          if (products.postparticleProductId && membership.role !== null) {
+            consumerResourceScope("postparticle", {
+              organizationId: input.postparticle.organizationId,
+              productId: products.postparticleProductId,
+              scopeKind: "project",
+              resourceId: membership.projectId,
+            });
+          }
+        } catch {
+          report.errors.push(`Invalid PostParticle membership for ${membership.username}.`);
+        }
+      }
+    }
+
+    const prepared = new Map<
+      string,
+      {
+        subject: SubjectRecord | null;
+        candidates: LegacyIdentityCandidate[];
+        credential: PasswordCredential;
+        credentialSource: string;
+        key: string;
+      }
+    >();
+    for (const [key, candidates] of groups) {
+      const email = candidates.find((candidate) => candidate.email)?.email ?? null;
+      let subject = email ? await loadSubjectByEmailUnlocked(email) : null;
+      for (const candidate of candidates.filter(
+        (item) => item.username && products.postparticleProductId,
+      )) {
+        const byUsername = await loadSubjectByUsernameUnlocked(
+          products.postparticleProductId!,
+          candidate.username!,
+        );
+        if (subject && byUsername && subject.subjectId !== byUsername.subjectId) {
+          report.errors.push(`Identity mapping conflict for ${key}.`);
+        } else if (byUsername) {
+          subject = byUsername;
+        }
+      }
+      if (subject?.primaryEmail && email && subject.primaryEmail.toLowerCase() !== email) {
+        report.errors.push(`Email conflict for ${key}.`);
+      }
+      const candidateRefs = candidates.map((candidate) => candidate.sourceRef);
+      const allSourcesAlreadyImported =
+        !!subject &&
+        candidateRefs.every((sourceRef) =>
+          subject!.legacySources?.some(
+            (source) => legacySourceRef(source.source, source.accountId) === sourceRef,
+          ),
+        );
+      const credentialOptions: Array<{ sourceRef: string; credential: PasswordCredential }> =
+        candidates.map((candidate) => ({
+          sourceRef: candidate.sourceRef,
+          credential: candidate.credential,
+        }));
+      if (subject?.passwordCredential && !allSourcesAlreadyImported) {
+        credentialOptions.push({
+          sourceRef: `perminister:${subject.subjectId}`,
+          credential: subject.passwordCredential,
+        });
+      }
+      const distinct = new Map(
+        credentialOptions.map((option) => [
+          `${option.credential.algorithm}:${option.credential.encodedVerifier}`,
+          option,
+        ]),
+      );
+      let selected: { sourceRef: string; credential: PasswordCredential } | undefined =
+        allSourcesAlreadyImported && subject?.passwordCredential
+          ? {
+              sourceRef: subject.legacyCredentialSource ?? candidateRefs[0],
+              credential: subject.passwordCredential,
+            }
+          : [...distinct.values()][0];
+      if (!allSourcesAlreadyImported && distinct.size > 1) {
+        const selection = input.credentialSelections?.[key];
+        selected = selection
+          ? credentialOptions.find((option) => option.sourceRef === selection)
+          : undefined;
+        if (!selected) {
+          report.conflicts.push({
+            identity: key,
+            candidates: credentialOptions.map((option) => option.sourceRef),
+          });
+          continue;
+        }
+      }
+      if (!selected) {
+        report.errors.push(`No usable password credential was found for ${key}.`);
+        continue;
+      }
+      prepared.set(key, {
+        key,
+        subject,
+        candidates,
+        credential: selected.credential,
+        credentialSource: selected.sourceRef,
+      });
+    }
+
+    report.identities = groups.size;
+    report.memberships =
+      (input.visitoring?.memberships.length ?? 0) +
+      (input.postparticle?.memberships.filter((membership) => membership.role !== null).length ??
+        0);
+    if (dryRun || report.errors.length > 0 || report.conflicts.length > 0) return report;
+
+    const subjectByKey = new Map<string, SubjectRecord>();
+    for (const [key, item] of prepared) {
+      const now = new Date().toISOString();
+      const sourceRefs = new Set(
+        item.subject?.legacySources?.map((source) =>
+          legacySourceRef(source.source, source.accountId),
+        ) ?? [],
+      );
+      for (const candidate of item.candidates) sourceRefs.add(candidate.sourceRef);
+      const legacySources: LegacyIdentitySource[] = [...sourceRefs].map((sourceRef) => {
+        const separator = sourceRef.indexOf(":");
+        return {
+          source: sourceRef.slice(0, separator) as LegacyIdentitySource["source"],
+          accountId: sourceRef.slice(separator + 1),
+        };
+      });
+      const email =
+        item.candidates.find((candidate) => candidate.email)?.email ??
+        item.subject?.primaryEmail ??
+        null;
+      const hasPostParticleAccount = item.candidates.some(
+        (candidate) => candidate.source === "postparticle",
+      );
+      const postParticleDisabled = item.candidates.some(
+        (candidate) => candidate.source === "postparticle" && candidate.disabled,
+      );
+      let consumerProductStates = item.subject?.consumerProductStates ?? [];
+      if (hasPostParticleAccount && products.postparticleProductId) {
+        const previous = consumerProductStates.find(
+          (state) => state.productId === products.postparticleProductId,
+        );
+        const status = postParticleDisabled ? "disabled" : "active";
+        const productState: ConsumerProductState = {
+          productId: products.postparticleProductId,
+          status,
+          sessionVersion:
+            (previous?.sessionVersion ?? 1) + ((previous?.status ?? "active") !== status ? 1 : 0),
+        };
+        consumerProductStates = [
+          ...consumerProductStates.filter(
+            (state) => state.productId !== products.postparticleProductId,
+          ),
+          productState,
+        ];
+      }
+      const credentialChanged =
+        !item.subject?.passwordCredential ||
+        item.subject.passwordCredential.encodedVerifier !== item.credential.encodedVerifier ||
+        item.subject.passwordCredential.algorithm !== item.credential.algorithm;
+      const subject: SubjectRecord = {
+        ...(item.subject ?? ({} as SubjectRecord)),
+        kind: "subject",
+        schemaVersion: 1,
+        subjectId: item.subject?.subjectId ?? newSubjectId(),
+        status: item.subject?.status ?? "active",
+        primaryEmail: email,
+        emailVerifiedAt: item.subject?.emailVerifiedAt ?? null,
+        emailVerificationExempt: true,
+        loginIdentifiers: item.subject?.loginIdentifiers ?? [],
+        legacySources,
+        legacyCredentialSource: item.credentialSource,
+        consumerProductStates,
+        passwordCredential: credentialChanged ? item.credential : item.subject!.passwordCredential,
+        authVersion: item.subject ? item.subject.authVersion + (credentialChanged ? 1 : 0) : 1,
+        createdAt: item.subject?.createdAt ?? now,
+        updatedAt: now,
+      };
+      const identifiers: ConsumerLoginIdentifier[] = [...(subject.loginIdentifiers ?? [])];
+      for (const candidate of item.candidates) {
+        if (
+          candidate.source !== "postparticle" ||
+          !candidate.username ||
+          !products.postparticleProductId
+        )
+          continue;
+        const existing = identifiers.find(
+          (identifier) =>
+            identifier.productId === products.postparticleProductId &&
+            identifier.normalizedValue === candidate.username,
+        );
+        if (existing) continue;
+        const existingSubjectId = await store().findSubjectIdByUsername(
+          products.postparticleProductId,
+          candidate.username,
+        );
+        if (existingSubjectId && existingSubjectId !== subject.subjectId) {
+          throw new Error(`PostParticle username collision for ${candidate.username}.`);
+        }
+        identifiers.push({
+          kind: "username",
+          productId: products.postparticleProductId,
+          value: candidate.username,
+          normalizedValue: candidate.username,
+        });
+      }
+      subject.loginIdentifiers = identifiers;
+      const changed =
+        !item.subject ||
+        credentialChanged ||
+        item.subject.status !== subject.status ||
+        !item.subject.emailVerificationExempt ||
+        JSON.stringify(item.subject.legacySources ?? []) !== JSON.stringify(legacySources) ||
+        JSON.stringify(item.subject.consumerProductStates ?? []) !==
+          JSON.stringify(consumerProductStates) ||
+        JSON.stringify(item.subject.loginIdentifiers ?? []) !== JSON.stringify(identifiers);
+      if (changed) {
+        await persistRecord(subject, "legacy-import.identity", { kind: "system" });
+      }
+      subjectByKey.set(key, subject);
+    }
+
+    if (input.visitoring && products.visitoringProductId) {
+      for (const membership of input.visitoring.memberships) {
+        const key = visitoringRefToKey.get(membership.userId);
+        const subject = key ? subjectByKey.get(key) : undefined;
+        if (!subject || !consumerRoleActions("visitoring", membership.role)) continue;
+        const scope = consumerResourceScope("visitoring", {
+          organizationId: input.visitoring.organizationId,
+          productId: products.visitoringProductId,
+          scopeKind: "workspace",
+          resourceId: membership.workspaceId,
+        });
+        await ensureConsumerProductMembershipUnlocked(
+          subject,
+          scope.organizationId,
+          scope.productId,
+        );
+        await upsertImportedRoleGrantUnlocked(
+          "visitoring",
+          subject,
+          scope,
+          membership.role,
+          consumerRoleActions("visitoring", membership.role)!,
+          membership.active === false ? "disabled" : "active",
+        );
+      }
+    }
+
+    if (input.postparticle && products.postparticleProductId) {
+      const policy = consumerProductPolicy("postparticle")!;
+      for (const user of input.postparticle.users) {
+        const username = normalizeProductUsername(user.username);
+        const key = postparticleRefToKey.get(username);
+        const subject = key ? subjectByKey.get(key) : undefined;
+        if (!subject) continue;
+        await ensureConsumerProductMembershipUnlocked(
+          subject,
+          input.postparticle.organizationId,
+          products.postparticleProductId,
+        );
+        if (user.platformAdmin) {
+          const productScope: ResourceScope = {
+            kind: "product",
+            organizationId: input.postparticle.organizationId as OrganizationId,
+            productId: products.postparticleProductId,
+          };
+          await upsertImportedRoleGrantUnlocked(
+            "postparticle",
+            subject,
+            productScope,
+            "platform-admin",
+            policy.platformAdminActions ?? [],
+          );
+        }
+      }
+      for (const membership of input.postparticle.memberships) {
+        if (!membership.role) continue;
+        const username = normalizeProductUsername(membership.username);
+        const key = postparticleRefToKey.get(username);
+        const subject = key ? subjectByKey.get(key) : undefined;
+        if (!subject) continue;
+        const scope = consumerResourceScope("postparticle", {
+          organizationId: input.postparticle.organizationId,
+          productId: products.postparticleProductId,
+          scopeKind: "project",
+          resourceId: membership.projectId,
+        });
+        await ensureConsumerProductMembershipUnlocked(
+          subject,
+          scope.organizationId,
+          scope.productId,
+        );
+        await upsertImportedRoleGrantUnlocked(
+          "postparticle",
+          subject,
+          scope,
+          membership.role,
+          consumerRoleActions("postparticle", membership.role)!,
+        );
+      }
+    }
+    report.applied = true;
+    return report;
+  });
+}
+
+function createInvitationDraft(
+  actorId: SubjectId,
+  organizationId: string,
+  email: string,
+  role: OrganizationInvitationRecord["role"],
+  productId?: string,
+): { invitation: OrganizationInvitationRecord; token: string } {
+  const invitationId = newInvitationId();
+  const token = `${invitationId}.${randomBytes(32).toString("base64url")}`;
+  const now = new Date();
+  return {
+    token,
+    invitation: {
+      kind: "organization-invitation",
+      schemaVersion: 1,
+      invitationId,
+      organizationId: organizationId as OrganizationId,
+      ...(productId ? { productId } : {}),
+      email,
+      role,
+      verifierDigestHex: hashHex(token),
+      createdBySubjectId: actorId,
+      createdAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + ORGANIZATION_INVITATION_LIFETIME_MS).toISOString(),
+      consumedAt: null,
+      revokedAt: null,
+    },
+  };
+}
+
+function activeInvitationsForScope(
+  invitations: OrganizationInvitationRecord[],
+  organizationId: string,
+  productId?: string,
+): OrganizationInvitationRecord[] {
+  return invitations
+    .filter(
+      (invite) =>
+        invite.organizationId === organizationId &&
+        (productId === undefined ? !invite.productId : invite.productId === productId) &&
+        !invite.consumedAt &&
+        !invite.revokedAt &&
+        Date.parse(invite.expiresAt) > Date.now(),
+    )
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
 export async function createOrganizationInvitation(
   actorId: SubjectId,
   organizationId: string,
@@ -1643,23 +3310,7 @@ export async function createOrganizationInvitation(
           { kind: "subject", subjectId: actorId },
         );
       }
-      const invitationId = newInvitationId();
-      const token = `${invitationId}.${randomBytes(32).toString("base64url")}`;
-      const now = new Date();
-      const invitation: OrganizationInvitationRecord = {
-        kind: "organization-invitation",
-        schemaVersion: 1,
-        invitationId,
-        organizationId: organizationId as OrganizationId,
-        email,
-        role,
-        verifierDigestHex: hashHex(token),
-        createdBySubjectId: actorId,
-        createdAt: now.toISOString(),
-        expiresAt: new Date(now.getTime() + ORGANIZATION_INVITATION_LIFETIME_MS).toISOString(),
-        consumedAt: null,
-        revokedAt: null,
-      };
+      const { invitation, token } = createInvitationDraft(actorId, organizationId, email, role);
       await persistRecord(invitation, "organization.invitation-created", {
         kind: "subject",
         subjectId: actorId,
@@ -1715,24 +3366,13 @@ export async function createProductInvitation(
           { kind: "subject", subjectId: actorId },
         );
       }
-      const invitationId = newInvitationId();
-      const token = `${invitationId}.${randomBytes(32).toString("base64url")}`;
-      const now = new Date();
-      const invitation: OrganizationInvitationRecord = {
-        kind: "organization-invitation",
-        schemaVersion: 1,
-        invitationId,
-        organizationId: organizationId as OrganizationId,
-        productId,
+      const { invitation, token } = createInvitationDraft(
+        actorId,
+        organizationId,
         email,
         role,
-        verifierDigestHex: hashHex(token),
-        createdBySubjectId: actorId,
-        createdAt: now.toISOString(),
-        expiresAt: new Date(now.getTime() + ORGANIZATION_INVITATION_LIFETIME_MS).toISOString(),
-        consumedAt: null,
-        revokedAt: null,
-      };
+        productId,
+      );
       await persistRecord(invitation, "product.invitation-created", {
         kind: "subject",
         subjectId: actorId,
@@ -1748,17 +3388,10 @@ export async function listOrganizationInvitations(
 ): Promise<OrganizationInvitationRecord[]> {
   return authMutationQueue.run(async () => {
     await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
-    return (await listRecordsWithRecovery("organization-invitation"))
-      .map((item) => item.record)
-      .filter(
-        (invite) =>
-          invite.organizationId === organizationId &&
-          !invite.productId &&
-          !invite.consumedAt &&
-          !invite.revokedAt &&
-          Date.parse(invite.expiresAt) > Date.now(),
-      )
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    const invitations = (await listRecordsWithRecovery("organization-invitation")).map(
+      (item) => item.record,
+    );
+    return activeInvitationsForScope(invitations, organizationId);
   });
 }
 
@@ -1769,17 +3402,10 @@ export async function listProductInvitations(
 ): Promise<OrganizationInvitationRecord[]> {
   return authMutationQueue.run(async () => {
     await requireProductRoleUnlocked(actorId, organizationId, productId, ["owner", "admin"]);
-    return (await listRecordsWithRecovery("organization-invitation"))
-      .map((entry) => entry.record)
-      .filter(
-        (invite) =>
-          invite.organizationId === organizationId &&
-          invite.productId === productId &&
-          !invite.consumedAt &&
-          !invite.revokedAt &&
-          Date.parse(invite.expiresAt) > Date.now(),
-      )
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    const invitations = (await listRecordsWithRecovery("organization-invitation")).map(
+      (item) => item.record,
+    );
+    return activeInvitationsForScope(invitations, organizationId, productId);
   });
 }
 
@@ -2199,7 +3825,7 @@ export async function createPermissionGrant(
       const actions = role ? validateActions(role.actions) : customActions;
       if (!actions) throw new Error("Enter 1 to 32 valid action names.");
       const target = await loadSubjectUnlocked(targetSubjectId);
-      if (!target || target.status !== "active" || !target.emailVerifiedAt) {
+      if (!target || target.status !== "active" || !isEmailVerifiedOrExempt(target)) {
         throw new Error("Choose an active, email-verified account.");
       }
       const targetMembership = await store().readOrganizationMembership(
@@ -2299,6 +3925,75 @@ export interface CreateApiKeyOptions {
   actions: readonly string[];
   expiresAt: string | null;
   rotateFromApiKeyId?: string;
+}
+
+function validateApiKeyOptions(options: CreateApiKeyOptions) {
+  const scope = validateScope(options.scope);
+  const actions = validateActions(options.actions);
+  if (
+    options.expiresAt &&
+    (!Number.isFinite(Date.parse(options.expiresAt)) || Date.parse(options.expiresAt) <= Date.now())
+  ) {
+    throw new Error("Choose a future expiration time.");
+  }
+  const rotateId = options.rotateFromApiKeyId;
+  if (rotateId) assertOpaqueId(rotateId);
+  return { scope, actions, rotateId };
+}
+
+function createApiKeyDraft(
+  owner: ApiKeyOwner,
+  scope: ResourceScope,
+  actions: readonly string[],
+  expiresAt: string | null,
+  previous: ApiKeyRecord | null,
+): { record: ApiKeyRecord; token: string } {
+  const apiKeyId = newApiKeyId();
+  const token = `pmk_${apiKeyId}_${randomBytes(32).toString("base64url")}`;
+  const record: ApiKeyRecord = {
+    kind: "api-key",
+    schemaVersion: 1,
+    apiKeyId,
+    keyClass: "integration",
+    owner,
+    scope,
+    actions,
+    verifier: { algorithm: "sha256", digestHex: hashHex(token) },
+    status: "active",
+    createdAt: new Date().toISOString(),
+    expiresAt,
+    revokedAt: null,
+    rotatedFromApiKeyId: previous?.apiKeyId ?? null,
+  };
+  return { record, token };
+}
+
+async function findApiKeyToRotate(
+  apiKeyId: string | undefined,
+  owner: ApiKeyOwner,
+  organizationId: string,
+  ownerError: string,
+): Promise<ApiKeyRecord | null> {
+  if (!apiKeyId) return null;
+  const existing = await loadRecord("api-key", apiKeyId);
+  const matchesOwner =
+    existing &&
+    (owner.kind === "subject"
+      ? existing.record.owner.kind === "subject" &&
+        existing.record.owner.subjectId === owner.subjectId
+      : existing.record.owner.kind === "service" &&
+        existing.record.owner.servicePrincipalId === owner.servicePrincipalId);
+  if (!existing || !matchesOwner) throw new Error(ownerError);
+  if (
+    existing.record.status !== "active" ||
+    (existing.record.expiresAt && Date.parse(existing.record.expiresAt) <= Date.now())
+  ) {
+    throw new Error("Only an active, unexpired API key can be rotated.");
+  }
+  if (existing.record.scope.organizationId !== organizationId) {
+    throw new Error("A key can only be rotated within its organization.");
+  }
+  return existing.record;
 }
 
 export interface CreatedApiKey {
@@ -2434,16 +4129,7 @@ export async function createApiKeyForServicePrincipal(
   options: CreateApiKeyOptions,
 ): Promise<CreatedApiKey> {
   assertOpaqueId(servicePrincipalId);
-  const scope = validateScope(options.scope);
-  const actions = validateActions(options.actions);
-  if (
-    options.expiresAt &&
-    (!Number.isFinite(Date.parse(options.expiresAt)) || Date.parse(options.expiresAt) <= Date.now())
-  ) {
-    throw new Error("Choose a future expiration time.");
-  }
-  const rotateId = options.rotateFromApiKeyId;
-  if (rotateId) assertOpaqueId(rotateId);
+  const { scope, actions, rotateId } = validateApiKeyOptions(options);
   return authMutationQueue.run(() =>
     withOrganizationMutationLock(scope.organizationId, async () => {
       const actor = await requireOrganizationRoleUnlocked(actorId, scope.organizationId, [
@@ -2459,46 +4145,20 @@ export async function createApiKeyForServicePrincipal(
       ) {
         throw new Error("Choose an active integration for this organization and product.");
       }
-      let previous: ApiKeyRecord | null = null;
-      if (rotateId) {
-        const old = await loadRecord("api-key", rotateId);
-        if (
-          !old ||
-          old.record.owner.kind !== "service" ||
-          old.record.owner.servicePrincipalId !== servicePrincipalId
-        ) {
-          throw new Error("Choose one of this integration's API keys to rotate.");
-        }
-        if (
-          old.record.status !== "active" ||
-          (old.record.expiresAt && Date.parse(old.record.expiresAt) <= Date.now())
-        ) {
-          throw new Error("Only an active, unexpired API key can be rotated.");
-        }
-        if (old.record.scope.organizationId !== scope.organizationId) {
-          throw new Error("A key can only be rotated within its organization.");
-        }
-        previous = old.record;
-      }
+      const previous = await findApiKeyToRotate(
+        rotateId,
+        { kind: "service", servicePrincipalId: servicePrincipalId as ServicePrincipalId },
+        scope.organizationId,
+        "Choose one of this integration's API keys to rotate.",
+      );
       await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
-      const apiKeyId = newApiKeyId();
-      const token = `pmk_${apiKeyId}_${randomBytes(32).toString("base64url")}`;
-      const now = new Date().toISOString();
-      const record: ApiKeyRecord = {
-        kind: "api-key",
-        schemaVersion: 1,
-        apiKeyId,
-        keyClass: "integration",
-        owner: { kind: "service", servicePrincipalId: servicePrincipalId as ServicePrincipalId },
+      const { record, token } = createApiKeyDraft(
+        { kind: "service", servicePrincipalId: servicePrincipalId as ServicePrincipalId },
         scope,
         actions,
-        verifier: { algorithm: "sha256", digestHex: hashHex(token) },
-        status: "active",
-        createdAt: now,
-        expiresAt: options.expiresAt,
-        revokedAt: null,
-        rotatedFromApiKeyId: previous?.apiKeyId ?? null,
-      };
+        options.expiresAt,
+        previous,
+      );
       await persistRecord(
         record,
         previous ? "api-key.service-rotated.created" : "api-key.service-created",
@@ -2594,20 +4254,11 @@ export async function createApiKeyForSubject(
   subjectId: SubjectId,
   options: CreateApiKeyOptions,
 ): Promise<CreatedApiKey> {
-  const scope = validateScope(options.scope);
-  const actions = validateActions(options.actions);
-  if (
-    options.expiresAt &&
-    (!Number.isFinite(Date.parse(options.expiresAt)) || Date.parse(options.expiresAt) <= Date.now())
-  ) {
-    throw new Error("Choose a future expiration time.");
-  }
-  const rotateId = options.rotateFromApiKeyId;
-  if (rotateId) assertOpaqueId(rotateId);
+  const { scope, actions, rotateId } = validateApiKeyOptions(options);
   return authMutationQueue.run(() =>
     withOrganizationMutationLock(scope.organizationId, async () => {
       const subject = await loadSubjectUnlocked(subjectId);
-      if (!subject || subject.status !== "active" || !subject.emailVerifiedAt) {
+      if (!subject || subject.status !== "active" || !isEmailVerifiedOrExempt(subject)) {
         throw new Error("An active, email-verified account is required to create an API key.");
       }
       if (!(await loadApprovedOrganizationUnlocked(scope.organizationId))) {
@@ -2627,45 +4278,19 @@ export async function createApiKeyForSubject(
           throw new Error("API keys can only include actions granted to your account.");
         }
       }
-      let previous: ApiKeyRecord | null = null;
-      if (rotateId) {
-        const old = await loadRecord("api-key", rotateId);
-        if (
-          !old ||
-          old.record.owner.kind !== "subject" ||
-          old.record.owner.subjectId !== subjectId
-        ) {
-          throw new Error("Choose one of your own API keys to rotate.");
-        }
-        if (
-          old.record.status !== "active" ||
-          (old.record.expiresAt && Date.parse(old.record.expiresAt) <= Date.now())
-        ) {
-          throw new Error("Only an active, unexpired API key can be rotated.");
-        }
-        if (old.record.scope.organizationId !== scope.organizationId) {
-          throw new Error("A key can only be rotated within its organization.");
-        }
-        previous = old.record;
-      }
-      const apiKeyId = newApiKeyId();
-      const token = `pmk_${apiKeyId}_${randomBytes(32).toString("base64url")}`;
-      const now = new Date().toISOString();
-      const record: ApiKeyRecord = {
-        kind: "api-key",
-        schemaVersion: 1,
-        apiKeyId,
-        keyClass: "integration",
-        owner: { kind: "subject", subjectId },
+      const previous = await findApiKeyToRotate(
+        rotateId,
+        { kind: "subject", subjectId },
+        scope.organizationId,
+        "Choose one of your own API keys to rotate.",
+      );
+      const { record, token } = createApiKeyDraft(
+        { kind: "subject", subjectId },
         scope,
         actions,
-        verifier: { algorithm: "sha256", digestHex: hashHex(token) },
-        status: "active",
-        createdAt: now,
-        expiresAt: options.expiresAt,
-        revokedAt: null,
-        rotatedFromApiKeyId: previous?.apiKeyId ?? null,
-      };
+        options.expiresAt,
+        previous,
+      );
       await persistRecord(record, previous ? "api-key.rotated.created" : "api-key.created", {
         kind: "subject",
         subjectId,
@@ -2886,7 +4511,10 @@ export async function authorizeApiKey(
     };
   }
   const subject = await loadRecord("subject", key.owner.subjectId);
-  if (!subject || subject.record.status !== "active" || !subject.record.emailVerifiedAt) {
+  if (!subject || subject.record.status !== "active" || !isEmailVerifiedOrExempt(subject.record)) {
+    return { authorized: false };
+  }
+  if (consumerProductState(subject.record, scope.productId).status !== "active") {
     return { authorized: false };
   }
   if (!(await loadApprovedOrganizationUnlocked(scope.organizationId))) {
@@ -3015,6 +4643,10 @@ async function listSessionsForSubjectUnlocked(subject: SubjectRecord): Promise<S
       (record) =>
         record.subjectId === subject.subjectId &&
         record.authVersion === subject.authVersion &&
+        (!record.productId ||
+          (consumerProductState(subject, record.productId).status === "active" &&
+            consumerProductState(subject, record.productId).sessionVersion ===
+              (record.productSessionVersion ?? 1))) &&
         !record.revokedAt &&
         Date.parse(record.expiresAt) > Date.now(),
     )

@@ -17,7 +17,10 @@ module.exports = {
     doNotFollow: { path: "node_modules" },
     exclude: { path: "(^|/)(node_modules|\\.next|coverage)(/|$)" },
     tsConfig: { fileName: "tsconfig.json" },
-    enhancedResolveOptions: { exportsFields: ["exports"] },
+    enhancedResolveOptions: {
+      exportsFields: ["exports"],
+      conditionNames: ["import", "node", "default"],
+    },
     reporterOptions: { dot: { collapsePattern: "node_modules/[^/]+" } },
   },
 };

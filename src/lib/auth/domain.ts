@@ -128,8 +128,29 @@ export interface PermissionGrant {
 
 export type PasswordHashAlgorithm = "argon2id" | "scrypt";
 
+export interface ConsumerLoginIdentifier {
+  kind: "username";
+  productId: ProductId;
+  value: string;
+  normalizedValue: string;
+}
+
+export interface LegacyIdentitySource {
+  source: "visitoring" | "postparticle";
+  accountId: string;
+}
+
+export interface ConsumerProductState {
+  productId: ProductId;
+  status: "active" | "disabled";
+  /** Incremented when this product's sessions are revoked or its access is disabled. */
+  sessionVersion: number;
+}
+
 export interface PasswordCredential {
   algorithm: PasswordHashAlgorithm;
+  /** Identifies legacy encodings where an algorithm has more than one wire format. */
+  format?: "perminister-scrypt-v1" | "postparticle-scrypt-v1" | "argon2id-phc";
   /** Encoded one-way verifier, including any salt and parameters required by the algorithm. */
   encodedVerifier: string;
   updatedAt: string;
@@ -146,6 +167,16 @@ export interface SubjectRecord {
   lastName?: string;
   primaryEmail: string | null;
   emailVerifiedAt: string | null;
+  /** Allows imported or admin-provisioned legacy accounts to retain their prior login behavior. */
+  emailVerificationExempt?: boolean;
+  /** Product-scoped usernames, used by consumer apps that do not use email as the login ID. */
+  loginIdentifiers?: ConsumerLoginIdentifier[];
+  /** Stable references used to make legacy imports idempotent and auditable. */
+  legacySources?: LegacyIdentitySource[];
+  /** Source reference selected as the authoritative password during a conflict resolution. */
+  legacyCredentialSource?: string;
+  /** App-specific account state; shared identity status remains independent across products. */
+  consumerProductStates?: ConsumerProductState[];
   passwordCredential: PasswordCredential | null;
   /** Incremented after credential changes to invalidate every older session. */
   authVersion: number;
@@ -213,6 +244,8 @@ export interface SessionRecord {
   applicationClientId?: string;
   /** Product audience for consumer application sessions. */
   productId?: ProductId;
+  /** Product-local revocation version for consumer sessions. */
+  productSessionVersion?: number;
   createdAt: string;
   expiresAt: string;
   revokedAt: string | null;
@@ -244,6 +277,31 @@ export type AuthRecord =
   | EmailActionRecord;
 export type AuthRecordKind = AuthRecord["kind"];
 export type AuthRecordFor<Kind extends AuthRecordKind> = Extract<AuthRecord, { kind: Kind }>;
+
+export function authRecordId(record: AuthRecord): string {
+  switch (record.kind) {
+    case "organization":
+      return record.organizationId;
+    case "organization-membership":
+      return record.organizationMembershipId;
+    case "product":
+      return record.productRecordId;
+    case "organization-invitation":
+      return record.invitationId;
+    case "subject":
+      return record.subjectId;
+    case "membership":
+      return record.membershipId;
+    case "service-principal":
+      return record.servicePrincipalId;
+    case "api-key":
+      return record.apiKeyId;
+    case "session":
+      return record.sessionId;
+    case "email-action":
+      return record.actionId;
+  }
+}
 
 export type AuthAggregate =
   | { kind: "organization"; id: OrganizationId }

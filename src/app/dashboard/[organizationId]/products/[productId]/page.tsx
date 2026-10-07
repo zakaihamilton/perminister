@@ -2,6 +2,7 @@ import Link from "next/link";
 import { updateOrganizationProductAction } from "@/app/actions";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { ProductIcon } from "@/components/product-icon";
+import { Tooltip } from "@/components/tooltip";
 import {
   getProductPageContext,
   type ProductPageWithSearchParams,
@@ -69,7 +70,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
               <h2>Set up your application</h2>
               <p>
                 Perminister handles sign-in and organization membership. Your app keeps its own data
-                and checks the access it needs.
+                and checks each person&apos;s access grants before allowing access to protected
+                resources.
               </p>
             </div>
           </div>
@@ -99,12 +101,25 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
                   </p>
                 ) : (
                   <p>
-                    Connect the app&apos;s backend to Perminister, then set its client ID and secret
-                    in this deployment. Bind that client with{" "}
-                    <code>PERMINISTER_APP_CLIENT_IDS</code>,
-                    <code> PERMINISTER_APP_CLIENT_{"{ID}"}_SECRET</code>, and{" "}
-                    <code>PERMINISTER_APP_CLIENT_{"{ID}"}_PRODUCT_ID</code> set to{" "}
-                    <code>{product.productId}</code>. Use that same product ID in each organization.
+                    Connect the app&apos;s backend to Perminister. In the Perminister deployment
+                    environment, add the client ID to <code>PERMINISTER_APP_CLIENT_IDS</code>{" "}
+                    <Tooltip
+                      label="What PERMINISTER_APP_CLIENT_IDS means"
+                      content="Comma-separated IDs of the app clients enabled in this Perminister deployment. Add this app's client ID here."
+                    />
+                    , set <code>PERMINISTER_APP_CLIENT_{"{ID}"}_SECRET</code>{" "}
+                    <Tooltip
+                      label="What PERMINISTER_APP_CLIENT_{ID}_SECRET means"
+                      content="The secret shared by this app's backend and Perminister. Replace {ID} with the client ID in uppercase, using underscores for punctuation. Keep the secret server-side; it must be at least 32 characters."
+                    />
+                    to the app&apos;s client secret, and set{" "}
+                    <code>PERMINISTER_APP_CLIENT_{"{ID}"}_PRODUCT_ID</code>{" "}
+                    <Tooltip
+                      label="What PERMINISTER_APP_CLIENT_{ID}_PRODUCT_ID means"
+                      content="The product ID this client is associated with. Set it to this app's product ID and use that same ID in every organization."
+                    />
+                    to <code>{product.productId}</code>. Use the same product ID in every
+                    organization.
                   </p>
                 )}
                 <p className="product-onboarding-status-note">
@@ -150,8 +165,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
                   </Link>
                 </div>
                 <p>
-                  Create reusable permission sets on Access roles, then assign them to people on
-                  Access and choose which resources they cover.
+                  Create reusable permission sets in Access roles, then assign them to people in
+                  Access and choose which resources each grant covers.
                 </p>
               </div>
             </li>

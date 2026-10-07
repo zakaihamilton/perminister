@@ -38,6 +38,9 @@ export async function GET(request: Request) {
         account: {
           subjectId: current.subject.subjectId,
           email: current.subject.primaryEmail,
+          username:
+            current.subject.loginIdentifiers?.find((item) => item.productId === client.productId)
+              ?.value ?? null,
           firstName: current.subject.firstName ?? null,
           lastName: current.subject.lastName ?? null,
         },

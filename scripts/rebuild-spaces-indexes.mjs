@@ -130,6 +130,20 @@ async function main() {
             subjectId: record.subjectId,
           });
         }
+        for (const identifier of record.loginIdentifiers ?? []) {
+          if (identifier.kind !== "username" || typeof identifier.normalizedValue !== "string")
+            throw new Error(`Malformed username login identifier at ${key}`);
+          const product = safeSegment(identifier.productId);
+          const normalized = identifier.normalizedValue.trim().toLowerCase();
+          if (!normalized || normalized.length > 254)
+            throw new Error(`Malformed username login identifier at ${key}`);
+          const digest = createHmac("sha256", identityIndexSecret)
+            .update(`${product}\0${normalized}`)
+            .digest("hex");
+          add(indexes, `${ROOT_PREFIX}indexes/by-product-username/${product}/${digest}.json`, {
+            subjectId: record.subjectId,
+          });
+        }
       } else if (key.endsWith("/organization.json")) {
         if (record.kind !== "organization") throw new Error(`Malformed organization at ${key}`);
         add(indexes, `${ROOT_PREFIX}indexes/by-id/organization/${record.organizationId}.json`, {
