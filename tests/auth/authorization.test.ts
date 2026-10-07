@@ -1299,8 +1299,8 @@ describe("consumer identity migration and management", () => {
     } as AuthRecord);
     const writerSession = await service.createConsumerSession(
       writerId as never,
-      "postparticle",
       CONSUMER_CLIENT_ID,
+      "postparticle",
       8 * 60 * 60 * 1000,
     );
     await expect(
@@ -1344,8 +1344,8 @@ describe("consumer identity migration and management", () => {
 
     const resetSession = await service.createConsumerSession(
       writerId as never,
-      "postparticle",
       CONSUMER_CLIENT_ID,
+      "postparticle",
       8 * 60 * 60 * 1000,
     );
     await service.updateConsumerMember(platformAdminId as never, "postparticle", writerId!, {
@@ -1362,8 +1362,8 @@ describe("consumer identity migration and management", () => {
 
     const secondSession = await service.createConsumerSession(
       writerId as never,
-      "postparticle",
       CONSUMER_CLIENT_ID,
+      "postparticle",
       8 * 60 * 60 * 1000,
     );
     await service.updateConsumerAccount(platformAdminId as never, "postparticle", writerId!, {
