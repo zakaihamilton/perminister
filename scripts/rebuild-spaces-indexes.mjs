@@ -126,11 +126,15 @@ async function main() {
           const digest = createHmac("sha256", identityIndexSecret)
             .update(record.primaryEmail.trim().toLowerCase())
             .digest("hex");
-          add(indexes, `${ROOT_PREFIX}indexes/by-email/${digest}.json`, { subjectId: record.subjectId });
+          add(indexes, `${ROOT_PREFIX}indexes/by-email/${digest}.json`, {
+            subjectId: record.subjectId,
+          });
         }
       } else if (key.endsWith("/organization.json")) {
         if (record.kind !== "organization") throw new Error(`Malformed organization at ${key}`);
-        add(indexes, `${ROOT_PREFIX}indexes/by-id/organization/${record.organizationId}.json`, { key });
+        add(indexes, `${ROOT_PREFIX}indexes/by-id/organization/${record.organizationId}.json`, {
+          key,
+        });
       } else if (key.endsWith("/product.json")) {
         if (record.kind !== "product") throw new Error(`Malformed product at ${key}`);
         add(indexes, `${ROOT_PREFIX}indexes/by-id/product/${record.productRecordId}.json`, { key });
@@ -148,14 +152,23 @@ async function main() {
         for (const grant of record.permissionGrants ?? []) {
           if (!uuid(grant.membershipId))
             throw new Error(`Malformed permission grant embedded at ${key}`);
-          add(indexes, `${ROOT_PREFIX}indexes/by-id/membership/${grant.membershipId}.json`, { key });
+          add(indexes, `${ROOT_PREFIX}indexes/by-id/membership/${grant.membershipId}.json`, {
+            key,
+          });
         }
-      } else if (/\/invitations\/[^/]+\.json$/.test(key) || prefix === `${ROOT_PREFIX}invitations/`) {
+      } else if (
+        /\/invitations\/[^/]+\.json$/.test(key) ||
+        prefix === `${ROOT_PREFIX}invitations/`
+      ) {
         if (record.kind !== "organization-invitation")
           throw new Error(`Malformed invitation at ${key}`);
-        add(indexes, `${ROOT_PREFIX}indexes/by-id/organization-invitation/${record.invitationId}.json`, {
-          key,
-        });
+        add(
+          indexes,
+          `${ROOT_PREFIX}indexes/by-id/organization-invitation/${record.invitationId}.json`,
+          {
+            key,
+          },
+        );
       } else if (prefix === `${ROOT_PREFIX}api-keys/`) {
         if (record.kind !== "api-key") throw new Error(`Malformed API key at ${key}`);
         add(indexes, `${ROOT_PREFIX}indexes/by-id/api-key/${record.apiKeyId}.json`, { key });

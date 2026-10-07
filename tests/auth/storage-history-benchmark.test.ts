@@ -81,15 +81,17 @@ class ModeledSpacesStore {
 
   async readOrganizationMembership(organizationId: string, subjectId: string, productId?: string) {
     this.objectReads += 1;
-    return [...this.records.values()]
-      .map((value) => value.record)
-      .find(
-        (record): record is Extract<AuthRecord, { kind: "organization-membership" }> =>
-          record.kind === "organization-membership" &&
-          record.organizationId === organizationId &&
-          record.subjectId === subjectId &&
-          (record.productId ?? undefined) === productId,
-      ) ?? null;
+    return (
+      [...this.records.values()]
+        .map((value) => value.record)
+        .find(
+          (record): record is Extract<AuthRecord, { kind: "organization-membership" }> =>
+            record.kind === "organization-membership" &&
+            record.organizationId === organizationId &&
+            record.subjectId === subjectId &&
+            (record.productId ?? undefined) === productId,
+        ) ?? null
+    );
   }
 
   async listEvents(aggregate: AuthEvent["aggregate"]) {

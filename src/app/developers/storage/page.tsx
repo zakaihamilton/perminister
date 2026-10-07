@@ -3,11 +3,14 @@ import { DeveloperGuideLayout } from "@/components/developer-guide-layout";
 import { CheckIcon, LockIcon } from "@/components/site-shell";
 import { withCanonical } from "@/lib/site-metadata";
 
-export const metadata = withCanonical({
-  title: "Storage and readiness",
-  description:
-    "Review Perminister's root-level DigitalOcean Spaces layout and concurrency limits.",
-}, "/developers/storage");
+export const metadata = withCanonical(
+  {
+    title: "Storage and readiness",
+    description:
+      "Review Perminister's root-level DigitalOcean Spaces layout and concurrency limits.",
+  },
+  "/developers/storage",
+);
 
 export default function StoragePage() {
   return (
@@ -50,10 +53,10 @@ export default function StoragePage() {
               </div>
             </div>
             <p className="storage-config-note">
-                Set <code className="code-label">PERMINISTER_SPACES_ACCESS_KEY</code>,{" "}
-                <code className="code-label">PERMINISTER_SPACES_SECRET_KEY</code>, and a random{" "}
-                <code className="code-label">PERMINISTER_IDENTITY_INDEX_SECRET</code> securely. Keep all
-                three values server-side and out of public environment variables.
+              Set <code className="code-label">PERMINISTER_SPACES_ACCESS_KEY</code>,{" "}
+              <code className="code-label">PERMINISTER_SPACES_SECRET_KEY</code>, and a random{" "}
+              <code className="code-label">PERMINISTER_IDENTITY_INDEX_SECRET</code> securely. Keep
+              all three values server-side and out of public environment variables.
             </p>
           </section>
 
@@ -94,8 +97,8 @@ export default function StoragePage() {
                   <h3>Inspect partial multi-record actions</h3>
                   <p>
                     Account registration and credential changes can span several objects. A failed
-                    pointer write can affect listings even when the canonical record exists; use
-                    the index rebuild command after reviewing the bucket.
+                    pointer write can affect listings even when the canonical record exists; use the
+                    index rebuild command after reviewing the bucket.
                   </p>
                 </div>
               </article>
@@ -147,15 +150,17 @@ export default function StoragePage() {
             <h2>Four-read authorization</h2>
             <p>
               A bearer-key check reads the key, subject, organization, and product-member JSON
-              directly. It does not list objects or replay historical events. Product membership
-              is still separate from action grants.
+              directly. It does not list objects or replay historical events. Product membership is
+              still separate from action grants.
             </p>
           </section>
           <section className="aside-card">
             <h2>Rebuild lookup pointers</h2>
             <p>
-              Run <code>npm run storage:rebuild-indexes</code> for a dry run. Add <code>-- --apply</code>
-              after reviewing the count to rebuild HMAC email, subject, record, and activity indexes.
+              Run <code>npm run storage:rebuild-indexes</code> for a dry run. Add{" "}
+              <code>-- --apply</code>
+              after reviewing the count to rebuild HMAC email, subject, record, and activity
+              indexes.
             </p>
           </section>
           <section className="aside-card">

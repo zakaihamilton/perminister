@@ -3,10 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { updateOrganizationProductAction } from "@/app/actions";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { ProductIcon } from "@/components/product-icon";
-import {
-  getCurrentSession,
-  getProductAccessForSubject,
-} from "@/lib/auth/service";
+import { getCurrentSession, getProductAccessForSubject } from "@/lib/auth/service";
 
 export default async function ProductPage({
   params,
@@ -36,22 +33,37 @@ export default async function ProductPage({
         action={
           productRole === "owner" || productRole === "admin" ? (
             <div className="product-detail-actions">
-              <Link className="button button-secondary" href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/people`}>
+              <Link
+                className="button button-secondary"
+                href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/people`}
+              >
                 People
               </Link>
-              <Link className="button button-secondary" href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access`}>
+              <Link
+                className="button button-secondary"
+                href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access`}
+              >
                 Access
               </Link>
-              <Link className="button button-secondary" href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/activity`}>
+              <Link
+                className="button button-secondary"
+                href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/activity`}
+              >
                 Activity
               </Link>
             </div>
           ) : productRole === "member" ? (
             <div className="product-detail-actions">
-              <Link className="button button-secondary" href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access`}>
+              <Link
+                className="button button-secondary"
+                href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access`}
+              >
                 My access
               </Link>
-              <Link className="button button-secondary" href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/activity`}>
+              <Link
+                className="button button-secondary"
+                href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/activity`}
+              >
                 Activity
               </Link>
             </div>

@@ -67,7 +67,9 @@ export default async function PeoplePage({
         <div className="dashboard-card-heading">
           <div>
             <h2>Organization catalog managers</h2>
-            <p>{members.length} active {members.length === 1 ? "manager" : "managers"}</p>
+            <p>
+              {members.length} active {members.length === 1 ? "manager" : "managers"}
+            </p>
           </div>
         </div>
         <div className="people-list">
@@ -133,47 +135,49 @@ export default async function PeoplePage({
         </div>
       </section>
 
-      {owner ? <section className="dashboard-card invite-card">
-        <div className="dashboard-card-heading">
-          <div>
-            <h2>Invite a catalog manager</h2>
-            <p>They’ll receive a secure invitation link by email.</p>
+      {owner ? (
+        <section className="dashboard-card invite-card">
+          <div className="dashboard-card-heading">
+            <div>
+              <h2>Invite a catalog manager</h2>
+              <p>They’ll receive a secure invitation link by email.</p>
+            </div>
           </div>
-        </div>
-        {isMailDeliveryConfigured() ? (
-          <form action={inviteOrganizationMemberAction} className="auth-form invite-form">
-            <input type="hidden" name="organizationId" value={organizationId} />
-            <label>
-              Email address
-              <input
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                maxLength={254}
-                placeholder="teammate@example.com"
-              />
-            </label>
-            <label htmlFor="invite-role">
-              Role
-              <CustomDropdown
-                aria-label="Role"
-                id="invite-role"
-                name="role"
-                defaultValue="admin"
-                options={[{ value: "admin", label: "Admin" }]}
-              />
-            </label>
-            <button className="button button-primary" type="submit">
-              Send invitation
-            </button>
-          </form>
-        ) : (
-          <p className="dashboard-notice info">
-            Invitation email is unavailable until the Perminister operator configures Resend.
-          </p>
-        )}
-      </section> : null}
+          {isMailDeliveryConfigured() ? (
+            <form action={inviteOrganizationMemberAction} className="auth-form invite-form">
+              <input type="hidden" name="organizationId" value={organizationId} />
+              <label>
+                Email address
+                <input
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  maxLength={254}
+                  placeholder="teammate@example.com"
+                />
+              </label>
+              <label htmlFor="invite-role">
+                Role
+                <CustomDropdown
+                  aria-label="Role"
+                  id="invite-role"
+                  name="role"
+                  defaultValue="admin"
+                  options={[{ value: "admin", label: "Admin" }]}
+                />
+              </label>
+              <button className="button button-primary" type="submit">
+                Send invitation
+              </button>
+            </form>
+          ) : (
+            <p className="dashboard-notice info">
+              Invitation email is unavailable until the Perminister operator configures Resend.
+            </p>
+          )}
+        </section>
+      ) : null}
 
       {invitations.length ? (
         <section className="dashboard-card pending-invitations">
@@ -203,7 +207,8 @@ export default async function PeoplePage({
         </section>
       ) : null}
       <p className="role-help">
-        Product Owner and Admin roles, invitations, and permission grants are managed in that product’s People and Access pages.
+        Product Owner and Admin roles, invitations, and permission grants are managed in that
+        product’s People and Access pages.
       </p>
     </>
   );

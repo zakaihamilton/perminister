@@ -98,23 +98,22 @@ When used, `PERMINISTER_PUBLIC_ORIGIN` may use `http://localhost` or `http://127
 ## Environment
 
 | Variable                                 | Required           | Purpose                                                                                           |
-| ---------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------- |
-| `PERMINISTER_SPACES_ENDPOINT`            | Yes                | Bucket endpoint, `https://perminister.sfo3.digitaloceanspaces.com`                              |
-| `PERMINISTER_SPACES_REGION`              | Yes                | Spaces region, `sfo3`                                                                           |
-| `PERMINISTER_SPACES_BUCKET`              | Yes                | Private bucket, `perminister`                                                                   |
-| `PERMINISTER_SPACES_ACCESS_KEY`          | Yes                | Server-side Spaces access key                                                                   |
-| `PERMINISTER_SPACES_SECRET_KEY`          | Yes                | Server-side Spaces secret key                                                                   |
+| ---------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------- |
+| `PERMINISTER_SPACES_ENDPOINT`            | Yes                | Bucket endpoint, `https://perminister.sfo3.digitaloceanspaces.com`                                |
+| `PERMINISTER_SPACES_REGION`              | Yes                | Spaces region, `sfo3`                                                                             |
+| `PERMINISTER_SPACES_BUCKET`              | Yes                | Private bucket, `perminister`                                                                     |
+| `PERMINISTER_SPACES_ACCESS_KEY`          | Yes                | Server-side Spaces access key                                                                     |
+| `PERMINISTER_SPACES_SECRET_KEY`          | Yes                | Server-side Spaces secret key                                                                     |
 | `PERMINISTER_IDENTITY_INDEX_SECRET`      | Yes                | Stable random secret, at least 32 characters, for HMAC email lookup; rebuild indexes to rotate it |
-| `PERMINISTER_ADMIN_EMAILS`               | For administration | Comma-separated admin account email addresses                                                   |
-| `PERMINISTER_APP_CLIENT_IDS`             | For product auth   | Comma-separated first-party product client IDs                                                  |
-| `PERMINISTER_APP_CLIENT_{ID}_SECRET`     | For product auth   | Server-only client secret, at least 32 characters, for each configured client ID                |
-| `PERMINISTER_APP_CLIENT_{ID}_NAME`       | Optional           | Product name used in verification and recovery emails; defaults to the client ID                |
-| `PERMINISTER_APP_CLIENT_{ID}_PRODUCT_ID` | Optional           | Product ID bound to that client; defaults to its client ID                                      |
-| `PERMINISTER_APP_CLIENT_{ID}_ORIGIN`     | Optional           | HTTPS app origin for product-branded verification and recovery links                            |
-| `PERMINISTER_PUBLIC_ORIGIN`              | Optional fallback | Origin for server-to-server email links without a browser or product origin                    |
-| `RESEND_API_KEY`                         | For email delivery | Server-side Resend API key; never expose to browser code                                        |
-| `PERMINISTER_MAIL_FROM`                  | For email delivery | Sender address accepted by Resend; use a verified domain in production                          |
-| `BRAVE_SEARCH_API_KEY`                   | For name search    | Optional server-side Brave Search subscription token; direct URL import does not require it    |
+| `PERMINISTER_ADMIN_EMAILS`               | For administration | Comma-separated admin account email addresses                                                     |
+| `PERMINISTER_APP_CLIENT_IDS`             | For product auth   | Comma-separated first-party product client IDs                                                    |
+| `PERMINISTER_APP_CLIENT_{ID}_SECRET`     | For product auth   | Server-only client secret, at least 32 characters, for each configured client ID                  |
+| `PERMINISTER_APP_CLIENT_{ID}_NAME`       | Optional           | Product name used in verification and recovery emails; defaults to the client ID                  |
+| `PERMINISTER_APP_CLIENT_{ID}_PRODUCT_ID` | Optional           | Product ID bound to that client; defaults to its client ID                                        |
+| `PERMINISTER_APP_CLIENT_{ID}_ORIGIN`     | Optional           | HTTPS app origin for product-branded verification and recovery links                              |
+| `PERMINISTER_PUBLIC_ORIGIN`              | Optional fallback  | Origin for server-to-server email links without a browser or product origin                       |
+| `RESEND_API_KEY`                         | For email delivery | Server-side Resend API key; never expose to browser code                                          |
+| `PERMINISTER_MAIL_FROM`                  | For email delivery | Sender address accepted by Resend; use a verified domain in production                            |
 
 There is no session signing secret: browser tokens are generated independently with 256 bits of randomness, and only their digests are persisted. Keep `.env.local` out of source control and use Vercel's environment settings for Vercel values.
 

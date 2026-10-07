@@ -32,7 +32,8 @@ export default async function ProductPeoplePage({
   ).catch(() => null);
   if (!access) notFound();
   const role = access.membership?.role;
-  if (role !== "owner" && role !== "admin") redirect(`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}`);
+  if (role !== "owner" && role !== "admin")
+    redirect(`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}`);
 
   const [members, invitations] = await Promise.all([
     listProductMembers(current.subject.subjectId, organizationId, productId),
@@ -41,7 +42,8 @@ export default async function ProductPeoplePage({
   const isOwner = role === "owner";
   const errorMessages: Record<string, string> = {
     "mail-unconfigured": "Invitation email is unavailable until Resend is configured.",
-    "invite-failed": "The invitation could not be sent. Check the email address and your product role.",
+    "invite-failed":
+      "The invitation could not be sent. Check the email address and your product role.",
     "member-update": "Only a Product Owner can change roles, and the product must keep an Owner.",
     "member-remove": "The member could not be removed. The product must keep an Owner.",
     "invite-revoke": "The invitation could not be revoked.",
@@ -54,23 +56,37 @@ export default async function ProductPeoplePage({
         title="People"
         description="Manage this product’s members and their product roles."
       />
-      {query.notice === "invite-sent" ? <DashboardNotice message="Product invitation sent." kind="success" /> : null}
-      {query.notice === "invite-revoked" ? <DashboardNotice message="Invitation revoked." kind="success" /> : null}
-      {query.notice === "member-updated" ? <DashboardNotice message="Product role updated." kind="success" /> : null}
-      {query.notice === "member-removed" ? <DashboardNotice message="Member removed from this product." kind="success" /> : null}
-      {query.error && errorMessages[query.error] ? <DashboardNotice message={errorMessages[query.error]} kind="error" /> : null}
+      {query.notice === "invite-sent" ? (
+        <DashboardNotice message="Product invitation sent." kind="success" />
+      ) : null}
+      {query.notice === "invite-revoked" ? (
+        <DashboardNotice message="Invitation revoked." kind="success" />
+      ) : null}
+      {query.notice === "member-updated" ? (
+        <DashboardNotice message="Product role updated." kind="success" />
+      ) : null}
+      {query.notice === "member-removed" ? (
+        <DashboardNotice message="Member removed from this product." kind="success" />
+      ) : null}
+      {query.error && errorMessages[query.error] ? (
+        <DashboardNotice message={errorMessages[query.error]} kind="error" />
+      ) : null}
 
       <section className="dashboard-card people-card">
         <div className="dashboard-card-heading">
           <div>
             <h2>Product members</h2>
-            <p>{members.length} active {members.length === 1 ? "member" : "members"}</p>
+            <p>
+              {members.length} active {members.length === 1 ? "member" : "members"}
+            </p>
           </div>
         </div>
         <div className="people-list">
           {members.map(({ membership, email, emailVerified }) => (
             <article className="people-row" key={membership.organizationMembershipId}>
-              <div className="people-avatar" aria-hidden="true">{(email ?? "?").slice(0, 1).toUpperCase()}</div>
+              <div className="people-avatar" aria-hidden="true">
+                {(email ?? "?").slice(0, 1).toUpperCase()}
+              </div>
               <div className="people-identity">
                 <strong>{email ?? "Account unavailable"}</strong>
                 <small>{emailVerified ? "Verified email" : "Email not verified"}</small>
@@ -82,7 +98,10 @@ export default async function ProductPeoplePage({
                     <input type="hidden" name="organizationId" value={organizationId} />
                     <input type="hidden" name="productId" value={productId} />
                     <input type="hidden" name="subjectId" value={membership.subjectId} />
-                    <label className="visually-hidden" htmlFor={`product-role-${membership.subjectId}`}>
+                    <label
+                      className="visually-hidden"
+                      htmlFor={`product-role-${membership.subjectId}`}
+                    >
                       Product role for {email}
                     </label>
                     <CustomDropdown
@@ -97,13 +116,17 @@ export default async function ProductPeoplePage({
                         { value: "member", label: "Member" },
                       ]}
                     />
-                    <button className="button button-secondary" type="submit">Save role</button>
+                    <button className="button button-secondary" type="submit">
+                      Save role
+                    </button>
                   </form>
                   <form action={removeProductMemberAction}>
                     <input type="hidden" name="organizationId" value={organizationId} />
                     <input type="hidden" name="productId" value={productId} />
                     <input type="hidden" name="subjectId" value={membership.subjectId} />
-                    <button className="button button-secondary" type="submit">Remove</button>
+                    <button className="button button-secondary" type="submit">
+                      Remove
+                    </button>
                   </form>
                 </div>
               ) : null}
@@ -125,7 +148,14 @@ export default async function ProductPeoplePage({
             <input type="hidden" name="productId" value={productId} />
             <label>
               Email address
-              <input name="email" type="email" autoComplete="email" required maxLength={254} placeholder="teammate@example.com" />
+              <input
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                maxLength={254}
+                placeholder="teammate@example.com"
+              />
             </label>
             <label htmlFor="product-invite-role">
               Product role
@@ -140,7 +170,9 @@ export default async function ProductPeoplePage({
                 ]}
               />
             </label>
-            <button className="button button-primary" type="submit">Send invitation</button>
+            <button className="button button-primary" type="submit">
+              Send invitation
+            </button>
           </form>
         </section>
       ) : (
@@ -149,21 +181,36 @@ export default async function ProductPeoplePage({
 
       {invitations.length ? (
         <section className="dashboard-card pending-invitations">
-          <div className="dashboard-card-heading"><div><h2>Pending invitations</h2><p>Invitations expire after seven days.</p></div></div>
+          <div className="dashboard-card-heading">
+            <div>
+              <h2>Pending invitations</h2>
+              <p>Invitations expire after seven days.</p>
+            </div>
+          </div>
           {invitations.map((invitation) => (
             <div className="pending-invite-row" key={invitation.invitationId}>
-              <span><strong>{invitation.email}</strong><small>{invitation.role} · expires {new Date(invitation.expiresAt).toLocaleDateString()}</small></span>
+              <span>
+                <strong>{invitation.email}</strong>
+                <small>
+                  {invitation.role} · expires {new Date(invitation.expiresAt).toLocaleDateString()}
+                </small>
+              </span>
               <form action={revokeProductInvitationAction}>
                 <input type="hidden" name="organizationId" value={organizationId} />
                 <input type="hidden" name="productId" value={productId} />
                 <input type="hidden" name="invitationId" value={invitation.invitationId} />
-                <button className="button button-secondary" type="submit">Revoke invitation</button>
+                <button className="button button-secondary" type="submit">
+                  Revoke invitation
+                </button>
               </form>
             </div>
           ))}
         </section>
       ) : null}
-      <p className="role-help">Product Owners change roles or remove members. Product Owners and Admins can invite Members and manage access grants. A member’s role does not grant API actions.</p>
+      <p className="role-help">
+        Product Owners change roles or remove members. Product Owners and Admins can invite Members
+        and manage access grants. A member’s role does not grant API actions.
+      </p>
     </>
   );
 }

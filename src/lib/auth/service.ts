@@ -50,7 +50,6 @@ import {
   type SubjectRecord,
   type ServicePrincipalId,
   type ServicePrincipalRecord,
-  type JsonValue,
 } from "./domain";
 import { createSpacesAuthStoreFromEnv, type VersionedRecord } from "./storage/spaces";
 

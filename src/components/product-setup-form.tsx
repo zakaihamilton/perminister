@@ -66,9 +66,7 @@ export function ProductSetupForm({ organizationId }: { organizationId: string })
         <span className="onboarding-step">01</span>
         <div className="product-setup-step-body">
           <h2>Start with a website</h2>
-          <p>
-            Enter a website address to suggest product details, or enter the details manually.
-          </p>
+          <p>Enter a website address to suggest product details, or enter the details manually.</p>
           <form action={lookupAction} className="product-source-form">
             <input type="hidden" name="organizationId" value={organizationId} />
             <label>
@@ -111,12 +109,7 @@ export function ProductSetupForm({ organizationId }: { organizationId: string })
             <h2>Review product details</h2>
             <p>Your product ID stays stable after creation and is scoped to this organization.</p>
             {iconUrl ? (
-              <ProductIcon
-                name={name}
-                src={iconUrl}
-                className="product-icon-preview"
-                size={45}
-              />
+              <ProductIcon name={name} src={iconUrl} className="product-icon-preview" size={45} />
             ) : null}
             <form
               action={createOrganizationProductAction}

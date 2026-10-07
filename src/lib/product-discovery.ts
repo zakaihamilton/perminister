@@ -15,12 +15,6 @@ export interface ProductSiteSuggestion {
   iconUrl: string;
 }
 
-export interface ProductSiteResult {
-  title: string;
-  url: string;
-  description: string;
-}
-
 function isPublicIpv4(address: string): boolean {
   const octets = address.split(".").map(Number);
   if (
@@ -328,84 +322,4 @@ export async function fetchProductSiteSuggestion(
     }
   }
   return { name: title.slice(0, 120), description, websiteUrl: finalUrl.toString(), iconUrl };
-}
-
-export async function searchProductWebsites(name: string): Promise<ProductSiteResult[]> {
-  const query = name.trim().replace(/\s+/g, " ");
-  if (query.length < 2 || query.length > 100)
-    throw new Error("Enter a product name between 2 and 100 characters.");
-  const apiKey = process.env.BRAVE_SEARCH_API_KEY?.trim();
-  if (!apiKey)
-    throw new Error(
-      "Name search is not configured. Enter the website address to import details directly.",
-    );
-  const url = new URL("https://api.search.brave.com/res/v1/web/search");
-  url.searchParams.set("q", `${query} official website`);
-  url.searchParams.set("count", "5");
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      headers: { "X-Subscription-Token": apiKey, Accept: "application/json" },
-      cache: "no-store",
-      redirect: "error",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
-  } catch {
-    throw new Error("Website search could not be reached. Enter the website address to continue.");
-  }
-  if (!response.ok)
-    throw new Error(
-      "Website search is temporarily unavailable. Enter the website address to continue.",
-    );
-  const announcedLength = Number(response.headers.get("content-length") ?? 0);
-  if (announcedLength > MAX_HTML_BYTES)
-    throw new Error(
-      "Website search returned too much content. Enter the website address to continue.",
-    );
-  const reader = response.body?.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  if (reader) {
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        size += value.byteLength;
-        if (size > MAX_HTML_BYTES) {
-          await reader.cancel();
-          throw new Error(
-            "Website search returned too much content. Enter the website address to continue.",
-          );
-        }
-        chunks.push(value);
-      }
-    } finally {
-      reader.releaseLock();
-    }
-  }
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  const value = JSON.parse(new TextDecoder().decode(bytes)) as {
-    web?: { results?: Array<{ title?: string; url?: string; description?: string }> };
-  };
-  return (value.web?.results ?? []).flatMap((result) => {
-    if (!result.url || !result.title) return [];
-    try {
-      const url = new URL(result.url);
-      if (url.protocol !== "https:" || url.username || url.password) return [];
-      return [
-        {
-          title: cleanText(result.title).slice(0, 160),
-          url: url.toString(),
-          description: cleanText(result.description ?? "").slice(0, 500),
-        },
-      ];
-    } catch {
-      return [];
-    }
-  });
 }

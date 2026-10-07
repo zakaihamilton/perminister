@@ -3,11 +3,14 @@ import { DeveloperGuideLayout } from "@/components/developer-guide-layout";
 import { CheckIcon } from "@/components/site-shell";
 import { withCanonical } from "@/lib/site-metadata";
 
-export const metadata = withCanonical({
-  title: "Getting started",
-  description:
-    "Set up a Perminister organization, add a product, grant access, and make server-side authorization checks.",
-}, "/developers/getting-started");
+export const metadata = withCanonical(
+  {
+    title: "Getting started",
+    description:
+      "Set up a Perminister organization, add a product, grant access, and make server-side authorization checks.",
+  },
+  "/developers/getting-started",
+);
 
 const steps = [
   {

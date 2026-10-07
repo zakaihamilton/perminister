@@ -25,7 +25,7 @@ To connect a product such as Visitoring or PostParticle, add its client ID to `P
 
 Email verification, password recovery, and invitations send through Resend's email API. Configure `RESEND_API_KEY` and `PERMINISTER_MAIL_FROM` with a sender accepted by a verified Resend domain. Browser-triggered links use the request origin; `PERMINISTER_PUBLIC_ORIGIN` is a fallback for server-to-server requests without a browser or product origin. See [the API contract](docs/api.md) for details.
 
-Organization invitations also use Resend. Website import is available without search credentials. To search product names, set `BRAVE_SEARCH_API_KEY`; search happens on the server and users review the suggested website and metadata before saving.
+Organization invitations also use Resend. Website import reads a product page's metadata server-side, and users review the suggested details before saving; no search credential is required.
 
 Install dependencies and start the development server:
 

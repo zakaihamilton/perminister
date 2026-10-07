@@ -88,7 +88,11 @@ export default async function OrganizationOverview({
           <div className="dashboard-card-heading">
             <div>
               <h2>Products</h2>
-              <p>{managers ? "Open a product to manage its members and access." : "Open a product to review its details and your access."}</p>
+              <p>
+                {managers
+                  ? "Open a product to manage its members and access."
+                  : "Open a product to review its details and your access."}
+              </p>
             </div>
             <Link className="text-link" href={`/dashboard/${organizationId}/products`}>
               View all
