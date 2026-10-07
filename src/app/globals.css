@@ -3119,9 +3119,9 @@ button:focus-visible {
   font-size: 14px;
   font-weight: 650;
 }
-.product-source-form input {
+.product-source-form input,
+.custom-dropdown-trigger {
   width: 100%;
-  max-width: 420px;
   min-width: 0;
   min-height: 44px;
   border: 1px solid var(--line-strong);
@@ -3129,6 +3129,9 @@ button:focus-visible {
   padding: 10px 12px;
   color: var(--ink);
   background: var(--surface-inset);
+}
+.product-source-form input {
+  max-width: 420px;
   font:
     500 14px/1.4 -apple-system,
     BlinkMacSystemFont,
@@ -4990,17 +4993,9 @@ summary:focus-visible {
 }
 .custom-dropdown-trigger {
   display: flex;
-  width: 100%;
-  min-width: 0;
-  min-height: 44px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  padding: 10px 12px;
-  color: var(--ink);
-  background: var(--surface-inset);
   font:
     500 14px/1.4 "DM Sans",
     -apple-system,

@@ -6,6 +6,7 @@ import {
 } from "@/app/actions";
 import { CustomDropdown } from "@/components/custom-dropdown";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
+import { PendingInvitations } from "@/components/pending-invitations";
 import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 import { listProductInvitations, listProductMembers } from "@/lib/auth/service";
 import {
@@ -164,34 +165,12 @@ export default async function ProductPeoplePage({
         <DashboardNotice message="Invitation email is unavailable until the Perminister operator configures Resend." />
       )}
 
-      {invitations.length ? (
-        <section className="dashboard-card pending-invitations">
-          <div className="dashboard-card-heading">
-            <div>
-              <h2>Pending invitations</h2>
-              <p>Invitations expire after seven days.</p>
-            </div>
-          </div>
-          {invitations.map((invitation) => (
-            <div className="pending-invite-row" key={invitation.invitationId}>
-              <span>
-                <strong>{invitation.email}</strong>
-                <small>
-                  {invitation.role} · expires {new Date(invitation.expiresAt).toLocaleDateString()}
-                </small>
-              </span>
-              <form action={revokeProductInvitationAction}>
-                <input type="hidden" name="organizationId" value={organizationId} />
-                <input type="hidden" name="productId" value={productId} />
-                <input type="hidden" name="invitationId" value={invitation.invitationId} />
-                <button className="button button-secondary" type="submit">
-                  Revoke invitation
-                </button>
-              </form>
-            </div>
-          ))}
-        </section>
-      ) : null}
+      <PendingInvitations
+        invitations={invitations}
+        organizationId={organizationId}
+        productId={productId}
+        formAction={revokeProductInvitationAction}
+      />
       <p className="role-help">
         Product Owners change roles or remove members. Product Owners and Admins can invite Members
         and manage access grants. A member’s role does not grant API actions.
