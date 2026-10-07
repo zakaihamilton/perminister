@@ -8,6 +8,7 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import type {
+  ApiKeyRecord,
   AuthEvent,
   AuthRecord,
   AuthRecordFor,
@@ -23,6 +24,27 @@ const OBJECT_ROOT = "";
 const OBJECT_PREFIX = OBJECT_ROOT ? `${OBJECT_ROOT}/` : "";
 const INDEX_ROOT = `${OBJECT_PREFIX}indexes`;
 const ID_INDEX_ROOT = `${INDEX_ROOT}/by-id`;
+const MAX_CONCURRENT_OBJECT_READS = 12;
+
+async function mapWithConcurrency<Value, Result>(
+  values: readonly Value[],
+  operation: (value: Value, index: number) => Promise<Result>,
+): Promise<Result[]> {
+  const results = new Array<Result>(values.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(MAX_CONCURRENT_OBJECT_READS, values.length);
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (true) {
+        const index = nextIndex++;
+        if (index >= values.length) return;
+        results[index] = await operation(values[index]!, index);
+      }
+    }),
+  );
+  return results;
+}
 
 export interface VersionedRecord<RecordType extends AuthRecord = AuthRecord> {
   /** Compatibility shape for service callers; Spaces stores the record itself, not this envelope. */
@@ -252,37 +274,62 @@ export class SpacesAuthStore {
     const keys = (await this.listKeys(prefix)).filter((key) =>
       /\/(catalog-managers|members)\/[^/]+\.json$/.test(key),
     );
-    const memberships: OrganizationMembershipRecord[] = [];
-    for (const key of keys) {
+    const memberships = await mapWithConcurrency(keys, async (key) => {
       const raw = await this.readJson<unknown>(key);
-      if (raw === null) continue;
+      if (raw === null) return null;
       const record = this.unwrapRecord(raw);
-      if (!isAuthRecord(record, "organization-membership")) continue;
+      if (!isAuthRecord(record, "organization-membership")) return null;
       const membership = record as OrganizationMembershipRecord;
-      if (membership.organizationId === organizationId) memberships.push(membership);
-    }
-    return memberships;
+      return membership.organizationId === organizationId ? membership : null;
+    });
+    return memberships.filter(
+      (membership): membership is OrganizationMembershipRecord => membership !== null,
+    );
   }
 
   async listMembershipsForSubject(subjectId: SubjectId): Promise<OrganizationMembershipRecord[]> {
     assertOpaqueId(subjectId);
     const prefix = `${INDEX_ROOT}/by-subject/${subjectId}/products/`;
     const keys = await this.listKeys(prefix);
-    const memberships: OrganizationMembershipRecord[] = [];
-    for (const pointerKey of keys) {
-      const pointer = await this.readJson<{ key?: unknown }>(pointerKey);
-      if (typeof pointer?.key !== "string") continue;
-      const value = await this.readJson<unknown>(pointer.key);
-      if (value === null) continue;
+    const pointers = (
+      await mapWithConcurrency(keys, async (pointerKey) =>
+        this.readJson<{ key?: unknown }>(pointerKey),
+      )
+    ).flatMap((pointer) => (typeof pointer?.key === "string" ? [pointer.key] : []));
+    const memberships = await mapWithConcurrency(pointers, async (key) => {
+      const value = await this.readJson<unknown>(key);
+      if (value === null) return null;
       const record = this.unwrapRecord(value);
-      if (
-        isAuthRecord(record, "organization-membership") &&
+      return isAuthRecord(record, "organization-membership") &&
         (record as OrganizationMembershipRecord).subjectId === subjectId
-      ) {
-        memberships.push(record as OrganizationMembershipRecord);
-      }
-    }
-    return memberships;
+        ? (record as OrganizationMembershipRecord)
+        : null;
+    });
+    return memberships.filter(
+      (membership): membership is OrganizationMembershipRecord => membership !== null,
+    );
+  }
+
+  async listApiKeysForSubject(subjectId: SubjectId): Promise<ApiKeyRecord[]> {
+    assertOpaqueId(subjectId);
+    const prefix = `${INDEX_ROOT}/by-subject/${subjectId}/api-keys/`;
+    const pointerKeys = await this.listKeys(prefix);
+    const pointers = (
+      await mapWithConcurrency(pointerKeys, async (pointerKey) =>
+        this.readJson<{ key?: unknown }>(pointerKey),
+      )
+    ).flatMap((pointer) => (typeof pointer?.key === "string" ? [pointer.key] : []));
+    const records = await mapWithConcurrency(pointers, async (key) => {
+      const value = await this.readJson<unknown>(key);
+      if (value === null) return null;
+      const record = this.unwrapRecord(value);
+      return isAuthRecord(record, "api-key") &&
+        (record as ApiKeyRecord).owner.kind === "subject" &&
+        (record as ApiKeyRecord).owner.subjectId === subjectId
+        ? (record as ApiKeyRecord)
+        : null;
+    });
+    return records.filter((record): record is ApiKeyRecord => record !== null);
   }
 
   async readProduct(organizationId: string, productId: string): Promise<ProductRecord | null> {
@@ -303,14 +350,13 @@ export class SpacesAuthStore {
     assertOpaqueId(organizationId);
     const prefix = `${OBJECT_PREFIX}orgs/${organizationId}/products/`;
     const keys = (await this.listKeys(prefix)).filter((key) => key.endsWith("/product.json"));
-    const products: ProductRecord[] = [];
-    for (const key of keys) {
+    const products = await mapWithConcurrency(keys, async (key) => {
       const raw = await this.readJson<unknown>(key);
-      if (raw === null) continue;
+      if (raw === null) return null;
       const record = this.unwrapRecord(raw);
-      if (isAuthRecord(record, "product")) products.push(record as ProductRecord);
-    }
-    return products;
+      return isAuthRecord(record, "product") ? (record as ProductRecord) : null;
+    });
+    return products.filter((product): product is ProductRecord => product !== null);
   }
 
   async findSubjectIdByEmail(email: string): Promise<SubjectId | null> {
@@ -465,22 +511,20 @@ export class SpacesAuthStore {
       "email-action": [`${OBJECT_PREFIX}email-actions/`],
     };
     const keys = (await Promise.all(prefixes[kind].map((prefix) => this.listKeys(prefix)))).flat();
-    const result: VersionedRecord<AuthRecordFor<Kind>>[] = [];
-    for (const key of new Set(keys)) {
+    const records = await mapWithConcurrency([...new Set(keys)], async (key) => {
       if (!key.endsWith(".json") || key.includes("/activity/") || key.includes("/indexes/"))
-        continue;
+        return [];
       const value = await this.readJson<unknown>(key);
-      if (value === null) continue;
+      if (value === null) return [];
       const record = this.unwrapRecord(value);
       if (kind === "membership" && isAuthRecord(record, "organization-membership")) {
-        for (const grant of (record as OrganizationMembershipRecord).permissionGrants ?? []) {
-          result.push(this.wrapRecord(grant as AuthRecordFor<Kind>));
-        }
-        continue;
+        return ((record as OrganizationMembershipRecord).permissionGrants ?? []).map((grant) =>
+          this.wrapRecord(grant as AuthRecordFor<Kind>),
+        );
       }
-      if (isAuthRecord(record, kind)) result.push(this.wrapRecord(record as AuthRecordFor<Kind>));
-    }
-    return result;
+      return isAuthRecord(record, kind) ? [this.wrapRecord(record as AuthRecordFor<Kind>)] : [];
+    });
+    return records.flat();
   }
 
   private fallbackRecordKey(kind: AuthRecordKind, id: string): string {

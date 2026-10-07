@@ -22,17 +22,21 @@ export default async function OrganizationOverview({
   const current = await getCurrentSession();
   if (!current) redirect("/login");
   const [{ organizationId }, query] = await Promise.all([params, searchParams]);
-  const [organization, products, grants, keys] = await Promise.all([
-    getOrganizationForSubject(current.subject.subjectId, organizationId),
+  const organizationPromise = getOrganizationForSubject(current.subject.subjectId, organizationId);
+  const membersPromise = organizationPromise.then((organization) =>
+    organization.membership.role === "owner" || organization.membership.role === "admin"
+      ? listOrganizationMembers(current.subject.subjectId, organizationId)
+      : Promise.resolve([]),
+  );
+  const [organization, products, grants, keys, members] = await Promise.all([
+    organizationPromise,
     listProductsForOrganization(current.subject.subjectId, organizationId),
     listOrganizationPermissionGrants(current.subject.subjectId, organizationId),
     listApiKeysForSubject(current.subject.subjectId),
+    membersPromise,
   ]);
   const managers =
     organization.membership.role === "owner" || organization.membership.role === "admin";
-  const members = managers
-    ? await listOrganizationMembers(current.subject.subjectId, organizationId)
-    : [];
   const orgKeys = keys.filter((key) => key.scope.organizationId === organizationId);
   // This request-rendered page must compare key expiry against the current time.
   const now =
