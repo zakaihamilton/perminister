@@ -19,32 +19,12 @@ import type {
   SubjectId,
 } from "../domain";
 import { assertOpaqueId } from "../domain";
+import { mapWithConcurrency } from "../concurrency";
 
 const OBJECT_ROOT = "";
 const OBJECT_PREFIX = OBJECT_ROOT ? `${OBJECT_ROOT}/` : "";
 const INDEX_ROOT = `${OBJECT_PREFIX}indexes`;
 const ID_INDEX_ROOT = `${INDEX_ROOT}/by-id`;
-const MAX_CONCURRENT_OBJECT_READS = 12;
-
-async function mapWithConcurrency<Value, Result>(
-  values: readonly Value[],
-  operation: (value: Value, index: number) => Promise<Result>,
-): Promise<Result[]> {
-  const results = new Array<Result>(values.length);
-  let nextIndex = 0;
-  const workerCount = Math.min(MAX_CONCURRENT_OBJECT_READS, values.length);
-
-  await Promise.all(
-    Array.from({ length: workerCount }, async () => {
-      while (true) {
-        const index = nextIndex++;
-        if (index >= values.length) return;
-        results[index] = await operation(values[index]!, index);
-      }
-    }),
-  );
-  return results;
-}
 
 export interface VersionedRecord<RecordType extends AuthRecord = AuthRecord> {
   /** Compatibility shape for service callers; Spaces stores the record itself, not this envelope. */

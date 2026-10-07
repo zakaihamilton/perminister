@@ -3,6 +3,7 @@ import "server-only";
 import { createHash, randomBytes, timingSafeEqual, scrypt as scryptCallback } from "node:crypto";
 import { cookies } from "next/headers";
 import { cache } from "react";
+import { mapWithConcurrency } from "./concurrency";
 import { authMutationQueue } from "./mutation-queue";
 import { withOrganizationMutationLock } from "./coordination";
 import { processLocalLoginThrottle } from "./login-throttle";
@@ -61,27 +62,6 @@ const EMAIL_ACTION_LIFETIME_MS = 30 * 60 * 1000;
 const SCRYPT_OPTIONS = { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 
 let storeSingleton: ReturnType<typeof createSpacesAuthStoreFromEnv> | undefined;
-const MAX_CONCURRENT_AUTH_READS = 12;
-
-async function mapWithConcurrency<Value, Result>(
-  values: readonly Value[],
-  operation: (value: Value) => Promise<Result>,
-): Promise<Result[]> {
-  const results = new Array<Result>(values.length);
-  let nextIndex = 0;
-  const workerCount = Math.min(MAX_CONCURRENT_AUTH_READS, values.length);
-
-  await Promise.all(
-    Array.from({ length: workerCount }, async () => {
-      while (true) {
-        const index = nextIndex++;
-        if (index >= values.length) return;
-        results[index] = await operation(values[index]!);
-      }
-    }),
-  );
-  return results;
-}
 
 function store() {
   storeSingleton ??= createSpacesAuthStoreFromEnv();

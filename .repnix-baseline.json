@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-07T16:10:26.631Z",
+  "generatedAt": "2026-10-07T17:50:12.997Z",
   "entries": [
     {
       "fingerprint": "a017d277a4da61975ff101f4",
@@ -426,94 +426,85 @@
       "line": 163
     },
     {
-      "fingerprint": "b5a7d1147929f3af0ebd4283",
+      "fingerprint": "37bff72719e7473dd550f34f",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "lib/auth/service.ts",
-      "line": 176
+      "line": 178
     },
     {
-      "fingerprint": "6125a1acedf38e3c70041231",
+      "fingerprint": "d18c65888f8f5dfb170c43a5",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "lib/auth/service.ts",
-      "line": 1019
+      "line": 1513
     },
     {
-      "fingerprint": "91e40af9a9ee357292019c8c",
+      "fingerprint": "8758ef1803ff654a6bbf117e",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "lib/auth/service.ts",
-      "line": 1505
+      "line": 1642
     },
     {
-      "fingerprint": "9733c96a63a906a1df9c9bd2",
+      "fingerprint": "8c9c9e8d2fcbcd15f4cae996",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "lib/auth/service.ts",
-      "line": 1634
+      "line": 1653
     },
     {
-      "fingerprint": "19da33886b2a97b6ef743754",
+      "fingerprint": "c94f5d5187a7d080369efc74",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "lib/auth/service.ts",
-      "line": 1645
+      "line": 1756
     },
     {
-      "fingerprint": "38e04f2616458e9f586b0f85",
+      "fingerprint": "73c9312db853890646baec7a",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "lib/auth/service.ts",
-      "line": 1748
+      "line": 2437
     },
     {
-      "fingerprint": "42f622482a7010e96ad115ca",
+      "fingerprint": "336adcdc7b1455e69179115d",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "lib/auth/service.ts",
-      "line": 2421
+      "line": 2470
     },
     {
-      "fingerprint": "1bf7ef55ebf2d5b45a76951b",
+      "fingerprint": "90c26f887c41db4c1f13f3d4",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "lib/auth/service.ts",
-      "line": 2454
+      "line": 2484
     },
     {
-      "fingerprint": "e5d193434c9d9f13c249730c",
+      "fingerprint": "b122589e8bcc104f89c099d6",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "lib/auth/service.ts",
-      "line": 2468
-    },
-    {
-      "fingerprint": "07bfefdd74db10e0a7de4951",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "lib/auth/service.ts",
-      "line": 2476
+      "line": 2492
     }
   ]
 }
