@@ -1183,15 +1183,31 @@ export async function listOrganizationRequestsForSubject(
   });
 }
 
+async function pendingOrganizationsForAdministratorUnlocked(
+  actorId: SubjectId,
+): Promise<OrganizationRecord[]> {
+  await requireAdministrator(actorId);
+  return (await listRecordsWithRecovery("organization"))
+    .map((item) => item.record)
+    .filter((organization) => organizationApprovalStatus(organization) === "pending");
+}
+
+export async function countPendingOrganizationsForAdministrator(
+  actorId: SubjectId,
+): Promise<number> {
+  return authMutationQueue.run(async () => {
+    const organizations = await pendingOrganizationsForAdministratorUnlocked(actorId);
+    return organizations.length;
+  });
+}
+
 export async function listPendingOrganizationsForAdministrator(
   actorId: SubjectId,
 ): Promise<OrganizationReviewRequest[]> {
   return authMutationQueue.run(async () => {
-    await requireAdministrator(actorId);
-    const organizations = (await listRecordsWithRecovery("organization"))
-      .map((item) => item.record)
-      .filter((organization) => organizationApprovalStatus(organization) === "pending")
-      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    const organizations = (await pendingOrganizationsForAdministratorUnlocked(actorId)).sort(
+      (left, right) => left.createdAt.localeCompare(right.createdAt),
+    );
     const requests: OrganizationReviewRequest[] = [];
     for (const organization of organizations) {
       const requester = await loadSubjectUnlocked(organization.createdBySubjectId);

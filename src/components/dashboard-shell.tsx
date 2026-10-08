@@ -14,6 +14,8 @@ export function DashboardShell({
   products = [],
   organizations,
   role,
+  isPlatformAdministrator,
+  pendingOrganizationRequestCount,
   email,
   firstName,
   lastName,
@@ -24,6 +26,8 @@ export function DashboardShell({
   products?: DashboardBreadcrumbProduct[];
   organizations: OrganizationSummary[];
   role: "owner" | "admin" | "member";
+  isPlatformAdministrator: boolean;
+  pendingOrganizationRequestCount: number | null;
   email: string | null;
   firstName: string | null;
   lastName: string | null;
@@ -40,7 +44,12 @@ export function DashboardShell({
           <Brand />
         </div>
         <OrganizationSwitcher organizations={organizations} organizationId={organizationId} />
-        <DashboardNavigation organizationId={organizationId} role={role} />
+        <DashboardNavigation
+          organizationId={organizationId}
+          role={role}
+          isPlatformAdministrator={isPlatformAdministrator}
+          pendingOrganizationRequestCount={pendingOrganizationRequestCount}
+        />
         <div className="dashboard-sidebar-theme">
           <ThemeControl />
         </div>
