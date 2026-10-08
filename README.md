@@ -24,8 +24,19 @@ operator for a local environment file. Application integrators only need the
 
 ## Production storage topology
 
-The auth store writes records and indexes to DigitalOcean Spaces. Its mutation queue and recovery
-throttles are process-local, and Spaces `PutObject` does not provide the conditional writes needed
-to coordinate independent writers. Run exactly one Node.js server process against a given Spaces
-bucket, including during deploys; do not use multiple replicas or overlapping old and new servers.
-Horizontal scaling requires moving auth mutations to a transactional shared store first.
+Vercel serves reads directly from DigitalOcean Spaces with a read-only Spaces key. It sends every
+mutation, including Next.js Server Actions and API writes, through its Functions to the Railway
+writer. Railway is the only service with write-capable Spaces credentials. This keeps the
+process-local mutation queue and recovery throttles behind one writer; Spaces `PutObject` does not
+provide the conditional writes needed to coordinate independent writers.
+
+Configure the Railway service with one replica in one region and set its deployment overlap to zero.
+The [`deploy-railway.yml`](.github/workflows/deploy-railway.yml)
+workflow uploads every push to `main` to the configured Railway production service. See
+[`docs/deployment/railway.md`](docs/deployment/railway.md) for service settings, shared secrets, and
+the Vercel-to-Railway mutation proxy setup.
+
+Local `npm run dev` continues to use its configured local storage. Set
+`PERMINISTER_WRITE_PROXY_URL` and `PERMINISTER_WRITE_PROXY_SECRET` in `.env.local` to send local
+mutations through Railway too. Without those settings, use a separate development bucket so the
+local process does not write to the production bucket.
