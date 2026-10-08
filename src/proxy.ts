@@ -200,6 +200,7 @@ export async function proxy(request: NextRequest): Promise<Response> {
 export const config = {
   matcher: [
     "/api/:path*",
+    "/oauth/authorize",
     "/accept-invitation",
     "/dashboard/:path*",
     "/forgot-password",
