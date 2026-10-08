@@ -12,6 +12,7 @@ import {
   assertOpaqueId,
   authRecordId,
   newApiKeyId,
+  newConsumerAuthorizationCodeId,
   newConsumerClientId,
   newEmailActionId,
   newEventId,
@@ -28,6 +29,8 @@ import {
   type ApiKeyRecord,
   type ConsumerClientId,
   type ConsumerClientRecord,
+  type ConsumerAuthorizationCodeId,
+  type ConsumerAuthorizationCodeRecord,
   type AuthActor,
   type AuthAggregate,
   type AuthEvent,
@@ -318,6 +321,8 @@ function aggregateFor(kind: AuthRecordKind, id: string): AuthAggregate {
       return { kind, id: id as ApiKeyId };
     case "consumer-client":
       return { kind, id: id as ConsumerClientId };
+    case "consumer-authorization-code":
+      return { kind, id: id as ConsumerAuthorizationCodeId };
     case "session":
       return { kind, id: id as SessionId };
     case "email-action":
@@ -651,35 +656,165 @@ export async function createConsumerSession(
   ) {
     throw new Error("Choose a valid consumer session lifetime.");
   }
+  return authMutationQueue.run(() =>
+    createConsumerSessionUnlocked(subjectId, clientId, normalizedProductId, sessionLifetimeMs),
+  );
+}
+
+async function createConsumerSessionUnlocked(
+  subjectId: SubjectId,
+  clientId: string,
+  productId: string,
+  sessionLifetimeMs: number,
+): Promise<{ session: SessionRecord; token: string }> {
+  const subject = await loadSubjectUnlocked(subjectId);
+  requireVerifiedActiveSubject(subject);
+  const productState = consumerProductState(subject, productId);
+  if (productState.status !== "active") {
+    throw new Error("This account is disabled for the application.");
+  }
+  const sessionId = newSessionId();
+  const token = `${sessionId}.${randomBytes(32).toString("base64url")}`;
+  const now = new Date();
+  const session: SessionRecord = {
+    kind: "session",
+    schemaVersion: 1,
+    sessionId,
+    subjectId,
+    verifierDigestHex: hashHex(token),
+    authVersion: subject.authVersion,
+    applicationClientId: clientId,
+    productId,
+    productSessionVersion: productState.sessionVersion,
+    createdAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + sessionLifetimeMs).toISOString(),
+    revokedAt: null,
+  };
+  await persistRecord(session, "session.consumer-created", {
+    kind: "subject",
+    subjectId,
+  });
+  return { session, token };
+}
+
+export class InvalidConsumerAuthorizationCodeError extends Error {
+  constructor() {
+    super("The authorization code is invalid, expired, or already used.");
+    this.name = "InvalidConsumerAuthorizationCodeError";
+  }
+}
+
+export async function createConsumerAuthorizationCode(
+  subjectId: SubjectId,
+  clientId: string,
+  codeChallenge: string,
+): Promise<string> {
+  assertOpaqueId(clientId);
+  if (!/^[A-Za-z0-9_-]{43}$/.test(codeChallenge)) {
+    throw new Error("Choose a valid PKCE challenge.");
+  }
   return authMutationQueue.run(async () => {
+    const client = await loadRecord("consumer-client", clientId);
+    if (!client || client.record.status !== "active" || !client.record.appOrigin) {
+      throw new Error("Choose an active application client with an app origin.");
+    }
     const subject = await loadSubjectUnlocked(subjectId);
     requireVerifiedActiveSubject(subject);
-    const productState = consumerProductState(subject, normalizedProductId);
+    const productState = consumerProductState(subject, client.record.productId);
     if (productState.status !== "active") {
       throw new Error("This account is disabled for the application.");
     }
-    const sessionId = newSessionId();
-    const token = `${sessionId}.${randomBytes(32).toString("base64url")}`;
+    const codeId = newConsumerAuthorizationCodeId();
+    const code = `${codeId}.${randomBytes(32).toString("base64url")}`;
     const now = new Date();
-    const session: SessionRecord = {
-      kind: "session",
+    const record: ConsumerAuthorizationCodeRecord = {
+      kind: "consumer-authorization-code",
       schemaVersion: 1,
-      sessionId,
+      consumerAuthorizationCodeId: codeId,
+      consumerClientId: client.record.consumerClientId,
       subjectId,
-      verifierDigestHex: hashHex(token),
       authVersion: subject.authVersion,
-      applicationClientId: clientId,
-      productId: normalizedProductId,
       productSessionVersion: productState.sessionVersion,
+      codeDigestHex: hashHex(code),
+      codeChallenge,
       createdAt: now.toISOString(),
-      expiresAt: new Date(now.getTime() + sessionLifetimeMs).toISOString(),
-      revokedAt: null,
+      expiresAt: new Date(now.getTime() + 5 * 60 * 1000).toISOString(),
+      consumedAt: null,
     };
-    await persistRecord(session, "session.consumer-created", {
+    await persistRecord(record, "consumer-authorization-code.issued", {
       kind: "subject",
       subjectId,
     });
-    return { session, token };
+    return code;
+  });
+}
+
+export async function exchangeConsumerAuthorizationCode(
+  code: string,
+  clientId: string,
+  codeVerifier: string,
+): Promise<{ session: SessionRecord; token: string; subject: SubjectRecord; productId: string }> {
+  assertOpaqueId(clientId);
+  if (code.length > 128 || !/^[A-Za-z0-9_-]{43,128}$/.test(codeVerifier)) {
+    throw new InvalidConsumerAuthorizationCodeError();
+  }
+  const match = /^([0-9a-f-]{36})\.([A-Za-z0-9_-]{43})$/i.exec(code);
+  if (!match) throw new InvalidConsumerAuthorizationCodeError();
+  const codeChallenge = createHash("sha256").update(codeVerifier, "utf8").digest("base64url");
+  return authMutationQueue.run(async () => {
+    const [authorization, client] = await Promise.all([
+      loadRecord("consumer-authorization-code", match[1]),
+      loadRecord("consumer-client", clientId),
+    ]);
+    if (
+      !authorization ||
+      !client ||
+      client.record.status !== "active" ||
+      authorization.record.consumerClientId !== clientId ||
+      authorization.record.consumedAt ||
+      Date.parse(authorization.record.expiresAt) <= Date.now() ||
+      !equalHex(authorization.record.codeDigestHex, hashHex(code))
+    ) {
+      throw new InvalidConsumerAuthorizationCodeError();
+    }
+    const expectedChallenge = Buffer.from(authorization.record.codeChallenge, "utf8");
+    const actualChallenge = Buffer.from(codeChallenge, "utf8");
+    if (
+      expectedChallenge.length !== actualChallenge.length ||
+      !timingSafeEqual(expectedChallenge, actualChallenge)
+    ) {
+      throw new InvalidConsumerAuthorizationCodeError();
+    }
+    const productStateSubject = await loadSubjectUnlocked(authorization.record.subjectId);
+    const productState = productStateSubject
+      ? consumerProductState(productStateSubject, client.record.productId)
+      : null;
+    if (
+      !productStateSubject ||
+      productStateSubject.status !== "active" ||
+      productStateSubject.authVersion !== authorization.record.authVersion ||
+      productState?.status !== "active" ||
+      productState.sessionVersion !== authorization.record.productSessionVersion
+    ) {
+      throw new InvalidConsumerAuthorizationCodeError();
+    }
+    const consumedAt = new Date().toISOString();
+    await persistRecord(
+      { ...authorization.record, consumedAt },
+      "consumer-authorization-code.consumed",
+      { kind: "subject", subjectId: authorization.record.subjectId },
+    );
+    const created = await createConsumerSessionUnlocked(
+      authorization.record.subjectId,
+      client.record.consumerClientId,
+      client.record.productId,
+      client.record.sessionLifetimeMs,
+    );
+    return {
+      ...created,
+      subject: productStateSubject,
+      productId: client.record.productId,
+    };
   });
 }
 

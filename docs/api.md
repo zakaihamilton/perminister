@@ -7,11 +7,12 @@ The paths below are relative to the Perminister base URL provided by the platfor
 ## Client credentials
 
 Product owners and admins create an app client from the product’s **App clients** page. Each client
-is bound to that product and has its own session lifetime, optional app origin, and
-self-registration setting. Perminister returns the client ID and secret once; copy them into the
+is bound to that product and has its own session lifetime, optional app origin, and self-registration
+setting. Perminister returns the client ID and secret once; copy them into the
 application backend’s environment. Owners and admins can rotate or revoke credentials from the same
 page. Rotating a secret immediately invalidates the previous one, and revoking a client stops its
-credentials from working. The application backend sends these headers when calling consumer
+credentials from working. Set the exact canonical product origin to enable Sign in with Perminister.
+The SSO callback path is `/auth/perminister/callback`. The application backend sends these headers when calling consumer
 endpoints:
 
 ```http
@@ -48,11 +49,24 @@ Consumer authentication endpoints are called by the application backend:
 | -------- | --------------------------------------- | --------------------------------------------------------------------- |
 | `POST`   | `/api/auth/consumer/register`           | Create a central account and request email verification               |
 | `POST`   | `/api/auth/consumer/login`              | Verify credentials and create an app-bound session                    |
+| `POST`   | `/api/auth/consumer/token`              | Exchange a one-time SSO authorization code for an app-bound session   |
 | `GET`    | `/api/auth/consumer/session`            | Validate a session and return current account and organization access |
 | `DELETE` | `/api/auth/consumer/session`            | Revoke the current app session                                        |
 | `POST`   | `/api/auth/consumer/email-verification` | Request or complete email verification                                |
 | `POST`   | `/api/auth/consumer/password-recovery`  | Request or complete password recovery                                 |
 | `PATCH`  | `/api/auth/consumer/password`           | Change a password for the current session                             |
+
+### Sign in with Perminister
+
+The product backend starts an authorization-code flow at `/oauth/authorize` with its client ID,
+exact callback URI, random `state`, and an S256 PKCE challenge. The callback URI must use the
+registered app origin and the fixed `/auth/perminister/callback` path. Perminister asks the signed-in
+person to confirm, then redirects back with a short-lived code and the original state. The backend
+checks the state and exchanges the code at `POST /api/auth/consumer/token`, sending its app-client
+headers and a `grant_type` of `authorization_code`, the code, and its original PKCE verifier. Codes
+expire after five minutes, are bound to the app client, and can be exchanged once. The exchange
+returns the same app-bound session shape as password login; store that token in the product's own
+Secure, HttpOnly, SameSite cookie.
 
 Registration accepts `email` and `password`; the password must be 15–256 characters. Optional
 `firstName` and `lastName` fields may each contain up to 80 characters. The names are available in

@@ -3,11 +3,13 @@ import { redirect } from "next/navigation";
 import { SiteFooter, SiteHeader } from "@/components/site-shell";
 import { signInAction } from "@/app/actions";
 import { getCurrentSession } from "@/lib/auth/service";
+import { safeConsumerAuthorizationReturnTo } from "@/lib/auth/consumer-sso";
 
 const errorText: Record<string, string> = {
   credentials: "Email or password is incorrect.",
   throttled: "Too many sign-in attempts. Try again in 15 minutes.",
   unavailable: "Sign-in is unavailable right now. Check the Spaces configuration and try again.",
+  sso: "This product sign-in request is invalid or has expired. Return to the product and try again.",
 };
 
 const noticeText: Record<string, string> = {
@@ -25,15 +27,22 @@ const noticeText: Record<string, string> = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; notice?: string; invitationToken?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    notice?: string;
+    invitationToken?: string;
+    next?: string;
+  }>;
 }) {
   const params = await searchParams;
+  const next = safeConsumerAuthorizationReturnTo(params.next ?? "");
   const current = await getCurrentSession();
   if (current)
     redirect(
-      params.invitationToken
-        ? `/accept-invitation?token=${encodeURIComponent(params.invitationToken)}`
-        : "/dashboard",
+      next ??
+        (params.invitationToken
+          ? `/accept-invitation?token=${encodeURIComponent(params.invitationToken)}`
+          : "/dashboard"),
     );
   const invitationToken = params.invitationToken ?? "";
   return (
@@ -64,6 +73,7 @@ export default async function LoginPage({
               </p>
             ) : null}
             <form action={signInAction} className="auth-form">
+              {next ? <input type="hidden" name="next" value={next} /> : null}
               {invitationToken ? (
                 <input type="hidden" name="invitationToken" value={invitationToken} />
               ) : null}

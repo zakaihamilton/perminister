@@ -95,6 +95,8 @@ function recordKey(record: AuthRecord): string {
       return `${OBJECT_PREFIX}api-keys/${record.apiKeyId}.json`;
     case "consumer-client":
       return `${OBJECT_PREFIX}consumer-clients/${record.consumerClientId}.json`;
+    case "consumer-authorization-code":
+      return `${OBJECT_PREFIX}consumer-authorization-codes/${record.consumerAuthorizationCodeId}.json`;
     case "session":
       return `${OBJECT_PREFIX}sessions/${record.sessionId}.json`;
     case "email-action":
@@ -561,6 +563,7 @@ export class SpacesAuthStore {
       "service-principal": [`${OBJECT_PREFIX}service-principals/`],
       "api-key": [`${OBJECT_PREFIX}api-keys/`],
       "consumer-client": [`${OBJECT_PREFIX}consumer-clients/`],
+      "consumer-authorization-code": [`${OBJECT_PREFIX}consumer-authorization-codes/`],
       session: [`${OBJECT_PREFIX}sessions/`],
       "email-action": [`${OBJECT_PREFIX}email-actions/`],
     };
@@ -588,6 +591,7 @@ export class SpacesAuthStore {
       organization: `${OBJECT_PREFIX}orgs/${id}/organization.json`,
       "api-key": `${OBJECT_PREFIX}api-keys/${id}.json`,
       "consumer-client": `${OBJECT_PREFIX}consumer-clients/${id}.json`,
+      "consumer-authorization-code": `${OBJECT_PREFIX}consumer-authorization-codes/${id}.json`,
       session: `${OBJECT_PREFIX}sessions/${id}.json`,
       "email-action": `${OBJECT_PREFIX}email-actions/${id}.json`,
       "service-principal": `${OBJECT_PREFIX}service-principals/${id}.json`,
@@ -607,6 +611,8 @@ export class SpacesAuthStore {
         return `${OBJECT_PREFIX}api-keys/${id}.json`;
       case "consumer-client":
         return `${OBJECT_PREFIX}consumer-clients/${id}.json`;
+      case "consumer-authorization-code":
+        return `${OBJECT_PREFIX}consumer-authorization-codes/${id}.json`;
       case "session":
         return `${OBJECT_PREFIX}sessions/${id}.json`;
       case "email-action":
