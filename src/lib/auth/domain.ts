@@ -72,6 +72,15 @@ export interface OrganizationRecord {
 }
 
 export type OrganizationRole = "owner" | "admin" | "member";
+export type ProductVisibility = "private" | "public";
+
+export interface SharedProductReference {
+  sourceOrganizationId: OrganizationId;
+  sourceProductRecordId: ProductRecordId;
+  sourceProductId: ProductId;
+  /** Set when the publisher makes the product private; the local row remains as an audit tombstone. */
+  detachedAt?: string | null;
+}
 
 export interface OrganizationMembershipRecord {
   kind: "organization-membership";
@@ -99,7 +108,11 @@ export interface ProductRecord {
   description: string;
   websiteUrl: string;
   iconUrl: string;
-  /** Organization-scoped reusable action bundles for this product. */
+  /** Missing visibility on older records means private. */
+  visibility?: ProductVisibility;
+  /** Present only for an organization-local installation of a public product. */
+  sharedProductRef?: SharedProductReference;
+  /** Action bundles are publisher-owned for shared products. */
   accessRoles?: ProductAccessRole[];
   createdBySubjectId: SubjectId;
   createdAt: string;

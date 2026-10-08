@@ -2,11 +2,12 @@ import Link from "next/link";
 import { updateOrganizationProductAction } from "@/app/actions";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { ProductIcon } from "@/components/product-icon";
+import { ProductVisibilityControl } from "@/components/product-visibility-control";
 import {
   getProductPageContext,
   type ProductPageWithSearchParams,
 } from "@/lib/auth/product-page-context";
-import { listConsumerClientsForProduct } from "@/lib/auth/service";
+import { getProductShareInfo, listConsumerClientsForProduct } from "@/lib/auth/service";
 
 export default async function ProductPage({ params, searchParams }: ProductPageWithSearchParams) {
   const [{ current, organizationId, productId, access: productAccess }, query] = await Promise.all([
@@ -14,22 +15,27 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
     searchParams,
   ]);
   const product = productAccess.product;
-  const canManageDetails = productAccess.catalogManager;
+  const isSharedInstallation = Boolean(product.sharedProductRef);
+  const canManageDetails =
+    productAccess.catalogManager &&
+    (productAccess.catalogRole === "owner" || productAccess.catalogRole === "admin") &&
+    !isSharedInstallation;
   const productRole = productAccess.membership?.role;
   const canManageProduct = productRole === "owner" || productRole === "admin";
-  const productClients = canManageProduct
-    ? await listConsumerClientsForProduct(
-        current.subject.subjectId,
-        organizationId,
-        product.productId,
-      )
-    : [];
+  const [productClients, shareInfo] = await Promise.all([
+    canManageProduct
+      ? listConsumerClientsForProduct(current.subject.subjectId, organizationId, product.productId)
+      : Promise.resolve([]),
+    canManageDetails
+      ? getProductShareInfo(current.subject.subjectId, organizationId, product.productRecordId)
+      : Promise.resolve(null),
+  ]);
   const connectedClients = productClients.filter((client) => client.status === "active");
   const productActionLinks = canManageProduct
     ? [
         { path: "people", label: "People" },
         { path: "access", label: "Access" },
-        { path: "roles", label: "Access roles" },
+        ...(isSharedInstallation ? [] : [{ path: "roles", label: "Access roles" }]),
         { path: "clients", label: "App clients" },
         { path: "api-keys", label: "API keys" },
         { path: "activity", label: "Activity" },
@@ -69,6 +75,27 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
       ) : null}
       {query.notice === "product-updated" ? (
         <DashboardNotice message="Product details saved." kind="success" />
+      ) : null}
+      {query.notice === "product-added" ? (
+        <DashboardNotice
+          message="Shared product added. Its members, access grants, and credentials are managed in this organization."
+          kind="success"
+        />
+      ) : null}
+      {query.notice === "product-visibility-updated" ? (
+        <DashboardNotice message="Product availability updated." kind="success" />
+      ) : null}
+      {query.error === "product-visibility-invalid" ? (
+        <DashboardNotice
+          message="Choose whether this product should be public or private."
+          kind="error"
+        />
+      ) : null}
+      {query.error === "product-visibility-update" ? (
+        <DashboardNotice message="Product availability could not be updated." kind="error" />
+      ) : null}
+      {isSharedInstallation ? (
+        <DashboardNotice message="This is a shared product. The publisher controls its details and access roles; people, grants, and credentials remain specific to this organization." />
       ) : null}
       {canManageProduct ? (
         <section className="dashboard-card product-onboarding-card">
@@ -147,12 +174,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
               <div>
                 <div className="product-onboarding-step-heading">
                   <h3>Manage access</h3>
-                  <Link
-                    className="text-link"
-                    href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/roles`}
-                  >
-                    Manage roles
-                  </Link>
+                  {isSharedInstallation ? null : (
+                    <Link
+                      className="text-link"
+                      href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/roles`}
+                    >
+                      Manage roles
+                    </Link>
+                  )}
                   <Link
                     className="text-link"
                     href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access`}
@@ -231,6 +260,16 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
             <dd>{new Date(product.createdAt).toLocaleDateString()}</dd>
           </dl>
         )}
+        {canManageDetails && shareInfo ? (
+          <ProductVisibilityControl
+            organizationId={organizationId}
+            productId={product.productId}
+            productRecordId={product.productRecordId}
+            visibility={shareInfo.visibility}
+            adopterOrganizations={shareInfo.adopterOrganizations}
+            initialDialogOpen={query.error === "product-private-confirmation"}
+          />
+        ) : null}
       </section>
     </>
   );

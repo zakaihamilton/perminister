@@ -13,6 +13,7 @@ import {
   createOrganization,
   createOrganizationInvitation,
   createOrganizationProduct,
+  getProductShareInfo,
   createProductAccessRole,
   createProductInvitation,
   createPermissionGrant,
@@ -20,6 +21,7 @@ import {
   getCurrentSession,
   getOrganizationForSubject,
   isAdministrator,
+  installPublicProduct,
   decideOrganizationRequest,
   issueEmailAction,
   issueRecoveryAction,
@@ -39,12 +41,13 @@ import {
   updateOrganizationMemberRole,
   updateOrganizationName,
   updateOrganizationProduct,
+  setOrganizationProductVisibility,
   updateProductMemberRole,
   removeProductMember,
   removeProductAccessRole,
   rotateConsumerClient,
 } from "@/lib/auth/service";
-import type { ResourceScope, SubjectId } from "@/lib/auth/domain";
+import type { ProductVisibility, ResourceScope, SubjectId } from "@/lib/auth/domain";
 import type { ConsumerClientCredential } from "@/lib/auth/service";
 import {
   browserOriginFromHeaders,
@@ -94,6 +97,12 @@ function publicActionError(error: unknown): string {
     "An organization must keep at least one owner.",
     "You do not have permission to manage this organization.",
     "That product ID is already in use in this organization.",
+    "A different product with this ID already exists in this organization. Resolve that conflict before adding the shared product.",
+    "This public product is no longer available.",
+    "Shared product details are controlled by the publishing organization.",
+    "Shared access roles are controlled by the publishing organization.",
+    "Confirm making this product private to remove it and revoke access in other organizations.",
+    "Choose public or private product visibility.",
     "Use a product ID with letters, numbers, dots, underscores, colons, or hyphens.",
     "Enter a product name up to 120 characters.",
     "The product description must be 500 characters or fewer.",
@@ -526,6 +535,68 @@ export async function updateOrganizationProductAction(formData: FormData): Promi
   redirect(
     `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}?notice=product-updated`,
   );
+}
+
+export async function addPublicProductAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  let product: Awaited<ReturnType<typeof installPublicProduct>>;
+  try {
+    product = await installPublicProduct(
+      current.subject.subjectId,
+      organizationId,
+      firstValue(formData, "sourceProductRecordId"),
+    );
+  } catch (error) {
+    redirect(
+      `/dashboard/${organizationId}/products?error=${encodeURIComponent(publicActionError(error))}`,
+    );
+  }
+  revalidatePath(`/dashboard/${organizationId}/products`);
+  redirect(
+    `/dashboard/${organizationId}/products/${encodeURIComponent(product.productId)}?notice=product-added`,
+  );
+}
+
+export async function setOrganizationProductVisibilityAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  const productRecordId = firstValue(formData, "productRecordId");
+  const productId = firstValue(formData, "productId");
+  const visibilityValue = firstValue(formData, "visibility");
+  const returnTo = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}`;
+  if (visibilityValue !== "private" && visibilityValue !== "public") {
+    redirect(`${returnTo}?error=product-visibility-invalid`);
+  }
+  let before: Awaited<ReturnType<typeof getProductShareInfo>>;
+  try {
+    before = await getProductShareInfo(current.subject.subjectId, organizationId, productRecordId);
+    await setOrganizationProductVisibility(
+      current.subject.subjectId,
+      organizationId,
+      productRecordId,
+      visibilityValue as ProductVisibility,
+      firstValue(formData, "confirmedPrivateRemoval") === "true",
+    );
+  } catch (error) {
+    const requiresConfirmation =
+      error instanceof Error && error.message.startsWith("Confirm making this product private");
+    redirect(
+      requiresConfirmation
+        ? `${returnTo}?error=product-private-confirmation`
+        : `${returnTo}?error=product-visibility-update`,
+    );
+  }
+  for (const affectedOrganization of [
+    organizationId,
+    ...before.adopterOrganizations.map((organization) => organization.organizationId),
+  ]) {
+    revalidatePath(`/dashboard/${affectedOrganization}/products`);
+    revalidatePath(`/dashboard/${affectedOrganization}/products/${encodeURIComponent(productId)}`);
+  }
+  redirect(`${returnTo}?notice=product-visibility-updated`);
 }
 
 export interface ProductLookupState {

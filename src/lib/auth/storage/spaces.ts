@@ -338,7 +338,33 @@ export class SpacesAuthStore {
     if (product.organizationId !== organizationId || product.productId !== productId) {
       throw new Error(`Product identity does not match its S3 object at ${key}`);
     }
-    return product;
+    const sharedProductRef = product.sharedProductRef;
+    if (!sharedProductRef) return product;
+    if (sharedProductRef.detachedAt) return null;
+
+    const source = await this.readRecord("product", sharedProductRef.sourceProductRecordId);
+    if (!source) return null;
+    const canonical = source.record as ProductRecord;
+    if (
+      canonical.sharedProductRef ||
+      canonical.visibility !== "public" ||
+      canonical.organizationId !== sharedProductRef.sourceOrganizationId ||
+      canonical.productRecordId !== sharedProductRef.sourceProductRecordId ||
+      canonical.productId !== sharedProductRef.sourceProductId ||
+      canonical.productId !== product.productId
+    ) {
+      return null;
+    }
+    return {
+      ...product,
+      name: canonical.name,
+      description: canonical.description,
+      websiteUrl: canonical.websiteUrl,
+      iconUrl: canonical.iconUrl,
+      accessRoles: canonical.accessRoles,
+      visibility: "public",
+      updatedAt: canonical.updatedAt,
+    };
   }
 
   async listProducts(organizationId: string): Promise<ProductRecord[]> {
@@ -349,7 +375,9 @@ export class SpacesAuthStore {
       const raw = await this.readJson<unknown>(key);
       if (raw === null) return null;
       const record = this.unwrapRecord(raw);
-      return isAuthRecord(record, "product") ? (record as ProductRecord) : null;
+      if (!isAuthRecord(record, "product")) return null;
+      const local = record as ProductRecord;
+      return this.readProduct(organizationId, local.productId);
     });
     return products.filter((product): product is ProductRecord => product !== null);
   }

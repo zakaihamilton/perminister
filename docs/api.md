@@ -24,6 +24,17 @@ logs. Consumer endpoints require these headers; `POST /api/authorize` requires t
 credential is an app session token. User-owned and service-principal API keys do not require client
 headers for authorization.
 
+## Product catalog and sharing
+
+Products are private to their organization when created. An organization owner or admin can make a
+product public from its details page. Owners and admins in other approved organizations can then add
+it from their **Products** page without recreating its product ID or configuration. Product details
+and access role templates come from the publishing organization and stay in sync; each organization
+keeps its own members, access grants, app clients, integrations, and API keys. A different product
+with the same ID blocks an install until that conflict is resolved. Making a shared product private
+removes its installations from other organizations and revokes their product-scoped access and
+credentials.
+
 JSON request bodies must use `Content-Type: application/json`. Most are limited to 8 KiB; consumer
 member and account management requests allow 16 KiB, and the legacy import allows 25 MiB. Malformed
 JSON and most invalid fields return `400`; email-only verification and recovery requests keep a

@@ -52,8 +52,10 @@ import {
   type OrganizationRole,
   type PermissionGrant,
   type PasswordCredential,
+  type ProductId,
   type ProductRecord,
   type ProductRecordId,
+  type ProductVisibility,
   type ResourceScope,
   type SessionId,
   type SessionRecord,
@@ -856,6 +858,7 @@ export interface ProductAccessSummary {
   product: ProductRecord;
   membership: OrganizationMembershipRecord | null;
   catalogManager: boolean;
+  catalogRole: OrganizationRole | null;
 }
 
 export interface OrganizationActivityEntry {
@@ -1113,25 +1116,19 @@ export async function listConsumerOrganizationsForSubject(
 ): Promise<ConsumerOrganizationAccess[]> {
   const normalizedProductId = validateProductId(productId);
   return authMutationQueue.run(async () => {
-    const [organizationMemberships, products, grants] = await Promise.all([
+    const [organizationMemberships, grants] = await Promise.all([
       listRecordsWithRecovery("organization-membership"),
-      listRecordsWithRecovery("product"),
       listRecordsWithRecovery("membership"),
     ]);
     const activeMemberships = organizationMemberships
       .map((item) => item.record)
       .filter((membership) => membership.subjectId === subjectId && membership.status === "active");
-    const productRecords = products.map((item) => item.record);
     const subjectGrants = grants
       .map((item) => item.record)
       .filter((grant) => grant.subjectId === subjectId && grant.status === "active");
     const results: ConsumerOrganizationAccess[] = [];
     for (const membership of activeMemberships) {
-      const product = productRecords.find(
-        (candidate) =>
-          candidate.organizationId === membership.organizationId &&
-          candidate.productId === normalizedProductId,
-      );
+      const product = await store().readProduct(membership.organizationId, normalizedProductId);
       if (!product) continue;
       const organization = await loadRecord("organization", membership.organizationId);
       if (!organization) continue;
@@ -1408,41 +1405,50 @@ export async function createOrganizationProduct(
         "owner",
         "admin",
       ]);
-      const products = await store().listProducts(organizationId);
-      if (
-        products.some(
+      const products = (await listRecordsWithRecovery("product"))
+        .map((item) => item.record)
+        .filter(
           (product) => product.organizationId === organizationId && product.productId === productId,
-        )
-      ) {
+        );
+      const prior = products.find((product) => !product.sharedProductRef?.detachedAt);
+      const reusableTombstone = products.find((product) => !!product.sharedProductRef?.detachedAt);
+      if (prior) {
         throw new Error("That product ID is already in use in this organization.");
       }
       const now = new Date().toISOString();
       const product: ProductRecord = {
         kind: "product",
         schemaVersion: 1,
-        productRecordId: newProductRecordId(),
+        productRecordId: reusableTombstone?.productRecordId ?? newProductRecordId(),
         organizationId: organizationId as OrganizationId,
         productId,
         ...details,
+        visibility: "private",
         createdBySubjectId: actorId,
-        createdAt: now,
+        createdAt: reusableTombstone?.createdAt ?? now,
         updatedAt: now,
       };
       await persistRecord(product, "product.created", {
         kind: "subject",
         subjectId: manager.subjectId,
       });
+      const existingOwnerMembership = await store().readOrganizationMembership(
+        organizationId,
+        actorId,
+        productId,
+      );
       const ownerMembership: OrganizationMembershipRecord = {
         kind: "organization-membership",
         schemaVersion: 1,
-        organizationMembershipId: newOrganizationMembershipId(),
+        organizationMembershipId:
+          existingOwnerMembership?.organizationMembershipId ?? newOrganizationMembershipId(),
         organizationId: organizationId as OrganizationId,
         productId,
         subjectId: actorId,
         role: "owner",
         status: "active",
         permissionGrants: [],
-        createdAt: now,
+        createdAt: existingOwnerMembership?.createdAt ?? now,
         updatedAt: now,
       };
       await persistRecord(ownerMembership, "product.owner-assigned", {
@@ -1471,6 +1477,9 @@ export async function updateOrganizationProduct(
       const current = await loadRecord("product", productRecordId);
       if (!current || current.record.organizationId !== organizationId)
         throw new Error("Product not found.");
+      if (current.record.sharedProductRef) {
+        throw new Error("Shared product details are controlled by the publishing organization.");
+      }
       const next: ProductRecord = {
         ...current.record,
         ...details,
@@ -1483,6 +1492,454 @@ export async function updateOrganizationProduct(
       return next;
     }),
   );
+}
+
+export interface PublicProductCatalogEntry {
+  product: ProductRecord;
+  publisherOrganizationName: string;
+  status: "available" | "installed" | "setup-required" | "conflict";
+}
+
+export interface ProductShareInfo {
+  visibility: ProductVisibility;
+  adopterOrganizations: Array<{ organizationId: string; name: string }>;
+}
+
+function isSharedProductSource(product: ProductRecord): boolean {
+  return !product.sharedProductRef && product.visibility === "public";
+}
+
+function refersToSharedProduct(installation: ProductRecord, source: ProductRecord): boolean {
+  const reference = installation.sharedProductRef;
+  return (
+    !!reference &&
+    reference.sourceOrganizationId === source.organizationId &&
+    reference.sourceProductRecordId === source.productRecordId &&
+    reference.sourceProductId === source.productId
+  );
+}
+
+async function withOrganizationMutationLocks<Result>(
+  organizationIds: readonly string[],
+  operation: () => Promise<Result>,
+): Promise<Result> {
+  const ordered = [...new Set(organizationIds)].sort();
+  const lockAt = (index: number): Promise<Result> =>
+    index >= ordered.length
+      ? operation()
+      : withOrganizationMutationLock(ordered[index], () => lockAt(index + 1));
+  return lockAt(0);
+}
+
+async function assignSharedProductOwnerUnlocked(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+): Promise<void> {
+  const previousMembership = await store().readOrganizationMembership(
+    organizationId,
+    actorId,
+    productId,
+  );
+  const now = new Date().toISOString();
+  await persistRecord(
+    {
+      kind: "organization-membership",
+      schemaVersion: 1,
+      organizationMembershipId:
+        previousMembership?.organizationMembershipId ?? newOrganizationMembershipId(),
+      organizationId: organizationId as OrganizationId,
+      productId: productId as ProductId,
+      subjectId: actorId,
+      role: "owner",
+      status: "active",
+      permissionGrants:
+        previousMembership?.status === "active" ? (previousMembership.permissionGrants ?? []) : [],
+      createdAt: previousMembership?.createdAt ?? now,
+      updatedAt: now,
+    },
+    "product.owner-assigned",
+    { kind: "subject", subjectId: actorId },
+  );
+}
+
+export async function listPublicProductsForOrganization(
+  actorId: SubjectId,
+  organizationId: string,
+): Promise<PublicProductCatalogEntry[]> {
+  return authMutationQueue.read(async () => {
+    await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
+    const [products, organizations, memberships] = await Promise.all([
+      listRecordsWithRecovery("product"),
+      listRecordsWithRecovery("organization"),
+      store().listOrganizationMemberships(organizationId),
+    ]);
+    const productsWithManager = new Set(
+      memberships
+        .filter(
+          (membership) =>
+            !!membership.productId &&
+            membership.status === "active" &&
+            (membership.role === "owner" || membership.role === "admin"),
+        )
+        .map((membership) => membership.productId!),
+    );
+    const organizationById = new Map(
+      organizations.map((entry) => [entry.record.organizationId, entry.record]),
+    );
+    const localProducts = products
+      .map((entry) => entry.record)
+      .filter((product) => product.organizationId === organizationId);
+    const catalog: PublicProductCatalogEntry[] = [];
+    for (const source of products
+      .map((entry) => entry.record)
+      .filter(isSharedProductSource)
+      .filter((product) => product.organizationId !== organizationId)) {
+      const publisher = organizationById.get(source.organizationId);
+      if (!publisher || organizationApprovalStatus(publisher) !== "approved") continue;
+      const installed = localProducts.find((product) => product.productId === source.productId);
+      let status: PublicProductCatalogEntry["status"] = "available";
+      if (installed) {
+        if (refersToSharedProduct(installed, source)) {
+          status = installed.sharedProductRef?.detachedAt
+            ? "available"
+            : productsWithManager.has(source.productId)
+              ? "installed"
+              : "setup-required";
+        } else {
+          status = "conflict";
+        }
+      }
+      catalog.push({ product: source, publisherOrganizationName: publisher.name, status });
+    }
+    return catalog.sort((left, right) => left.product.name.localeCompare(right.product.name));
+  });
+}
+
+export async function installPublicProduct(
+  actorId: SubjectId,
+  organizationId: string,
+  sourceProductRecordId: string,
+): Promise<ProductRecord> {
+  assertOpaqueId(sourceProductRecordId);
+  return authMutationQueue.run(async () => {
+    const initialSource = await loadRecord("product", sourceProductRecordId);
+    if (!initialSource || !isSharedProductSource(initialSource.record)) {
+      throw new Error("This public product is no longer available.");
+    }
+    const sourceOrganizationId = initialSource.record.organizationId;
+    return withOrganizationMutationLocks([organizationId, sourceOrganizationId], async () => {
+      await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
+      const targetOrganization = await loadApprovedOrganizationUnlocked(organizationId);
+      if (!targetOrganization) throw new Error("Organization not found.");
+      const sourceRecord = await loadRecord("product", sourceProductRecordId);
+      if (!sourceRecord || !isSharedProductSource(sourceRecord.record)) {
+        throw new Error("This public product is no longer available.");
+      }
+      const source = sourceRecord.record;
+      if (!(await loadApprovedOrganizationUnlocked(source.organizationId))) {
+        throw new Error("This public product is no longer available.");
+      }
+      const localProducts = (await listRecordsWithRecovery("product"))
+        .map((entry) => entry.record)
+        .filter((product) => product.organizationId === organizationId);
+      const existing = localProducts.find((product) => product.productId === source.productId);
+
+      if (organizationId === source.organizationId) return source;
+      if (existing && !refersToSharedProduct(existing, source)) {
+        throw new Error(
+          "A different product with this ID already exists in this organization. Resolve that conflict before adding the shared product.",
+        );
+      }
+      if (existing && !existing.sharedProductRef?.detachedAt) {
+        const installed = await store().readProduct(organizationId, source.productId);
+        if (installed) {
+          const memberships = await store().listOrganizationMemberships(organizationId);
+          const hasProductManager = memberships.some(
+            (membership) =>
+              membership.productId === source.productId &&
+              membership.status === "active" &&
+              (membership.role === "owner" || membership.role === "admin"),
+          );
+          if (!hasProductManager) {
+            await assignSharedProductOwnerUnlocked(actorId, organizationId, source.productId);
+          }
+          return installed;
+        }
+        throw new Error("This public product installation could not be loaded.");
+      }
+
+      const now = new Date().toISOString();
+      const installation: ProductRecord = {
+        ...source,
+        productRecordId: existing?.productRecordId ?? newProductRecordId(),
+        organizationId: organizationId as OrganizationId,
+        visibility: "public",
+        sharedProductRef: {
+          sourceOrganizationId: source.organizationId,
+          sourceProductRecordId: source.productRecordId,
+          sourceProductId: source.productId,
+          detachedAt: null,
+        },
+        createdBySubjectId: actorId,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      };
+      await persistRecord(
+        installation,
+        existing ? "product.shared-installation-reactivated" : "product.shared-installed",
+        { kind: "subject", subjectId: actorId },
+      );
+      await assignSharedProductOwnerUnlocked(actorId, organizationId, source.productId);
+      return installation;
+    });
+  });
+}
+
+async function sharedInstallationsForSourceUnlocked(
+  source: ProductRecord,
+): Promise<ProductRecord[]> {
+  return (await listRecordsWithRecovery("product"))
+    .map((entry) => entry.record)
+    .filter((product) => product.organizationId !== source.organizationId)
+    .filter((product) => refersToSharedProduct(product, source));
+}
+
+async function organizationNamesForInstallationsUnlocked(
+  installations: readonly ProductRecord[],
+): Promise<Array<{ organizationId: string; name: string }>> {
+  const organizations = (await listRecordsWithRecovery("organization")).map(
+    (entry) => entry.record,
+  );
+  const byId = new Map(
+    organizations.map((organization) => [organization.organizationId, organization]),
+  );
+  return installations
+    .filter((installation) => !installation.sharedProductRef?.detachedAt)
+    .map((installation) => {
+      const organization = byId.get(installation.organizationId);
+      return {
+        organizationId: installation.organizationId,
+        name: organization?.name ?? "Unknown organization",
+      };
+    })
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+export async function getProductShareInfo(
+  actorId: SubjectId,
+  organizationId: string,
+  productRecordId: string,
+): Promise<ProductShareInfo> {
+  assertOpaqueId(productRecordId);
+  return authMutationQueue.read(async () => {
+    await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
+    const found = await loadRecord("product", productRecordId);
+    if (!found || found.record.organizationId !== organizationId || found.record.sharedProductRef) {
+      throw new Error("Product not found.");
+    }
+    const installations = await sharedInstallationsForSourceUnlocked(found.record);
+    return {
+      visibility: found.record.visibility === "public" ? "public" : "private",
+      adopterOrganizations: await organizationNamesForInstallationsUnlocked(installations),
+    };
+  });
+}
+
+async function revokeDetachedProductDataUnlocked(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const members = await store().listOrganizationMemberships(organizationId);
+  for (const membership of members) {
+    if (membership.productId !== productId) continue;
+    const hasActiveGrant = (membership.permissionGrants ?? []).some(
+      (grant) => grant.status === "active",
+    );
+    if (membership.status === "disabled" && !hasActiveGrant) continue;
+    await persistRecord(
+      {
+        ...membership,
+        status: "disabled",
+        permissionGrants: (membership.permissionGrants ?? []).map((grant) => ({
+          ...grant,
+          status: "disabled",
+          updatedAt: now,
+        })),
+        updatedAt: now,
+      },
+      "product.shared-membership-revoked",
+      { kind: "subject", subjectId: actorId },
+    );
+  }
+
+  const invitations = (await listRecordsWithRecovery("organization-invitation"))
+    .map((entry) => entry.record)
+    .filter(
+      (invitation) =>
+        invitation.organizationId === organizationId &&
+        invitation.productId === productId &&
+        !invitation.revokedAt &&
+        !invitation.consumedAt,
+    );
+  for (const invitation of invitations) {
+    await persistRecord({ ...invitation, revokedAt: now }, "product.shared-invitation-revoked", {
+      kind: "subject",
+      subjectId: actorId,
+    });
+  }
+
+  const clients = (await listRecordsWithRecovery("consumer-client"))
+    .map((entry) => entry.record)
+    .filter((client) => client.organizationId === organizationId && client.productId === productId);
+  for (const client of clients.filter((item) => item.status === "active")) {
+    await persistRecord(
+      { ...client, status: "revoked", revokedAt: now, updatedAt: now },
+      "product.shared-client-revoked",
+      { kind: "subject", subjectId: actorId },
+    );
+  }
+
+  const clientIds = new Set<string>(clients.map((client) => client.consumerClientId));
+  const sessions = (await listRecordsWithRecovery("session"))
+    .map((entry) => entry.record)
+    .filter(
+      (session) =>
+        !session.revokedAt &&
+        !!session.applicationClientId &&
+        clientIds.has(session.applicationClientId),
+    );
+  for (const session of sessions) {
+    await persistRecord({ ...session, revokedAt: now }, "product.shared-session-revoked", {
+      kind: "subject",
+      subjectId: actorId,
+    });
+  }
+
+  const principals = (await listRecordsWithRecovery("service-principal"))
+    .map((entry) => entry.record)
+    .filter(
+      (principal) =>
+        principal.organizationId === organizationId &&
+        principal.productId === productId &&
+        principal.status === "active",
+    );
+  for (const principal of principals) {
+    await persistRecord(
+      { ...principal, status: "disabled", updatedAt: now },
+      "product.shared-service-principal-disabled",
+      { kind: "subject", subjectId: actorId },
+    );
+  }
+
+  const keys = (await listRecordsWithRecovery("api-key"))
+    .map((entry) => entry.record)
+    .filter(
+      (key) =>
+        key.scope.organizationId === organizationId &&
+        key.scope.productId === productId &&
+        key.status === "active",
+    );
+  for (const key of keys) {
+    await persistRecord(
+      { ...key, status: "revoked", revokedAt: now },
+      "product.shared-key-revoked",
+      { kind: "subject", subjectId: actorId },
+    );
+  }
+}
+
+export async function setOrganizationProductVisibility(
+  actorId: SubjectId,
+  organizationId: string,
+  productRecordId: string,
+  visibility: ProductVisibility,
+  confirmedPrivateRemoval = false,
+): Promise<ProductRecord> {
+  assertOpaqueId(productRecordId);
+  if (visibility !== "public" && visibility !== "private") {
+    throw new Error("Choose public or private product visibility.");
+  }
+  return authMutationQueue.run(async () => {
+    const initial = await loadRecord("product", productRecordId);
+    if (
+      !initial ||
+      initial.record.organizationId !== organizationId ||
+      initial.record.sharedProductRef
+    ) {
+      throw new Error("Product not found.");
+    }
+    const initialInstallations = await sharedInstallationsForSourceUnlocked(initial.record);
+    const lockIds = [organizationId, ...initialInstallations.map((entry) => entry.organizationId)];
+    return withOrganizationMutationLocks(lockIds, async () => {
+      const actor = await requireOrganizationRoleUnlocked(actorId, organizationId, [
+        "owner",
+        "admin",
+      ]);
+      const current = await loadRecord("product", productRecordId);
+      if (
+        !current ||
+        current.record.organizationId !== organizationId ||
+        current.record.sharedProductRef
+      ) {
+        throw new Error("Product not found.");
+      }
+      const installations = await sharedInstallationsForSourceUnlocked(current.record);
+      const activeInstallations = installations.filter(
+        (installation) => !installation.sharedProductRef?.detachedAt,
+      );
+      if (visibility === "private" && activeInstallations.length && !confirmedPrivateRemoval) {
+        throw new Error(
+          "Confirm making this product private to remove it and revoke access in other organizations.",
+        );
+      }
+      const currentVisibility = current.record.visibility === "public" ? "public" : "private";
+      if (visibility === currentVisibility && visibility === "public") return current.record;
+      if (visibility === "public") {
+        const next = { ...current.record, visibility, updatedAt: new Date().toISOString() };
+        await persistRecord(next, "product.published", {
+          kind: "subject",
+          subjectId: actor.subjectId,
+        });
+        return next;
+      }
+
+      for (const installation of installations) {
+        await revokeDetachedProductDataUnlocked(
+          actor.subjectId,
+          installation.organizationId,
+          installation.productId,
+        );
+        if (!installation.sharedProductRef?.detachedAt) {
+          await persistRecord(
+            {
+              ...installation,
+              sharedProductRef: {
+                ...installation.sharedProductRef!,
+                detachedAt: new Date().toISOString(),
+              },
+              updatedAt: new Date().toISOString(),
+            },
+            "product.shared-installation-removed",
+            { kind: "subject", subjectId: actor.subjectId },
+          );
+        }
+      }
+      if (currentVisibility === "private") return current.record;
+      const next = {
+        ...current.record,
+        visibility: "private" as const,
+        updatedAt: new Date().toISOString(),
+      };
+      await persistRecord(next, "product.unpublished", {
+        kind: "subject",
+        subjectId: actor.subjectId,
+      });
+      return next;
+    });
+  });
 }
 
 export async function createProductAccessRole(
@@ -1565,6 +2022,9 @@ async function requireManageableProductUnlocked(
   ]);
   const product = await store().readProduct(organizationId, productId);
   if (!product) throw new Error("Choose a product in this organization.");
+  if (product.sharedProductRef) {
+    throw new Error("Shared access roles are controlled by the publishing organization.");
+  }
   return { actor, product };
 }
 
@@ -1629,6 +2089,7 @@ async function getProductAccessUnlocked(
     product,
     membership: membership?.status === "active" ? membership : null,
     catalogManager: !!catalog,
+    catalogRole: catalog?.role ?? null,
   };
 }
 
