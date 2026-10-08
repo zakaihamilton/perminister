@@ -2,7 +2,9 @@ import Link from "next/link";
 import { createOrganizationAction } from "@/app/actions";
 import { DashboardHeading, DashboardNotice, DashboardShell } from "@/components/dashboard-shell";
 import {
+  countPendingOrganizationsForAdministrator,
   getCurrentSession,
+  isAdministrator,
   listOrganizationRequestsForSubject,
   listOrganizationsForSubject,
 } from "@/lib/auth/service";
@@ -15,10 +17,14 @@ export default async function NewOrganizationPage({
 }) {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
-  const [organizations, requests, query] = await Promise.all([
+  const isPlatformAdministrator = isAdministrator(current.subject);
+  const [organizations, requests, query, pendingOrganizationRequestCount] = await Promise.all([
     listOrganizationsForSubject(current.subject.subjectId),
     listOrganizationRequestsForSubject(current.subject.subjectId),
     searchParams,
+    isPlatformAdministrator
+      ? countPendingOrganizationsForAdministrator(current.subject.subjectId).catch(() => null)
+      : null,
   ]);
   if (!organizations.length) redirect("/dashboard");
   const selected = organizations[0];
@@ -28,6 +34,8 @@ export default async function NewOrganizationPage({
       organizationName={selected.organization.name}
       organizations={organizations}
       role={selected.membership.role}
+      isPlatformAdministrator={isPlatformAdministrator}
+      pendingOrganizationRequestCount={pendingOrganizationRequestCount}
       email={current.subject.primaryEmail}
       firstName={current.subject.firstName ?? null}
       lastName={current.subject.lastName ?? null}
