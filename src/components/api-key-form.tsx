@@ -90,6 +90,10 @@ export function ApiKeyForm({
             name="resourceId"
             maxLength={128}
             defaultValue={resourceId}
+            autoCapitalize="none"
+            onChange={(event) => {
+              event.currentTarget.value = event.currentTarget.value.toLowerCase();
+            }}
           />
         </div>
         <div className="form-field-with-tooltip">

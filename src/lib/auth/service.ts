@@ -3119,6 +3119,12 @@ export async function importLegacyAuthData(
   dryRun: boolean,
 ): Promise<LegacyAuthImportReport> {
   return authMutationQueue.run(async () => {
+    const visitoring = input.visitoring
+      ? { ...input.visitoring, organizationId: input.visitoring.organizationId.toLowerCase() }
+      : undefined;
+    const postparticle = input.postparticle
+      ? { ...input.postparticle, organizationId: input.postparticle.organizationId.toLowerCase() }
+      : undefined;
     const report: LegacyAuthImportReport = {
       dryRun,
       applied: false,
@@ -3145,17 +3151,17 @@ export async function importLegacyAuthData(
       else postparticleRefToKey.set(candidate.accountId, key);
     };
 
-    if (input.visitoring) {
+    if (visitoring) {
       if (!products.visitoringProductId) report.errors.push("Visitoring client is not configured.");
-      if (!(await loadApprovedOrganizationUnlocked(input.visitoring.organizationId))) {
+      if (!(await loadApprovedOrganizationUnlocked(visitoring.organizationId))) {
         report.errors.push("Visitoring organization was not found or is not approved.");
       } else if (
         products.visitoringProductId &&
-        !(await store().readProduct(input.visitoring.organizationId, products.visitoringProductId))
+        !(await store().readProduct(visitoring.organizationId, products.visitoringProductId))
       ) {
         report.errors.push("Visitoring product was not found in the configured organization.");
       }
-      for (const account of input.visitoring.users) {
+      for (const account of visitoring.users) {
         try {
           const accountId = account.id.trim();
           if (!accountId || accountId.length > 254)
@@ -3177,7 +3183,7 @@ export async function importLegacyAuthData(
           );
         }
       }
-      for (const membership of input.visitoring.memberships) {
+      for (const membership of visitoring.memberships) {
         if (!visitoringRefToKey.has(membership.userId)) {
           report.errors.push(
             `Visitoring membership refers to an unknown account: ${membership.userId}`,
@@ -3186,7 +3192,7 @@ export async function importLegacyAuthData(
         try {
           if (products.visitoringProductId) {
             consumerResourceScope("visitoring", {
-              organizationId: input.visitoring.organizationId,
+              organizationId: visitoring.organizationId,
               productId: products.visitoringProductId,
               scopeKind: "workspace",
               resourceId: membership.workspaceId,
@@ -3198,21 +3204,18 @@ export async function importLegacyAuthData(
       }
     }
 
-    if (input.postparticle) {
+    if (postparticle) {
       if (!products.postparticleProductId)
         report.errors.push("PostParticle client is not configured.");
-      if (!(await loadApprovedOrganizationUnlocked(input.postparticle.organizationId))) {
+      if (!(await loadApprovedOrganizationUnlocked(postparticle.organizationId))) {
         report.errors.push("PostParticle organization was not found or is not approved.");
       } else if (
         products.postparticleProductId &&
-        !(await store().readProduct(
-          input.postparticle.organizationId,
-          products.postparticleProductId,
-        ))
+        !(await store().readProduct(postparticle.organizationId, products.postparticleProductId))
       ) {
         report.errors.push("PostParticle product was not found in the configured organization.");
       }
-      for (const account of input.postparticle.users) {
+      for (const account of postparticle.users) {
         try {
           const username = normalizeProductUsername(account.username);
           const email = account.email
@@ -3236,7 +3239,7 @@ export async function importLegacyAuthData(
           );
         }
       }
-      for (const membership of input.postparticle.memberships) {
+      for (const membership of postparticle.memberships) {
         try {
           const username = normalizeProductUsername(membership.username);
           if (!postparticleRefToKey.has(username)) {
@@ -3247,7 +3250,7 @@ export async function importLegacyAuthData(
           }
           if (products.postparticleProductId && membership.role !== null) {
             consumerResourceScope("postparticle", {
-              organizationId: input.postparticle.organizationId,
+              organizationId: postparticle.organizationId,
               productId: products.postparticleProductId,
               scopeKind: "project",
               resourceId: membership.projectId,
@@ -3464,13 +3467,13 @@ export async function importLegacyAuthData(
       subjectByKey.set(key, subject);
     }
 
-    if (input.visitoring && products.visitoringProductId) {
-      for (const membership of input.visitoring.memberships) {
+    if (visitoring && products.visitoringProductId) {
+      for (const membership of visitoring.memberships) {
         const key = visitoringRefToKey.get(membership.userId);
         const subject = key ? subjectByKey.get(key) : undefined;
         if (!subject || !consumerRoleActions("visitoring", membership.role)) continue;
         const scope = consumerResourceScope("visitoring", {
-          organizationId: input.visitoring.organizationId,
+          organizationId: visitoring.organizationId,
           productId: products.visitoringProductId,
           scopeKind: "workspace",
           resourceId: membership.workspaceId,
@@ -3491,22 +3494,22 @@ export async function importLegacyAuthData(
       }
     }
 
-    if (input.postparticle && products.postparticleProductId) {
+    if (postparticle && products.postparticleProductId) {
       const policy = consumerProductPolicy("postparticle")!;
-      for (const user of input.postparticle.users) {
+      for (const user of postparticle.users) {
         const username = normalizeProductUsername(user.username);
         const key = postparticleRefToKey.get(username);
         const subject = key ? subjectByKey.get(key) : undefined;
         if (!subject) continue;
         await ensureConsumerProductMembershipUnlocked(
           subject,
-          input.postparticle.organizationId,
+          postparticle.organizationId,
           products.postparticleProductId,
         );
         if (user.platformAdmin) {
           const productScope: ResourceScope = {
             kind: "product",
-            organizationId: input.postparticle.organizationId as OrganizationId,
+            organizationId: postparticle.organizationId as OrganizationId,
             productId: products.postparticleProductId,
           };
           await upsertImportedRoleGrantUnlocked(
@@ -3518,14 +3521,14 @@ export async function importLegacyAuthData(
           );
         }
       }
-      for (const membership of input.postparticle.memberships) {
+      for (const membership of postparticle.memberships) {
         if (!membership.role) continue;
         const username = normalizeProductUsername(membership.username);
         const key = postparticleRefToKey.get(username);
         const subject = key ? subjectByKey.get(key) : undefined;
         if (!subject) continue;
         const scope = consumerResourceScope("postparticle", {
-          organizationId: input.postparticle.organizationId,
+          organizationId: postparticle.organizationId,
           productId: products.postparticleProductId,
           scopeKind: "project",
           resourceId: membership.projectId,
@@ -4084,15 +4087,25 @@ export async function updateAccountStatus(
 }
 
 function validateScope(scope: ResourceScope): ResourceScope {
-  const validPart = (value: string) =>
-    value.length <= 128 && /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value);
-  assertOpaqueId(scope.organizationId);
-  if (!validPart(scope.productId)) throw new Error("Enter a valid product ID.");
-  if (scope.kind === "project" && !validPart(scope.projectId))
+  const common = {
+    ...scope,
+    organizationId: scope.organizationId.toLowerCase() as OrganizationId,
+    productId: scope.productId.toLowerCase(),
+  };
+  const normalizedScope =
+    scope.kind === "project"
+      ? { ...common, projectId: scope.projectId.toLowerCase() }
+      : scope.kind === "workspace"
+        ? { ...common, workspaceId: scope.workspaceId.toLowerCase() }
+        : common;
+  const validPart = (value: string) => value.length <= 128 && /^[a-z0-9][a-z0-9._:-]*$/.test(value);
+  assertOpaqueId(normalizedScope.organizationId);
+  if (!validPart(normalizedScope.productId)) throw new Error("Enter a valid product ID.");
+  if (normalizedScope.kind === "project" && !validPart(normalizedScope.projectId))
     throw new Error("Enter a valid project ID.");
-  if (scope.kind === "workspace" && !validPart(scope.workspaceId))
+  if (normalizedScope.kind === "workspace" && !validPart(normalizedScope.workspaceId))
     throw new Error("Enter a valid workspace ID.");
-  return scope;
+  return normalizedScope;
 }
 
 function validateActions(actions: readonly string[]): string[] {
@@ -4343,11 +4356,11 @@ export async function createServicePrincipal(
   }
   return authMutationQueue.run(() =>
     withOrganizationMutationLock(scope.organizationId, async () => {
-      const actor = await requireOrganizationRoleUnlocked(actorId, organizationId, [
+      const actor = await requireOrganizationRoleUnlocked(actorId, scope.organizationId, [
         "owner",
         "admin",
       ]);
-      await requireOrganizationProductUnlocked(organizationId, scope.productId);
+      await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
       const now = new Date().toISOString();
       const principal: ServicePrincipalRecord = {
         kind: "service-principal",
@@ -4376,13 +4389,14 @@ export async function listServicePrincipalsForOrganization(
   productId?: string,
 ): Promise<ServicePrincipalRecord[]> {
   const normalizedProductId = productId === undefined ? undefined : validateProductId(productId);
+  const normalizedOrganizationId = organizationId.toLowerCase();
   return authMutationQueue.run(async () => {
-    await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
+    await requireOrganizationRoleUnlocked(actorId, normalizedOrganizationId, ["owner", "admin"]);
     return (await listRecordsWithRecovery("service-principal"))
       .map((item) => item.record)
       .filter(
         (principal) =>
-          principal.organizationId === organizationId &&
+          principal.organizationId === normalizedOrganizationId &&
           (normalizedProductId === undefined || principal.productId === normalizedProductId),
       )
       .sort((left, right) => left.name.localeCompare(right.name));
@@ -4676,31 +4690,31 @@ export async function revokeApiKeyForSubject(actorId: SubjectId, apiKeyId: strin
 
 function scopeMatchesGrant(grantScope: ResourceScope, request: ResourceScope): boolean {
   if (
-    grantScope.organizationId !== request.organizationId ||
-    grantScope.productId !== request.productId
+    grantScope.organizationId.toLowerCase() !== request.organizationId.toLowerCase() ||
+    grantScope.productId.toLowerCase() !== request.productId.toLowerCase()
   )
     return false;
   if (grantScope.kind === "product") return true;
   if (grantScope.kind !== request.kind) return false;
   if (grantScope.kind === "project" && request.kind === "project")
-    return grantScope.projectId === request.projectId;
+    return grantScope.projectId.toLowerCase() === request.projectId.toLowerCase();
   if (grantScope.kind === "workspace" && request.kind === "workspace")
-    return grantScope.workspaceId === request.workspaceId;
+    return grantScope.workspaceId.toLowerCase() === request.workspaceId.toLowerCase();
   return false;
 }
 
 function keyScopeAllows(keyScope: ResourceScope, request: ResourceScope): boolean {
   if (
-    keyScope.organizationId !== request.organizationId ||
-    keyScope.productId !== request.productId
+    keyScope.organizationId.toLowerCase() !== request.organizationId.toLowerCase() ||
+    keyScope.productId.toLowerCase() !== request.productId.toLowerCase()
   )
     return false;
   if (keyScope.kind === "product") return true;
   if (keyScope.kind !== request.kind) return false;
   if (keyScope.kind === "project" && request.kind === "project")
-    return keyScope.projectId === request.projectId;
+    return keyScope.projectId.toLowerCase() === request.projectId.toLowerCase();
   if (keyScope.kind === "workspace" && request.kind === "workspace")
-    return keyScope.workspaceId === request.workspaceId;
+    return keyScope.workspaceId.toLowerCase() === request.workspaceId.toLowerCase();
   return false;
 }
 

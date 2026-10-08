@@ -144,6 +144,44 @@ function isAuthRecord(value: unknown, kind: AuthRecordKind, id?: string): value 
   return true;
 }
 
+function lowercaseScopeIdentifiers(value: unknown): unknown {
+  if (typeof value !== "object" || value === null) return value;
+  const scope = value as Record<string, unknown>;
+  if (scope.kind !== "product" && scope.kind !== "project" && scope.kind !== "workspace") {
+    return value;
+  }
+  const normalized: Record<string, unknown> = { ...scope };
+  if (typeof scope.organizationId === "string")
+    normalized.organizationId = scope.organizationId.toLowerCase();
+  if (typeof scope.productId === "string") normalized.productId = scope.productId.toLowerCase();
+  if (scope.kind === "project" && typeof scope.projectId === "string") {
+    normalized.projectId = scope.projectId.toLowerCase();
+  }
+  if (scope.kind === "workspace" && typeof scope.workspaceId === "string") {
+    normalized.workspaceId = scope.workspaceId.toLowerCase();
+  }
+  return normalized;
+}
+
+function lowercaseScopeIdentifiersInRecord(value: unknown): unknown {
+  if (typeof value !== "object" || value === null) return value;
+  const record = value as Record<string, unknown>;
+  if (record.kind === "membership" || record.kind === "api-key") {
+    return { ...record, scope: lowercaseScopeIdentifiers(record.scope) };
+  }
+  if (record.kind === "organization-membership" && Array.isArray(record.permissionGrants)) {
+    return {
+      ...record,
+      permissionGrants: record.permissionGrants.map((grant) => {
+        if (typeof grant !== "object" || grant === null) return grant;
+        const membership = grant as Record<string, unknown>;
+        return { ...membership, scope: lowercaseScopeIdentifiers(membership.scope) };
+      }),
+    };
+  }
+  return value;
+}
+
 export class SpacesAuthStore {
   private readonly client: S3Client;
   private readonly bucket: string;
@@ -341,7 +379,8 @@ export class SpacesAuthStore {
     return value.subjectId as SubjectId;
   }
 
-  async writeRecord(record: AuthRecord): Promise<void> {
+  async writeRecord(inputRecord: AuthRecord): Promise<void> {
+    const record = lowercaseScopeIdentifiersInRecord(inputRecord) as AuthRecord;
     if (record.schemaVersion !== 1) throw new Error("Unsupported auth record schema version");
     assertOpaqueId(authRecordId(record));
     assertNoPlaintextSecrets(record);
@@ -554,9 +593,9 @@ export class SpacesAuthStore {
   private unwrapRecord(value: unknown): unknown {
     if (typeof value !== "object" || value === null) return value;
     if ("record" in value && typeof value.record === "object" && value.record !== null) {
-      return value.record;
+      return lowercaseScopeIdentifiersInRecord(value.record);
     }
-    return value;
+    return lowercaseScopeIdentifiersInRecord(value);
   }
 
   private wrapRecord<RecordType extends AuthRecord>(

@@ -67,16 +67,20 @@ export function isConsumerResourceScope(value: Record<string, unknown>): boolean
 }
 
 export function consumerMemberScopeInput(value: Record<string, unknown>, productId: string) {
+  const resourceId = value.resourceId as string;
   return {
     organizationId: value.organizationId as string,
     productId,
     scopeKind: value.scopeKind as ConsumerScopeKind,
-    resourceId: value.resourceId as string,
+    resourceId:
+      value.scopeKind === "project" || value.scopeKind === "workspace"
+        ? resourceId.toLowerCase()
+        : resourceId,
   };
 }
 
 export function scopeResourceId(scope: ResourceScope): string | null {
-  if (scope.kind === "project") return scope.projectId;
-  if (scope.kind === "workspace") return scope.workspaceId;
+  if (scope.kind === "project") return scope.projectId.toLowerCase();
+  if (scope.kind === "workspace") return scope.workspaceId.toLowerCase();
   return null;
 }

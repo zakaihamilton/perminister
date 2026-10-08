@@ -139,7 +139,7 @@ export function invalidConsumerEmailResponse(): Response {
 
 export function organizationIdFromRequest(request: Request): string | Response {
   const organizationId = new URL(request.url).searchParams.get("organizationId") ?? "";
-  if (isOrganizationId(organizationId)) return organizationId;
+  if (isOrganizationId(organizationId)) return organizationId.toLowerCase();
   return Response.json(
     { error: "Provide a valid organizationId." },
     { status: 400, headers: NO_STORE_HEADERS },

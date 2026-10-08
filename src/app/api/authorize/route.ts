@@ -106,13 +106,19 @@ export async function POST(request: Request) {
       { status: 400, headers: noStoreHeaders },
     );
   }
+  const normalizedBody: AuthorizationRequest = {
+    ...body,
+    organizationId: body.organizationId.toLowerCase(),
+    productId: body.productId.toLowerCase(),
+    ...(body.resourceId === undefined ? {} : { resourceId: body.resourceId.toLowerCase() }),
+  };
   try {
     const isApiKey = /^pmk_[0-9a-f-]{36}_/i.test(match[1]);
     const client = isApiKey ? null : await authenticateConsumerClient(request);
-    if (!isApiKey && (!client || client.productId !== body.productId)) {
+    if (!isApiKey && (!client || client.productId !== normalizedBody.productId)) {
       return Response.json({ authorized: false }, { status: 403, headers: noStoreHeaders });
     }
-    const result = await authorizeApiKey(match[1], body, client?.clientId);
+    const result = await authorizeApiKey(match[1], normalizedBody, client?.clientId);
     return Response.json(
       result.authorized
         ? {
