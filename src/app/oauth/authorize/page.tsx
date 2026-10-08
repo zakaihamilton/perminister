@@ -5,11 +5,29 @@ import {
   consumerAuthorizationQuery,
   parseConsumerAuthorizationRequest,
   safeConsumerAuthorizationReturnTo,
+  type ConsumerAuthorizationRequest,
 } from "@/lib/auth/consumer-sso";
 import { approveConsumerAuthorizationAction, cancelConsumerAuthorizationAction } from "./action";
 
 function singleValue(value: string | string[] | undefined): string {
   return typeof value === "string" ? value : "";
+}
+
+function AuthorizationFormFields({
+  authorization,
+}: {
+  authorization: ConsumerAuthorizationRequest;
+}) {
+  return (
+    <>
+      <input type="hidden" name="client_id" value={authorization.clientId} />
+      <input type="hidden" name="redirect_uri" value={authorization.redirectUri} />
+      <input type="hidden" name="response_type" value={authorization.responseType} />
+      <input type="hidden" name="state" value={authorization.state} />
+      <input type="hidden" name="code_challenge" value={authorization.codeChallenge} />
+      <input type="hidden" name="code_challenge_method" value="S256" />
+    </>
+  );
 }
 
 export default async function ConsumerAuthorizationPage({
@@ -81,23 +99,13 @@ export default async function ConsumerAuthorizationPage({
                   Perminister will confirm your access when {client.appName} opens.
                 </p>
                 <form action={approveConsumerAuthorizationAction} className="auth-form">
-                  <input type="hidden" name="client_id" value={authorization.clientId} />
-                  <input type="hidden" name="redirect_uri" value={authorization.redirectUri} />
-                  <input type="hidden" name="response_type" value={authorization.responseType} />
-                  <input type="hidden" name="state" value={authorization.state} />
-                  <input type="hidden" name="code_challenge" value={authorization.codeChallenge} />
-                  <input type="hidden" name="code_challenge_method" value="S256" />
+                  <AuthorizationFormFields authorization={authorization} />
                   <button className="button button-primary form-submit" type="submit">
                     Continue to {client.appName}
                   </button>
                 </form>
                 <form action={cancelConsumerAuthorizationAction} className="auth-form">
-                  <input type="hidden" name="client_id" value={authorization.clientId} />
-                  <input type="hidden" name="redirect_uri" value={authorization.redirectUri} />
-                  <input type="hidden" name="response_type" value={authorization.responseType} />
-                  <input type="hidden" name="state" value={authorization.state} />
-                  <input type="hidden" name="code_challenge" value={authorization.codeChallenge} />
-                  <input type="hidden" name="code_challenge_method" value="S256" />
+                  <AuthorizationFormFields authorization={authorization} />
                   <button className="button button-secondary form-submit" type="submit">
                     Cancel
                   </button>

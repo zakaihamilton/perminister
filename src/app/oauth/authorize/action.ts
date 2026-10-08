@@ -17,8 +17,8 @@ function firstValue(data: FormData, name: string): string {
   return typeof value === "string" ? value : "";
 }
 
-export async function approveConsumerAuthorizationAction(formData: FormData): Promise<void> {
-  const params = new URLSearchParams({
+function authorizationParamsFromFormData(formData: FormData): URLSearchParams {
+  return new URLSearchParams({
     client_id: firstValue(formData, "client_id"),
     redirect_uri: firstValue(formData, "redirect_uri"),
     response_type: firstValue(formData, "response_type"),
@@ -26,6 +26,10 @@ export async function approveConsumerAuthorizationAction(formData: FormData): Pr
     code_challenge: firstValue(formData, "code_challenge"),
     code_challenge_method: firstValue(formData, "code_challenge_method"),
   });
+}
+
+export async function approveConsumerAuthorizationAction(formData: FormData): Promise<void> {
+  const params = authorizationParamsFromFormData(formData);
   const client = await getConsumerClientRecord(params.get("client_id") ?? "").catch(() => null);
   const authorization = parseConsumerAuthorizationRequest(params, client);
   if (!authorization || !client) redirect("/login?error=sso");
@@ -57,14 +61,7 @@ export async function approveConsumerAuthorizationAction(formData: FormData): Pr
 }
 
 export async function cancelConsumerAuthorizationAction(formData: FormData): Promise<void> {
-  const params = new URLSearchParams({
-    client_id: firstValue(formData, "client_id"),
-    redirect_uri: firstValue(formData, "redirect_uri"),
-    response_type: firstValue(formData, "response_type"),
-    state: firstValue(formData, "state"),
-    code_challenge: firstValue(formData, "code_challenge"),
-    code_challenge_method: firstValue(formData, "code_challenge_method"),
-  });
+  const params = authorizationParamsFromFormData(formData);
   const client = await getConsumerClientRecord(params.get("client_id") ?? "").catch(() => null);
   const authorization = parseConsumerAuthorizationRequest(params, client);
   if (!authorization) redirect("/login?error=sso");
