@@ -7,6 +7,7 @@ export type SubjectId = BrandedId<"SubjectId">;
 export type MembershipId = BrandedId<"MembershipId">;
 export type ApiKeyId = BrandedId<"ApiKeyId">;
 export type ConsumerClientId = BrandedId<"ConsumerClientId">;
+export type ConsumerAuthorizationCodeId = BrandedId<"ConsumerAuthorizationCodeId">;
 export type ServicePrincipalId = BrandedId<"ServicePrincipalId">;
 export type EventId = BrandedId<"EventId">;
 export type SessionId = BrandedId<"SessionId">;
@@ -23,6 +24,8 @@ export const newSubjectId = (): SubjectId => randomUUID() as SubjectId;
 export const newMembershipId = (): MembershipId => randomUUID() as MembershipId;
 export const newApiKeyId = (): ApiKeyId => randomUUID() as ApiKeyId;
 export const newConsumerClientId = (): ConsumerClientId => randomUUID() as ConsumerClientId;
+export const newConsumerAuthorizationCodeId = (): ConsumerAuthorizationCodeId =>
+  randomUUID() as ConsumerAuthorizationCodeId;
 export const newServicePrincipalId = (): ServicePrincipalId => randomUUID() as ServicePrincipalId;
 export const newEventId = (): EventId => randomUUID() as EventId;
 export const newSessionId = (): SessionId => randomUUID() as SessionId;
@@ -286,6 +289,22 @@ export interface SessionRecord {
   revokedAt: string | null;
 }
 
+export interface ConsumerAuthorizationCodeRecord {
+  kind: "consumer-authorization-code";
+  schemaVersion: 1;
+  consumerAuthorizationCodeId: ConsumerAuthorizationCodeId;
+  consumerClientId: ConsumerClientId;
+  subjectId: SubjectId;
+  authVersion: number;
+  productSessionVersion: number;
+  /** Digest of the one-time authorization code; the code itself is never persisted. */
+  codeDigestHex: string;
+  codeChallenge: string;
+  createdAt: string;
+  expiresAt: string;
+  consumedAt: string | null;
+}
+
 export interface EmailActionRecord {
   kind: "email-action";
   schemaVersion: 1;
@@ -309,6 +328,7 @@ export type AuthRecord =
   | ServicePrincipalRecord
   | ApiKeyRecord
   | ConsumerClientRecord
+  | ConsumerAuthorizationCodeRecord
   | SessionRecord
   | EmailActionRecord;
 export type AuthRecordKind = AuthRecord["kind"];
@@ -334,6 +354,8 @@ export function authRecordId(record: AuthRecord): string {
       return record.apiKeyId;
     case "consumer-client":
       return record.consumerClientId;
+    case "consumer-authorization-code":
+      return record.consumerAuthorizationCodeId;
     case "session":
       return record.sessionId;
     case "email-action":
@@ -351,6 +373,7 @@ export type AuthAggregate =
   | { kind: "service-principal"; id: ServicePrincipalId }
   | { kind: "api-key"; id: ApiKeyId }
   | { kind: "consumer-client"; id: ConsumerClientId }
+  | { kind: "consumer-authorization-code"; id: ConsumerAuthorizationCodeId }
   | { kind: "session"; id: SessionId }
   | { kind: "email-action"; id: EmailActionId }
   | { kind: "directory"; id: DirectoryId };

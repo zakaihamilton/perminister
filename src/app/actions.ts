@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
+import { safeConsumerAuthorizationReturnTo } from "@/lib/auth/consumer-sso";
 import {
   authenticate,
   acceptOrganizationInvitation,
@@ -254,9 +255,11 @@ export async function registerAction(formData: FormData): Promise<void> {
 
 export async function signInAction(formData: FormData): Promise<void> {
   const invitationToken = firstValue(formData, "invitationToken");
+  const next = safeConsumerAuthorizationReturnTo(firstValue(formData, "next"));
   const invitationQuery = invitationToken
     ? `&invitationToken=${encodeURIComponent(invitationToken)}`
     : "";
+  const nextQuery = next ? `&next=${encodeURIComponent(next)}` : "";
   try {
     const subject = await authenticate(
       firstValue(formData, "email"),
@@ -271,12 +274,13 @@ export async function signInAction(formData: FormData): Promise<void> {
         : error instanceof Error && error.message === "Email or password is incorrect."
           ? "credentials"
           : "unavailable";
-    redirect(`/login?error=${code}${invitationQuery}`);
+    redirect(`/login?error=${code}${invitationQuery}${nextQuery}`);
   }
   redirect(
-    invitationToken
-      ? `/accept-invitation?token=${encodeURIComponent(invitationToken)}`
-      : "/dashboard",
+    next ??
+      (invitationToken
+        ? `/accept-invitation?token=${encodeURIComponent(invitationToken)}`
+        : "/dashboard"),
   );
 }
 
