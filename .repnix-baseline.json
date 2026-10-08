@@ -1,51 +1,51 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-08T17:58:37.197Z",
+  "generatedAt": "2026-10-08T20:32:13.027Z",
   "entries": [
     {
-      "fingerprint": "0041bd4f1b78d91189cec007",
+      "fingerprint": "8d7dd8523e329f4e75a30f12",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/actions.ts",
-      "line": 495
+      "line": 496
     },
     {
-      "fingerprint": "fbf1935d584bc5cb9e058773",
+      "fingerprint": "39b97e8758d711c7d0ee8387",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/actions.ts",
-      "line": 672
+      "line": 673
     },
     {
-      "fingerprint": "fbf1935d584bc5cb9e058773",
+      "fingerprint": "39b97e8758d711c7d0ee8387",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/actions.ts",
-      "line": 672
+      "line": 673
     },
     {
-      "fingerprint": "fbf1935d584bc5cb9e058773",
+      "fingerprint": "39b97e8758d711c7d0ee8387",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/actions.ts",
-      "line": 672
+      "line": 673
     },
     {
-      "fingerprint": "2bba398e869100ff9fbbf894",
+      "fingerprint": "bd6f4a8593b6f0d596af7f41",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/actions.ts",
-      "line": 766
+      "line": 767
     },
     {
       "fingerprint": "a0c99683e41b884510f183fc",
@@ -165,13 +165,13 @@
       "line": 5
     },
     {
-      "fingerprint": "e14c45e352812353eeb0bd22",
+      "fingerprint": "745e0b2a6e86013c058f7278",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "components/dashboard-navigation.tsx",
-      "line": 56
+      "line": 60
     },
     {
       "fingerprint": "9b1abd5a046ebd2c59dd39ef",
@@ -192,13 +192,13 @@
       "line": 163
     },
     {
-      "fingerprint": "0f5639ab5fcbbb439b85cbd4",
+      "fingerprint": "b35ab9b33f52d58534f0e35f",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "lib/auth/service.ts",
-      "line": 2592
+      "line": 2619
     }
   ]
 }
