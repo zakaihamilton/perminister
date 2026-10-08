@@ -45,8 +45,7 @@ function isReadMethod(method: string): boolean {
   return method === "GET" || method === "HEAD";
 }
 
-function forwardHeaders(request: NextRequest, secret: string): Headers {
-  const headers = new Headers(request.headers);
+function removeHopByHopHeaders(headers: Headers): void {
   const connectionTokens = headers.get("connection");
 
   for (const header of HOP_BY_HOP_HEADERS) headers.delete(header);
@@ -54,7 +53,11 @@ function forwardHeaders(request: NextRequest, secret: string): Headers {
     const name = token.trim();
     if (name) headers.delete(name);
   }
+}
 
+function forwardHeaders(request: NextRequest, secret: string): Headers {
+  const headers = new Headers(request.headers);
+  removeHopByHopHeaders(headers);
   headers.delete("content-length");
   headers.delete("host");
   headers.set(WRITE_PROXY_SECRET_HEADER, secret);
@@ -65,14 +68,7 @@ function forwardHeaders(request: NextRequest, secret: string): Headers {
 
 function responseHeaders(upstream: Response, writerOrigin: string): Headers {
   const headers = new Headers(upstream.headers);
-  const connectionTokens = headers.get("connection");
-
-  for (const header of HOP_BY_HOP_HEADERS) headers.delete(header);
-  for (const token of connectionTokens?.split(",") ?? []) {
-    const name = token.trim();
-    if (name) headers.delete(name);
-  }
-
+  removeHopByHopHeaders(headers);
   // Fetch may decompress the upstream body, so the origin's length and encoding no longer apply.
   headers.delete("content-encoding");
   headers.delete("content-length");
@@ -202,5 +198,14 @@ export async function proxy(request: NextRequest): Promise<Response> {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/api/:path*",
+    "/accept-invitation",
+    "/dashboard/:path*",
+    "/forgot-password",
+    "/login",
+    "/register",
+    "/reset-password",
+    "/verify-email",
+  ],
 };
