@@ -1266,13 +1266,23 @@ export async function listConsumerOrganizationsForSubject(
   productId: string,
 ): Promise<ConsumerOrganizationAccess[]> {
   const normalizedProductId = validateProductId(productId);
-  return authMutationQueue.run(async () => {
-    const [organizationMemberships, grants] = await Promise.all([
-      listRecordsWithRecovery("organization-membership"),
-      listRecordsWithRecovery("membership"),
-    ]);
+  return authMutationQueue.read(async () => {
+    const organizationMemberships = await store().listMembershipsForSubject(subjectId);
     const activeMemberships = new Map<string, OrganizationMembershipRecord>();
-    for (const { record: membership } of organizationMemberships) {
+    const grantsByOrganization = new Map<string, MembershipRecord[]>();
+    for (const membership of organizationMemberships) {
+      for (const grant of membership.permissionGrants ?? []) {
+        if (
+          grant.subjectId !== subjectId ||
+          grant.status !== "active" ||
+          grant.scope.productId !== normalizedProductId
+        ) {
+          continue;
+        }
+        const organizationGrants = grantsByOrganization.get(grant.scope.organizationId) ?? [];
+        organizationGrants.push(grant);
+        grantsByOrganization.set(grant.scope.organizationId, organizationGrants);
+      }
       if (
         membership.subjectId !== subjectId ||
         membership.status !== "active" ||
@@ -1285,22 +1295,22 @@ export async function listConsumerOrganizationsForSubject(
         activeMemberships.set(membership.organizationId, membership);
       }
     }
-    const subjectGrants = grants
-      .map((item) => item.record)
-      .filter((grant) => grant.subjectId === subjectId && grant.status === "active");
-    const results: ConsumerOrganizationAccess[] = [];
-    for (const membership of activeMemberships.values()) {
-      const product = await store().readProduct(membership.organizationId, normalizedProductId);
-      if (!product) continue;
-      const organization = await loadRecord("organization", membership.organizationId);
-      if (!organization) continue;
-      const scopedMemberships = subjectGrants.filter(
-        (grant) =>
-          grant.scope.organizationId === membership.organizationId &&
-          grant.scope.productId === normalizedProductId,
-      );
+    const results = await mapWithConcurrency<
+      OrganizationMembershipRecord,
+      ConsumerOrganizationAccess | null
+    >([...activeMemberships.values()], async (membership) => {
+      const [productResult, organizationResult] = await Promise.allSettled([
+        store().readProduct(membership.organizationId, normalizedProductId),
+        loadRecord("organization", membership.organizationId),
+      ]);
+      if (productResult.status === "rejected") throw productResult.reason;
+      if (!productResult.value) return null;
+      if (organizationResult.status === "rejected") throw organizationResult.reason;
+      const organization = organizationResult.value;
+      if (!organization) return null;
+      const scopedMemberships = grantsByOrganization.get(membership.organizationId) ?? [];
       const permissions = scopedMemberships.flatMap((grant) => grant.grants);
-      results.push({
+      return {
         organizationId: membership.organizationId,
         organizationName: organization.record.name,
         organizationRole: membership.role,
@@ -1314,11 +1324,11 @@ export async function listConsumerOrganizationsForSubject(
         platformAdmin: scopedMemberships.some(
           (grant) => grant.scope.kind === "product" && grant.accessRole?.name === "platform-admin",
         ),
-      });
-    }
-    return results.sort((left, right) =>
-      left.organizationName.localeCompare(right.organizationName),
-    );
+      };
+    });
+    return results
+      .filter((result): result is ConsumerOrganizationAccess => result !== null)
+      .sort((left, right) => left.organizationName.localeCompare(right.organizationName));
   });
 }
 
