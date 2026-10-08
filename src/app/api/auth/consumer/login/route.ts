@@ -24,7 +24,7 @@ function isLoginRequest(value: unknown): value is {
     identifier.length <= 254 &&
     typeof value.password === "string" &&
     value.password.length > 0 &&
-    value.password.length <= 256
+    value.password.length <= 1024
   );
 }
 

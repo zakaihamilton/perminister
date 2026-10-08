@@ -55,8 +55,9 @@ organization manager must grant it. Invalid registration fields return `400`; a 
 registration service failure returns `503`.
 
 Login accepts `identifier` and `password`; `email` remains supported for existing clients. The
-identifier can be an email for any consumer, or a product-scoped username for PostParticle. For
-example:
+identifier can be an email for any consumer, or a product-scoped username for PostParticle. Login
+accepts passwords up to 1,024 characters so existing Visitoring credentials remain usable; new,
+changed, and recovered passwords still use the 15–256 character policy. For example:
 
 ```http
 POST /api/auth/consumer/login
