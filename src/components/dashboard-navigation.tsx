@@ -6,9 +6,13 @@ import { usePathname } from "next/navigation";
 export function DashboardNavigation({
   organizationId,
   role,
+  isPlatformAdministrator,
+  pendingOrganizationRequestCount,
 }: {
   organizationId: string;
   role: "owner" | "admin" | "member";
+  isPlatformAdministrator: boolean;
+  pendingOrganizationRequestCount: number | null;
 }) {
   const pathname = usePathname();
   const root = `/dashboard/${organizationId}`;
@@ -64,6 +68,28 @@ export function DashboardNavigation({
           {item.label}
         </Link>
       ))}
+      {isPlatformAdministrator ? (
+        <>
+          <p className="dashboard-nav-label platform-nav-label">Platform</p>
+          <Link
+            className="dashboard-nav-link"
+            href="/dashboard/operations"
+            aria-label={
+              pendingOrganizationRequestCount
+                ? `Organization requests, ${pendingOrganizationRequestCount} pending`
+                : "Organization requests"
+            }
+          >
+            <span className="dashboard-nav-mark mark-operations" aria-hidden="true" />
+            <span>Organization requests</span>
+            {pendingOrganizationRequestCount ? (
+              <span className="dashboard-nav-count" aria-hidden="true">
+                {pendingOrganizationRequestCount}
+              </span>
+            ) : null}
+          </Link>
+        </>
+      ) : null}
       <p className="dashboard-nav-label account-nav-label">Your account</p>
       {accountLinks.map((item) => (
         <Link

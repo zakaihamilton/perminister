@@ -2614,6 +2614,9 @@ button:focus-visible {
   letter-spacing: 0.09em;
   text-transform: uppercase;
 }
+.platform-nav-label {
+  margin-top: 22px;
+}
 .account-nav-label {
   margin-top: 22px;
 }
@@ -2645,6 +2648,23 @@ button:focus-visible {
   border: 1.5px solid currentColor;
   border-radius: 3px;
   opacity: 0.8;
+}
+.dashboard-nav-count {
+  display: inline-grid;
+  min-width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  margin-left: auto;
+  padding: 0 6px;
+  color: var(--blue-dark);
+  background: var(--blue-pale);
+  font:
+    600 11px/1 "DM Mono",
+    monospace;
+  white-space: nowrap;
 }
 .dashboard-nav-link[aria-current="page"] .dashboard-nav-mark {
   border-radius: 50%;

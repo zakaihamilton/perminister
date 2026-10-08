@@ -4,6 +4,8 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import {
   getCurrentSession,
   getOrganizationForSubject,
+  isAdministrator,
+  countPendingOrganizationsForAdministrator,
   listProductsForOrganization,
   listOrganizationsForSubject,
 } from "@/lib/auth/service";
@@ -30,6 +32,17 @@ export default async function OrganizationDashboardLayout({
   } catch {
     redirect("/dashboard");
   }
+  const isPlatformAdministrator = isAdministrator(current.subject);
+  let pendingOrganizationRequestCount: number | null = null;
+  if (isPlatformAdministrator) {
+    try {
+      pendingOrganizationRequestCount = await countPendingOrganizationsForAdministrator(
+        current.subject.subjectId,
+      );
+    } catch {
+      pendingOrganizationRequestCount = null;
+    }
+  }
 
   return (
     <DashboardShell
@@ -38,6 +51,8 @@ export default async function OrganizationDashboardLayout({
       products={products.map(({ productId, name }) => ({ productId, name }))}
       organizations={organizations}
       role={organization.membership.role}
+      isPlatformAdministrator={isPlatformAdministrator}
+      pendingOrganizationRequestCount={pendingOrganizationRequestCount}
       email={current.subject.primaryEmail}
       firstName={current.subject.firstName ?? null}
       lastName={current.subject.lastName ?? null}

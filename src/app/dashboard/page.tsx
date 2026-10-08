@@ -7,6 +7,7 @@ import { createOrganizationAction, requestVerificationAction } from "@/app/actio
 import {
   getCurrentSession,
   isAdministrator,
+  countPendingOrganizationsForAdministrator,
   listOrganizationRequestsForSubject,
   listOrganizationsForSubject,
 } from "@/lib/auth/service";
@@ -22,6 +23,17 @@ export default async function DashboardHome({
   const organizations = await listOrganizationsForSubject(current.subject.subjectId);
   if (organizations.length) redirect(`/dashboard/${organizations[0].organization.organizationId}`);
   const requests = await listOrganizationRequestsForSubject(current.subject.subjectId);
+  const platformAdministrator = isAdministrator(current.subject);
+  let pendingOrganizationRequestCount: number | null = null;
+  if (platformAdministrator) {
+    try {
+      pendingOrganizationRequestCount = await countPendingOrganizationsForAdministrator(
+        current.subject.subjectId,
+      );
+    } catch {
+      pendingOrganizationRequestCount = null;
+    }
+  }
   const params = await searchParams;
   const verified = !!current.subject.emailVerifiedAt;
   const pendingRequest = requests.find((request) => request.status === "pending");
@@ -186,9 +198,14 @@ export default async function DashboardHome({
             <span>Joining an existing team?</span>
             <Link href="/accept-invitation">Open an invitation</Link>
           </div>
-          {isAdministrator(current.subject) ? (
+          {platformAdministrator ? (
             <p className="onboarding-ops-link">
-              <Link href="/dashboard/operations">Platform operations</Link>
+              <Link href="/dashboard/operations">
+                Organization requests
+                {pendingOrganizationRequestCount
+                  ? ` (${pendingOrganizationRequestCount} pending)`
+                  : ""}
+              </Link>
             </p>
           ) : null}
         </div>

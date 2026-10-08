@@ -489,6 +489,7 @@ export async function reviewOrganizationRequestAction(formData: FormData): Promi
   } catch {
     redirect("/dashboard/operations?error=organization-review");
   }
+  revalidatePath("/dashboard", "layout");
   redirect(`/dashboard/operations?notice=organization-${approvalStatus}`);
 }
 
