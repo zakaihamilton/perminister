@@ -1255,14 +1255,25 @@ export async function listConsumerOrganizationsForSubject(
       listRecordsWithRecovery("organization-membership"),
       listRecordsWithRecovery("membership"),
     ]);
-    const activeMemberships = organizationMemberships
-      .map((item) => item.record)
-      .filter((membership) => membership.subjectId === subjectId && membership.status === "active");
+    const activeMemberships = new Map<string, OrganizationMembershipRecord>();
+    for (const { record: membership } of organizationMemberships) {
+      if (
+        membership.subjectId !== subjectId ||
+        membership.status !== "active" ||
+        (membership.productId && membership.productId !== normalizedProductId)
+      ) {
+        continue;
+      }
+      const existing = activeMemberships.get(membership.organizationId);
+      if (!existing || (existing.productId && !membership.productId)) {
+        activeMemberships.set(membership.organizationId, membership);
+      }
+    }
     const subjectGrants = grants
       .map((item) => item.record)
       .filter((grant) => grant.subjectId === subjectId && grant.status === "active");
     const results: ConsumerOrganizationAccess[] = [];
-    for (const membership of activeMemberships) {
+    for (const membership of activeMemberships.values()) {
       const product = await store().readProduct(membership.organizationId, normalizedProductId);
       if (!product) continue;
       const organization = await loadRecord("organization", membership.organizationId);
