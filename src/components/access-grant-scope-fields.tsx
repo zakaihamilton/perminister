@@ -53,12 +53,17 @@ export function AccessGrantScopeFields() {
             name="resourceId"
             required
             maxLength={128}
-            pattern="[A-Za-z0-9][A-Za-z0-9._:-]*"
+            pattern="[a-z0-9][a-z0-9._:-]*"
             placeholder={resourcePlaceholder}
+            autoCapitalize="none"
+            onChange={(event) => {
+              event.currentTarget.value = event.currentTarget.value.toLowerCase();
+            }}
             aria-describedby="grant-resource-id-help"
           />
           <small className="access-form-field-help" id="grant-resource-id-help">
-            Copy the exact ID used by your connected product.
+            Enter the ID used by your connected product. Uppercase letters are converted to
+            lowercase.
           </small>
         </label>
       ) : null}

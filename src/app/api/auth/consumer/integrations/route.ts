@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   try {
     const integration = await createServicePrincipal(
       current.subject.subjectId,
-      body.organizationId,
+      body.organizationId.toLowerCase(),
       client.productId,
       body.name,
     );

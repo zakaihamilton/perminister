@@ -131,17 +131,18 @@ export function ProductSetupForm({ organizationId }: { organizationId: string })
                 <input
                   name="productId"
                   value={productId}
+                  autoCapitalize="none"
                   onChange={(event) => {
-                    setProductId(event.target.value);
+                    setProductId(event.target.value.toLowerCase());
                     setProductIdEdited(true);
                   }}
                   required
                   maxLength={128}
-                  pattern="[a-zA-Z0-9][a-zA-Z0-9._:-]*"
+                  pattern="[a-z0-9][a-z0-9._:-]*"
                 />
                 <span className="form-hint">
-                  Generated from the name. Edit it here if your integration already uses a different
-                  ID.
+                  Generated from the name and kept lowercase. Edit it here if your integration
+                  already uses a different ID.
                 </span>
               </label>
               <label>

@@ -136,11 +136,11 @@ function firstValue(data: FormData, name: string): string {
 
 function parseScope(data: FormData): ResourceScope {
   const kind = firstValue(data, "scopeKind");
-  const organizationId = firstValue(data, "organizationId");
-  const productId = firstValue(data, "productId").trim();
+  const organizationId = firstValue(data, "organizationId").toLowerCase();
+  const productId = firstValue(data, "productId").trim().toLowerCase();
   if (kind === "product")
     return { kind, organizationId: organizationId as ResourceScope["organizationId"], productId };
-  const resourceId = firstValue(data, "resourceId").trim();
+  const resourceId = firstValue(data, "resourceId").trim().toLowerCase();
   if (kind === "project")
     return {
       kind,

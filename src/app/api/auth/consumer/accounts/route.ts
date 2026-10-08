@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       auth.current.subject.subjectId,
       auth.client.productId,
       {
-        organizationId: body.organizationId,
+        organizationId: body.organizationId.toLowerCase(),
         productId: auth.client.productId,
         username: body.username,
         email: body.email as string | undefined,
