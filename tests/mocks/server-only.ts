@@ -1,0 +1,1 @@
+// Test-only stand-in for Next.js server-only imports.\n

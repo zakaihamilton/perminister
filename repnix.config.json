@@ -45,6 +45,18 @@
     },
     "ci": {
       "mode": "optional"
+    },
+    "runtime-accessibility": {
+      "mode": "required"
+    },
+    "visual-regression": {
+      "mode": "required"
+    },
+    "interactions": {
+      "mode": "required"
+    },
+    "styles": {
+      "mode": "required"
     }
   },
   "severityThreshold": "warning",
@@ -67,7 +79,10 @@
         "CC-BY-4.0",
         "LGPL-3.0-or-later"
       ],
-      "deny": ["GPL-3.0-only", "AGPL-3.0-only"]
+      "deny": [
+        "GPL-3.0-only",
+        "AGPL-3.0-only"
+      ]
     },
     "performance": {
       "maxLcpMs": 3000,

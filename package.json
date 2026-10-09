@@ -25,7 +25,10 @@
     "health:docs": "markdownlint-cli2 \"**/*.md\" \"#node_modules\" \"#coverage\" \"#.next\" \"#.repnix\"",
     "health:licenses": "license-checker --production --onlyAllow \"UNLICENSED;MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD;CC0-1.0;Unlicense;CC-BY-4.0;LGPL-3.0-or-later\"",
     "health:performance": "node scripts/run-lighthouse-ci.mjs lhci autorun",
-    "health:bundle": "size-limit"
+    "health:bundle": "size-limit",
+    "health:visual": "if [ \"$RUN_VISUAL_REGRESSION\" = \"1\" ] || [ \"$(uname)\" = \"Darwin\" ]; then playwright test tests/e2e/guardrails.spec.ts --project=chromium; else echo \"Visual regression runs in the macOS guardrail job.\"; fi",
+    "health:interactions": "vitest run tests/ui/user-interactions.test.tsx",
+    "health:styles": "stylelint --formatter json \"**/*.{css,pcss,postcss}\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1146.0",
@@ -37,8 +40,13 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@lhci/cli": "^0.15.1",
+    "@playwright/test": "^1.63.0",
     "@size-limit/file": "^14.1.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^26.6.4",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -48,12 +56,15 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "jscpd": "^5.4.0",
+    "jsdom": "^26.1.0",
     "knip": "^6.40.0",
     "license-checker": "^25.0.1",
     "markdownlint-cli2": "^0.23.3",
     "prettier": "^3.9.9",
-    "repnix": "1.0.4",
+    "repnix": "1.1.0",
     "size-limit": "^14.1.0",
+    "stylelint": "^17.11.1",
+    "stylelint-config-standard": "^40.0.0",
     "typescript": "^6.0.3",
     "vite": "^8.3.3",
     "vitest": "^5.0.3"
