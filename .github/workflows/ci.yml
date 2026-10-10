@@ -26,10 +26,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - run: npm test
       - run: npm run typecheck
       - run: npm run build
-      - run: npm run health
+      - run: npm run health -- --details
 
   secrets:
     runs-on: ubuntu-latest
@@ -41,3 +42,18 @@ jobs:
       - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  visual-regression:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install chromium
+      - run: npm run health:visual
+        env:
+          RUN_VISUAL_REGRESSION: "1"

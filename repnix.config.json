@@ -45,6 +45,18 @@
     },
     "ci": {
       "mode": "optional"
+    },
+    "runtime-accessibility": {
+      "mode": "required"
+    },
+    "visual-regression": {
+      "mode": "required"
+    },
+    "interactions": {
+      "mode": "required"
+    },
+    "styles": {
+      "mode": "required"
     }
   },
   "severityThreshold": "warning",
