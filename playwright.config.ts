@@ -12,5 +12,10 @@ export default defineConfig({
   },
   use: { baseURL, trace: "retain-on-failure", screenshot: "only-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: { command: "npm run dev -- --hostname 127.0.0.1 --port 3113", url: baseURL, reuseExistingServer: !process.env.CI, timeout: 120_000 },
+  webServer: {
+    command: "npm run dev -- --hostname 127.0.0.1 --port 3113",
+    url: baseURL,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
 });

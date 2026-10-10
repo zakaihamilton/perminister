@@ -9,8 +9,8 @@ describe("developer guide navigation", () => {
     const user = userEvent.setup();
     render(<DeveloperGuideNav active="overview" />);
     await user.tab();
-    expect(document.activeElement).toBe(screen.getByRole("link", {name:"Overview"}));
+    expect(document.activeElement).toBe(screen.getByRole("link", { name: "Overview" }));
     await user.tab();
-    expect(document.activeElement).toBe(screen.getByRole("link", {name:"Getting started"}));
+    expect(document.activeElement).toBe(screen.getByRole("link", { name: "Getting started" }));
   });
 });
