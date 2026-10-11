@@ -131,12 +131,20 @@ export default async function OrganizationOverview({
             <p>Add your first product to start assigning access and creating API keys.</p>
           </div>
           {managers ? (
-            <Link
-              className="button button-primary"
-              href={`/dashboard/${organizationId}/products/new`}
-            >
-              Create a product
-            </Link>
+            <>
+              <Link
+                className="button button-secondary"
+                href={`/dashboard/${organizationId}/products#public-product-catalog`}
+              >
+                Add existing product
+              </Link>
+              <Link
+                className="button button-primary"
+                href={`/dashboard/${organizationId}/products/new`}
+              >
+                Create a product
+              </Link>
+            </>
           ) : null}
         </section>
       ) : null}

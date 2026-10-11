@@ -3641,6 +3641,33 @@ button:focus-visible {
   color: var(--muted);
   font-size: 13px;
 }
+.activity-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+.activity-pagination-summary {
+  color: var(--muted);
+  font-size: 13px;
+}
+.activity-pagination-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.activity-pagination .button {
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+.activity-pagination-current {
+  background: var(--surface-2);
+  cursor: default;
+}
 .operations-topline {
   margin: -10px 0 24px;
 }
@@ -3678,6 +3705,10 @@ button:focus-visible {
 }
 .operations-accounts .dashboard-card-heading {
   margin-bottom: 8px;
+}
+.operations-accounts .admin-account-row .button {
+  min-height: 38px;
+  padding: 6px 12px;
 }
 .profile-card .button,
 .settings-card .button,
