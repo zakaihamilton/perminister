@@ -1,7 +1,7 @@
 import type { OrganizationActivityEntry, PlatformActivityEntry } from "@/lib/auth/service";
 
 type ActivityFeedEntry = OrganizationActivityEntry &
-  Partial<Pick<PlatformActivityEntry, "organization" | "user" | "actorIsUser">>;
+  Partial<Pick<PlatformActivityEntry, "organization" | "user" | "actorIsUser" | "details">>;
 
 export function ActivityFeed({
   entries,
@@ -38,6 +38,7 @@ export function ActivityFeed({
                 <>
                   <span>Organization: {entry.organization}</span>
                   {entry.user ? <span>User: {entry.user}</span> : null}
+                  {entry.details ? <span>{entry.details}</span> : null}
                   {entry.actorIsUser === false ||
                   (entry.actorIsUser === undefined && entry.actor !== entry.user) ? (
                     <span>Actor: {entry.actor}</span>

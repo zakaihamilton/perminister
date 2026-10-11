@@ -68,7 +68,7 @@ describe("dashboard breadcrumbs", () => {
     ).toEqual({ label: "unknown-product" });
   });
 
-  it("renders linked ancestors and a non-link current page accessibly", () => {
+  it("renders linked ancestors without repeating the current page in the breadcrumb", () => {
     const items = buildDashboardBreadcrumbs(
       "/dashboard/org-123/products/visitoring/roles",
       context,
@@ -77,11 +77,19 @@ describe("dashboard breadcrumbs", () => {
 
     expect(html).toContain('<nav aria-label="Breadcrumb"');
     expect(html).toContain('href="/dashboard/org-123/products/visitoring"');
-    expect(html).toContain(
-      '<span aria-current="page" class="dashboard-breadcrumb-current">Access roles</span>',
-    );
     expect(html).toContain('<h1 class="dashboard-page-title">Access roles</h1>');
     expect(html).toContain('aria-hidden="true"');
+    expect(html).not.toContain('aria-current="page"');
+    expect(html.match(/Access roles/g)).toHaveLength(1);
     expect(html).not.toContain('<a href="/dashboard/org-123/products/visitoring/roles">');
+  });
+
+  it("omits an empty breadcrumb when the current page has no ancestors", () => {
+    const html = renderToStaticMarkup(
+      createElement(BreadcrumbBar, { items: [{ label: "Set up your workspace" }] }),
+    );
+
+    expect(html).not.toContain('<nav aria-label="Breadcrumb"');
+    expect(html).toContain('<h1 class="dashboard-page-title">Set up your workspace</h1>');
   });
 });

@@ -11,34 +11,26 @@ import {
 export function BreadcrumbBar({ items }: { items: readonly DashboardBreadcrumbItem[] }) {
   if (items.length === 0) return null;
   const currentPage = items[items.length - 1];
+  const ancestors = items.slice(0, -1);
 
   return (
     <>
-      <nav aria-label="Breadcrumb" className="dashboard-breadcrumbs">
-        <ol>
-          {items.map((item, index) => {
-            const isCurrentPage = index === items.length - 1;
-            return (
+      {ancestors.length > 0 ? (
+        <nav aria-label="Breadcrumb" className="dashboard-breadcrumbs">
+          <ol>
+            {ancestors.map((item, index) => (
               <li key={`${item.label}-${index}`}>
-                {isCurrentPage ? (
-                  <span aria-current="page" className="dashboard-breadcrumb-current">
-                    {item.label}
-                  </span>
-                ) : item.href ? (
-                  <Link href={item.href}>{item.label}</Link>
-                ) : (
-                  <span>{item.label}</span>
-                )}
-                {!isCurrentPage ? (
+                {item.href ? <Link href={item.href}>{item.label}</Link> : <span>{item.label}</span>}
+                {index < ancestors.length - 1 ? (
                   <span aria-hidden="true" className="dashboard-breadcrumb-separator">
                     /
                   </span>
                 ) : null}
               </li>
-            );
-          })}
-        </ol>
-      </nav>
+            ))}
+          </ol>
+        </nav>
+      ) : null}
       <h1 className="dashboard-page-title">{currentPage.label}</h1>
     </>
   );

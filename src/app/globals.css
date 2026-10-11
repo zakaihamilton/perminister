@@ -3710,6 +3710,38 @@ button:focus-visible {
   min-height: 38px;
   padding: 6px 12px;
 }
+.product-transfer-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 9px;
+  margin-top: 12px;
+}
+.product-transfer-form label {
+  display: grid;
+  min-width: min(100%, 220px);
+  gap: 5px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 650;
+}
+.product-transfer-form select {
+  min-height: 38px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 7px 10px;
+  color: var(--ink);
+  background: var(--surface-inset);
+  font:
+    500 14px/1.4 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+.product-transfer-form > .button {
+  min-height: 38px;
+  padding: 0 12px;
+}
 .profile-card .button,
 .settings-card .button,
 .operations-migration .button {

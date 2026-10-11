@@ -375,10 +375,13 @@ function activityPayload(record: AuthRecord): AuthEvent["payload"] {
   return payload;
 }
 
-async function persistRecord(record: AuthRecord, type: string, actor: AuthActor): Promise<void> {
+async function persistRecord(
+  record: AuthRecord,
+  type: string,
+  actor: AuthActor,
+  additionalPayload: AuthEvent["payload"] = {},
+): Promise<void> {
   const objectStore = store();
-  const id = authRecordId(record);
-  const aggregate = aggregateFor(record.kind, id);
   const now = new Date().toISOString();
   if (record.kind === "membership") {
     const productMembership = await objectStore.readOrganizationMembership(
@@ -399,15 +402,26 @@ async function persistRecord(record: AuthRecord, type: string, actor: AuthActor)
   } else {
     await objectStore.writeRecord(record);
   }
+  await appendRecordActivityEvent(record, type, actor, additionalPayload);
+}
+
+async function appendRecordActivityEvent(
+  record: AuthRecord,
+  type: string,
+  actor: AuthActor,
+  additionalPayload: AuthEvent["payload"] = {},
+): Promise<void> {
+  const objectStore = store();
+  const id = authRecordId(record);
   const event: AuthEvent = {
     schemaVersion: 1,
     eventId: newEventId(),
-    aggregate,
+    aggregate: aggregateFor(record.kind, id),
     aggregateVersion: 1,
-    occurredAt: now,
+    occurredAt: new Date().toISOString(),
     actor,
     type,
-    payload: activityPayload(record),
+    payload: { ...activityPayload(record), ...additionalPayload },
   };
   try {
     await objectStore.appendEvent(event);
@@ -1007,6 +1021,7 @@ export interface PlatformActivityEntry extends OrganizationActivityEntry {
   organization: string;
   user: string | null;
   actorIsUser: boolean;
+  details?: string;
 }
 
 export interface PlatformAuditPage {
@@ -1070,6 +1085,24 @@ function platformSubjectLabel(
   return name || subject.primaryEmail || `Account ${subjectId}`;
 }
 
+function platformEventDetails(
+  event: AuthEvent,
+  organizationNames: ReadonlyMap<string, string>,
+): string | undefined {
+  if (event.type !== "product.transferred") return undefined;
+  const sourceOrganizationId = eventPayloadId(event, "sourceOrganizationId");
+  const destinationOrganizationId = eventPayloadId(event, "destinationOrganizationId");
+  const productName = event.payload.productName;
+  if (!sourceOrganizationId || !destinationOrganizationId || typeof productName !== "string") {
+    return undefined;
+  }
+  const sourceName =
+    organizationNames.get(sourceOrganizationId) ?? `Organization ${sourceOrganizationId}`;
+  const destinationName =
+    organizationNames.get(destinationOrganizationId) ?? `Organization ${destinationOrganizationId}`;
+  return `${productName} transferred from ${sourceName} to ${destinationName}`;
+}
+
 async function platformActivityEntries(
   events: readonly AuthEvent[],
 ): Promise<PlatformActivityEntry[]> {
@@ -1077,8 +1110,10 @@ async function platformActivityEntries(
   const subjectIds = new Set<string>();
   for (const event of events) {
     const organizationId = platformEventOrganizationId(event);
+    const sourceOrganizationId = eventPayloadId(event, "sourceOrganizationId");
     const userId = platformEventUserId(event);
     if (organizationId) organizationIds.add(organizationId);
+    if (sourceOrganizationId) organizationIds.add(sourceOrganizationId);
     if (userId) subjectIds.add(userId);
     if (event.actor.kind === "subject") subjectIds.add(event.actor.subjectId);
   }
@@ -1122,6 +1157,7 @@ async function platformActivityEntries(
         : "Platform-wide",
       user: userId ? platformSubjectLabel(userId, subjectRecords) : null,
       actorIsUser: event.actor.kind === "subject" && event.actor.subjectId === userId,
+      details: platformEventDetails(event, organizationNames),
     };
   });
 }
@@ -1789,8 +1825,47 @@ export interface ProductShareInfo {
   adopterOrganizations: Array<{ organizationId: string; name: string }>;
 }
 
+export interface AdministratorPublicProductTransferEntry {
+  product: ProductRecord;
+  publisherOrganizationName: string;
+  adopterCount: number;
+  destinations: Array<{ organizationId: string; name: string }>;
+  pendingDestinationOrganizationId?: string;
+}
+
 function isSharedProductSource(product: ProductRecord): boolean {
   return !product.sharedProductRef && product.visibility === "public";
+}
+
+function publicProductTransferTargetId(
+  sourceProductRecordId: ProductRecordId,
+  destinationOrganizationId: string,
+): ProductRecordId {
+  const bytes = createHash("sha256")
+    .update(
+      `perminister:public-product-transfer:v1:${sourceProductRecordId}:${destinationOrganizationId}`,
+    )
+    .digest()
+    .subarray(0, 16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x50;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}` as ProductRecordId;
+}
+
+async function completedProductTransferTargetsUnlocked(
+  sourceProductRecordId: ProductRecordId,
+): Promise<Set<string>> {
+  const events = await store().listEvents({ kind: "product", id: sourceProductRecordId });
+  return new Set(
+    events
+      .filter(
+        (event) =>
+          event.type === "product.transferred-from" || event.type === "product.transferred",
+      )
+      .map((event) => eventPayloadId(event, "destinationProductRecordId"))
+      .filter((targetId): targetId is string => targetId !== null),
+  );
 }
 
 function refersToSharedProduct(installation: ProductRecord, source: ProductRecord): boolean {
@@ -2027,6 +2102,295 @@ export async function getProductShareInfo(
       visibility: found.record.visibility === "public" ? "public" : "private",
       adopterOrganizations: await organizationNamesForInstallationsUnlocked(installations),
     };
+  });
+}
+
+export async function listPublicProductsForAdministrator(
+  actorId: SubjectId,
+): Promise<AdministratorPublicProductTransferEntry[]> {
+  return authMutationQueue.read(async () => {
+    await requireAdministrator(actorId);
+    const [productRows, organizationRows] = await Promise.all([
+      listRecordsWithRecovery("product"),
+      listRecordsWithRecovery("organization"),
+    ]);
+    const products = productRows.map((entry) => entry.record);
+    const organizations = organizationRows.map((entry) => entry.record);
+    const approvedOrganizations = organizations.filter(
+      (organization) => organizationApprovalStatus(organization) === "approved",
+    );
+    const organizationsById = new Map(
+      organizations.map((organization) => [organization.organizationId, organization]),
+    );
+
+    const entries = await Promise.all(
+      products.filter(isSharedProductSource).map(async (product) => {
+        const publisher = organizationsById.get(product.organizationId);
+        if (!publisher) return null;
+        const conflictingProducts = products.filter(
+          (candidate) =>
+            candidate.productId === product.productId &&
+            candidate.organizationId !== product.organizationId,
+        );
+        const completedTransfers = conflictingProducts.length
+          ? await completedProductTransferTargetsUnlocked(product.productRecordId)
+          : new Set<string>();
+        const pendingTransferTargets = conflictingProducts.filter(
+          (candidate) =>
+            candidate.productRecordId ===
+              publicProductTransferTargetId(product.productRecordId, candidate.organizationId) &&
+            !completedTransfers.has(candidate.productRecordId),
+        );
+        const adopterCount = products.filter(
+          (candidate) =>
+            !candidate.sharedProductRef?.detachedAt &&
+            (refersToSharedProduct(candidate, product) ||
+              pendingTransferTargets.some((target) => refersToSharedProduct(candidate, target))),
+        ).length;
+        return {
+          product,
+          publisherOrganizationName: publisher.name,
+          adopterCount,
+          destinations: approvedOrganizations
+            .filter((organization) => {
+              if (pendingTransferTargets.length) {
+                return pendingTransferTargets.some(
+                  (target) => target.organizationId === organization.organizationId,
+                );
+              }
+              return (
+                organization.organizationId !== product.organizationId &&
+                !conflictingProducts.some(
+                  (candidate) => candidate.organizationId === organization.organizationId,
+                )
+              );
+            })
+            .map((organization) => ({
+              organizationId: organization.organizationId,
+              name: organization.name,
+            }))
+            .sort((left, right) => left.name.localeCompare(right.name)),
+          pendingDestinationOrganizationId: pendingTransferTargets[0]?.organizationId,
+        };
+      }),
+    );
+
+    return entries
+      .filter((entry) => entry !== null)
+      .sort(
+        (left, right) =>
+          left.product.name.localeCompare(right.product.name) ||
+          left.publisherOrganizationName.localeCompare(right.publisherOrganizationName),
+      );
+  });
+}
+
+export interface PublicProductTransferResult {
+  product: ProductRecord;
+  sourceOrganizationId: string;
+  destinationOrganizationId: string;
+  affectedOrganizationIds: string[];
+}
+
+export async function transferPublicProductForAdministrator(
+  actorId: SubjectId,
+  productRecordId: string,
+  destinationOrganizationId: string,
+): Promise<PublicProductTransferResult> {
+  assertOpaqueId(productRecordId);
+  assertOpaqueId(destinationOrganizationId);
+  return authMutationQueue.run(async () => {
+    await requireAdministrator(actorId);
+    const initial = await loadRecord("product", productRecordId);
+    if (!initial || initial.record.sharedProductRef) {
+      throw new Error("Only a public publisher product can be transferred.");
+    }
+    const initialSource = initial.record;
+    const initialDestinationProductRecordId = publicProductTransferTargetId(
+      initialSource.productRecordId,
+      destinationOrganizationId,
+    );
+    const initialProducts = (await listRecordsWithRecovery("product")).map((entry) => entry.record);
+    const initialCompletedTargets = await completedProductTransferTargetsUnlocked(
+      initialSource.productRecordId,
+    );
+    const initialPendingTargets = initialProducts.filter(
+      (product) =>
+        product.productId === initialSource.productId &&
+        product.organizationId !== initialSource.organizationId &&
+        product.productRecordId ===
+          publicProductTransferTargetId(initialSource.productRecordId, product.organizationId) &&
+        !initialCompletedTargets.has(product.productRecordId),
+    );
+    const canResumeInitialTransfer = initialPendingTargets.some(
+      (product) => product.organizationId === destinationOrganizationId,
+    );
+    if (!isSharedProductSource(initialSource) && !canResumeInitialTransfer) {
+      throw new Error("Only a public publisher product can be transferred.");
+    }
+    const initialDestinationProduct: ProductRecord = {
+      ...initialSource,
+      productRecordId: initialDestinationProductRecordId,
+      organizationId: destinationOrganizationId as OrganizationId,
+      visibility: "public",
+    };
+    const initialInstallations = initialProducts.filter(
+      (product) =>
+        !product.sharedProductRef?.detachedAt &&
+        (refersToSharedProduct(product, initialSource) ||
+          refersToSharedProduct(product, initialDestinationProduct)),
+    );
+    const lockIds = [
+      initialSource.organizationId,
+      destinationOrganizationId,
+      ...initialInstallations.map((installation) => installation.organizationId),
+    ];
+
+    return withOrganizationMutationLocks(lockIds, async () => {
+      const currentActor = await requireAdministrator(actorId);
+      const sourceRecord = await loadRecord("product", productRecordId);
+      if (!sourceRecord || sourceRecord.record.sharedProductRef) {
+        throw new Error("Only a public publisher product can be transferred.");
+      }
+      const source = sourceRecord.record;
+      if (destinationOrganizationId === source.organizationId) {
+        throw new Error("Choose a different destination organization.");
+      }
+      if (!(await loadApprovedOrganizationUnlocked(destinationOrganizationId))) {
+        throw new Error("Choose an approved destination organization.");
+      }
+
+      const products = (await listRecordsWithRecovery("product")).map((entry) => entry.record);
+      const completedTargets = await completedProductTransferTargetsUnlocked(
+        source.productRecordId,
+      );
+      const pendingTargets = products.filter(
+        (product) =>
+          product.productId === source.productId &&
+          product.organizationId !== source.organizationId &&
+          product.productRecordId ===
+            publicProductTransferTargetId(source.productRecordId, product.organizationId) &&
+          !completedTargets.has(product.productRecordId),
+      );
+      if (pendingTargets.some((product) => product.organizationId !== destinationOrganizationId)) {
+        throw new Error(
+          "This product has an incomplete transfer. Resume it at its existing destination first.",
+        );
+      }
+
+      const destinationProductRecordId = publicProductTransferTargetId(
+        source.productRecordId,
+        destinationOrganizationId,
+      );
+      const destinationRecord = await loadRecord("product", destinationProductRecordId);
+      if (
+        destinationRecord &&
+        (destinationRecord.record.organizationId !== destinationOrganizationId ||
+          destinationRecord.record.productId !== source.productId ||
+          destinationRecord.record.sharedProductRef)
+      ) {
+        throw new Error("The previous transfer cannot be resumed safely.");
+      }
+      const pendingAtDestination = pendingTargets.some(
+        (product) => product.productRecordId === destinationProductRecordId,
+      );
+      if (!isSharedProductSource(source) && !pendingAtDestination) {
+        throw new Error("Only a public publisher product can be transferred.");
+      }
+
+      const destinationConflicts = products.filter(
+        (product) =>
+          product.organizationId === destinationOrganizationId &&
+          product.productId === source.productId,
+      );
+      if (
+        destinationConflicts.some(
+          (product) => product.productRecordId !== destinationProductRecordId,
+        ) ||
+        (destinationConflicts.length > 0 && completedTargets.has(destinationProductRecordId))
+      ) {
+        throw new Error("The destination already has a product with this product ID.");
+      }
+
+      const destinationProduct: ProductRecord = {
+        ...source,
+        productRecordId: destinationProductRecordId,
+        organizationId: destinationOrganizationId as OrganizationId,
+        visibility: "public",
+        updatedAt: new Date().toISOString(),
+      };
+      const installations = products.filter(
+        (installation) =>
+          !installation.sharedProductRef?.detachedAt &&
+          (refersToSharedProduct(installation, source) ||
+            refersToSharedProduct(installation, destinationProduct)),
+      );
+      const sourcePrivateProduct: ProductRecord = {
+        ...source,
+        visibility: "private",
+        updatedAt: new Date().toISOString(),
+      };
+
+      await store().writeRecord(destinationProduct);
+
+      for (const installation of installations) {
+        const reference = installation.sharedProductRef;
+        if (!reference || !refersToSharedProduct(installation, source)) continue;
+        await persistRecord(
+          {
+            ...installation,
+            sharedProductRef: {
+              ...reference,
+              sourceOrganizationId: destinationOrganizationId as OrganizationId,
+              sourceProductRecordId: destinationProductRecordId,
+              sourceProductId: source.productId,
+            },
+            updatedAt: new Date().toISOString(),
+          },
+          "product.shared-installation-repointed",
+          { kind: "subject", subjectId: currentActor.subjectId },
+        );
+      }
+
+      await persistRecord(
+        sourcePrivateProduct,
+        "product.transferred-from",
+        {
+          kind: "subject",
+          subjectId: currentActor.subjectId,
+        },
+        {
+          destinationOrganizationId,
+          destinationProductRecordId,
+          productName: source.name,
+        },
+      );
+      await appendRecordActivityEvent(
+        sourcePrivateProduct,
+        "product.transferred",
+        { kind: "subject", subjectId: currentActor.subjectId },
+        {
+          organizationId: destinationOrganizationId,
+          sourceOrganizationId: source.organizationId,
+          destinationOrganizationId,
+          destinationProductRecordId,
+          productName: source.name,
+        },
+      );
+
+      return {
+        product: destinationProduct,
+        sourceOrganizationId: source.organizationId,
+        destinationOrganizationId,
+        affectedOrganizationIds: [
+          ...new Set([
+            source.organizationId,
+            destinationOrganizationId,
+            ...installations.map((installation) => installation.organizationId),
+          ]),
+        ],
+      };
+    });
   });
 }
 
