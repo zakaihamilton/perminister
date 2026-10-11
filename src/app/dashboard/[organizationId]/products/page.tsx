@@ -121,7 +121,7 @@ export default async function ProductsPage({
         </section>
       )}
       {canManage ? (
-        <section className="dashboard-card public-product-catalog">
+        <section className="dashboard-card public-product-catalog" id="public-product-catalog">
           <div className="dashboard-card-heading">
             <div>
               <h2>Public product catalog</h2>
