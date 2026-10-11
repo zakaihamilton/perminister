@@ -1,13 +1,12 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { ProductIcon } from "@/components/product-icon";
-import {
-  createOrganizationProductAction,
-  lookupProductWebsiteAction,
-  type ProductLookupState,
-} from "@/app/actions";
+import { lookupProductWebsiteAction, type ProductLookupState } from "@/app/actions";
 import { productSlug } from "@/lib/product-slug";
+import {
+  ProductDetailsReviewStep,
+  ProductWebsiteLookupStep,
+} from "@/components/product-setup-steps";
 
 export function ProductSetupForm({ organizationId }: { organizationId: string }) {
   const [lookupState, lookupAction, pending] = useActionState<ProductLookupState, FormData>(
@@ -62,130 +61,33 @@ export function ProductSetupForm({ organizationId }: { organizationId: string })
 
   return (
     <div className="product-setup-flow">
-      <section className="product-setup-step">
-        <span className="onboarding-step">01</span>
-        <div className="product-setup-step-body">
-          <h2>Start with a website</h2>
-          <p>Enter a website address to suggest product details, or enter the details manually.</p>
-          <form action={lookupAction} className="product-source-form">
-            <input type="hidden" name="organizationId" value={organizationId} />
-            <label>
-              Website address
-              <input
-                name="source"
-                type="url"
-                value={source}
-                onChange={(event) => setSource(event.target.value)}
-                placeholder="https://example.com"
-                required
-                maxLength={2048}
-              />
-            </label>
-            <button className="button button-primary" type="submit" disabled={pending}>
-              {pending ? "Looking up…" : "Fetch website details"}
-            </button>
-          </form>
-          {lookupState.error ? (
-            <p className="form-error" role="alert">
-              {lookupState.error}
-            </p>
-          ) : null}
-          {!showDetails ? (
-            <button
-              className="text-link product-manual-button"
-              type="button"
-              onClick={startManualEntry}
-            >
-              Enter product details manually
-            </button>
-          ) : null}
-        </div>
-      </section>
-
+      <ProductWebsiteLookupStep
+        lookupAction={lookupAction}
+        lookupState={lookupState}
+        onStartManualEntry={startManualEntry}
+        onSourceChange={setSource}
+        pending={pending}
+        showDetails={showDetails}
+        source={source}
+        organizationId={organizationId}
+      />
       {showDetails ? (
-        <section className="product-setup-step product-details-step">
-          <span className="onboarding-step">02</span>
-          <div className="product-setup-step-body">
-            <h2>Review product details</h2>
-            <p>Your product ID stays stable after creation and is scoped to this organization.</p>
-            {iconUrl ? (
-              <ProductIcon name={name} src={iconUrl} className="product-icon-preview" size={45} />
-            ) : null}
-            <form
-              action={createOrganizationProductAction}
-              className="auth-form product-details-form"
-            >
-              <input type="hidden" name="organizationId" value={organizationId} />
-              <label>
-                Product name
-                <input
-                  name="name"
-                  value={name}
-                  onChange={(event) => setNameValue(event.target.value)}
-                  required
-                  maxLength={120}
-                />
-              </label>
-              <label>
-                Product ID
-                <input
-                  name="productId"
-                  value={productId}
-                  autoCapitalize="none"
-                  onChange={(event) => {
-                    setProductId(event.target.value.toLowerCase());
-                    setProductIdEdited(true);
-                  }}
-                  required
-                  maxLength={128}
-                  pattern="[a-z0-9][a-z0-9._:-]*"
-                />
-                <span className="form-hint">
-                  Generated from the name and kept lowercase. Edit it here if your integration
-                  already uses a different ID.
-                </span>
-              </label>
-              <label>
-                Website
-                <input
-                  name="websiteUrl"
-                  type="url"
-                  value={websiteUrl}
-                  onChange={(event) => setWebsiteUrl(event.target.value)}
-                  required
-                  maxLength={2048}
-                />
-              </label>
-              <label>
-                Description
-                <textarea
-                  name="description"
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  maxLength={500}
-                  rows={3}
-                />
-              </label>
-              <label>
-                Icon URL <span className="form-hint">Optional</span>
-                <input
-                  name="iconUrl"
-                  type="url"
-                  value={iconUrl}
-                  onChange={(event) => setIconUrl(event.target.value)}
-                  maxLength={2048}
-                />
-              </label>
-              <button
-                className="button button-primary"
-                type="submit"
-                disabled={!name.trim() || !productId.trim() || !websiteUrl.trim()}
-              >
-                Create product
-              </button>
-            </form>
-          </div>
-        </section>
+        <ProductDetailsReviewStep
+          description={description}
+          iconUrl={iconUrl}
+          name={name}
+          onDescriptionChange={setDescription}
+          onIconUrlChange={setIconUrl}
+          onNameChange={setNameValue}
+          onProductIdChange={(value) => {
+            setProductId(value.toLowerCase());
+            setProductIdEdited(true);
+          }}
+          onWebsiteUrlChange={setWebsiteUrl}
+          organizationId={organizationId}
+          productId={productId}
+          websiteUrl={websiteUrl}
+        />
       ) : null}
     </div>
   );

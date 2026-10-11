@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { DashboardHeading } from "@/components/dashboard-shell";
-import { ApiKeyItem, ApiKeyNotices } from "@/components/api-key-item";
+import { ApiKeyNotices } from "@/components/api-key-item";
+import {
+  ApiKeyAccessHint,
+  OrganizationApiKeyRecords,
+  OrganizationProductKeyLinks,
+} from "@/components/organization-api-key-sections";
 import {
   getCurrentSession,
   getOrganizationForSubject,
@@ -8,15 +13,7 @@ import {
   listOrganizationPermissionGrants,
   listProductsForOrganization,
 } from "@/lib/auth/service";
-import type { ResourceScope } from "@/lib/auth/domain";
 import { redirect } from "next/navigation";
-
-function scopeText(scope: ResourceScope, productNames: Map<string, string>): string {
-  const product = productNames.get(scope.productId) ?? scope.productId;
-  if (scope.kind === "product") return product;
-  if (scope.kind === "project") return `${product} · Project ${scope.projectId}`;
-  return `${product} · Workspace ${scope.workspaceId}`;
-}
 
 export default async function ApiKeysPage({
   params,
@@ -75,76 +72,19 @@ export default async function ApiKeysPage({
         notice={query.notice}
       />
 
-      {keys.length === 0 ? (
-        <section className="dashboard-empty-card api-key-empty-card">
-          <div>
-            <h2>No API keys yet</h2>
-            <p>Choose a product below to view its keys or create one when access is granted.</p>
-          </div>
-        </section>
-      ) : (
-        <div className="record-list api-key-list">
-          {keys.map((key) => {
-            const expired = !!key.expiresAt && Date.parse(key.expiresAt) <= now;
-            const status = key.status === "revoked" ? "revoked" : expired ? "expired" : "active";
-            const productHref = `/dashboard/${organizationId}/products/${encodeURIComponent(key.scope.productId)}/api-keys`;
-            return (
-              <ApiKeyItem
-                apiKey={key}
-                extraActions={
-                  <Link className="button button-secondary" href={productHref}>
-                    Manage product keys
-                  </Link>
-                }
-                key={key.apiKeyId}
-                returnTo={returnTo}
-                scopeLabel={scopeText(key.scope, productNames)}
-                status={status}
-              />
-            );
-          })}
-        </div>
-      )}
-
-      {products.length ? (
-        <section className="dashboard-card api-key-products-card" id="api-key-products">
-          <div className="dashboard-card-heading">
-            <div>
-              <h2>Product keys</h2>
-              <p>Each product has its own key list and creation settings.</p>
-            </div>
-          </div>
-          <div className="api-key-product-list">
-            {products.map((product) => (
-              <article className="api-key-product-row" key={product.productId}>
-                <div>
-                  <strong>{product.name}</strong>
-                  <span>{product.description || product.websiteUrl}</span>
-                </div>
-                <Link
-                  className="button button-secondary"
-                  href={`/dashboard/${organizationId}/products/${encodeURIComponent(product.productId)}/api-keys`}
-                >
-                  Manage keys
-                </Link>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : (
-        <section className="dashboard-empty-card">
-          <div>
-            <h2>No products in this organization</h2>
-            <p>An organization admin can add a product before API keys can be created.</p>
-          </div>
-        </section>
-      )}
-
-      {!canCreate && current.subject.emailVerifiedAt && products.length ? (
-        <p className="form-hint api-key-empty-hint">
-          An active access grant is required before you can create a key.
-        </p>
-      ) : null}
+      <OrganizationApiKeyRecords
+        keys={keys}
+        now={now}
+        organizationId={organizationId}
+        productNames={productNames}
+        returnTo={returnTo}
+      />
+      <OrganizationProductKeyLinks organizationId={organizationId} products={products} />
+      <ApiKeyAccessHint
+        canCreate={canCreate}
+        hasProducts={products.length > 0}
+        isEmailVerified={!!current.subject.emailVerifiedAt}
+      />
       <p className="role-help">
         The full key appears once after creation. Copy it into your server’s secret store.
       </p>
