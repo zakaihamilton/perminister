@@ -1859,10 +1859,7 @@ async function completedProductTransferTargetsUnlocked(
   const events = await store().listEvents({ kind: "product", id: sourceProductRecordId });
   return new Set(
     events
-      .filter(
-        (event) =>
-          event.type === "product.transferred-from" || event.type === "product.transferred",
-      )
+      .filter((event) => event.type === "product.transferred")
       .map((event) => eventPayloadId(event, "destinationProductRecordId"))
       .filter((targetId): targetId is string => targetId !== null),
   );
@@ -1875,6 +1872,77 @@ function refersToSharedProduct(installation: ProductRecord, source: ProductRecor
     reference.sourceOrganizationId === source.organizationId &&
     reference.sourceProductRecordId === source.productRecordId &&
     reference.sourceProductId === source.productId
+  );
+}
+
+function isActiveSharedInstallationForSource(
+  installation: ProductRecord,
+  source: ProductRecord,
+): boolean {
+  return (
+    installation.productId === source.productId &&
+    installation.organizationId !== source.organizationId &&
+    !installation.sharedProductRef?.detachedAt &&
+    refersToSharedProduct(installation, source)
+  );
+}
+
+function isPendingSharedInstallationTransfer(
+  installation: ProductRecord,
+  source: ProductRecord,
+): boolean {
+  return (
+    installation.visibility === "private" &&
+    isActiveSharedInstallationForSource(installation, source)
+  );
+}
+
+function isPotentialProductTransferTarget(
+  candidate: ProductRecord,
+  source: ProductRecord,
+): boolean {
+  return (
+    candidate.productId === source.productId &&
+    candidate.organizationId !== source.organizationId &&
+    ((candidate.productRecordId ===
+      publicProductTransferTargetId(source.productRecordId, candidate.organizationId) &&
+      !candidate.sharedProductRef) ||
+      isPendingSharedInstallationTransfer(candidate, source))
+  );
+}
+
+function isPendingProductTransferTarget(
+  candidate: ProductRecord,
+  source: ProductRecord,
+  completedTargets: ReadonlySet<string>,
+): boolean {
+  return (
+    isPotentialProductTransferTarget(candidate, source) &&
+    !completedTargets.has(candidate.productRecordId)
+  );
+}
+
+function transferDestinationProductRecordId(
+  source: ProductRecord,
+  destinationOrganizationId: string,
+  products: readonly ProductRecord[],
+  completedTargets: ReadonlySet<string>,
+): ProductRecordId {
+  const pendingTarget = products.find(
+    (candidate) =>
+      candidate.organizationId === destinationOrganizationId &&
+      isPendingProductTransferTarget(candidate, source, completedTargets),
+  );
+  if (pendingTarget) return pendingTarget.productRecordId;
+
+  const existingInstallation = products.find(
+    (candidate) =>
+      candidate.organizationId === destinationOrganizationId &&
+      isActiveSharedInstallationForSource(candidate, source),
+  );
+  return (
+    existingInstallation?.productRecordId ??
+    publicProductTransferTargetId(source.productRecordId, destinationOrganizationId)
   );
 }
 
@@ -2123,23 +2191,29 @@ export async function listPublicProductsForAdministrator(
       organizations.map((organization) => [organization.organizationId, organization]),
     );
 
+    const candidateSources = products.filter(
+      (product) =>
+        isSharedProductSource(product) ||
+        products.some((candidate) => isPotentialProductTransferTarget(candidate, product)),
+    );
     const entries = await Promise.all(
-      products.filter(isSharedProductSource).map(async (product) => {
+      candidateSources.map(async (product) => {
+        const potentialTransferTargets = products.filter((candidate) =>
+          isPotentialProductTransferTarget(candidate, product),
+        );
+        const completedTransfers = potentialTransferTargets.length
+          ? await completedProductTransferTargetsUnlocked(product.productRecordId)
+          : new Set<string>();
+        const pendingTransferTargets = potentialTransferTargets.filter(
+          (candidate) => !completedTransfers.has(candidate.productRecordId),
+        );
+        if (!isSharedProductSource(product) && !pendingTransferTargets.length) return null;
         const publisher = organizationsById.get(product.organizationId);
         if (!publisher) return null;
         const conflictingProducts = products.filter(
           (candidate) =>
             candidate.productId === product.productId &&
             candidate.organizationId !== product.organizationId,
-        );
-        const completedTransfers = conflictingProducts.length
-          ? await completedProductTransferTargetsUnlocked(product.productRecordId)
-          : new Set<string>();
-        const pendingTransferTargets = conflictingProducts.filter(
-          (candidate) =>
-            candidate.productRecordId ===
-              publicProductTransferTargetId(product.productRecordId, candidate.organizationId) &&
-            !completedTransfers.has(candidate.productRecordId),
         );
         const adopterCount = products.filter(
           (candidate) =>
@@ -2158,11 +2232,14 @@ export async function listPublicProductsForAdministrator(
                   (target) => target.organizationId === organization.organizationId,
                 );
               }
+              const destinationProducts = conflictingProducts.filter(
+                (candidate) => candidate.organizationId === organization.organizationId,
+              );
               return (
                 organization.organizationId !== product.organizationId &&
-                !conflictingProducts.some(
-                  (candidate) => candidate.organizationId === organization.organizationId,
-                )
+                (destinationProducts.length === 0 ||
+                  (destinationProducts.length === 1 &&
+                    isActiveSharedInstallationForSource(destinationProducts[0], product)))
               );
             })
             .map((organization) => ({
@@ -2206,21 +2283,18 @@ export async function transferPublicProductForAdministrator(
       throw new Error("Only a public publisher product can be transferred.");
     }
     const initialSource = initial.record;
-    const initialDestinationProductRecordId = publicProductTransferTargetId(
-      initialSource.productRecordId,
-      destinationOrganizationId,
-    );
     const initialProducts = (await listRecordsWithRecovery("product")).map((entry) => entry.record);
     const initialCompletedTargets = await completedProductTransferTargetsUnlocked(
       initialSource.productRecordId,
     );
-    const initialPendingTargets = initialProducts.filter(
-      (product) =>
-        product.productId === initialSource.productId &&
-        product.organizationId !== initialSource.organizationId &&
-        product.productRecordId ===
-          publicProductTransferTargetId(initialSource.productRecordId, product.organizationId) &&
-        !initialCompletedTargets.has(product.productRecordId),
+    const initialDestinationProductRecordId = transferDestinationProductRecordId(
+      initialSource,
+      destinationOrganizationId,
+      initialProducts,
+      initialCompletedTargets,
+    );
+    const initialPendingTargets = initialProducts.filter((product) =>
+      isPendingProductTransferTarget(product, initialSource, initialCompletedTargets),
     );
     const canResumeInitialTransfer = initialPendingTargets.some(
       (product) => product.organizationId === destinationOrganizationId,
@@ -2264,13 +2338,8 @@ export async function transferPublicProductForAdministrator(
       const completedTargets = await completedProductTransferTargetsUnlocked(
         source.productRecordId,
       );
-      const pendingTargets = products.filter(
-        (product) =>
-          product.productId === source.productId &&
-          product.organizationId !== source.organizationId &&
-          product.productRecordId ===
-            publicProductTransferTargetId(source.productRecordId, product.organizationId) &&
-          !completedTargets.has(product.productRecordId),
+      const pendingTargets = products.filter((product) =>
+        isPendingProductTransferTarget(product, source, completedTargets),
       );
       if (pendingTargets.some((product) => product.organizationId !== destinationOrganizationId)) {
         throw new Error(
@@ -2278,16 +2347,19 @@ export async function transferPublicProductForAdministrator(
         );
       }
 
-      const destinationProductRecordId = publicProductTransferTargetId(
-        source.productRecordId,
+      const destinationProductRecordId = transferDestinationProductRecordId(
+        source,
         destinationOrganizationId,
+        products,
+        completedTargets,
       );
       const destinationRecord = await loadRecord("product", destinationProductRecordId);
       if (
         destinationRecord &&
         (destinationRecord.record.organizationId !== destinationOrganizationId ||
           destinationRecord.record.productId !== source.productId ||
-          destinationRecord.record.sharedProductRef)
+          (destinationRecord.record.sharedProductRef &&
+            !isActiveSharedInstallationForSource(destinationRecord.record, source)))
       ) {
         throw new Error("The previous transfer cannot be resumed safely.");
       }
@@ -2303,11 +2375,17 @@ export async function transferPublicProductForAdministrator(
           product.organizationId === destinationOrganizationId &&
           product.productId === source.productId,
       );
+      const destinationHasAdopterInstallation =
+        destinationConflicts.length === 1 &&
+        destinationConflicts[0].productRecordId === destinationProductRecordId &&
+        isActiveSharedInstallationForSource(destinationConflicts[0], source);
       if (
         destinationConflicts.some(
           (product) => product.productRecordId !== destinationProductRecordId,
         ) ||
-        (destinationConflicts.length > 0 && completedTargets.has(destinationProductRecordId))
+        (destinationConflicts.length > 0 &&
+          (completedTargets.has(destinationProductRecordId) ||
+            (!pendingAtDestination && !destinationHasAdopterInstallation)))
       ) {
         throw new Error("The destination already has a product with this product ID.");
       }
@@ -2319,6 +2397,16 @@ export async function transferPublicProductForAdministrator(
         visibility: "public",
         updatedAt: new Date().toISOString(),
       };
+      const destinationAdopterInstallation = destinationHasAdopterInstallation
+        ? destinationConflicts[0]
+        : undefined;
+      const pendingDestinationProduct: ProductRecord = destinationAdopterInstallation
+        ? {
+            ...destinationProduct,
+            visibility: "private",
+            sharedProductRef: destinationAdopterInstallation.sharedProductRef,
+          }
+        : destinationProduct;
       const installations = products.filter(
         (installation) =>
           !installation.sharedProductRef?.detachedAt &&
@@ -2331,11 +2419,19 @@ export async function transferPublicProductForAdministrator(
         updatedAt: new Date().toISOString(),
       };
 
-      await store().writeRecord(destinationProduct);
+      await store().writeRecord(pendingDestinationProduct);
 
       for (const installation of installations) {
         const reference = installation.sharedProductRef;
-        if (!reference || !refersToSharedProduct(installation, source)) continue;
+        if (
+          !reference ||
+          !refersToSharedProduct(installation, source) ||
+          (destinationAdopterInstallation &&
+            installation.productRecordId === destinationProductRecordId &&
+            installation.organizationId === destinationOrganizationId)
+        ) {
+          continue;
+        }
         await persistRecord(
           {
             ...installation,
@@ -2365,6 +2461,9 @@ export async function transferPublicProductForAdministrator(
           productName: source.name,
         },
       );
+      if (destinationAdopterInstallation) {
+        await store().writeRecord(destinationProduct);
+      }
       await appendRecordActivityEvent(
         sourcePrivateProduct,
         "product.transferred",

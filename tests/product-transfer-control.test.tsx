@@ -64,7 +64,11 @@ describe("public product transfer control", () => {
       />,
     );
 
-    expect(screen.getByText("No approved destination without a product ID conflict.")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "No approved destination is available without an unrelated product ID conflict.",
+      ),
+    ).toBeTruthy();
     expect(screen.queryByRole("combobox", { name: "Transfer to organization" })).toBeNull();
   });
 });
