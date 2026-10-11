@@ -201,9 +201,9 @@ export default async function DashboardHome({
           {platformAdministrator ? (
             <p className="onboarding-ops-link">
               <Link href="/dashboard/operations">
-                Organization requests
+                Platform operations
                 {pendingOrganizationRequestCount
-                  ? ` (${pendingOrganizationRequestCount} pending)`
+                  ? ` (${pendingOrganizationRequestCount} pending organization requests)`
                   : ""}
               </Link>
             </p>

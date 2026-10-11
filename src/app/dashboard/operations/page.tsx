@@ -6,27 +6,39 @@ import {
 } from "@/app/actions";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { OperationsShell } from "@/components/operations-shell";
+import { ProductTransferControl } from "@/components/product-transfer-control";
 import {
   getCurrentSession,
   isAdministrator,
   listAccountsForAdministrator,
   listPendingOrganizationsForAdministrator,
+  listPublicProductsForAdministrator,
   previewLegacyAccessRetirement,
 } from "@/lib/auth/service";
 import { redirect } from "next/navigation";
 
+const productTransferErrors = new Set([
+  "Only a public publisher product can be transferred.",
+  "Choose a different destination organization.",
+  "Choose an approved destination organization.",
+  "The destination already has a product with this product ID.",
+  "This product has an incomplete transfer. Resume it at its existing destination first.",
+  "The previous transfer cannot be resumed safely.",
+]);
+
 export default async function OperationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; notice?: string; retired?: string }>;
+  searchParams: Promise<{ error?: string; notice?: string; retired?: string; reason?: string }>;
 }) {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
   if (!isAdministrator(current.subject)) redirect("/dashboard");
-  const [accounts, organizations, legacy, query] = await Promise.all([
+  const [accounts, organizations, legacy, products, query] = await Promise.all([
     listAccountsForAdministrator(current.subject.subjectId),
     listPendingOrganizationsForAdministrator(current.subject.subjectId),
     previewLegacyAccessRetirement(current.subject.subjectId),
+    listPublicProductsForAdministrator(current.subject.subjectId),
     searchParams,
   ]);
   return (
@@ -68,6 +80,59 @@ export default async function OperationsPage({
       {query.notice === "organization-rejected" ? (
         <DashboardNotice message="Organization request rejected." kind="success" />
       ) : null}
+      {query.notice === "product-transferred" ? (
+        <DashboardNotice message="Public product ownership transferred." kind="success" />
+      ) : null}
+      {query.error === "product-transfer" ? (
+        <DashboardNotice
+          message={
+            query.reason && productTransferErrors.has(query.reason)
+              ? query.reason
+              : "Public product ownership could not be transferred."
+          }
+          kind="error"
+        />
+      ) : null}
+      <section className="dashboard-card operations-public-products">
+        <div className="dashboard-card-heading">
+          <div>
+            <h2>Public products</h2>
+            <p>Transfer a product’s public publisher to another approved organization.</p>
+          </div>
+        </div>
+        {products.length ? (
+          <div className="record-list">
+            {products.map((entry) => (
+              <article className="record-item" key={entry.product.productRecordId}>
+                <div className="record-item-head">
+                  <div>
+                    <strong>{entry.product.name}</strong>
+                    <span className="record-meta">
+                      <code>{entry.product.productId}</code> · Published by{" "}
+                      {entry.publisherOrganizationName} · {entry.adopterCount} active{" "}
+                      {entry.adopterCount === 1 ? "adopter" : "adopters"}
+                    </span>
+                  </div>
+                  <span
+                    className={`record-badge ${entry.pendingDestinationOrganizationId ? "pending" : "active"}`}
+                  >
+                    {entry.pendingDestinationOrganizationId ? "Transfer incomplete" : "Public"}
+                  </span>
+                </div>
+                <ProductTransferControl
+                  productRecordId={entry.product.productRecordId}
+                  productId={entry.product.productId}
+                  productName={entry.product.name}
+                  destinations={entry.destinations}
+                  pendingDestinationOrganizationId={entry.pendingDestinationOrganizationId}
+                />
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="empty-list">No public products are available to transfer.</p>
+        )}
+      </section>
       <section className="dashboard-card operations-organizations">
         <div className="dashboard-card-heading">
           <div>
