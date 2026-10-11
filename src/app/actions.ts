@@ -42,6 +42,7 @@ import {
   updateOrganizationMemberRole,
   updateOrganizationName,
   updateOrganizationProduct,
+  transferPublicProductForAdministrator,
   setOrganizationProductVisibility,
   updateProductMemberRole,
   removeProductMember,
@@ -104,6 +105,12 @@ function publicActionError(error: unknown): string {
     "Shared access roles are controlled by the publishing organization.",
     "Confirm making this product private to remove it and revoke access in other organizations.",
     "Choose public or private product visibility.",
+    "Only a public publisher product can be transferred.",
+    "Choose a different destination organization.",
+    "Choose an approved destination organization.",
+    "The destination already has a product with this product ID.",
+    "This product has an incomplete transfer. Resume it at its existing destination first.",
+    "The previous transfer cannot be resumed safely.",
     "Use a product ID with letters, numbers, dots, underscores, colons, or hyphens.",
     "Enter a product name up to 120 characters.",
     "The product description must be 500 characters or fewer.",
@@ -562,6 +569,33 @@ export async function addPublicProductAction(formData: FormData): Promise<void> 
   redirect(
     `/dashboard/${organizationId}/products/${encodeURIComponent(product.productId)}?notice=product-added`,
   );
+}
+
+export async function transferPublicProductAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  if (!isAdministrator(current.subject)) redirect("/dashboard");
+
+  let transfer: Awaited<ReturnType<typeof transferPublicProductForAdministrator>>;
+  try {
+    transfer = await transferPublicProductForAdministrator(
+      current.subject.subjectId,
+      firstValue(formData, "productRecordId"),
+      firstValue(formData, "destinationOrganizationId"),
+    );
+  } catch (error) {
+    const message = encodeURIComponent(publicActionError(error));
+    redirect(`/dashboard/operations?error=product-transfer&reason=${message}`);
+  }
+
+  revalidatePath("/dashboard/operations");
+  for (const organizationId of transfer.affectedOrganizationIds) {
+    revalidatePath(`/dashboard/${encodeURIComponent(organizationId)}/products`);
+    revalidatePath(
+      `/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(transfer.product.productId)}`,
+    );
+  }
+  redirect("/dashboard/operations?notice=product-transferred");
 }
 
 export async function setOrganizationProductVisibilityAction(formData: FormData): Promise<void> {

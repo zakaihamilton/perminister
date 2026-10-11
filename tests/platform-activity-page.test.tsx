@@ -37,6 +37,7 @@ describe("platform activity pagination controls", () => {
             aggregateKind: "organization",
             organization: "Northstar",
             user: "Member Example (member@example.com)",
+            details: "Atlas transferred from Old Org to Northstar",
           },
         ],
         emptyMessage: "Platform events will appear here.",
@@ -50,6 +51,7 @@ describe("platform activity pagination controls", () => {
     expect(markup).toContain("Recent events across Perminister.");
     expect(markup).toContain("Organization: Northstar");
     expect(markup).toContain("User: Member Example (member@example.com)");
+    expect(markup).toContain("Atlas transferred from Old Org to Northstar");
     expect(markup).toContain("Actor: admin@example.com");
   });
 
