@@ -34,6 +34,9 @@ const API_KEY_ID = "55555555-5555-4555-8555-555555555555";
 const CONSUMER_CLIENT_ID = "44444444-4444-4444-8444-444444444444";
 const ORG_MEMBERSHIP_ID = "66666666-6666-4666-8666-666666666666";
 const GRANT_ID = "77777777-7777-4777-8777-777777777777";
+const ORG_ADMIN_MEMBERSHIP_ID = "23232323-2323-4323-8323-232323232323";
+const VISITORING_PRODUCT_RECORD_ID = "24242424-2424-4424-8424-242424242424";
+const VISITORING_WORKSPACE_ID = "25252525-2525-4525-8525-252525252525";
 const INVITATION_ID = "88888888-8888-4888-8888-888888888888";
 const ROLE_PRODUCT_RECORD_ID = "99999999-9999-4999-8999-999999999999";
 const ROLE_TARGET_SUBJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -570,6 +573,165 @@ describe("bearer authorization", () => {
     await expect(service.authenticate("person@example.com", "wrong-password")).rejects.toThrow(
       "Too many sign-in attempts. Try again later.",
     );
+  });
+});
+
+describe("Visitoring workspace lifecycle grants", () => {
+  let store: MemoryStore;
+  let service: typeof import("../../src/lib/auth/service");
+
+  beforeEach(async () => {
+    vi.resetModules();
+    store = new MemoryStore();
+    seedAuthorizationData(store);
+    const now = new Date().toISOString();
+    store.seed({
+      kind: "product",
+      schemaVersion: 1,
+      productRecordId: VISITORING_PRODUCT_RECORD_ID as never,
+      organizationId: ORGANIZATION_ID as never,
+      productId: "visitoring",
+      name: "Visitoring",
+      description: "",
+      websiteUrl: "https://visitoring.example",
+      iconUrl: "",
+      createdBySubjectId: SUBJECT_ID as never,
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    store.seed({
+      kind: "organization-membership",
+      schemaVersion: 1,
+      organizationMembershipId: ORG_ADMIN_MEMBERSHIP_ID as never,
+      organizationId: ORGANIZATION_ID as never,
+      subjectId: SUBJECT_ID as never,
+      role: "admin",
+      status: "active",
+      permissionGrants: [],
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    store.seed({
+      kind: "subject",
+      schemaVersion: 1,
+      subjectId: ROLE_TARGET_SUBJECT_ID as never,
+      status: "active",
+      primaryEmail: "member@example.com",
+      emailVerifiedAt: now,
+      passwordCredential: null,
+      authVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    store.seed({
+      kind: "organization-membership",
+      schemaVersion: 1,
+      organizationMembershipId: ROLE_TARGET_MEMBERSHIP_ID as never,
+      organizationId: ORGANIZATION_ID as never,
+      productId: "visitoring",
+      subjectId: ROLE_TARGET_SUBJECT_ID as never,
+      role: "member",
+      status: "active",
+      permissionGrants: [],
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    mocks.store = store;
+    service = await import("../../src/lib/auth/service");
+  });
+
+  it("lets an organization admin bootstrap their own admin grant idempotently", async () => {
+    await service.bootstrapVisitoringWorkspaceAdmin(
+      SUBJECT_ID as never,
+      ORGANIZATION_ID,
+      VISITORING_WORKSPACE_ID,
+    );
+    await service.bootstrapVisitoringWorkspaceAdmin(
+      SUBJECT_ID as never,
+      ORGANIZATION_ID,
+      VISITORING_WORKSPACE_ID,
+    );
+
+    const membership = await store.readOrganizationMembership(
+      ORGANIZATION_ID,
+      SUBJECT_ID as never,
+      "visitoring",
+    );
+    expect(membership?.permissionGrants).toHaveLength(1);
+    expect(membership?.permissionGrants?.[0]).toMatchObject({
+      scope: {
+        kind: "workspace",
+        organizationId: ORGANIZATION_ID,
+        productId: "visitoring",
+        workspaceId: VISITORING_WORKSPACE_ID,
+      },
+      accessRole: { name: "admin" },
+      status: "active",
+      grants: [
+        {
+          actions: ["visitoring:workspace:read", "visitoring:members:manage"],
+        },
+      ],
+    });
+  });
+
+  it("rejects regular organization members from bootstrapping a project", async () => {
+    const membership = store.records.get(
+      store.key("organization-membership", ORG_ADMIN_MEMBERSHIP_ID),
+    )!.record as Extract<AuthRecord, { kind: "organization-membership" }>;
+    store.seed({ ...membership, role: "member" });
+
+    await expect(
+      service.bootstrapVisitoringWorkspaceAdmin(
+        SUBJECT_ID as never,
+        ORGANIZATION_ID,
+        VISITORING_WORKSPACE_ID,
+      ),
+    ).rejects.toThrow("You do not have permission to manage this organization.");
+    await expect(
+      store.readOrganizationMembership(ORGANIZATION_ID, SUBJECT_ID as never, "visitoring"),
+    ).resolves.toBeNull();
+  });
+
+  it("revokes all workspace grants for organization admins and is safe to retry", async () => {
+    await service.bootstrapVisitoringWorkspaceAdmin(
+      SUBJECT_ID as never,
+      ORGANIZATION_ID,
+      VISITORING_WORKSPACE_ID,
+    );
+    await service.createConsumerMember(SUBJECT_ID as never, "visitoring", {
+      organizationId: ORGANIZATION_ID,
+      productId: "visitoring",
+      scopeKind: "workspace",
+      resourceId: VISITORING_WORKSPACE_ID,
+      email: "member@example.com",
+      role: "viewer",
+    });
+
+    await service.revokeVisitoringWorkspaceGrants(
+      SUBJECT_ID as never,
+      ORGANIZATION_ID,
+      VISITORING_WORKSPACE_ID,
+    );
+    await service.revokeVisitoringWorkspaceGrants(
+      SUBJECT_ID as never,
+      ORGANIZATION_ID,
+      VISITORING_WORKSPACE_ID,
+    );
+
+    for (const subjectId of [SUBJECT_ID, ROLE_TARGET_SUBJECT_ID]) {
+      const membership = await store.readOrganizationMembership(
+        ORGANIZATION_ID,
+        subjectId as never,
+        "visitoring",
+      );
+      expect(
+        membership?.permissionGrants?.find(
+          (grant) =>
+            grant.scope.kind === "workspace" && grant.scope.workspaceId === VISITORING_WORKSPACE_ID,
+        )?.status,
+      ).toBe("disabled");
+    }
   });
 });
 
