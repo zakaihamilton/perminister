@@ -43,12 +43,11 @@ describe("public product transfer control", () => {
       />,
     );
 
-    const select = screen.getByLabelText("Transfer to");
-    expect(select.querySelectorAll("option")).toHaveLength(3);
+    await user.click(screen.getByRole("combobox", { name: "Transfer to organization" }));
     expect(screen.getByRole("option", { name: "Northstar" })).toBeTruthy();
     expect(screen.getByRole("option", { name: "Acme" })).toBeTruthy();
 
-    await user.selectOptions(select, destinations[0].organizationId);
+    await user.click(screen.getByRole("option", { name: "Northstar" }));
     await user.click(screen.getByRole("button", { name: "Transfer owner" }));
 
     expect(screen.getByRole("dialog").textContent).toContain("Transfer Atlas to Northstar?");
@@ -66,6 +65,6 @@ describe("public product transfer control", () => {
     );
 
     expect(screen.getByText("No approved destination without a product ID conflict.")).toBeTruthy();
-    expect(screen.queryByLabelText("Transfer to")).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "Transfer to organization" })).toBeNull();
   });
 });
