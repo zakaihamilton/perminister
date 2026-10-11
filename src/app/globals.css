@@ -3717,29 +3717,34 @@ button:focus-visible {
   gap: 9px;
   margin-top: 12px;
 }
-.product-transfer-form label {
+.product-transfer-field {
   display: grid;
+  flex: 0 1 280px;
   min-width: min(100%, 220px);
   gap: 5px;
   color: var(--ink-soft);
   font-size: 13px;
   font-weight: 650;
 }
-.product-transfer-form select {
-  min-height: 38px;
+.product-transfer-dropdown .custom-dropdown-trigger {
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
   border: 1px solid var(--line-strong);
   border-radius: 4px;
-  padding: 7px 10px;
-  color: var(--ink);
+  padding: 0 10px;
+  color: var(--ink-soft);
   background: var(--surface-inset);
   font:
-    500 14px/1.4 -apple-system,
+    500 14px/1.4 "DM Sans",
+    -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
 }
 .product-transfer-form > .button {
-  min-height: 38px;
+  height: 44px;
+  min-height: 44px;
   padding: 0 12px;
 }
 .profile-card .button,
@@ -5647,6 +5652,7 @@ html[data-theme="dark"] .preview-badge {
 html[data-theme="dark"] .auth-form input,
 html[data-theme="dark"] .auth-form .custom-dropdown-trigger,
 html[data-theme="dark"] .auth-form textarea,
+html[data-theme="dark"] .product-transfer-dropdown .custom-dropdown-trigger,
 html[data-theme="dark"] .people-row-actions .custom-dropdown-trigger,
 html[data-theme="dark"] .invite-form .custom-dropdown-trigger,
 html[data-theme="dark"] .org-switcher .custom-dropdown-trigger {

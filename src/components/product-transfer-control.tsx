@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { transferPublicProductAction } from "@/app/actions";
+import { CustomDropdown } from "@/components/custom-dropdown";
 import { useModalDialog } from "@/components/use-modal-dialog";
 
 export function ProductTransferControl({
@@ -37,22 +38,22 @@ export function ProductTransferControl({
   return (
     <form action={transferPublicProductAction} className="product-transfer-form">
       <input type="hidden" name="productRecordId" value={productRecordId} />
-      <label>
-        Transfer to
-        <select
+      <div className="product-transfer-field">
+        <span>Transfer to</span>
+        <CustomDropdown
+          aria-label="Transfer to organization"
+          className="product-transfer-dropdown"
           name="destinationOrganizationId"
-          value={effectiveDestinationOrganizationId}
-          onChange={(event) => setDestinationOrganizationId(event.target.value)}
+          onValueChange={setDestinationOrganizationId}
+          options={destinations.map((destination) => ({
+            value: destination.organizationId,
+            label: destination.name,
+          }))}
+          placeholder="Choose an organization"
           required
-        >
-          <option value="">Choose an organization</option>
-          {destinations.map((destination) => (
-            <option key={destination.organizationId} value={destination.organizationId}>
-              {destination.name}
-            </option>
-          ))}
-        </select>
-      </label>
+          value={effectiveDestinationOrganizationId}
+        />
+      </div>
       <button
         className="button button-secondary"
         type="button"
