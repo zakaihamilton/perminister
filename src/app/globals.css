@@ -2831,10 +2831,10 @@ button:focus-visible {
   gap: 10px;
   min-width: 0;
 }
-.organization-id-copy code {
+.organization-id-copy input {
+  width: 100%;
   min-width: 0;
   flex: 1 1 auto;
-  overflow-wrap: anywhere;
   border: 1px solid var(--line);
   border-radius: 4px;
   padding: 13px 12px;
@@ -2846,7 +2846,7 @@ button:focus-visible {
     monospace;
   user-select: all;
 }
-.organization-id-copy code:focus-visible {
+.organization-id-copy input:focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
 }

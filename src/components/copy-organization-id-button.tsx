@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 export function CopyOrganizationIdButton({ organizationId }: { organizationId: string }) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const copyStateTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const organizationIdField = useRef<HTMLInputElement>(null);
 
   useEffect(
     () => () => {
@@ -28,12 +29,20 @@ export function CopyOrganizationIdButton({ organizationId }: { organizationId: s
       }, 1800);
     } catch {
       setCopyState("failed");
+      organizationIdField.current?.focus();
     }
   }
 
   return (
     <div className="organization-id-copy">
-      <code tabIndex={0}>{organizationId}</code>
+      <input
+        ref={organizationIdField}
+        aria-label="Organization ID"
+        onFocus={(event) => event.currentTarget.select()}
+        readOnly
+        type="text"
+        value={organizationId}
+      />
       <div className="organization-id-copy-action">
         <button className="button button-secondary" onClick={copyOrganizationId} type="button">
           {copyState === "copied" ? "Copied" : "Copy ID"}
@@ -43,7 +52,7 @@ export function CopyOrganizationIdButton({ organizationId }: { organizationId: s
         </span>
         {copyState === "failed" ? (
           <span className="organization-id-copy-error" role="status">
-            Could not copy. Select the ID to copy it manually.
+            Could not copy. The ID is selected; copy it manually.
           </span>
         ) : null}
       </div>
