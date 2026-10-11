@@ -3663,11 +3663,19 @@ async function isConsumerPlatformAdminUnlocked(
   );
 }
 
-export async function bootstrapVisitoringWorkspaceAdmin(
+type VisitoringWorkspaceManagementContext = {
+  organizationId: string;
+  workspaceId: string;
+  productId: "visitoring";
+  scope: ReturnType<typeof validateScope>;
+};
+
+async function withVisitoringWorkspaceManagement<T>(
   actorId: SubjectId,
   organizationIdInput: string,
   workspaceIdInput: string,
-): Promise<void> {
+  operation: (context: VisitoringWorkspaceManagementContext) => Promise<T>,
+): Promise<T> {
   const organizationId = organizationIdInput.trim().toLowerCase();
   const workspaceId = workspaceIdInput.trim().toLowerCase();
   assertOpaqueId(organizationId);
@@ -3680,10 +3688,25 @@ export async function bootstrapVisitoringWorkspaceAdmin(
     workspaceId,
   });
 
-  await authMutationQueue.run(() =>
+  return authMutationQueue.run(() =>
     withOrganizationMutationLock(organizationId, async () => {
       await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
       await requireOrganizationProductUnlocked(organizationId, productId);
+      return operation({ organizationId, workspaceId, productId, scope });
+    }),
+  );
+}
+
+export async function bootstrapVisitoringWorkspaceAdmin(
+  actorId: SubjectId,
+  organizationIdInput: string,
+  workspaceIdInput: string,
+): Promise<void> {
+  await withVisitoringWorkspaceManagement(
+    actorId,
+    organizationIdInput,
+    workspaceIdInput,
+    async ({ organizationId, productId, scope }) => {
       const actor = await loadSubjectUnlocked(actorId);
       requireVerifiedActiveSubject(actor);
       if (consumerProductState(actor, productId).status !== "active") {
@@ -3716,7 +3739,7 @@ export async function bootstrapVisitoringWorkspaceAdmin(
         kind: "subject",
         subjectId: actorId,
       });
-    }),
+    },
   );
 }
 
@@ -3725,22 +3748,11 @@ export async function revokeVisitoringWorkspaceGrants(
   organizationIdInput: string,
   workspaceIdInput: string,
 ): Promise<void> {
-  const organizationId = organizationIdInput.trim().toLowerCase();
-  const workspaceId = workspaceIdInput.trim().toLowerCase();
-  assertOpaqueId(organizationId);
-  assertOpaqueId(workspaceId);
-  const productId = "visitoring";
-  const scope = validateScope({
-    kind: "workspace",
-    organizationId: organizationId as OrganizationId,
-    productId,
-    workspaceId,
-  });
-
-  await authMutationQueue.run(() =>
-    withOrganizationMutationLock(organizationId, async () => {
-      await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
-      await requireOrganizationProductUnlocked(organizationId, productId);
+  await withVisitoringWorkspaceManagement(
+    actorId,
+    organizationIdInput,
+    workspaceIdInput,
+    async ({ organizationId, productId, scope }) => {
       const memberships = await store().listOrganizationMemberships(organizationId);
       for (const membership of memberships) {
         if (membership.productId !== productId) continue;
@@ -3753,7 +3765,7 @@ export async function revokeVisitoringWorkspaceGrants(
           );
         }
       }
-    }),
+    },
   );
 }
 
