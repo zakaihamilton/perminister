@@ -33,40 +33,18 @@ export function DashboardShell({
   lastName: string | null;
   children: ReactNode;
 }) {
-  const displayName = [firstName?.trim(), lastName?.trim()]
-    .filter((name): name is string => !!name)
-    .join(" ");
-
   return (
     <div className="dashboard-layout">
-      <aside className="dashboard-sidebar">
-        <div className="dashboard-brand-row">
-          <Brand />
-        </div>
-        <OrganizationSwitcher organizations={organizations} organizationId={organizationId} />
-        <DashboardNavigation
-          organizationId={organizationId}
-          role={role}
-          isPlatformAdministrator={isPlatformAdministrator}
-          pendingOrganizationRequestCount={pendingOrganizationRequestCount}
-        />
-        <div className="dashboard-sidebar-theme">
-          <ThemeControl />
-        </div>
-        <div className="dashboard-sidebar-footer">
-          {email || displayName ? (
-            <div className="sidebar-account">
-              {email ? <div className="sidebar-email">{email}</div> : null}
-              {displayName ? <p className="sidebar-account-name">{displayName}</p> : null}
-            </div>
-          ) : null}
-          <form action={signOutAction}>
-            <button className="button button-secondary sidebar-signout" type="submit">
-              Sign out
-            </button>
-          </form>
-        </div>
-      </aside>
+      <DashboardSidebar
+        organizations={organizations}
+        organizationId={organizationId}
+        role={role}
+        isPlatformAdministrator={isPlatformAdministrator}
+        pendingOrganizationRequestCount={pendingOrganizationRequestCount}
+        email={email}
+        firstName={firstName}
+        lastName={lastName}
+      />
       <main className="dashboard-main">
         <div className="dashboard-mobile-brand">
           <Brand />
@@ -81,6 +59,63 @@ export function DashboardShell({
         </div>
       </main>
     </div>
+  );
+}
+
+export function DashboardSidebar({
+  organizations,
+  organizationId,
+  role,
+  isPlatformAdministrator,
+  pendingOrganizationRequestCount,
+  email,
+  firstName,
+  lastName,
+}: {
+  organizations: OrganizationSummary[];
+  organizationId?: string;
+  role?: "owner" | "admin" | "member";
+  isPlatformAdministrator: boolean;
+  pendingOrganizationRequestCount: number | null;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+}) {
+  const displayName = [firstName?.trim(), lastName?.trim()]
+    .filter((name): name is string => !!name)
+    .join(" ");
+
+  return (
+    <aside className="dashboard-sidebar">
+      <div className="dashboard-brand-row">
+        <Brand />
+      </div>
+      {organizationId ? (
+        <OrganizationSwitcher organizations={organizations} organizationId={organizationId} />
+      ) : null}
+      <DashboardNavigation
+        organizationId={organizationId}
+        role={role}
+        isPlatformAdministrator={isPlatformAdministrator}
+        pendingOrganizationRequestCount={pendingOrganizationRequestCount}
+      />
+      <div className="dashboard-sidebar-theme">
+        <ThemeControl />
+      </div>
+      <div className="dashboard-sidebar-footer">
+        {email || displayName ? (
+          <div className="sidebar-account">
+            {email ? <div className="sidebar-email">{email}</div> : null}
+            {displayName ? <p className="sidebar-account-name">{displayName}</p> : null}
+          </div>
+        ) : null}
+        <form action={signOutAction}>
+          <button className="button button-secondary sidebar-signout" type="submit">
+            Sign out
+          </button>
+        </form>
+      </div>
+    </aside>
   );
 }
 

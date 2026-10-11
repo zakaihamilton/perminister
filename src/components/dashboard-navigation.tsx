@@ -3,6 +3,22 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+type NavigationItem = { label: string; href: string; key: string };
+
+function NavigationLinkList({ items, activeKey }: { items: NavigationItem[]; activeKey?: string }) {
+  return items.map((item) => (
+    <Link
+      className="dashboard-nav-link"
+      href={item.href}
+      key={item.key}
+      aria-current={activeKey === item.key ? "page" : undefined}
+    >
+      <span className={`dashboard-nav-mark mark-${item.key}`} aria-hidden="true" />
+      {item.label}
+    </Link>
+  ));
+}
+
 export function DashboardNavigation({
   organizationId,
   role,
@@ -17,7 +33,7 @@ export function DashboardNavigation({
   const pathname = usePathname();
   const root = organizationId ? `/dashboard/${organizationId}` : null;
   const canManage = role === "owner" || role === "admin";
-  const workspaceLinks = root
+  const workspaceLinks: NavigationItem[] = root
     ? [
         { label: "Overview", href: root, key: "overview" },
         { label: "Products", href: `${root}/products`, key: "products" },
@@ -33,7 +49,7 @@ export function DashboardNavigation({
           : []),
       ]
     : [];
-  const accountLinks = root
+  const accountLinks: NavigationItem[] = root
     ? [
         { label: "Profile", href: `${root}/profile`, key: "profile" },
         { label: "Sessions", href: `${root}/sessions`, key: "sessions" },
@@ -64,17 +80,7 @@ export function DashboardNavigation({
   return (
     <nav className="dashboard-nav" aria-label="Dashboard pages">
       {workspaceLinks.length ? <p className="dashboard-nav-label">Workspace</p> : null}
-      {workspaceLinks.map((item) => (
-        <Link
-          className="dashboard-nav-link"
-          href={item.href}
-          key={item.key}
-          aria-current={activeKey === item.key ? "page" : undefined}
-        >
-          <span className={`dashboard-nav-mark mark-${item.key}`} aria-hidden="true" />
-          {item.label}
-        </Link>
-      ))}
+      <NavigationLinkList items={workspaceLinks} activeKey={activeKey} />
       {isPlatformAdministrator ? (
         <>
           <p className="dashboard-nav-label platform-nav-label">Platform</p>
@@ -101,17 +107,7 @@ export function DashboardNavigation({
       {accountLinks.length ? (
         <p className="dashboard-nav-label account-nav-label">Your account</p>
       ) : null}
-      {accountLinks.map((item) => (
-        <Link
-          className="dashboard-nav-link"
-          href={item.href}
-          key={item.key}
-          aria-current={activeKey === item.key ? "page" : undefined}
-        >
-          <span className={`dashboard-nav-mark mark-${item.key}`} aria-hidden="true" />
-          {item.label}
-        </Link>
-      ))}
+      <NavigationLinkList items={accountLinks} activeKey={activeKey} />
     </nav>
   );
 }

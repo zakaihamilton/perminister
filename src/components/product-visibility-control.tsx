@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { setOrganizationProductVisibilityAction } from "@/app/actions";
+import { useModalDialog } from "@/components/use-modal-dialog";
 
 export function ProductVisibilityControl({
   organizationId,
@@ -20,15 +20,7 @@ export function ProductVisibilityControl({
 }) {
   const isPublic = visibility === "public";
   const needsConfirmation = isPublic && adopterOrganizations.length > 0;
-  const [dialogOpen, setDialogOpen] = useState(initialDialogOpen);
-  const dialogRef = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (dialogOpen && !dialog.open) dialog.showModal();
-    if (!dialogOpen && dialog.open) dialog.close();
-  }, [dialogOpen]);
+  const { dialogRef, openDialog, closeDialog } = useModalDialog(initialDialogOpen);
 
   return (
     <section className="product-visibility-control" aria-labelledby="product-visibility-title">
@@ -52,11 +44,7 @@ export function ProductVisibilityControl({
         <input type="hidden" name="productRecordId" value={productRecordId} />
         <input type="hidden" name="visibility" value={isPublic ? "private" : "public"} />
         {needsConfirmation ? (
-          <button
-            className="button button-secondary"
-            type="button"
-            onClick={() => setDialogOpen(true)}
-          >
+          <button className="button button-secondary" type="button" onClick={openDialog}>
             Make private
           </button>
         ) : (
@@ -73,7 +61,7 @@ export function ProductVisibilityControl({
         aria-describedby="product-privacy-dialog-description"
         onCancel={(event) => {
           event.preventDefault();
-          setDialogOpen(false);
+          closeDialog();
         }}
       >
         <h2 id="product-privacy-dialog-title">Make this product private?</h2>
@@ -87,11 +75,7 @@ export function ProductVisibilityControl({
           ))}
         </ul>
         <div className="product-privacy-dialog-actions">
-          <button
-            className="button button-secondary"
-            type="button"
-            onClick={() => setDialogOpen(false)}
-          >
+          <button className="button button-secondary" type="button" onClick={closeDialog}>
             Cancel
           </button>
           <form action={setOrganizationProductVisibilityAction}>

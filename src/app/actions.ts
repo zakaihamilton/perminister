@@ -187,6 +187,52 @@ function dashboardReturnTo(data: FormData): string {
   return value.startsWith("/dashboard/") || value === "/dashboard" ? value : "/dashboard";
 }
 
+async function organizationProductActionContext(formData: FormData) {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  return { current, organizationId: firstValue(formData, "organizationId") };
+}
+
+async function productPeopleActionContext(formData: FormData) {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  const productId = firstValue(formData, "productId");
+  return {
+    current,
+    organizationId,
+    productId,
+    productPath: `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/people`,
+  };
+}
+
+async function mutateProductPeopleRecord(
+  formData: FormData,
+  targetField: string,
+  errorCode: string,
+  noticeCode: string,
+  mutation: (
+    actorId: SubjectId,
+    organizationId: string,
+    productId: string,
+    targetId: string,
+  ) => Promise<void>,
+): Promise<void> {
+  const { current, organizationId, productId, productPath } =
+    await productPeopleActionContext(formData);
+  try {
+    await mutation(
+      current.subject.subjectId,
+      organizationId,
+      productId,
+      firstValue(formData, targetField),
+    );
+  } catch {
+    redirect(`${productPath}?error=${errorCode}`);
+  }
+  redirect(`${productPath}?notice=${noticeCode}`);
+}
+
 export async function registerAction(formData: FormData): Promise<void> {
   const email = firstValue(formData, "email");
   const password = firstValue(formData, "password");
@@ -501,9 +547,7 @@ export async function reviewOrganizationRequestAction(formData: FormData): Promi
 }
 
 export async function createOrganizationProductAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const organizationId = firstValue(formData, "organizationId");
+  const { current, organizationId } = await organizationProductActionContext(formData);
   let productId: string;
   try {
     const product = await createOrganizationProduct(current.subject.subjectId, organizationId, {
@@ -524,9 +568,7 @@ export async function createOrganizationProductAction(formData: FormData): Promi
 }
 
 export async function updateOrganizationProductAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const organizationId = firstValue(formData, "organizationId");
+  const { current, organizationId } = await organizationProductActionContext(formData);
   let productId: string;
   try {
     const product = await updateOrganizationProduct(
@@ -705,11 +747,8 @@ export async function inviteOrganizationMemberAction(formData: FormData): Promis
 }
 
 export async function inviteProductMemberAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const organizationId = firstValue(formData, "organizationId");
-  const productId = firstValue(formData, "productId");
-  const productPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/people`;
+  const { current, organizationId, productId, productPath } =
+    await productPeopleActionContext(formData);
   if (!isMailDeliveryConfigured()) redirect(`${productPath}?error=mail-unconfigured`);
   const role = firstValue(formData, "role");
   if (role !== "admin" && role !== "member") redirect(`${productPath}?error=invite-failed`);
@@ -774,11 +813,8 @@ export async function updateOrganizationMemberRoleAction(formData: FormData): Pr
 }
 
 export async function updateProductMemberRoleAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const organizationId = firstValue(formData, "organizationId");
-  const productId = firstValue(formData, "productId");
-  const productPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/people`;
+  const { current, organizationId, productId, productPath } =
+    await productPeopleActionContext(formData);
   const role = firstValue(formData, "role");
   if (role !== "owner" && role !== "admin" && role !== "member") {
     redirect(`${productPath}?error=member-update`);
@@ -798,41 +834,23 @@ export async function updateProductMemberRoleAction(formData: FormData): Promise
 }
 
 export async function removeProductMemberAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const organizationId = firstValue(formData, "organizationId");
-  const productId = firstValue(formData, "productId");
-  const productPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/people`;
-  try {
-    await removeProductMember(
-      current.subject.subjectId,
-      organizationId,
-      productId,
-      firstValue(formData, "subjectId"),
-    );
-  } catch {
-    redirect(`${productPath}?error=member-remove`);
-  }
-  redirect(`${productPath}?notice=member-removed`);
+  await mutateProductPeopleRecord(
+    formData,
+    "subjectId",
+    "member-remove",
+    "member-removed",
+    removeProductMember,
+  );
 }
 
 export async function revokeProductInvitationAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const organizationId = firstValue(formData, "organizationId");
-  const productId = firstValue(formData, "productId");
-  const productPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/people`;
-  try {
-    await revokeProductInvitation(
-      current.subject.subjectId,
-      organizationId,
-      productId,
-      firstValue(formData, "invitationId"),
-    );
-  } catch {
-    redirect(`${productPath}?error=invite-revoke`);
-  }
-  redirect(`${productPath}?notice=invite-revoked`);
+  await mutateProductPeopleRecord(
+    formData,
+    "invitationId",
+    "invite-revoke",
+    "invite-revoked",
+    revokeProductInvitation,
+  );
 }
 
 export async function removeOrganizationMemberAction(formData: FormData): Promise<void> {

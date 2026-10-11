@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { transferPublicProductAction } from "@/app/actions";
+import { useModalDialog } from "@/components/use-modal-dialog";
 
 export function ProductTransferControl({
   productRecordId,
@@ -19,21 +20,13 @@ export function ProductTransferControl({
   const [destinationOrganizationId, setDestinationOrganizationId] = useState(
     pendingDestinationOrganizationId ?? "",
   );
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const { dialogRef, openDialog, closeDialog } = useModalDialog();
   const effectiveDestinationOrganizationId =
     pendingDestinationOrganizationId ?? destinationOrganizationId;
   const selectedDestination = destinations.find(
     (destination) => destination.organizationId === effectiveDestinationOrganizationId,
   );
   const isResumingTransfer = !!pendingDestinationOrganizationId;
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (dialogOpen && !dialog.open) dialog.showModal();
-    if (!dialogOpen && dialog.open) dialog.close();
-  }, [dialogOpen]);
 
   if (!destinations.length) {
     return (
@@ -64,7 +57,7 @@ export function ProductTransferControl({
         className="button button-secondary"
         type="button"
         disabled={!selectedDestination}
-        onClick={() => setDialogOpen(true)}
+        onClick={openDialog}
       >
         {isResumingTransfer ? "Resume transfer" : "Transfer owner"}
       </button>
@@ -75,7 +68,7 @@ export function ProductTransferControl({
         aria-describedby="product-transfer-dialog-description"
         onCancel={(event) => {
           event.preventDefault();
-          setDialogOpen(false);
+          closeDialog();
         }}
       >
         <h2 id="product-transfer-dialog-title">
@@ -89,11 +82,7 @@ export function ProductTransferControl({
           access remain in their organizations.
         </p>
         <div className="product-privacy-dialog-actions">
-          <button
-            className="button button-secondary"
-            type="button"
-            onClick={() => setDialogOpen(false)}
-          >
+          <button className="button button-secondary" type="button" onClick={closeDialog}>
             Cancel
           </button>
           <button className="button button-primary" type="submit">
