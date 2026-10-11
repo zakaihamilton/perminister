@@ -3706,6 +3706,12 @@ button:focus-visible {
 .operations-accounts .dashboard-card-heading {
   margin-bottom: 8px;
 }
+.operations-accounts .admin-account-row {
+  padding: 14px 8px;
+}
+.operations-accounts .admin-account-row:first-child {
+  padding-top: 14px;
+}
 .operations-accounts .admin-account-row .button {
   min-height: 38px;
   padding: 6px 12px;
