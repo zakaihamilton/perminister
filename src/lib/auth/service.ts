@@ -2733,6 +2733,32 @@ async function productMemberMutationContextUnlocked(
   return { owner, current };
 }
 
+type ProductMemberMutationContext = Awaited<
+  ReturnType<typeof productMemberMutationContextUnlocked>
+>;
+
+async function withProductMemberMutation<Result>(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  subjectId: string,
+  operation: (context: ProductMemberMutationContext) => Promise<Result>,
+): Promise<Result> {
+  assertOpaqueId(subjectId);
+  return authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () =>
+      operation(
+        await productMemberMutationContextUnlocked(
+          actorId,
+          organizationId,
+          productId,
+          subjectId as SubjectId,
+        ),
+      ),
+    ),
+  );
+}
+
 export async function updateProductMemberRole(
   actorId: SubjectId,
   organizationId: string,
@@ -2740,15 +2766,12 @@ export async function updateProductMemberRole(
   subjectId: string,
   role: OrganizationRole,
 ): Promise<void> {
-  assertOpaqueId(subjectId);
-  await authMutationQueue.run(() =>
-    withOrganizationMutationLock(organizationId, async () => {
-      const { owner, current } = await productMemberMutationContextUnlocked(
-        actorId,
-        organizationId,
-        productId,
-        subjectId as SubjectId,
-      );
+  return withProductMemberMutation(
+    actorId,
+    organizationId,
+    productId,
+    subjectId,
+    async ({ owner, current }) => {
       if (!current || current.status !== "active") throw new Error("Product member not found.");
       if (current.role === role) return;
       const members = await store().listOrganizationMemberships(organizationId);
@@ -2766,7 +2789,7 @@ export async function updateProductMemberRole(
         "product.member-role-updated",
         { kind: "subject", subjectId: owner.subjectId },
       );
-    }),
+    },
   );
 }
 
@@ -2776,15 +2799,12 @@ export async function removeProductMember(
   productId: string,
   subjectId: string,
 ): Promise<void> {
-  assertOpaqueId(subjectId);
-  await authMutationQueue.run(() =>
-    withOrganizationMutationLock(organizationId, async () => {
-      const { owner, current } = await productMemberMutationContextUnlocked(
-        actorId,
-        organizationId,
-        productId,
-        subjectId as SubjectId,
-      );
+  return withProductMemberMutation(
+    actorId,
+    organizationId,
+    productId,
+    subjectId,
+    async ({ owner, current }) => {
       if (!current) throw new Error("Product member not found.");
       if (current.status === "active" && current.role === "owner") {
         const owners = (await store().listOrganizationMemberships(organizationId)).filter(
@@ -2829,7 +2849,7 @@ export async function removeProductMember(
           { kind: "subject", subjectId: owner.subjectId },
         );
       }
-    }),
+    },
   );
 }
 
