@@ -19,6 +19,7 @@ import {
   createProductInvitation,
   createPermissionGrant,
   createSession,
+  deleteAccountForAdministrator,
   getCurrentSession,
   getOrganizationForSubject,
   isAdministrator,
@@ -1035,13 +1036,32 @@ export async function updateAccountStatusAction(formData: FormData): Promise<voi
   if (!isAdministrator(current.subject)) redirect("/dashboard?notice=admin-required");
   const status = firstValue(formData, "status");
   if (status !== "active" && status !== "disabled")
-    redirect("/dashboard?notice=account-update-failed");
+    redirect("/dashboard/operations?error=account-update-failed");
   try {
     await updateAccountStatus(current.subject.subjectId, firstValue(formData, "subjectId"), status);
   } catch {
-    redirect("/dashboard?notice=account-update-failed");
+    redirect("/dashboard/operations?error=account-update-failed");
   }
-  redirect("/dashboard?notice=account-updated");
+  redirect("/dashboard/operations?notice=account-updated");
+}
+
+export async function deleteAccountAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  if (!isAdministrator(current.subject)) redirect("/dashboard?notice=admin-required");
+  try {
+    await deleteAccountForAdministrator(
+      current.subject.subjectId,
+      firstValue(formData, "subjectId"),
+    );
+  } catch (error) {
+    const errorCode =
+      error instanceof Error && error.message.startsWith("Transfer organization and product")
+        ? "account-delete-owner"
+        : "account-delete-failed";
+    redirect(`/dashboard/operations?error=${errorCode}`);
+  }
+  redirect("/dashboard/operations?notice=account-deleted");
 }
 
 export async function revokeSessionAction(formData: FormData): Promise<void> {

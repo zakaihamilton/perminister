@@ -179,6 +179,8 @@ export interface SubjectRecord {
   schemaVersion: 1;
   subjectId: SubjectId;
   status: "active" | "disabled";
+  /** Set when the account's sign-in data and profile have been permanently removed. */
+  deletedAt?: string;
   /** Optional for accounts created before profile names were collected. */
   firstName?: string;
   /** Optional for accounts created before profile names were collected. */

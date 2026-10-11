@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHmac } from "node:crypto";
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -17,6 +18,7 @@ import type {
   OrganizationMembershipRecord,
   ProductRecord,
   SubjectId,
+  SubjectRecord,
 } from "../domain";
 import { assertOpaqueId, authRecordId } from "../domain";
 import { mapWithConcurrency } from "../concurrency";
@@ -414,6 +416,13 @@ export class SpacesAuthStore {
     if (record.schemaVersion !== 1) throw new Error("Unsupported auth record schema version");
     assertOpaqueId(authRecordId(record));
     assertNoPlaintextSecrets(record);
+    if (record.kind === "subject" && record.deletedAt) {
+      const previousValue = await this.readJson<unknown>(recordKey(record));
+      const previous = this.unwrapRecord(previousValue);
+      if (isAuthRecord(previous, "subject")) {
+        await this.deleteSubjectLookupIndexes(previous as SubjectRecord);
+      }
+    }
     const key = recordKey(record);
     await this.writeJson(identityIndexKey(record.kind, authRecordId(record)), { key });
 
@@ -694,6 +703,32 @@ export class SpacesAuthStore {
         ContentType: "application/json",
         ACL: "private",
         CacheControl: "no-store",
+      }),
+    );
+  }
+
+  private async deleteSubjectLookupIndexes(subject: SubjectRecord): Promise<void> {
+    const keys = new Set<string>();
+    if (subject.primaryEmail) {
+      const digest = createHmac("sha256", this.identityIndexSecret)
+        .update(subject.primaryEmail.trim().toLowerCase())
+        .digest("hex");
+      keys.add(`${INDEX_ROOT}/by-email/${digest}.json`);
+    }
+    for (const identifier of subject.loginIdentifiers ?? []) {
+      const product = safeSegment(identifier.productId);
+      const normalized = identifier.normalizedValue.trim().toLowerCase();
+      const digest = createHmac("sha256", this.identityIndexSecret)
+        .update(`${product}\0${normalized}`)
+        .digest("hex");
+      keys.add(`${INDEX_ROOT}/by-product-username/${product}/${digest}.json`);
+    }
+    await Promise.all(
+      [...keys].map(async (key) => {
+        const pointer = await this.readJson<{ subjectId?: unknown }>(key);
+        if (pointer?.subjectId === subject.subjectId) {
+          await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+        }
       }),
     );
   }
