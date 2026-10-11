@@ -9,8 +9,6 @@ import {
 } from "@/components/custom-dropdown-parts";
 import { useCustomDropdownController } from "@/components/use-custom-dropdown-controller";
 
-export type { CustomDropdownOption } from "@/components/custom-dropdown-parts";
-
 interface CustomDropdownProps {
   options: readonly CustomDropdownOption[];
   id?: string;
