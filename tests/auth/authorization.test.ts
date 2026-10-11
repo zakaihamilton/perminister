@@ -39,6 +39,9 @@ const ROLE_PRODUCT_RECORD_ID = "99999999-9999-4999-8999-999999999999";
 const ROLE_TARGET_SUBJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const ROLE_TARGET_MEMBERSHIP_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const TRANSFER_DESTINATION_ORG_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+const TRANSFER_DESTINATION_PRODUCT_RECORD_ID = "19191919-1919-4919-8919-191919191919";
+const TRANSFER_DESTINATION_MEMBERSHIP_ID = "20202020-2020-4020-8020-202020202020";
+const TRANSFER_DESTINATION_CLIENT_ID = "21212121-2121-4121-8121-212121212121";
 const TRANSFER_ADOPTER_ORG_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const TRANSFER_ADOPTER_MEMBERSHIP_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const TRANSFER_ADOPTER_CLIENT_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff";
@@ -763,13 +766,34 @@ describe("platform public product ownership transfer", () => {
     vi.unstubAllEnvs();
   });
 
-  it("lists only approved, conflict-free destinations for published products", async () => {
+  it("includes matching adopter installations and excludes unrelated product ID conflicts", async () => {
     seedSourceProduct();
     seedOrganization(TRANSFER_DESTINATION_ORG_ID, "Destination Org");
     const conflictOrganizationId = "13131313-1313-4313-8313-131313131313";
     const pendingOrganizationId = "14141414-1414-4414-8414-141414141414";
     seedOrganization(conflictOrganizationId, "Conflict Org");
     seedOrganization(pendingOrganizationId, "Pending Org", "pending");
+    store.seed({
+      kind: "product",
+      schemaVersion: 1,
+      productRecordId: TRANSFER_DESTINATION_PRODUCT_RECORD_ID as never,
+      organizationId: TRANSFER_DESTINATION_ORG_ID as never,
+      productId: "atlas",
+      name: "Atlas",
+      description: "Shared access for Atlas.",
+      websiteUrl: "https://atlas.example.com",
+      iconUrl: "",
+      visibility: "public",
+      sharedProductRef: {
+        sourceOrganizationId: ORGANIZATION_ID as never,
+        sourceProductRecordId: ROLE_PRODUCT_RECORD_ID as never,
+        sourceProductId: "atlas",
+        detachedAt: null,
+      },
+      createdBySubjectId: SUBJECT_ID as never,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    } as AuthRecord);
     store.seed({
       kind: "product",
       schemaVersion: 1,
@@ -801,6 +825,57 @@ describe("platform public product ownership transfer", () => {
     seedOrganization(TRANSFER_DESTINATION_ORG_ID, "Destination Org");
     seedOrganization(TRANSFER_ADOPTER_ORG_ID, "Adopter Org");
     const now = new Date().toISOString();
+    store.seed({
+      kind: "product",
+      schemaVersion: 1,
+      productRecordId: TRANSFER_DESTINATION_PRODUCT_RECORD_ID as never,
+      organizationId: TRANSFER_DESTINATION_ORG_ID as never,
+      productId: "atlas",
+      name: "Atlas",
+      description: "Shared access for Atlas.",
+      websiteUrl: "https://atlas.example.com",
+      iconUrl: "",
+      visibility: "public",
+      sharedProductRef: {
+        sourceOrganizationId: ORGANIZATION_ID as never,
+        sourceProductRecordId: ROLE_PRODUCT_RECORD_ID as never,
+        sourceProductId: "atlas",
+        detachedAt: null,
+      },
+      createdBySubjectId: SUBJECT_ID as never,
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    store.seed({
+      kind: "organization-membership",
+      schemaVersion: 1,
+      organizationMembershipId: TRANSFER_DESTINATION_MEMBERSHIP_ID as never,
+      organizationId: TRANSFER_DESTINATION_ORG_ID as never,
+      productId: "atlas",
+      subjectId: ROLE_TARGET_SUBJECT_ID as never,
+      role: "admin",
+      status: "active",
+      permissionGrants: [],
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    store.seed({
+      kind: "consumer-client",
+      schemaVersion: 1,
+      consumerClientId: TRANSFER_DESTINATION_CLIENT_ID as never,
+      organizationId: TRANSFER_DESTINATION_ORG_ID as never,
+      productId: "atlas",
+      appName: "Destination app",
+      appOrigin: "https://destination.example.com",
+      sessionLifetimeMs: 60_000,
+      selfRegistrationEnabled: false,
+      verifier: { algorithm: "sha256", digestHex: "b".repeat(64) },
+      status: "active",
+      createdBySubjectId: SUBJECT_ID as never,
+      createdAt: now,
+      updatedAt: now,
+      revokedAt: null,
+    } as AuthRecord);
     store.seed({
       kind: "organization-membership",
       schemaVersion: 1,
@@ -873,6 +948,12 @@ describe("platform public product ownership transfer", () => {
     const adopterClient = store.records.get(
       store.key("consumer-client", TRANSFER_ADOPTER_CLIENT_ID),
     )!.record;
+    const destinationMembership = store.records.get(
+      store.key("organization-membership", TRANSFER_DESTINATION_MEMBERSHIP_ID),
+    )!.record;
+    const destinationClient = store.records.get(
+      store.key("consumer-client", TRANSFER_DESTINATION_CLIENT_ID),
+    )!.record;
 
     const result = await service.transferPublicProductForAdministrator(
       SUBJECT_ID as never,
@@ -899,11 +980,13 @@ describe("platform public product ownership transfer", () => {
     });
     expect(newPublisherProduct).toMatchObject({
       kind: "product",
+      productRecordId: TRANSFER_DESTINATION_PRODUCT_RECORD_ID,
       organizationId: TRANSFER_DESTINATION_ORG_ID,
       visibility: "public",
       productId: "atlas",
       accessRoles: [{ name: "Project reader" }],
     });
+    expect(newPublisherProduct).not.toHaveProperty("sharedProductRef");
     expect(updatedInstallation).toMatchObject({
       kind: "product",
       organizationId: TRANSFER_ADOPTER_ORG_ID,
@@ -938,6 +1021,13 @@ describe("platform public product ownership transfer", () => {
     expect(
       store.records.get(store.key("consumer-client", TRANSFER_ADOPTER_CLIENT_ID))!.record,
     ).toEqual(adopterClient);
+    expect(
+      store.records.get(store.key("organization-membership", TRANSFER_DESTINATION_MEMBERSHIP_ID))!
+        .record,
+    ).toEqual(destinationMembership);
+    expect(
+      store.records.get(store.key("consumer-client", TRANSFER_DESTINATION_CLIENT_ID))!.record,
+    ).toEqual(destinationClient);
     expect(store.writes.every((record) => record.kind === "product")).toBe(true);
     expect(result.affectedOrganizationIds).toEqual(
       expect.arrayContaining([
@@ -957,6 +1047,63 @@ describe("platform public product ownership transfer", () => {
         }),
       ]),
     );
+  });
+
+  it("resumes an interrupted transfer into an existing shared installation", async () => {
+    seedSourceProduct();
+    seedOrganization(TRANSFER_DESTINATION_ORG_ID, "Destination Org");
+    const now = new Date().toISOString();
+    const source = store.records.get(store.key("product", ROLE_PRODUCT_RECORD_ID))!
+      .record as Extract<AuthRecord, { kind: "product" }>;
+    store.seed({
+      ...source,
+      visibility: "private",
+    });
+    store.seed({
+      kind: "product",
+      schemaVersion: 1,
+      productRecordId: TRANSFER_DESTINATION_PRODUCT_RECORD_ID as never,
+      organizationId: TRANSFER_DESTINATION_ORG_ID as never,
+      productId: "atlas",
+      name: "Atlas",
+      description: "Shared access for Atlas.",
+      websiteUrl: "https://atlas.example.com",
+      iconUrl: "",
+      visibility: "private",
+      sharedProductRef: {
+        sourceOrganizationId: ORGANIZATION_ID as never,
+        sourceProductRecordId: ROLE_PRODUCT_RECORD_ID as never,
+        sourceProductId: "atlas",
+        detachedAt: null,
+      },
+      createdBySubjectId: SUBJECT_ID as never,
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+
+    const [pendingTransfer] = await service.listPublicProductsForAdministrator(SUBJECT_ID as never);
+    expect(pendingTransfer).toMatchObject({
+      product: { productRecordId: ROLE_PRODUCT_RECORD_ID, visibility: "private" },
+      pendingDestinationOrganizationId: TRANSFER_DESTINATION_ORG_ID,
+    });
+
+    const result = await service.transferPublicProductForAdministrator(
+      SUBJECT_ID as never,
+      ROLE_PRODUCT_RECORD_ID,
+      TRANSFER_DESTINATION_ORG_ID,
+    );
+
+    expect(result.product.productRecordId).toBe(TRANSFER_DESTINATION_PRODUCT_RECORD_ID);
+    expect(
+      store.records.get(store.key("product", TRANSFER_DESTINATION_PRODUCT_RECORD_ID))!.record,
+    ).toMatchObject({
+      organizationId: TRANSFER_DESTINATION_ORG_ID,
+      visibility: "public",
+      productId: "atlas",
+    });
+    expect(
+      store.records.get(store.key("product", TRANSFER_DESTINATION_PRODUCT_RECORD_ID))!.record,
+    ).not.toHaveProperty("sharedProductRef");
   });
 
   it("rejects non-administrators, non-public sources, and invalid destinations", async () => {

@@ -31,7 +31,9 @@ export function ProductTransferControl({
 
   if (!destinations.length) {
     return (
-      <span className="form-hint">No approved destination without a product ID conflict.</span>
+      <span className="form-hint">
+        No approved destination is available without an unrelated product ID conflict.
+      </span>
     );
   }
 
