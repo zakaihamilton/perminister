@@ -579,6 +579,12 @@ button:focus-visible {
 .admin-account-row form {
   margin: 0;
 }
+.admin-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
 .audit-list {
   display: grid;
   gap: 0;

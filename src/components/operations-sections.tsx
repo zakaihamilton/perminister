@@ -1,8 +1,5 @@
-import {
-  retireLegacyAccessAction,
-  reviewOrganizationRequestAction,
-  updateAccountStatusAction,
-} from "@/app/actions";
+import { retireLegacyAccessAction, reviewOrganizationRequestAction } from "@/app/actions";
+import { AdminAccountActions } from "@/components/admin-account-actions";
 import { DashboardNotice } from "@/components/dashboard-shell";
 import { ProductTransferControl } from "@/components/product-transfer-control";
 import type {
@@ -44,6 +41,24 @@ export function OperationsFeedback({ query }: { query: OperationsQuery }) {
       ) : null}
       {query.notice === "account-updated" ? (
         <DashboardNotice message="Account status updated." kind="success" />
+      ) : null}
+      {query.notice === "account-deleted" ? (
+        <DashboardNotice message="Account deleted." kind="success" />
+      ) : null}
+      {query.error === "account-update-failed" ? (
+        <DashboardNotice message="Account status could not be updated." kind="error" />
+      ) : null}
+      {query.error === "account-delete-owner" ? (
+        <DashboardNotice
+          message="Transfer this account’s organization and product ownership to another active owner before deleting it."
+          kind="error"
+        />
+      ) : null}
+      {query.error === "account-delete-failed" ? (
+        <DashboardNotice
+          message="Account could not be deleted. Check storage and retry."
+          kind="error"
+        />
       ) : null}
       {query.error === "organization-review" ? (
         <DashboardNotice
@@ -227,17 +242,11 @@ export function AccountsSection({ accounts }: { accounts: PublicAccount[] }) {
               </span>
             </p>
             {!account.administrator ? (
-              <form action={updateAccountStatusAction}>
-                <input type="hidden" name="subjectId" value={account.subjectId} />
-                <input
-                  type="hidden"
-                  name="status"
-                  value={account.status === "active" ? "disabled" : "active"}
-                />
-                <button className="button button-secondary" type="submit">
-                  {account.status === "active" ? "Disable account" : "Enable account"}
-                </button>
-              </form>
+              <AdminAccountActions
+                subjectId={account.subjectId}
+                email={account.email}
+                status={account.status}
+              />
             ) : (
               <span className="record-badge active">Restricted admin</span>
             )}
