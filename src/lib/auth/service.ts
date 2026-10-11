@@ -3663,6 +3663,100 @@ async function isConsumerPlatformAdminUnlocked(
   );
 }
 
+export async function bootstrapVisitoringWorkspaceAdmin(
+  actorId: SubjectId,
+  organizationIdInput: string,
+  workspaceIdInput: string,
+): Promise<void> {
+  const organizationId = organizationIdInput.trim().toLowerCase();
+  const workspaceId = workspaceIdInput.trim().toLowerCase();
+  assertOpaqueId(organizationId);
+  assertOpaqueId(workspaceId);
+  const productId = "visitoring";
+  const scope = validateScope({
+    kind: "workspace",
+    organizationId: organizationId as OrganizationId,
+    productId,
+    workspaceId,
+  });
+
+  await authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
+      await requireOrganizationProductUnlocked(organizationId, productId);
+      const actor = await loadSubjectUnlocked(actorId);
+      requireVerifiedActiveSubject(actor);
+      if (consumerProductState(actor, productId).status !== "active") {
+        throw new Error("This account is disabled for the application.");
+      }
+
+      const existingMembership = await store().readOrganizationMembership(
+        organizationId,
+        actorId,
+        productId,
+      );
+      if (existingMembership?.status === "disabled") {
+        throw new Error("This account is disabled for the application.");
+      }
+      const membership =
+        existingMembership ??
+        (await ensureConsumerProductMembershipUnlocked(actor, organizationId, productId));
+      const actions = consumerRoleActions(productId, "admin");
+      if (!actions) throw new Error("Visitoring workspace administration is unavailable.");
+      const currentGrant = consumerMemberGrant(membership, scope);
+      const grant = roleGrant(
+        productId,
+        actorId,
+        scope,
+        "admin",
+        actions,
+        currentGrant ?? undefined,
+      );
+      await persistRecord(grant, "consumer.workspace-admin-bootstrapped", {
+        kind: "subject",
+        subjectId: actorId,
+      });
+    }),
+  );
+}
+
+export async function revokeVisitoringWorkspaceGrants(
+  actorId: SubjectId,
+  organizationIdInput: string,
+  workspaceIdInput: string,
+): Promise<void> {
+  const organizationId = organizationIdInput.trim().toLowerCase();
+  const workspaceId = workspaceIdInput.trim().toLowerCase();
+  assertOpaqueId(organizationId);
+  assertOpaqueId(workspaceId);
+  const productId = "visitoring";
+  const scope = validateScope({
+    kind: "workspace",
+    organizationId: organizationId as OrganizationId,
+    productId,
+    workspaceId,
+  });
+
+  await authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
+      await requireOrganizationProductUnlocked(organizationId, productId);
+      const memberships = await store().listOrganizationMemberships(organizationId);
+      for (const membership of memberships) {
+        if (membership.productId !== productId) continue;
+        for (const grant of membership.permissionGrants ?? []) {
+          if (!sameResourceScope(grant.scope, scope) || grant.status !== "active") continue;
+          await persistRecord(
+            { ...grant, status: "disabled", updatedAt: new Date().toISOString() },
+            "consumer.workspace-access-revoked",
+            { kind: "subject", subjectId: actorId },
+          );
+        }
+      }
+    }),
+  );
+}
+
 async function setConsumerPlatformAdminUnlocked(
   actorId: SubjectId,
   authenticatedProductId: string,
