@@ -2814,6 +2814,52 @@ button:focus-visible {
   font-size: 14px;
   line-height: 1.5;
 }
+.organization-id-card {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 21px;
+}
+.organization-id-heading p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.organization-id-copy {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.organization-id-copy input {
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 13px 12px;
+  color: var(--ink);
+  background: var(--surface-inset);
+  font:
+    12px/1.5 "SFMono-Regular",
+    Consolas,
+    monospace;
+  user-select: all;
+}
+.organization-id-copy input:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.organization-id-copy-action {
+  display: grid;
+  flex: 0 0 auto;
+  justify-items: start;
+  gap: 5px;
+}
+.organization-id-copy-error {
+  color: var(--danger);
+  font-size: 12px;
+}
 .dashboard-empty-card {
   display: flex;
   align-items: center;

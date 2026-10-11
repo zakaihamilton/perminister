@@ -111,13 +111,13 @@
       "line": 23
     },
     {
-      "fingerprint": "303afadc66f0fb8d2a386bc2",
+      "fingerprint": "a497663e43a03afcf763df4d",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/dashboard/[organizationId]/page.tsx",
-      "line": 20
+      "line": 21
     },
     {
       "fingerprint": "02a1572de036883393af3306",
