@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ProductIcon } from "@/components/product-icon";
+import { CopyOrganizationIdButton } from "@/components/copy-organization-id-button";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import {
   getCurrentSession,
@@ -55,6 +56,16 @@ export default async function OrganizationOverview({
             : "See the products and permissions assigned to you."
         }
       />
+      <section
+        className="dashboard-card organization-id-card"
+        aria-labelledby="organization-id-title"
+      >
+        <div className="organization-id-heading">
+          <h2 id="organization-id-title">Organization ID</h2>
+          <p>Use this ID when configuring an app or integration.</p>
+        </div>
+        <CopyOrganizationIdButton organizationId={organizationId} />
+      </section>
       {query.notice === "invitation-accepted" ? (
         <DashboardNotice
           message="You joined the product. Open Products to see your access."
