@@ -3,19 +3,15 @@ import { notFound, redirect } from "next/navigation";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { ProductSetupForm } from "@/components/product-setup-form";
 import { getOrganizationForSubject } from "@/lib/auth/service";
-import { getOrganizationDashboardRequestContext } from "@/lib/auth/organization-dashboard-context";
+import {
+  getOrganizationDashboardRequestContext,
+  type OrganizationDashboardPageProps,
+} from "@/lib/auth/organization-dashboard-context";
 
-export default async function NewProductPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ organizationId: string }>;
-  searchParams: Promise<{ error?: string }>;
-}) {
-  const { current, organizationId, query } = await getOrganizationDashboardRequestContext(
-    params,
-    searchParams,
-  );
+export default async function NewProductPage(
+  props: OrganizationDashboardPageProps<{ error?: string }>,
+) {
+  const { current, organizationId, query } = await getOrganizationDashboardRequestContext(props);
   const organization = await getOrganizationForSubject(
     current.subject.subjectId,
     organizationId,

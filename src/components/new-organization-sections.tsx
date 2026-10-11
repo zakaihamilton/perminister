@@ -1,5 +1,6 @@
 import { createOrganizationAction } from "@/app/actions";
 import { DashboardNotice } from "@/components/dashboard-shell";
+import { OrganizationRequestHistoryRecord } from "@/components/organization-request-history-record";
 import type { OrganizationRequestSummary } from "@/lib/auth/service";
 
 export function NewOrganizationRequestNotices({
@@ -50,21 +51,10 @@ export function OrganizationRequestHistory({
       </div>
       <div className="record-list">
         {requests.map((request) => (
-          <article className="record-item" key={request.organization.organizationId}>
-            <div className="record-item-head">
-              <div>
-                <strong>{request.organization.name}</strong>
-                <span className="record-meta">
-                  Submitted {new Date(request.organization.createdAt).toLocaleString()}
-                </span>
-              </div>
-              <span
-                className={`record-badge ${request.status === "pending" ? "pending" : "rejected"}`}
-              >
-                {request.status}
-              </span>
-            </div>
-          </article>
+          <OrganizationRequestHistoryRecord
+            key={request.organization.organizationId}
+            request={request}
+          />
         ))}
       </div>
     </section>

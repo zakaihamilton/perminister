@@ -6,25 +6,21 @@ import {
   OrganizationProductsSection,
 } from "@/components/organization-overview-sections";
 import {
-  getCurrentSession,
   getOrganizationForSubject,
   listApiKeysForSubject,
   listOrganizationMembers,
   listOrganizationPermissionGrants,
   listProductsForOrganization,
 } from "@/lib/auth/service";
-import { redirect } from "next/navigation";
+import {
+  getOrganizationDashboardRequestContext,
+  type OrganizationDashboardPageProps,
+} from "@/lib/auth/organization-dashboard-context";
 
-export default async function OrganizationOverview({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ organizationId: string }>;
-  searchParams: Promise<{ notice?: string }>;
-}) {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const [{ organizationId }, query] = await Promise.all([params, searchParams]);
+export default async function OrganizationOverview(
+  props: OrganizationDashboardPageProps<{ notice?: string }>,
+) {
+  const { current, organizationId, query } = await getOrganizationDashboardRequestContext(props);
   const organizationPromise = getOrganizationForSubject(current.subject.subjectId, organizationId);
   const membersPromise = organizationPromise.then((organization) =>
     organization.membership.role === "owner" || organization.membership.role === "admin"

@@ -1,21 +1,15 @@
 import { DashboardHeading } from "@/components/dashboard-shell";
 import { ProfileDetailsSection, ProfileNotices } from "@/components/profile-sections";
-import { getCurrentSession, isAdministrator } from "@/lib/auth/service";
-import { redirect } from "next/navigation";
+import { isAdministrator } from "@/lib/auth/service";
+import {
+  getOrganizationDashboardRequestContext,
+  type OrganizationDashboardPageProps,
+} from "@/lib/auth/organization-dashboard-context";
 
-export default async function ProfilePage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ organizationId: string }>;
-  searchParams: Promise<{ notice?: string; error?: string }>;
-}) {
-  const [current, { organizationId }, query] = await Promise.all([
-    getCurrentSession(),
-    params,
-    searchParams,
-  ]);
-  if (!current) redirect("/login");
+export default async function ProfilePage(
+  props: OrganizationDashboardPageProps<{ notice?: string; error?: string }>,
+) {
+  const { current, organizationId, query } = await getOrganizationDashboardRequestContext(props);
 
   return (
     <>

@@ -1,21 +1,16 @@
 import { updateOrganizationNameAction } from "@/app/actions";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
-import { getCurrentSession, getOrganizationForSubject } from "@/lib/auth/service";
-import { notFound, redirect } from "next/navigation";
+import { getOrganizationForSubject } from "@/lib/auth/service";
+import { notFound } from "next/navigation";
+import {
+  getOrganizationDashboardRequestContext,
+  type OrganizationDashboardPageProps,
+} from "@/lib/auth/organization-dashboard-context";
 
-export default async function OrganizationSettingsPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ organizationId: string }>;
-  searchParams: Promise<{ notice?: string; error?: string }>;
-}) {
-  const [current, { organizationId }, query] = await Promise.all([
-    getCurrentSession(),
-    params,
-    searchParams,
-  ]);
-  if (!current) redirect("/login");
+export default async function OrganizationSettingsPage(
+  props: OrganizationDashboardPageProps<{ notice?: string; error?: string }>,
+) {
+  const { current, organizationId, query } = await getOrganizationDashboardRequestContext(props);
   const summary = await getOrganizationForSubject(current.subject.subjectId, organizationId);
   if (summary.membership.role !== "owner") notFound();
   return (

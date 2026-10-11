@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createOrganizationAction, requestVerificationAction } from "@/app/actions";
+import { OrganizationRequestHistoryRecord } from "@/components/organization-request-history-record";
 import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 import type { OrganizationRequestSummary } from "@/lib/auth/service";
 
@@ -153,17 +154,11 @@ export function RejectedOrganizationRequestHistory({
       <h2>Previous organization requests</h2>
       <div className="record-list">
         {rejectedRequests.map((request) => (
-          <article className="record-item" key={request.organization.organizationId}>
-            <div className="record-item-head">
-              <div>
-                <strong>{request.organization.name}</strong>
-                <span className="record-meta">
-                  Submitted {new Date(request.organization.createdAt).toLocaleString()}
-                </span>
-              </div>
-              <span className="record-badge rejected">Rejected</span>
-            </div>
-          </article>
+          <OrganizationRequestHistoryRecord
+            key={request.organization.organizationId}
+            request={request}
+            statusLabel="Rejected"
+          />
         ))}
       </div>
     </section>

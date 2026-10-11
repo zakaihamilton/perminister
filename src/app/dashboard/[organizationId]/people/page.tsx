@@ -11,20 +11,16 @@ import {
   listOrganizationInvitations,
   listOrganizationMembers,
 } from "@/lib/auth/service";
-import { getOrganizationDashboardRequestContext } from "@/lib/auth/organization-dashboard-context";
+import {
+  getOrganizationDashboardRequestContext,
+  type OrganizationDashboardPageProps,
+} from "@/lib/auth/organization-dashboard-context";
 import { redirect } from "next/navigation";
 
-export default async function PeoplePage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ organizationId: string }>;
-  searchParams: Promise<{ notice?: string; error?: string }>;
-}) {
-  const { current, organizationId, query } = await getOrganizationDashboardRequestContext(
-    params,
-    searchParams,
-  );
+export default async function PeoplePage(
+  props: OrganizationDashboardPageProps<{ notice?: string; error?: string }>,
+) {
+  const { current, organizationId, query } = await getOrganizationDashboardRequestContext(props);
   const organization = await getOrganizationForSubject(current.subject.subjectId, organizationId);
   if (organization.membership.role === "member") redirect(`/dashboard/${organizationId}/products`);
   const [members, invitations] = await Promise.all([
