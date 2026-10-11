@@ -351,7 +351,6 @@ function activityPayload(record: AuthRecord): AuthEvent["payload"] {
   } else if (record.kind === "organization-invitation") {
     payload.organizationId = record.organizationId;
     if (record.productId) payload.productId = record.productId;
-    payload.subjectId = record.createdBySubjectId;
   } else if (record.kind === "membership") {
     payload.organizationId = record.scope.organizationId;
     payload.productId = record.scope.productId;
@@ -1004,6 +1003,23 @@ export interface OrganizationActivityEntry {
   aggregateKind: string;
 }
 
+export interface PlatformActivityEntry extends OrganizationActivityEntry {
+  organization: string;
+  user: string | null;
+  actorIsUser: boolean;
+}
+
+export interface PlatformAuditPage {
+  entries: PlatformActivityEntry[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+const PLATFORM_AUDIT_PAGE_SIZE = 25;
+const PLATFORM_AUDIT_MAX_EVENTS = 100;
+
 function organizationActivityEntry(event: AuthEvent): OrganizationActivityEntry {
   return {
     eventId: event.eventId,
@@ -1012,6 +1028,102 @@ function organizationActivityEntry(event: AuthEvent): OrganizationActivityEntry 
     actor: event.actor.kind === "subject" ? "account" : event.actor.kind,
     aggregateKind: event.aggregate.kind,
   };
+}
+
+function eventPayloadId(event: AuthEvent, key: string): string | null {
+  const value = event.payload[key];
+  if (typeof value !== "string") return null;
+  try {
+    assertOpaqueId(value);
+    return value;
+  } catch {
+    return null;
+  }
+}
+
+function platformEventOrganizationId(event: AuthEvent): string | null {
+  return (
+    eventPayloadId(event, "organizationId") ??
+    (event.aggregate.kind === "organization" ? event.aggregate.id : null)
+  );
+}
+
+function platformEventUserId(event: AuthEvent): string | null {
+  if (event.aggregate.kind === "organization-invitation") {
+    // Older invitation payloads used subjectId for the creator. On acceptance, the actor is
+    // the invited account; create and revoke events do not have an associated account yet.
+    return event.type === "organization.invitation-consumed" && event.actor.kind === "subject"
+      ? event.actor.subjectId
+      : null;
+  }
+  return eventPayloadId(event, "subjectId");
+}
+
+function platformSubjectLabel(
+  subjectId: string,
+  subjects: ReadonlyMap<string, SubjectRecord>,
+): string {
+  const subject = subjects.get(subjectId);
+  if (!subject) return `Account ${subjectId}`;
+  const name = [subject.firstName, subject.lastName].filter(Boolean).join(" ");
+  if (name && subject.primaryEmail) return `${name} (${subject.primaryEmail})`;
+  return name || subject.primaryEmail || `Account ${subjectId}`;
+}
+
+async function platformActivityEntries(
+  events: readonly AuthEvent[],
+): Promise<PlatformActivityEntry[]> {
+  const organizationIds = new Set<string>();
+  const subjectIds = new Set<string>();
+  for (const event of events) {
+    const organizationId = platformEventOrganizationId(event);
+    const userId = platformEventUserId(event);
+    if (organizationId) organizationIds.add(organizationId);
+    if (userId) subjectIds.add(userId);
+    if (event.actor.kind === "subject") subjectIds.add(event.actor.subjectId);
+  }
+
+  const [organizations, subjects] = await Promise.all([
+    mapWithConcurrency([...organizationIds], async (organizationId) => {
+      try {
+        const organization = await loadRecord("organization", organizationId);
+        return { id: organizationId, name: organization?.record.name ?? null };
+      } catch {
+        return { id: organizationId, name: null };
+      }
+    }),
+    mapWithConcurrency([...subjectIds], async (subjectId) => {
+      try {
+        const subject = await loadRecord("subject", subjectId);
+        return { id: subjectId, record: subject?.record ?? null };
+      } catch {
+        return { id: subjectId, record: null };
+      }
+    }),
+  ]);
+  const organizationNames = new Map<string, string>();
+  for (const organization of organizations) {
+    if (organization.name) organizationNames.set(organization.id, organization.name);
+  }
+  const subjectRecords = new Map<string, SubjectRecord>();
+  for (const subject of subjects) {
+    if (subject.record) subjectRecords.set(subject.id, subject.record);
+  }
+
+  return events.map((event) => {
+    const organizationId = platformEventOrganizationId(event);
+    const userId = platformEventUserId(event);
+    const actorId = event.actor.kind === "subject" ? event.actor.subjectId : null;
+    return {
+      ...organizationActivityEntry(event),
+      actor: actorId ? platformSubjectLabel(actorId, subjectRecords) : event.actor.kind,
+      organization: organizationId
+        ? (organizationNames.get(organizationId) ?? `Organization ${organizationId}`)
+        : "Platform-wide",
+      user: userId ? platformSubjectLabel(userId, subjectRecords) : null,
+      actorIsUser: event.actor.kind === "subject" && event.actor.subjectId === userId,
+    };
+  });
 }
 
 function requireVerifiedActiveSubject(
@@ -4591,10 +4703,28 @@ export async function listProductAudit(
   });
 }
 
-export async function listPlatformAudit(actorId: SubjectId): Promise<OrganizationActivityEntry[]> {
+export async function listPlatformAudit(
+  actorId: SubjectId,
+  requestedPage = 1,
+): Promise<PlatformAuditPage> {
   return authMutationQueue.run(async () => {
     await requireAdministrator(actorId);
-    return (await store().listAllEvents()).slice(0, 100).map(organizationActivityEntry);
+    const events = (await store().listAllEvents()).slice(0, PLATFORM_AUDIT_MAX_EVENTS);
+    const totalItems = events.length;
+    const totalPages = Math.ceil(totalItems / PLATFORM_AUDIT_PAGE_SIZE);
+    const validPage = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+    const page = totalPages > 0 ? Math.min(validPage, totalPages) : 1;
+    const offset = (page - 1) * PLATFORM_AUDIT_PAGE_SIZE;
+
+    return {
+      entries: await platformActivityEntries(
+        events.slice(offset, offset + PLATFORM_AUDIT_PAGE_SIZE),
+      ),
+      page,
+      pageSize: PLATFORM_AUDIT_PAGE_SIZE,
+      totalItems,
+      totalPages,
+    };
   });
 }
 

@@ -301,6 +301,21 @@ function seedAuthorizationData(store: MemoryStore) {
   } as AuthRecord);
 }
 
+function seedAuditEvents(store: MemoryStore, count: number) {
+  for (let index = 0; index < count; index += 1) {
+    store.events.push({
+      schemaVersion: 1,
+      eventId: `eeeeeeee-eeee-4eee-8eee-${index.toString(16).padStart(12, "0")}` as never,
+      aggregate: { kind: "organization", id: ORGANIZATION_ID as never },
+      aggregateVersion: index + 1,
+      occurredAt: new Date(Date.UTC(2026, 0, 1) + (count - index) * 60_000).toISOString(),
+      actor: { kind: "system" },
+      type: `audit.${index}`,
+      payload: { index },
+    });
+  }
+}
+
 function seedProductAccessRoleFixture(store: MemoryStore) {
   const now = new Date().toISOString();
   const actorMembership = store.records.get(
@@ -677,6 +692,108 @@ describe("organization approval", () => {
       ),
     ).rejects.toThrow("Administrator access is required.");
     expect(organization.approvalStatus).toBe("pending");
+  });
+});
+
+describe("platform activity pagination", () => {
+  let store: MemoryStore;
+  let service: typeof import("../../src/lib/auth/service");
+
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.stubEnv("PERMINISTER_ADMIN_EMAILS", "person@example.com");
+    store = new MemoryStore();
+    seedAuthorizationData(store);
+    mocks.store = store;
+    service = await import("../../src/lib/auth/service");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it.each([0, 1, 25, 26, 100, 101])(
+    "paginates %i events in newest-first 25-event pages, capped at 100",
+    async (count) => {
+      seedAuditEvents(store, count);
+
+      const firstPage = await service.listPlatformAudit(SUBJECT_ID as never);
+      const expectedItems = Math.min(count, 100);
+
+      expect(firstPage).toMatchObject({
+        page: 1,
+        pageSize: 25,
+        totalItems: expectedItems,
+        totalPages: Math.ceil(expectedItems / 25),
+      });
+      expect(firstPage.entries.map((entry) => entry.type)).toEqual(
+        Array.from({ length: Math.min(expectedItems, 25) }, (_, index) => `audit.${index}`),
+      );
+      expect(firstPage.entries).toHaveLength(Math.min(expectedItems, 25));
+    },
+  );
+
+  it("clamps requests to the final page and normalizes invalid page numbers", async () => {
+    seedAuditEvents(store, 101);
+
+    const finalPage = await service.listPlatformAudit(SUBJECT_ID as never, 999);
+    expect(finalPage).toMatchObject({ page: 4, totalItems: 100, totalPages: 4 });
+    expect(finalPage.entries.map((entry) => entry.type)).toEqual(
+      Array.from({ length: 25 }, (_, index) => `audit.${index + 75}`),
+    );
+    await expect(service.listPlatformAudit(SUBJECT_ID as never, 0)).resolves.toMatchObject({
+      page: 1,
+    });
+    await expect(service.listPlatformAudit(SUBJECT_ID as never, 1.5)).resolves.toMatchObject({
+      page: 1,
+    });
+  });
+
+  it("resolves the organization, involved user, and distinct actor for each event", async () => {
+    const now = new Date().toISOString();
+    store.seed({
+      kind: "subject",
+      schemaVersion: 1,
+      subjectId: ROLE_TARGET_SUBJECT_ID as never,
+      status: "active",
+      firstName: "Member",
+      lastName: "Example",
+      primaryEmail: "member@example.com",
+      emailVerifiedAt: now,
+      passwordCredential: null,
+      authVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    store.events.push({
+      schemaVersion: 1,
+      eventId: "eeeeeeee-eeee-4eee-8eee-ffffffffffff" as never,
+      aggregate: { kind: "organization", id: ORGANIZATION_ID as never },
+      aggregateVersion: 1,
+      occurredAt: now,
+      actor: { kind: "subject", subjectId: SUBJECT_ID as never },
+      type: "organization.member-disabled",
+      payload: {
+        organizationId: ORGANIZATION_ID,
+        subjectId: ROLE_TARGET_SUBJECT_ID,
+      },
+    });
+
+    const page = await service.listPlatformAudit(SUBJECT_ID as never);
+
+    expect(page.entries[0]).toMatchObject({
+      organization: "Legacy Organization",
+      user: "Member Example (member@example.com)",
+      actor: "person@example.com",
+    });
+  });
+
+  it("requires platform administrator access", async () => {
+    vi.stubEnv("PERMINISTER_ADMIN_EMAILS", "");
+
+    await expect(service.listPlatformAudit(SUBJECT_ID as never)).rejects.toThrow(
+      "Administrator access is required.",
+    );
   });
 });
 

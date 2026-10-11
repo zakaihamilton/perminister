@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   retireLegacyAccessAction,
   reviewOrganizationRequestAction,
@@ -11,7 +12,6 @@ import {
   isAdministrator,
   listAccountsForAdministrator,
   listPendingOrganizationsForAdministrator,
-  listPlatformAudit,
   previewLegacyAccessRetirement,
 } from "@/lib/auth/service";
 import { redirect } from "next/navigation";
@@ -24,11 +24,10 @@ export default async function OperationsPage({
   const current = await getCurrentSession();
   if (!current) redirect("/login");
   if (!isAdministrator(current.subject)) redirect("/dashboard");
-  const [accounts, organizations, legacy, activity, query] = await Promise.all([
+  const [accounts, organizations, legacy, query] = await Promise.all([
     listAccountsForAdministrator(current.subject.subjectId),
     listPendingOrganizationsForAdministrator(current.subject.subjectId),
     previewLegacyAccessRetirement(current.subject.subjectId),
-    listPlatformAudit(current.subject.subjectId),
     searchParams,
   ]);
   return (
@@ -39,7 +38,14 @@ export default async function OperationsPage({
           <BreadcrumbBar
             items={[{ label: "Dashboard", href: "/dashboard" }, { label: "Platform operations" }]}
           />
-          <DashboardHeading description="Review organization requests, support accounts, and retire unscoped legacy access." />
+          <DashboardHeading
+            description="Review organization requests, support accounts, and retire unscoped legacy access."
+            action={
+              <Link className="button button-secondary" href="/dashboard/operations/activity">
+                Historical activity
+              </Link>
+            }
+          />
           {query.error === "migration" ? (
             <DashboardNotice
               message="Legacy access could not be retired. Check storage and retry."
@@ -181,34 +187,6 @@ export default async function OperationsPage({
                 </article>
               ))}
             </div>
-          </section>
-          <section className="dashboard-card platform-activity">
-            <div className="dashboard-card-heading">
-              <div>
-                <h2>Historical activity</h2>
-                <p>Recent events across Perminister, including legacy access history.</p>
-              </div>
-            </div>
-            {activity.length ? (
-              <ol className="activity-list">
-                {activity.map((entry) => (
-                  <li key={entry.eventId}>
-                    <span className="activity-mark" aria-hidden="true" />
-                    <div>
-                      <strong>{entry.type.replaceAll(".", " · ").replaceAll("-", " ")}</strong>
-                      <span>
-                        {entry.actor} · {entry.aggregateKind}
-                      </span>
-                    </div>
-                    <time dateTime={entry.occurredAt}>
-                      {new Date(entry.occurredAt).toLocaleString()}
-                    </time>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="empty-list">No recorded activity.</p>
-            )}
           </section>
         </div>
       </main>

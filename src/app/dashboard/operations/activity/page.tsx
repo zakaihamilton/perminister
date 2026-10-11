@@ -1,0 +1,58 @@
+import { redirect } from "next/navigation";
+import { ActivityFeed } from "@/components/activity-feed";
+import { ActivityPagination } from "@/components/activity-pagination";
+import { BreadcrumbBar } from "@/components/dashboard-breadcrumbs";
+import { SiteFooter, SiteHeader } from "@/components/site-shell";
+import { getCurrentSession, isAdministrator, listPlatformAudit } from "@/lib/auth/service";
+
+function parseRequestedPage(value: string | string[] | undefined): number {
+  if (typeof value !== "string" || !/^\d+$/.test(value)) return 1;
+  const page = Number(value);
+  return Number.isSafeInteger(page) && page > 0 ? page : 1;
+}
+
+export default async function PlatformActivityPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string | string[] }>;
+}) {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  if (!isAdministrator(current.subject)) redirect("/dashboard");
+
+  const query = await searchParams;
+  const activity = await listPlatformAudit(
+    current.subject.subjectId,
+    parseRequestedPage(query.page),
+  );
+
+  return (
+    <>
+      <SiteHeader active="dashboard" authenticated />
+      <main className="page-shell operations-page-shell">
+        <div className="container operations-page">
+          <BreadcrumbBar
+            items={[
+              { label: "Dashboard", href: "/dashboard" },
+              { label: "Platform operations", href: "/dashboard/operations" },
+              { label: "Historical activity" },
+            ]}
+          />
+          <ActivityFeed
+            entries={activity.entries}
+            emptyMessage="No platform activity has been recorded."
+            showPlatformContext
+            title="Historical activity"
+            description="Recent events across Perminister, including legacy access history."
+          />
+          <ActivityPagination
+            page={activity.page}
+            totalPages={activity.totalPages}
+            hrefBase="/dashboard/operations/activity"
+          />
+        </div>
+      </main>
+      <SiteFooter />
+    </>
+  );
+}
