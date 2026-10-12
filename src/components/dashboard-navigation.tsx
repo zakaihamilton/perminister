@@ -45,7 +45,7 @@ export function DashboardNavigation({
             ]
           : []),
         ...(role === "owner"
-          ? [{ label: "Organization settings", href: `${root}/settings`, key: "settings" }]
+          ? [{ label: "Settings", href: `${root}/settings`, key: "settings" }]
           : []),
       ]
     : [];

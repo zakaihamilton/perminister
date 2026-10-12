@@ -40,7 +40,10 @@ export function ThemeControlTrigger({
       }}
     >
       <ThemeIcon choice={choice} />
-      <span className="theme-trigger-label">Theme</span>
+      <span className="theme-trigger-copy">
+        <span className="theme-trigger-label">Theme</span>
+        <span className="theme-trigger-selection">{selectedLabel}</span>
+      </span>
       <svg aria-hidden="true" className="theme-chevron" viewBox="0 0 16 16" fill="none">
         <path d="m4 6 4 4 4-4" />
       </svg>
