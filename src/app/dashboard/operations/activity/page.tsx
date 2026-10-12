@@ -38,7 +38,7 @@ export default async function PlatformActivityPage({
         emptyMessage="No platform activity has been recorded yet."
         showPlatformContext
         title="Activity history"
-        description="Recent changes across Perminister, including older access records."
+        description="Recent events across Perminister, including legacy access history."
       />
       <ActivityPagination
         page={activity.page}

@@ -85,7 +85,7 @@ export function DashboardNavigation({
             href="/dashboard/operations"
             aria-label={
               pendingOrganizationRequestCount
-                ? `Platform admin, ${pendingOrganizationRequestCount} organization requests to review`
+                ? `Platform admin, ${pendingOrganizationRequestCount} pending organization requests`
                 : "Platform admin"
             }
             aria-current={activeKey === "operations" ? "page" : undefined}

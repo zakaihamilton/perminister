@@ -56,6 +56,46 @@ describe("dashboard breadcrumbs", () => {
       [{ label: "Dashboard", href: "/dashboard" }, { label: "Platform admin" }],
     ],
     [
+      "/dashboard/operations/shared-products",
+      [
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Platform admin", href: "/dashboard/operations" },
+        { label: "Shared products" },
+      ],
+    ],
+    [
+      "/dashboard/operations/organization-requests",
+      [
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Platform admin", href: "/dashboard/operations" },
+        { label: "Organization requests" },
+      ],
+    ],
+    [
+      "/dashboard/operations/legacy-access",
+      [
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Platform admin", href: "/dashboard/operations" },
+        { label: "Remove older access" },
+      ],
+    ],
+    [
+      "/dashboard/operations/accounts",
+      [
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Platform admin", href: "/dashboard/operations" },
+        { label: "Accounts" },
+      ],
+    ],
+    [
+      "/dashboard/operations/activity",
+      [
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Platform admin", href: "/dashboard/operations" },
+        { label: "Activity history" },
+      ],
+    ],
+    [
       "/dashboard/org-123/profile",
       [{ label: "Sentry8", href: "/dashboard/org-123" }, { label: "Account" }],
     ],

@@ -59,12 +59,12 @@ describe("platform activity pagination controls", () => {
         emptyMessage: "Platform events will appear here.",
         showPlatformContext: true,
         title: "Activity history",
-        description: "Recent changes across Perminister.",
+        description: "Recent events across Perminister.",
       }),
     );
 
     expect(markup).toContain("Activity history");
-    expect(markup).toContain("Recent changes across Perminister.");
+    expect(markup).toContain("Recent events across Perminister.");
     expect(markup).toContain("Organization: Northstar");
     expect(markup).toContain("User:");
     expect(markup).toContain("Member Example (member@example.com)");

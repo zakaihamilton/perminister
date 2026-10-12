@@ -32,6 +32,14 @@ const productPages: Record<string, string> = {
   roles: "Permission sets",
 };
 
+const platformAdminPages: Record<string, string> = {
+  accounts: "Accounts",
+  activity: "Activity history",
+  "legacy-access": "Remove older access",
+  "organization-requests": "Organization requests",
+  "shared-products": "Shared products",
+};
+
 function decodeSegment(segment: string): string {
   try {
     return decodeURIComponent(segment);
@@ -55,7 +63,16 @@ export function buildDashboardBreadcrumbs(
   if (segments[0] !== "dashboard") return [];
   if (segments.length === 1) return [{ label: "Set up your organization" }];
   if (segments[1] === "operations") {
-    return [{ label: "Dashboard", href: "/dashboard" }, { label: "Platform admin" }];
+    const breadcrumbs: DashboardBreadcrumbItem[] = [
+      { label: "Dashboard", href: "/dashboard" },
+      { label: "Platform admin", href: "/dashboard/operations" },
+    ];
+    if (segments.length === 2) {
+      breadcrumbs[1] = { label: "Platform admin" };
+      return breadcrumbs;
+    }
+    breadcrumbs.push({ label: platformAdminPages[segments[2]] ?? pageLabel(segments[2]) });
+    return breadcrumbs;
   }
 
   const organizationRoot = `/dashboard/${encodeURIComponent(context.organizationId)}`;
