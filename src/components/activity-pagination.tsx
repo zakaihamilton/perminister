@@ -34,7 +34,7 @@ export function ActivityPagination({
   const pageHref = (targetPage: number) => `${hrefBase}?page=${targetPage}`;
 
   return (
-    <nav className="activity-pagination" aria-label="Historical activity pages">
+    <nav className="activity-pagination" aria-label="Activity history pages">
       <span className="activity-pagination-summary">
         Page {page} of {totalPages}
       </span>

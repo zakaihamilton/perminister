@@ -42,12 +42,12 @@ describe("platform activity pagination controls", () => {
         ],
         emptyMessage: "Platform events will appear here.",
         showPlatformContext: true,
-        title: "Historical activity",
+        title: "Activity history",
         description: "Recent events across Perminister.",
       }),
     );
 
-    expect(markup).toContain("Historical activity");
+    expect(markup).toContain("Activity history");
     expect(markup).toContain("Recent events across Perminister.");
     expect(markup).toContain("Organization: Northstar");
     expect(markup).toContain("User: Member Example (member@example.com)");
@@ -64,7 +64,7 @@ describe("platform activity pagination controls", () => {
       }),
     );
 
-    expect(markup).toContain('aria-label="Historical activity pages"');
+    expect(markup).toContain('aria-label="Activity history pages"');
     expect(markup).toContain("Page 2 of 4");
     expect(markup).toContain('href="/dashboard/operations/activity?page=1"');
     expect(markup).toContain('href="/dashboard/operations/activity?page=3"');

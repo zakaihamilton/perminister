@@ -89,13 +89,13 @@ export function DashboardNavigation({
             href="/dashboard/operations"
             aria-label={
               pendingOrganizationRequestCount
-                ? `Platform operations, ${pendingOrganizationRequestCount} pending organization requests`
-                : "Platform operations"
+                ? `Platform admin, ${pendingOrganizationRequestCount} pending organization requests`
+                : "Platform admin"
             }
             aria-current={activeKey === "operations" ? "page" : undefined}
           >
             <span className="dashboard-nav-mark mark-operations" aria-hidden="true" />
-            <span>Platform operations</span>
+            <span>Platform admin</span>
             {pendingOrganizationRequestCount ? (
               <span className="dashboard-nav-count" aria-hidden="true">
                 {pendingOrganizationRequestCount}
