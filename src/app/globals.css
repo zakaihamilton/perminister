@@ -37,6 +37,9 @@ html {
 
 body {
   margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: var(--paper);
   color: var(--ink);
   font-size: 16px;
@@ -171,7 +174,8 @@ button:focus-visible {
 }
 
 .page-shell {
-  min-height: calc(100vh - 76px);
+  min-height: auto;
+  flex: 1 0 auto;
   overflow: hidden;
 }
 .container {
@@ -1784,7 +1788,7 @@ button:focus-visible {
 }
 .developer-index-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 .developer-index-card {
@@ -2123,6 +2127,9 @@ button:focus-visible {
   .guide-grid {
     grid-template-columns: 1fr;
   }
+  .developer-index-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .summary-panel {
     display: block;
   }
@@ -2167,9 +2174,6 @@ button:focus-visible {
   }
   .header-status {
     display: none;
-  }
-  .page-shell {
-    min-height: calc(100vh - 68px);
   }
   .home-hero {
     grid-template-columns: 1fr;
@@ -2267,8 +2271,7 @@ button:focus-visible {
     width: 100%;
     margin-left: 0;
   }
-  .dashboard-page,
-  .developers-page {
+  .dashboard-page {
     padding: 33px 0 60px;
   }
   .page-heading-row {
@@ -2307,13 +2310,6 @@ button:focus-visible {
     min-height: 0;
     padding: 16px;
   }
-  .developer-hero h1 {
-    font-size: 39px;
-    letter-spacing: -1.9px;
-  }
-  .developer-index-grid {
-    grid-template-columns: 1fr;
-  }
   .guide-grid {
     gap: 12px;
     margin-top: 17px;
@@ -2349,9 +2345,6 @@ button:focus-visible {
   }
   .primary-nav a {
     padding: 6px 2px;
-  }
-  .page-shell {
-    min-height: calc(100vh - 101px);
   }
   .developer-nav {
     display: grid;
@@ -4307,7 +4300,7 @@ h3,
   background: var(--paper);
 }
 .site-header-inner {
-  width: min(1240px, calc(100% - 52px));
+  width: min(1200px, calc(100% - 52px));
   gap: 18px;
 }
 .brand {
@@ -4406,7 +4399,7 @@ summary:focus-visible {
 }
 
 .auth-page-shell {
-  padding: 54px 0 76px;
+  padding: clamp(30px, 4.5vh, 54px) 0 clamp(28px, 5vh, 76px);
 }
 .auth-page {
   width: min(490px, calc(100% - 48px));
@@ -6207,6 +6200,8 @@ button:disabled {
   --blue-pale: #e9f0f9;
   --blue-action: #3867a5;
   --blue-action-hover: #2d527f;
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
   color: var(--ink);
 }
@@ -6226,6 +6221,7 @@ html[data-theme="dark"] .home-page {
   font-size: 14px;
 }
 .home-page-main {
+  flex: 1 0 auto;
   padding-bottom: 1px;
 }
 @keyframes welcome-copy-enter {
@@ -7260,5 +7256,18 @@ html[data-theme="dark"] .access-role-actions code {
   .access-visual-illustration {
     max-width: 160px;
     justify-self: center;
+  }
+}
+
+@media (max-width: 740px) {
+  .developers-page {
+    padding: 33px 0 60px;
+  }
+  .developer-hero h1 {
+    font-size: 39px;
+    letter-spacing: -1.9px;
+  }
+  .developer-index-grid {
+    grid-template-columns: 1fr;
   }
 }
