@@ -75,6 +75,9 @@ const SESSION_COOKIE = "perminister_session";
 const SESSION_LIFETIME_MS = 12 * 60 * 60 * 1000;
 const EMAIL_ACTION_LIFETIME_MS = 30 * 60 * 1000;
 const SCRYPT_OPTIONS = { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
+const SESSION_SUBJECT_CACHE_MAX_ENTRIES = 512;
+
+const sessionSubjectCache = new Map<string, SubjectId>();
 
 let storeSingleton: ReturnType<typeof createSpacesAuthStoreFromEnv> | undefined;
 
@@ -355,6 +358,7 @@ function activityPayload(record: AuthRecord): AuthEvent["payload"] {
     payload.organizationId = record.scope.organizationId;
     payload.productId = record.scope.productId;
     payload.subjectId = record.subjectId;
+    if (record.accessRole?.name) payload.accessRoleName = record.accessRole.name;
   } else if (record.kind === "service-principal") {
     payload.organizationId = record.organizationId;
     payload.productId = record.productId;
@@ -402,6 +406,7 @@ async function persistRecord(
   } else {
     await objectStore.writeRecord(record);
   }
+  invalidateOrganizationDashboardDataCache();
   await appendRecordActivityEvent(record, type, actor, additionalPayload);
 }
 
@@ -869,7 +874,12 @@ export async function getSessionFromToken(
     return null;
   }
   return authMutationQueue.read(async () => {
-    const session = await loadRecord("session", match[1] as SessionId);
+    const sessionId = match[1] as SessionId;
+    const knownSubjectId = sessionSubjectCache.get(sessionId);
+    const [session, knownSubject] = await Promise.all([
+      loadRecord("session", sessionId),
+      knownSubjectId ? loadRecord("subject", knownSubjectId) : Promise.resolve(null),
+    ]);
     if (!session) return null;
     const record = session.record;
     if (
@@ -878,7 +888,10 @@ export async function getSessionFromToken(
       !equalHex(record.verifierDigestHex, hashHex(token))
     )
       return null;
-    const subject = await loadRecord("subject", record.subjectId);
+    const subject =
+      knownSubjectId === record.subjectId
+        ? knownSubject
+        : await loadRecord("subject", record.subjectId);
     if (
       !subject ||
       subject.record.status !== "active" ||
@@ -889,6 +902,7 @@ export async function getSessionFromToken(
             (record.productSessionVersion ?? 1)))
     )
       return null;
+    rememberSessionSubject(sessionId, record.subjectId);
     return { session: record, subject: subject.record };
   });
 }
@@ -978,6 +992,77 @@ export interface OrganizationSummary {
   catalogManager: boolean;
 }
 
+export interface OrganizationDashboardData {
+  organization: OrganizationSummary;
+  organizations: OrganizationSummary[];
+  products: ProductRecord[];
+}
+
+type OrganizationDashboardCacheEntry = {
+  data: OrganizationDashboardData;
+  memberships: OrganizationMembershipRecord[];
+  expiresAt: number;
+};
+
+const ORGANIZATION_DASHBOARD_CACHE_TTL_MS = 30_000;
+const ORGANIZATION_DASHBOARD_CACHE_MAX_ENTRIES = 128;
+const organizationDashboardDataCache = new Map<string, OrganizationDashboardCacheEntry>();
+
+function organizationDashboardCacheKey(subjectId: SubjectId, organizationId: string): string {
+  return JSON.stringify([subjectId, organizationId]);
+}
+
+function getCachedOrganizationDashboardData(
+  subjectId: SubjectId,
+  organizationId: string,
+): OrganizationDashboardCacheEntry | null {
+  const key = organizationDashboardCacheKey(subjectId, organizationId);
+  const entry = organizationDashboardDataCache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    organizationDashboardDataCache.delete(key);
+    return null;
+  }
+  organizationDashboardDataCache.delete(key);
+  organizationDashboardDataCache.set(key, entry);
+  return entry;
+}
+
+function setCachedOrganizationDashboardData(
+  subjectId: SubjectId,
+  organizationId: string,
+  data: OrganizationDashboardData,
+  memberships: OrganizationMembershipRecord[],
+): void {
+  const key = organizationDashboardCacheKey(subjectId, organizationId);
+  if (
+    !organizationDashboardDataCache.has(key) &&
+    organizationDashboardDataCache.size >= ORGANIZATION_DASHBOARD_CACHE_MAX_ENTRIES
+  ) {
+    const oldestKey = organizationDashboardDataCache.keys().next().value;
+    if (oldestKey !== undefined) organizationDashboardDataCache.delete(oldestKey);
+  }
+  organizationDashboardDataCache.delete(key);
+  organizationDashboardDataCache.set(key, {
+    data,
+    memberships,
+    expiresAt: Date.now() + ORGANIZATION_DASHBOARD_CACHE_TTL_MS,
+  });
+}
+
+function invalidateOrganizationDashboardDataCache(): void {
+  organizationDashboardDataCache.clear();
+}
+
+function rememberSessionSubject(sessionId: string, subjectId: SubjectId): void {
+  sessionSubjectCache.delete(sessionId);
+  sessionSubjectCache.set(sessionId, subjectId);
+  if (sessionSubjectCache.size > SESSION_SUBJECT_CACHE_MAX_ENTRIES) {
+    const oldestSessionId = sessionSubjectCache.keys().next().value;
+    if (oldestSessionId !== undefined) sessionSubjectCache.delete(oldestSessionId);
+  }
+}
+
 export interface OrganizationRequestSummary {
   organization: OrganizationRecord;
   status: "pending" | "rejected";
@@ -1028,6 +1113,11 @@ export interface OrganizationActivityEntry {
   details: ActivityDetail[];
 }
 
+export interface OrganizationActivityPageData {
+  role: OrganizationRole;
+  entries: OrganizationActivityEntry[];
+}
+
 export interface PlatformActivityEntry extends OrganizationActivityEntry {
   organization: string;
   user: string | null;
@@ -1044,6 +1134,7 @@ export interface PlatformAuditPage {
 
 const PLATFORM_AUDIT_PAGE_SIZE = 25;
 const PLATFORM_AUDIT_MAX_EVENTS = 100;
+const ACTIVITY_READ_CONCURRENCY = 40;
 
 const ACTIVITY_SUMMARIES: Readonly<Record<string, string>> = {
   "api-key.created": "Created an API key",
@@ -1175,10 +1266,61 @@ function eventAggregateRecordKind(event: AuthEvent): AuthRecordKind | null {
   return event.aggregate.kind === "directory" ? null : event.aggregate.kind;
 }
 
-async function activityAggregateRecord(event: AuthEvent): Promise<AuthRecord | null> {
+async function activityAggregateRecord(
+  event: AuthEvent,
+  productNames: ReadonlyMap<string, string>,
+): Promise<AuthRecord | null> {
   const kind = eventAggregateRecordKind(event);
   if (!kind) return null;
   try {
+    const organizationId = eventPayloadId(event, "organizationId");
+    const subjectId = eventPayloadId(event, "subjectId");
+    switch (event.aggregate.kind) {
+      case "product": {
+        const productId = event.payload.productId;
+        if (organizationId && typeof productId === "string") {
+          if (productNames.has(productId)) return null;
+          return await store().readProduct(organizationId, productId);
+        }
+        break;
+      }
+      case "organization-membership":
+        // The subject is already loaded for the activity row, so the membership record
+        // cannot change its target label when its stable IDs are present in the payload.
+        if (organizationId && subjectId) return null;
+        break;
+      case "membership": {
+        if (typeof event.payload.accessRoleName === "string") return null;
+        const productId = event.payload.productId;
+        if (organizationId && subjectId && typeof productId === "string") {
+          const membership = await store().readOrganizationMembership(
+            organizationId,
+            subjectId as SubjectId,
+            productId,
+          );
+          return (
+            membership?.permissionGrants?.find(
+              (grant) => grant.membershipId === event.aggregate.id,
+            ) ?? null
+          );
+        }
+        break;
+      }
+      case "organization-invitation":
+        if (organizationId) return null;
+        break;
+      case "subject":
+        if (subjectId) return null;
+        break;
+      case "service-principal":
+        return null;
+      case "consumer-authorization-code":
+      case "session":
+      case "email-action":
+        return null;
+      default:
+        break;
+    }
     return (await loadRecord(kind, event.aggregate.id))?.record ?? null;
   } catch {
     return null;
@@ -1190,12 +1332,43 @@ function activityTargetLabel(
   record: AuthRecord | null,
   subjects: ReadonlyMap<string, SubjectRecord>,
   includeSubjectEmails: boolean,
+  servicePrincipalNames: ReadonlyMap<string, string>,
+  productNames: ReadonlyMap<string, string>,
 ): string {
   if (event.type === "product.transferred" && typeof event.payload.productName === "string") {
     return event.payload.productName;
   }
   if (event.aggregate.kind === "organization-invitation" && event.type.startsWith("product.")) {
     return "Product invitation";
+  }
+  if (
+    event.aggregate.kind === "organization-invitation" &&
+    eventPayloadId(event, "organizationId")
+  ) {
+    return typeof event.payload.productId === "string"
+      ? "Product invitation"
+      : "Organization invitation";
+  }
+  if (event.aggregate.kind === "organization-membership") {
+    const subjectId = eventPayloadId(event, "subjectId");
+    if (subjectId) return activitySubjectLabel(subjectId, subjects, includeSubjectEmails);
+  }
+  if (event.aggregate.kind === "membership" && typeof event.payload.accessRoleName === "string") {
+    return `${event.payload.accessRoleName} permission grant`;
+  }
+  if (event.aggregate.kind === "subject") {
+    const subjectId = eventPayloadId(event, "subjectId");
+    if (subjectId) return activitySubjectLabel(subjectId, subjects, includeSubjectEmails);
+  }
+  if (event.aggregate.kind === "service-principal") {
+    return servicePrincipalNames.get(event.aggregate.id) ?? "Service Principal";
+  }
+  if (event.aggregate.kind === "consumer-authorization-code") return "Authorization code";
+  if (event.aggregate.kind === "session") return "Session";
+  if (event.aggregate.kind === "email-action") return "Email action";
+  if (event.aggregate.kind === "product" && typeof event.payload.productId === "string") {
+    const productName = productNames.get(event.payload.productId);
+    if (productName) return productName;
   }
   if (record) {
     switch (record.kind) {
@@ -1284,11 +1457,17 @@ function activityDetails(event: AuthEvent): ActivityDetail[] {
 async function organizationActivityEntries(
   events: readonly AuthEvent[],
   includeSubjectEmails = false,
+  productNames: ReadonlyMap<string, string> = new Map(),
+  knownSubjects: readonly SubjectRecord[] = [],
 ): Promise<OrganizationActivityEntry[]> {
-  const aggregateRecords = await mapWithConcurrency(events, activityAggregateRecord);
-  const aggregateRecordByEvent = new Map(
-    events.map((event, index) => [event.eventId, aggregateRecords[index]]),
-  );
+  const aggregateReferences = new Map<string, AuthEvent>();
+  for (const event of events) {
+    const kind = eventAggregateRecordKind(event);
+    if (!kind) continue;
+    const key = JSON.stringify([kind, event.aggregate.id]);
+    if (!aggregateReferences.has(key)) aggregateReferences.set(key, event);
+  }
+  const aggregateReferenceEntries = [...aggregateReferences.entries()];
   const subjectIds = new Set<string>();
   const servicePrincipalIds = new Set<string>();
   for (const event of events) {
@@ -1296,43 +1475,90 @@ async function organizationActivityEntries(
     if (subjectId) subjectIds.add(subjectId);
     if (event.actor.kind === "subject") subjectIds.add(event.actor.subjectId);
     if (event.actor.kind === "service") servicePrincipalIds.add(event.actor.servicePrincipalId);
-    const record = aggregateRecordByEvent.get(event.eventId);
-    if (!record) continue;
-    if (record.kind === "organization-membership" || record.kind === "membership") {
-      subjectIds.add(record.subjectId);
-    } else if (record.kind === "subject") {
-      subjectIds.add(record.subjectId);
+    if (event.aggregate.kind === "service-principal") {
+      servicePrincipalIds.add(event.aggregate.id);
     }
   }
 
-  const [subjects, servicePrincipals] = await Promise.all([
-    mapWithConcurrency([...subjectIds], async (subjectId) => {
-      try {
-        const subject = await loadRecord("subject", subjectId);
-        return { id: subjectId, record: subject?.record ?? null };
-      } catch {
-        return { id: subjectId, record: null };
-      }
-    }),
-    mapWithConcurrency([...servicePrincipalIds], async (servicePrincipalId) => {
-      try {
-        const principal = await loadRecord("service-principal", servicePrincipalId);
-        return { id: servicePrincipalId, name: principal?.record.name ?? null };
-      } catch {
-        return { id: servicePrincipalId, name: null };
-      }
-    }),
-  ]);
   const subjectRecords = new Map<string, SubjectRecord>();
+  for (const subject of knownSubjects) subjectRecords.set(subject.subjectId, subject);
+  const servicePrincipalNames = new Map<string, string>();
+  const aggregateRecordsPromise = mapWithConcurrency(
+    aggregateReferenceEntries.map(([, event]) => event),
+    (event) => activityAggregateRecord(event, productNames),
+    ACTIVITY_READ_CONCURRENCY,
+  );
+  const [aggregateRecords, subjects, servicePrincipals] = await Promise.all([
+    aggregateRecordsPromise,
+    mapWithConcurrency(
+      [...subjectIds].filter((subjectId) => !subjectRecords.has(subjectId)),
+      async (subjectId) => {
+        try {
+          const subject = await loadRecord("subject", subjectId);
+          return { id: subjectId, record: subject?.record ?? null };
+        } catch {
+          return { id: subjectId, record: null };
+        }
+      },
+      ACTIVITY_READ_CONCURRENCY,
+    ),
+    mapWithConcurrency(
+      [...servicePrincipalIds],
+      async (servicePrincipalId) => {
+        try {
+          const principal = await loadRecord("service-principal", servicePrincipalId);
+          return { id: servicePrincipalId, name: principal?.record.name ?? null };
+        } catch {
+          return { id: servicePrincipalId, name: null };
+        }
+      },
+      ACTIVITY_READ_CONCURRENCY,
+    ),
+  ]);
+  const aggregateRecordByKey = new Map(
+    aggregateReferenceEntries.map(([key], index) => [key, aggregateRecords[index]]),
+  );
+  const aggregateRecordForEvent = (event: AuthEvent): AuthRecord | null => {
+    const kind = eventAggregateRecordKind(event);
+    if (!kind) return null;
+    return aggregateRecordByKey.get(JSON.stringify([kind, event.aggregate.id])) ?? null;
+  };
   for (const subject of subjects) {
     if (subject.record) subjectRecords.set(subject.id, subject.record);
   }
-  const servicePrincipalNames = new Map<string, string>();
   for (const principal of servicePrincipals) {
     if (principal.name) servicePrincipalNames.set(principal.id, principal.name);
   }
-
-  return events.map((event) => {
+  for (const record of aggregateRecords) {
+    if (record?.kind === "organization-membership" || record?.kind === "membership") {
+      subjectIds.add(record.subjectId);
+    } else if (record?.kind === "subject") {
+      subjectRecords.set(record.subjectId, record);
+    } else if (record?.kind === "service-principal") {
+      servicePrincipalNames.set(record.servicePrincipalId, record.name);
+    }
+  }
+  const additionalSubjectIds = [...subjectIds].filter(
+    (subjectId) => !subjectRecords.has(subjectId),
+  );
+  if (additionalSubjectIds.length > 0) {
+    const additionalSubjects = await mapWithConcurrency(
+      additionalSubjectIds,
+      async (subjectId) => {
+        try {
+          const subject = await loadRecord("subject", subjectId);
+          return { id: subjectId, record: subject?.record ?? null };
+        } catch {
+          return { id: subjectId, record: null };
+        }
+      },
+      ACTIVITY_READ_CONCURRENCY,
+    );
+    for (const subject of additionalSubjects) {
+      if (subject.record) subjectRecords.set(subject.id, subject.record);
+    }
+  }
+  const entries = events.map((event) => {
     const actor =
       event.actor.kind === "subject"
         ? activitySubjectLabel(event.actor.subjectId, subjectRecords, includeSubjectEmails)
@@ -1340,14 +1566,21 @@ async function organizationActivityEntries(
           ? (servicePrincipalNames.get(event.actor.servicePrincipalId) ?? "Service integration")
           : "System";
     const subjectId = activitySubjectId(event);
-    const record = aggregateRecordByEvent.get(event.eventId) ?? null;
+    const record = aggregateRecordForEvent(event);
     return {
       eventId: event.eventId,
       type: event.type,
       summary: activitySummary(event.type),
       occurredAt: event.occurredAt,
       actor,
-      target: activityTargetLabel(event, record, subjectRecords, includeSubjectEmails),
+      target: activityTargetLabel(
+        event,
+        record,
+        subjectRecords,
+        includeSubjectEmails,
+        servicePrincipalNames,
+        productNames,
+      ),
       affectedUser: subjectId
         ? activitySubjectLabel(subjectId, subjectRecords, includeSubjectEmails)
         : null,
@@ -1355,6 +1588,7 @@ async function organizationActivityEntries(
       details: activityDetails(event),
     };
   });
+  return entries;
 }
 
 async function platformActivityEntries(
@@ -1369,14 +1603,18 @@ async function platformActivityEntries(
   }
 
   const [organizations, entries] = await Promise.all([
-    mapWithConcurrency([...organizationIds], async (organizationId) => {
-      try {
-        const organization = await loadRecord("organization", organizationId);
-        return { id: organizationId, name: organization?.record.name ?? null };
-      } catch {
-        return { id: organizationId, name: null };
-      }
-    }),
+    mapWithConcurrency(
+      [...organizationIds],
+      async (organizationId) => {
+        try {
+          const organization = await loadRecord("organization", organizationId);
+          return { id: organizationId, name: organization?.record.name ?? null };
+        } catch {
+          return { id: organizationId, name: null };
+        }
+      },
+      ACTIVITY_READ_CONCURRENCY,
+    ),
     organizationActivityEntries(events, true),
   ]);
   const organizationNames = new Map<string, string>();
@@ -1471,11 +1709,13 @@ async function requireOrganizationRoleUnlocked(
   roles: readonly OrganizationRole[],
 ): Promise<OrganizationMembershipRecord> {
   assertOpaqueId(organizationId);
-  const actor = await loadSubjectUnlocked(actorId);
+  const [actor, organization, membership] = await Promise.all([
+    loadSubjectUnlocked(actorId),
+    loadApprovedOrganizationUnlocked(organizationId),
+    organizationMembershipUnlocked(organizationId, actorId),
+  ]);
   requireVerifiedActiveSubject(actor);
-  const organization = await loadApprovedOrganizationUnlocked(organizationId);
   if (!organization) throw new Error("Organization not found.");
-  const membership = await organizationMembershipUnlocked(organizationId, actorId);
   if (!membership || !roles.includes(membership.role)) {
     throw new Error("You do not have permission to manage this organization.");
   }
@@ -1601,7 +1841,7 @@ async function pendingOrganizationsForAdministratorUnlocked(
 export async function countPendingOrganizationsForAdministrator(
   actorId: SubjectId,
 ): Promise<number> {
-  return authMutationQueue.run(async () => {
+  return authMutationQueue.read(async () => {
     const organizations = await pendingOrganizationsForAdministratorUnlocked(actorId);
     return organizations.length;
   });
@@ -2875,6 +3115,7 @@ async function transferPublicProduct(
       };
 
       await store().writeRecord(pendingDestinationProduct);
+      invalidateOrganizationDashboardDataCache();
 
       for (const installation of installations) {
         const reference = installation.sharedProductRef;
@@ -2917,6 +3158,7 @@ async function transferPublicProduct(
         },
       );
       await store().writeRecord(destinationProduct);
+      invalidateOrganizationDashboardDataCache();
       await appendRecordActivityEvent(
         sourcePrivateProduct,
         "product.transferred",
@@ -3288,6 +3530,143 @@ export const listProductsForOrganization = cache(async function listProductsForO
   });
 });
 
+export const getOrganizationDashboardData = cache(async function getOrganizationDashboardData(
+  subjectId: SubjectId,
+  organizationId: string,
+): Promise<OrganizationDashboardData> {
+  return authMutationQueue.read(async () => {
+    assertOpaqueId(organizationId);
+    const cached = getCachedOrganizationDashboardData(subjectId, organizationId);
+    if (cached) {
+      const [organizationRecord, catalogMembershipRecord] = await Promise.all([
+        loadRecord("organization", organizationId),
+        store().readOrganizationMembership(organizationId, subjectId),
+      ]);
+      const organization = organizationRecord?.record;
+      if (!organization || organizationApprovalStatus(organization) !== "approved") {
+        throw new Error("Organization not found.");
+      }
+      const catalogMembership =
+        catalogMembershipRecord?.status === "active" ? catalogMembershipRecord : null;
+      const productMembership = cached.memberships.find(
+        (membership) =>
+          membership.organizationId === organizationId &&
+          !!membership.productId &&
+          membership.status === "active",
+      );
+      if (!catalogMembership && !productMembership) throw new Error("Organization not found.");
+      const currentMembership = catalogMembership ?? {
+        ...productMembership!,
+        role: "member" as const,
+        productId: undefined,
+        permissionGrants: undefined,
+      };
+      const organizationSummary = {
+        organization,
+        membership: currentMembership,
+        catalogManager: !!catalogMembership,
+      } satisfies OrganizationSummary;
+      const data: OrganizationDashboardData = {
+        ...cached.data,
+        organization: organizationSummary,
+        organizations: cached.data.organizations.map((summary) =>
+          summary.organization.organizationId === organizationId ? organizationSummary : summary,
+        ),
+      };
+      return data;
+    }
+
+    const [organizationRecord, catalogMembershipRecord, memberships, allProducts] =
+      await Promise.all([
+        loadRecord("organization", organizationId),
+        store().readOrganizationMembership(organizationId, subjectId),
+        store().listMembershipsForSubject(subjectId),
+        store().listProducts(organizationId),
+      ]);
+    const organization = organizationRecord?.record;
+    if (!organization || organizationApprovalStatus(organization) !== "approved") {
+      throw new Error("Organization not found.");
+    }
+
+    const catalogMembership =
+      catalogMembershipRecord?.status === "active" ? catalogMembershipRecord : null;
+    const activeMemberships = memberships.filter((membership) => membership.status === "active");
+    const productMembership = activeMemberships.find(
+      (membership) => membership.organizationId === organizationId && !!membership.productId,
+    );
+    if (!catalogMembership && !productMembership) throw new Error("Organization not found.");
+    const currentMembership = catalogMembership ?? {
+      ...productMembership!,
+      role: "member" as const,
+      productId: undefined,
+      permissionGrants: undefined,
+    };
+
+    const membershipsByOrganization = new Map<string, OrganizationMembershipRecord[]>();
+    for (const membership of activeMemberships) {
+      const entries = membershipsByOrganization.get(membership.organizationId) ?? [];
+      entries.push(membership);
+      membershipsByOrganization.set(membership.organizationId, entries);
+    }
+    const organizationSummaries = await mapWithConcurrency<
+      [string, OrganizationMembershipRecord[]],
+      OrganizationSummary | null
+    >([...membershipsByOrganization.entries()], async ([memberOrganizationId, entries]) => {
+      const record =
+        memberOrganizationId === organizationId
+          ? organizationRecord
+          : await loadRecord("organization", memberOrganizationId);
+      if (!record || organizationApprovalStatus(record.record) !== "approved") return null;
+      const organizationCatalogMembership = entries.find((membership) => !membership.productId);
+      const organizationProductMembership = entries.find((membership) => !!membership.productId);
+      if (organizationCatalogMembership) {
+        return {
+          organization: record.record,
+          membership: organizationCatalogMembership,
+          catalogManager: true,
+        } satisfies OrganizationSummary;
+      }
+      if (!organizationProductMembership) return null;
+      return {
+        organization: record.record,
+        membership: {
+          ...organizationProductMembership,
+          role: "member",
+          productId: undefined,
+          permissionGrants: undefined,
+        },
+        catalogManager: false,
+      } satisfies OrganizationSummary;
+    });
+
+    const allowedProductIds = new Set(
+      activeMemberships
+        .filter(
+          (membership) => membership.organizationId === organizationId && membership.productId,
+        )
+        .map((membership) => membership.productId!),
+    );
+    if (!catalogMembership && allowedProductIds.size === 0) {
+      throw new Error("Organization not found.");
+    }
+    const data: OrganizationDashboardData = {
+      organization: {
+        organization,
+        membership: currentMembership,
+        catalogManager: !!catalogMembership,
+      },
+      organizations: organizationSummaries
+        .filter((summary): summary is OrganizationSummary => summary !== null)
+        .sort((left, right) => left.organization.name.localeCompare(right.organization.name)),
+      products: allProducts
+        .filter((product) => !!catalogMembership || allowedProductIds.has(product.productId))
+        .sort((left, right) => left.name.localeCompare(right.name)),
+    };
+    setCachedOrganizationDashboardData(subjectId, organizationId, data, memberships);
+    return data;
+  });
+});
+
 export async function getProductForOrganization(
   subjectId: SubjectId,
   organizationId: string,
@@ -3341,13 +3720,14 @@ async function requireProductRoleUnlocked(
   roles: readonly OrganizationRole[],
 ): Promise<OrganizationMembershipRecord> {
   assertOpaqueId(organizationId);
-  const actor = await loadSubjectUnlocked(actorId);
+  const [actor, organization, product, membership] = await Promise.all([
+    loadSubjectUnlocked(actorId),
+    loadApprovedOrganizationUnlocked(organizationId),
+    store().readProduct(organizationId, productId),
+    store().readOrganizationMembership(organizationId, actorId, productId),
+  ]);
   requireVerifiedActiveSubject(actor);
-  if (!(await loadApprovedOrganizationUnlocked(organizationId)))
-    throw new Error("Product not found.");
-  if (!(await store().readProduct(organizationId, productId)))
-    throw new Error("Product not found.");
-  const membership = await store().readOrganizationMembership(organizationId, actorId, productId);
+  if (!organization || !product) throw new Error("Product not found.");
   if (!membership || membership.status !== "active" || !roles.includes(membership.role)) {
     throw new Error("You do not have permission to manage this product.");
   }
@@ -5788,11 +6168,50 @@ export async function listOrganizationAudit(
   subjectId: SubjectId,
   organizationId: string,
 ): Promise<OrganizationActivityEntry[]> {
-  return authMutationQueue.run(async () => {
+  return authMutationQueue.read(async () => {
     await requireOrganizationRoleUnlocked(subjectId, organizationId, ["owner", "admin"]);
     return organizationActivityEntries(
-      (await store().listOrganizationEvents(organizationId)).slice(0, 100),
+      (await store().listOrganizationEvents(organizationId, undefined, 100)).slice(0, 100),
     );
+  });
+}
+
+export async function getOrganizationActivityPageData(
+  actor: SubjectRecord,
+  organizationId: string,
+): Promise<OrganizationActivityPageData> {
+  return authMutationQueue.read(async () => {
+    assertOpaqueId(organizationId);
+    const subjectId = actor.subjectId;
+    const [organization, membership] = await Promise.all([
+      loadApprovedOrganizationUnlocked(organizationId),
+      organizationMembershipUnlocked(organizationId, subjectId),
+    ]);
+    requireVerifiedActiveSubject(actor);
+    if (!organization) throw new Error("Organization not found.");
+
+    const productMembership = membership
+      ? null
+      : (await store().listMembershipsForSubject(subjectId)).find(
+          (item) =>
+            item.organizationId === organizationId && !!item.productId && item.status === "active",
+        );
+    const role = membership?.role ?? (productMembership ? "member" : null);
+    if (!role) throw new Error("Organization not found.");
+    if (role === "member") return { role, entries: [] };
+
+    const [dashboardData, events] = await Promise.all([
+      getOrganizationDashboardData(subjectId, organizationId),
+      store()
+        .listOrganizationEvents(organizationId, undefined, 100)
+        .then((records) => records.slice(0, 100)),
+    ]);
+
+    const productNames = new Map(
+      dashboardData.products.map((product) => [product.productId, product.name]),
+    );
+    const entries = await organizationActivityEntries(events, false, productNames, [actor]);
+    return { role, entries };
   });
 }
 
@@ -5801,14 +6220,14 @@ export async function listProductAudit(
   organizationId: string,
   productId: string,
 ): Promise<OrganizationActivityEntry[]> {
-  return authMutationQueue.run(async () => {
+  return authMutationQueue.read(async () => {
     await requireProductRoleUnlocked(subjectId, organizationId, productId, [
       "owner",
       "admin",
       "member",
     ]);
     return organizationActivityEntries(
-      (await store().listOrganizationEvents(organizationId, productId)).slice(0, 100),
+      (await store().listOrganizationEvents(organizationId, productId, 100)).slice(0, 100),
     );
   });
 }
@@ -5817,9 +6236,14 @@ export async function listPlatformAudit(
   actorId: SubjectId,
   requestedPage = 1,
 ): Promise<PlatformAuditPage> {
-  return authMutationQueue.run(async () => {
+  return authMutationQueue.read(async () => {
     await requireAdministrator(actorId);
-    const events = (await store().listAllEvents()).slice(0, PLATFORM_AUDIT_MAX_EVENTS);
+    const activityStore = store();
+    const events = (
+      typeof activityStore.listRecentEvents === "function"
+        ? await activityStore.listRecentEvents(PLATFORM_AUDIT_MAX_EVENTS)
+        : await activityStore.listAllEvents()
+    ).slice(0, PLATFORM_AUDIT_MAX_EVENTS);
     const totalItems = events.length;
     const totalPages = Math.ceil(totalItems / PLATFORM_AUDIT_PAGE_SIZE);
     const validPage = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;

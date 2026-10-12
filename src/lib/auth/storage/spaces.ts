@@ -27,6 +27,49 @@ const OBJECT_ROOT = "";
 const OBJECT_PREFIX = OBJECT_ROOT ? `${OBJECT_ROOT}/` : "";
 const INDEX_ROOT = `${OBJECT_PREFIX}indexes`;
 const ID_INDEX_ROOT = `${INDEX_ROOT}/by-id`;
+const ACTIVITY_READ_CONCURRENCY = 40;
+const RECENT_ACTIVITY_CACHE_LIMIT = 100;
+const RECENT_ACTIVITY_CACHE_TTL_MS = 30_000;
+const RECENT_ACTIVITY_CACHE_MAX_ENTRIES = 128;
+
+type RecentActivityCacheEntry = {
+  events: AuthEvent[];
+  expiresAt: number;
+};
+
+const recentActivityCache = new Map<string, RecentActivityCacheEntry>();
+const recentActivityReads = new Map<string, Promise<AuthEvent[]>>();
+
+function recentActivityCacheKey(organizationId: string, productId?: string): string {
+  return JSON.stringify([organizationId, productId ?? null]);
+}
+
+function getRecentActivityCache(key: string): RecentActivityCacheEntry | null {
+  const entry = recentActivityCache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    recentActivityCache.delete(key);
+    return null;
+  }
+  recentActivityCache.delete(key);
+  recentActivityCache.set(key, entry);
+  return entry;
+}
+
+function setRecentActivityCache(key: string, events: AuthEvent[]): void {
+  if (
+    !recentActivityCache.has(key) &&
+    recentActivityCache.size >= RECENT_ACTIVITY_CACHE_MAX_ENTRIES
+  ) {
+    const oldestKey = recentActivityCache.keys().next().value;
+    if (oldestKey !== undefined) recentActivityCache.delete(oldestKey);
+  }
+  recentActivityCache.delete(key);
+  recentActivityCache.set(key, {
+    events,
+    expiresAt: Date.now() + RECENT_ACTIVITY_CACHE_TTL_MS,
+  });
+}
 
 export interface VersionedRecord<RecordType extends AuthRecord = AuthRecord> {
   /** Compatibility shape for service callers; Spaces stores the record itself, not this envelope. */
@@ -290,20 +333,51 @@ export class SpacesAuthStore {
     assertOpaqueId(subjectId);
     const prefix = `${INDEX_ROOT}/by-subject/${subjectId}/products/`;
     const keys = await this.listKeys(prefix);
-    const pointers = (
-      await mapWithConcurrency(keys, async (pointerKey) =>
-        this.readJson<{ key?: unknown }>(pointerKey),
-      )
-    ).flatMap((pointer) => (typeof pointer?.key === "string" ? [pointer.key] : []));
-    const memberships = await mapWithConcurrency(pointers, async (key) => {
-      const value = await this.readJson<unknown>(key);
-      if (value === null) return null;
-      const record = this.unwrapRecord(value);
-      return isAuthRecord(record, "organization-membership") &&
-        (record as OrganizationMembershipRecord).subjectId === subjectId
-        ? (record as OrganizationMembershipRecord)
-        : null;
+    const membershipKeys = keys.flatMap((pointerKey) => {
+      const relativeKey = pointerKey.slice(prefix.length);
+      const separator = relativeKey.indexOf("/");
+      if (
+        separator <= 0 ||
+        relativeKey.indexOf("/", separator + 1) !== -1 ||
+        !relativeKey.endsWith(".json")
+      ) {
+        return [];
+      }
+      const organizationId = relativeKey.slice(0, separator);
+      const productPart = relativeKey.slice(separator + 1).replace(/\.json$/, "");
+      if (!productPart) return [];
+      try {
+        assertOpaqueId(organizationId);
+        if (productPart !== "_catalog") safeSegment(productPart);
+      } catch {
+        return [];
+      }
+      return [
+        {
+          organizationId,
+          productPart,
+          key:
+            productPart === "_catalog"
+              ? `${OBJECT_PREFIX}orgs/${organizationId}/catalog-managers/${subjectId}.json`
+              : `${OBJECT_PREFIX}orgs/${organizationId}/products/${productPart}/members/${subjectId}.json`,
+        },
+      ];
     });
+    const memberships = await mapWithConcurrency(
+      membershipKeys,
+      async ({ key, organizationId, productPart }) => {
+        const value = await this.readJson<unknown>(key);
+        if (value === null) return null;
+        const record = this.unwrapRecord(value);
+        if (!isAuthRecord(record, "organization-membership")) return null;
+        const membership = record as OrganizationMembershipRecord;
+        return membership.organizationId === organizationId &&
+          membership.subjectId === subjectId &&
+          (membership.productId ?? "_catalog") === productPart
+          ? membership
+          : null;
+      },
+    );
     return memberships.filter(
       (membership): membership is OrganizationMembershipRecord => membership !== null,
     );
@@ -381,7 +455,9 @@ export class SpacesAuthStore {
       const record = this.unwrapRecord(raw);
       if (!isAuthRecord(record, "product")) return null;
       const local = record as ProductRecord;
-      return this.readProduct(organizationId, local.productId);
+      const keyProductId = key.slice(prefix.length, -"/product.json".length);
+      if (local.organizationId !== organizationId || local.productId !== keyProductId) return null;
+      return local.sharedProductRef ? this.readProduct(organizationId, local.productId) : local;
     });
     return products.filter((product): product is ProductRecord => product !== null);
   }
@@ -519,6 +595,10 @@ export class SpacesAuthStore {
         { key },
       );
     }
+    if (organizationId) {
+      this.updateRecentActivityCache(organizationId, undefined, event);
+      if (productId) this.updateRecentActivityCache(organizationId, productId, event);
+    }
   }
 
   async readEvent(aggregate: AuthEvent["aggregate"], eventId: EventId): Promise<AuthEvent | null> {
@@ -538,25 +618,73 @@ export class SpacesAuthStore {
     return this.readEventsFromPointers(prefix);
   }
 
-  async listOrganizationEvents(organizationId: string, productId?: string): Promise<AuthEvent[]> {
+  async listOrganizationEvents(
+    organizationId: string,
+    productId?: string,
+    limit?: number,
+  ): Promise<AuthEvent[]> {
     assertOpaqueId(organizationId);
     const prefix = productId
       ? `${OBJECT_PREFIX}activity/by-product/${organizationId}/${safeSegment(productId)}/`
       : `${OBJECT_PREFIX}activity/by-organization/${organizationId}/`;
-    return this.readEventsFromPointers(prefix);
+    const maxEvents =
+      limit === undefined ? null : Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 0;
+    if (maxEvents === null || maxEvents > RECENT_ACTIVITY_CACHE_LIMIT) {
+      return this.readEventsFromPointers(prefix, maxEvents ?? undefined);
+    }
+    if (maxEvents === 0) return [];
+
+    const cacheKey = recentActivityCacheKey(organizationId, productId);
+    const cached = getRecentActivityCache(cacheKey);
+    if (cached) {
+      return cached.events.slice(0, maxEvents);
+    }
+
+    const pendingRead = recentActivityReads.get(cacheKey);
+    if (pendingRead) return (await pendingRead).slice(0, maxEvents);
+
+    const read = this.readEventsFromPointers(prefix, RECENT_ACTIVITY_CACHE_LIMIT).then((events) => {
+      setRecentActivityCache(cacheKey, events);
+      return events;
+    });
+    recentActivityReads.set(cacheKey, read);
+    try {
+      return (await read).slice(0, maxEvents);
+    } finally {
+      if (recentActivityReads.get(cacheKey) === read) recentActivityReads.delete(cacheKey);
+    }
   }
 
   async listAllEvents(): Promise<AuthEvent[]> {
     const keys = await this.listKeys(`${OBJECT_PREFIX}activity/events/`);
-    const events: AuthEvent[] = [];
-    for (const key of keys) {
+    const events = await mapWithConcurrency(keys, async (key) => {
       const event = await this.readJson<AuthEvent>(key);
-      if (event === null) continue;
+      if (event === null) return null;
       this.validateEvent(event);
       assertNoPlaintextSecrets(event);
-      events.push(event);
-    }
-    return this.sortEvents(events);
+      return event;
+    });
+    return this.sortEvents(events.filter((event): event is AuthEvent => event !== null));
+  }
+
+  async listRecentEvents(limit: number): Promise<AuthEvent[]> {
+    const maxEvents = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 0;
+    if (maxEvents === 0) return [];
+
+    const keys = await this.listKeys(`${OBJECT_PREFIX}activity/events/`);
+    const recentKeys = keys.sort().slice(-maxEvents);
+    const events = await mapWithConcurrency(
+      recentKeys,
+      async (key) => {
+        const event = await this.readJson<AuthEvent>(key);
+        if (event === null) return null;
+        this.validateEvent(event);
+        assertNoPlaintextSecrets(event);
+        return event;
+      },
+      ACTIVITY_READ_CONCURRENCY,
+    );
+    return this.sortEvents(events.filter((event): event is AuthEvent => event !== null));
   }
 
   async listRecords<Kind extends AuthRecordKind>(
@@ -658,19 +786,76 @@ export class SpacesAuthStore {
     if (!event.type || event.type.length > 100) throw new Error("Invalid activity event type");
   }
 
-  private async readEventsFromPointers(prefix: string): Promise<AuthEvent[]> {
+  private async readEventsFromPointers(prefix: string, limit?: number): Promise<AuthEvent[]> {
     const pointers = await this.listKeys(prefix);
-    const events: AuthEvent[] = [];
-    for (const pointerKey of pointers) {
-      const pointer = await this.readJson<{ key?: unknown }>(pointerKey);
-      if (typeof pointer?.key !== "string") continue;
-      const event = await this.readJson<AuthEvent>(pointer.key);
-      if (event) {
-        this.validateEvent(event);
-        events.push(event);
-      }
+    const maxEvents =
+      limit === undefined ? null : Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 0;
+    if (maxEvents === 0) return [];
+    if (maxEvents === null || pointers.length <= maxEvents) {
+      return this.readEventsFromPointerKeys(pointers);
     }
-    return this.sortEvents(events);
+
+    const pointersByDate = new Map<string, string[]>();
+    for (const pointerKey of pointers) {
+      const date = pointerKey.slice(prefix.length).split("/", 1)[0] ?? "";
+      const datePointers = pointersByDate.get(date) ?? [];
+      datePointers.push(pointerKey);
+      pointersByDate.set(date, datePointers);
+    }
+    const dateGroups = [...pointersByDate.entries()]
+      .sort(([left], [right]) => right.localeCompare(left))
+      .map(([, datePointers]) => datePointers);
+    const recentEvents: AuthEvent[] = [];
+    let nextDateGroup = 0;
+
+    while (nextDateGroup < dateGroups.length && recentEvents.length < maxEvents) {
+      const remaining = maxEvents - recentEvents.length;
+      const candidatePointers: string[] = [];
+      while (nextDateGroup < dateGroups.length && candidatePointers.length < remaining) {
+        candidatePointers.push(...dateGroups[nextDateGroup]!);
+        nextDateGroup += 1;
+      }
+      recentEvents.push(...(await this.readEventsFromPointerKeys(candidatePointers)));
+    }
+
+    return this.sortEvents(recentEvents).slice(0, maxEvents);
+  }
+
+  private async readEventsFromPointerKeys(pointers: readonly string[]): Promise<AuthEvent[]> {
+    const pointerValues = await mapWithConcurrency(
+      pointers,
+      (pointerKey) => this.readJson<{ key?: unknown }>(pointerKey),
+      ACTIVITY_READ_CONCURRENCY,
+    );
+    const eventKeys = pointerValues.flatMap((pointer) =>
+      typeof pointer?.key === "string" ? [pointer.key] : [],
+    );
+    const events = await mapWithConcurrency(
+      eventKeys,
+      async (key) => {
+        const event = await this.readJson<AuthEvent>(key);
+        if (!event) return null;
+        this.validateEvent(event);
+        return event;
+      },
+      ACTIVITY_READ_CONCURRENCY,
+    );
+    return this.sortEvents(events.filter((event): event is AuthEvent => event !== null));
+  }
+
+  private updateRecentActivityCache(
+    organizationId: string,
+    productId: string | undefined,
+    event: AuthEvent,
+  ): void {
+    const cacheKey = recentActivityCacheKey(organizationId, productId);
+    const cached = getRecentActivityCache(cacheKey);
+    if (!cached || cached.events.some((cachedEvent) => cachedEvent.eventId === event.eventId))
+      return;
+    setRecentActivityCache(
+      cacheKey,
+      this.sortEvents([...cached.events, event]).slice(0, RECENT_ACTIVITY_CACHE_LIMIT),
+    );
   }
 
   private sortEvents(events: AuthEvent[]): AuthEvent[] {

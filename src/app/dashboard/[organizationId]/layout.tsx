@@ -3,11 +3,8 @@ import type { ReactNode } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import {
   getCurrentSession,
-  getOrganizationForSubject,
+  getOrganizationDashboardData,
   isAdministrator,
-  countPendingOrganizationsForAdministrator,
-  listProductsForOrganization,
-  listOrganizationsForSubject,
 } from "@/lib/auth/service";
 
 export default async function OrganizationDashboardLayout({
@@ -20,29 +17,14 @@ export default async function OrganizationDashboardLayout({
   const current = await getCurrentSession();
   if (!current) redirect("/login");
   const { organizationId } = await params;
-  let organization: Awaited<ReturnType<typeof getOrganizationForSubject>>;
-  let organizations: Awaited<ReturnType<typeof listOrganizationsForSubject>>;
-  let products: Awaited<ReturnType<typeof listProductsForOrganization>>;
+  const isPlatformAdministrator = isAdministrator(current.subject);
+  let dashboardData: Awaited<ReturnType<typeof getOrganizationDashboardData>>;
   try {
-    [organization, organizations, products] = await Promise.all([
-      getOrganizationForSubject(current.subject.subjectId, organizationId),
-      listOrganizationsForSubject(current.subject.subjectId),
-      listProductsForOrganization(current.subject.subjectId, organizationId),
-    ]);
+    dashboardData = await getOrganizationDashboardData(current.subject.subjectId, organizationId);
   } catch {
     redirect("/dashboard");
   }
-  const isPlatformAdministrator = isAdministrator(current.subject);
-  let pendingOrganizationRequestCount: number | null = null;
-  if (isPlatformAdministrator) {
-    try {
-      pendingOrganizationRequestCount = await countPendingOrganizationsForAdministrator(
-        current.subject.subjectId,
-      );
-    } catch {
-      pendingOrganizationRequestCount = null;
-    }
-  }
+  const { organization, organizations, products } = dashboardData;
 
   return (
     <DashboardShell
@@ -52,7 +34,7 @@ export default async function OrganizationDashboardLayout({
       organizations={organizations}
       role={organization.membership.role}
       isPlatformAdministrator={isPlatformAdministrator}
-      pendingOrganizationRequestCount={pendingOrganizationRequestCount}
+      pendingOrganizationRequestCount={null}
       email={current.subject.primaryEmail}
       firstName={current.subject.firstName ?? null}
       lastName={current.subject.lastName ?? null}
