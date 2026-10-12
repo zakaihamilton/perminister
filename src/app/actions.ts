@@ -532,7 +532,7 @@ export async function reviewOrganizationRequestAction(formData: FormData): Promi
   if (!isAdministrator(current.subject)) redirect("/dashboard?notice=admin-required");
   const approvalStatus = firstValue(formData, "approvalStatus");
   if (approvalStatus !== "approved" && approvalStatus !== "rejected") {
-    redirect("/dashboard/operations?error=organization-review");
+    redirect("/dashboard/operations/organization-requests?error=organization-review");
   }
   try {
     await decideOrganizationRequest(
@@ -541,10 +541,10 @@ export async function reviewOrganizationRequestAction(formData: FormData): Promi
       approvalStatus,
     );
   } catch {
-    redirect("/dashboard/operations?error=organization-review");
+    redirect("/dashboard/operations/organization-requests?error=organization-review");
   }
   revalidatePath("/dashboard", "layout");
-  redirect(`/dashboard/operations?notice=organization-${approvalStatus}`);
+  redirect(`/dashboard/operations/organization-requests?notice=organization-${approvalStatus}`);
 }
 
 export async function createOrganizationProductAction(formData: FormData): Promise<void> {
@@ -628,17 +628,17 @@ export async function transferPublicProductAction(formData: FormData): Promise<v
     );
   } catch (error) {
     const message = encodeURIComponent(publicActionError(error));
-    redirect(`/dashboard/operations?error=product-transfer&reason=${message}`);
+    redirect(`/dashboard/operations/shared-products?error=product-transfer&reason=${message}`);
   }
 
-  revalidatePath("/dashboard/operations");
+  revalidatePath("/dashboard/operations/shared-products");
   for (const organizationId of transfer.affectedOrganizationIds) {
     revalidatePath(`/dashboard/${encodeURIComponent(organizationId)}/products`);
     revalidatePath(
       `/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(transfer.product.productId)}`,
     );
   }
-  redirect("/dashboard/operations?notice=product-transferred");
+  redirect("/dashboard/operations/shared-products?notice=product-transferred");
 }
 
 export async function setOrganizationProductVisibilityAction(formData: FormData): Promise<void> {
@@ -925,9 +925,10 @@ export async function retireLegacyAccessAction(): Promise<void> {
   try {
     retired = await retireLegacyAccess(current.subject.subjectId);
   } catch {
-    redirect("/dashboard/operations?error=migration");
+    redirect("/dashboard/operations/legacy-access?error=migration");
   }
-  redirect(`/dashboard/operations?retired=${retired.grants},${retired.keys}`);
+  revalidatePath("/dashboard/operations/legacy-access");
+  redirect(`/dashboard/operations/legacy-access?retired=${retired.grants},${retired.keys}`);
 }
 
 export async function revokeApiKeyAction(formData: FormData): Promise<void> {
@@ -1036,13 +1037,14 @@ export async function updateAccountStatusAction(formData: FormData): Promise<voi
   if (!isAdministrator(current.subject)) redirect("/dashboard?notice=admin-required");
   const status = firstValue(formData, "status");
   if (status !== "active" && status !== "disabled")
-    redirect("/dashboard/operations?error=account-update-failed");
+    redirect("/dashboard/operations/accounts?error=account-update-failed");
   try {
     await updateAccountStatus(current.subject.subjectId, firstValue(formData, "subjectId"), status);
   } catch {
-    redirect("/dashboard/operations?error=account-update-failed");
+    redirect("/dashboard/operations/accounts?error=account-update-failed");
   }
-  redirect("/dashboard/operations?notice=account-updated");
+  revalidatePath("/dashboard/operations/accounts");
+  redirect("/dashboard/operations/accounts?notice=account-updated");
 }
 
 export async function deleteAccountAction(formData: FormData): Promise<void> {
@@ -1059,9 +1061,10 @@ export async function deleteAccountAction(formData: FormData): Promise<void> {
       error instanceof Error && error.message.startsWith("Transfer organization and product")
         ? "account-delete-owner"
         : "account-delete-failed";
-    redirect(`/dashboard/operations?error=${errorCode}`);
+    redirect(`/dashboard/operations/accounts?error=${errorCode}`);
   }
-  redirect("/dashboard/operations?notice=account-deleted");
+  revalidatePath("/dashboard/operations/accounts");
+  redirect("/dashboard/operations/accounts?notice=account-deleted");
 }
 
 export async function revokeSessionAction(formData: FormData): Promise<void> {

@@ -29,15 +29,15 @@ export default async function PlatformActivityPage({
     <OperationsShell
       breadcrumbs={[
         { label: "Dashboard", href: "/dashboard" },
-        { label: "Platform operations", href: "/dashboard/operations" },
-        { label: "Historical activity" },
+        { label: "Platform admin", href: "/dashboard/operations" },
+        { label: "Activity history" },
       ]}
     >
       <ActivityFeed
         entries={activity.entries}
         emptyMessage="No platform activity has been recorded."
         showPlatformContext
-        title="Historical activity"
+        title="Activity history"
         description="Recent events across Perminister, including legacy access history."
       />
       <ActivityPagination
