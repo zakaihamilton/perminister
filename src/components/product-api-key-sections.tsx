@@ -103,7 +103,7 @@ export function ProductApiKeyCreationSection({
         <div className="dashboard-card-heading">
           <div>
             <h2>Create API key</h2>
-            <p>Choose the product actions and scope this key should use.</p>
+            <p>Choose what this key can do and where it can be used.</p>
           </div>
         </div>
         <ApiKeyForm organizationId={organizationId} products={[product]} returnTo={returnTo} />
@@ -114,10 +114,10 @@ export function ProductApiKeyCreationSection({
   return (
     <section className="dashboard-empty-card api-key-gate-card">
       <div>
-        <h2>Product access required</h2>
+        <h2>Product permissions required</h2>
         <p>
           {isEmailVerified
-            ? "An active access grant for this product is required before you can create a key."
+            ? "You need active permission for this product before you can create a key."
             : "Verify your email before creating an API key."}
         </p>
         {canManageAccess ? (
@@ -125,7 +125,7 @@ export function ProductApiKeyCreationSection({
             className="text-link api-key-access-link"
             href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access`}
           >
-            Review product access
+            Review permissions
           </Link>
         ) : null}
       </div>

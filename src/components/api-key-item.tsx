@@ -15,13 +15,13 @@ export function ApiKeyNotices({
   return (
     <>
       {notice === "key-revoked" ? (
-        <DashboardNotice message="API key revoked." kind="success" />
+        <DashboardNotice message="API key revoked. It can no longer be used." kind="success" />
       ) : null}
       {error === "key-revoke-failed" ? (
-        <DashboardNotice message="The API key could not be revoked." kind="error" />
+        <DashboardNotice message="Could not revoke the API key. Try again." kind="error" />
       ) : null}
       {!isEmailVerified ? (
-        <DashboardNotice message="Verify your email before creating API keys. Open Profile to request a verification link." />
+        <DashboardNotice message="Verify your email before creating API keys. Go to Account to request a verification link." />
       ) : null}
     </>
   );
@@ -46,9 +46,9 @@ export function ApiKeyItem({
     <article className="record-item" key={apiKey.apiKeyId}>
       <div className="record-item-head">
         <div>
-          <strong>Integration key</strong>
+          <strong>API key</strong>
           <span className="record-meta">{scopeLabel}</span>
-          <span className="record-meta">Actions: {apiKey.actions.join(", ")}</span>
+          <span className="record-meta">Can do: {apiKey.actions.join(", ")}</span>
           <span className="record-meta">
             Created {new Date(apiKey.createdAt).toLocaleString()} ·{" "}
             {apiKey.expiresAt
@@ -64,7 +64,7 @@ export function ApiKeyItem({
             <input type="hidden" name="apiKeyId" value={apiKey.apiKeyId} />
             <input type="hidden" name="returnTo" value={returnTo} />
             <button className="button button-secondary" type="submit">
-              Revoke
+              Revoke API key
             </button>
           </form>
         ) : null}

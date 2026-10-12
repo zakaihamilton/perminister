@@ -12,7 +12,7 @@ const context = {
 
 describe("dashboard breadcrumbs", () => {
   it.each([
-    ["/dashboard", [{ label: "Set up your workspace" }]],
+    ["/dashboard", [{ label: "Set up your organization" }]],
     ["/dashboard/org-123", [{ label: "Sentry8" }]],
     [
       "/dashboard/org-123/products",
@@ -40,7 +40,7 @@ describe("dashboard breadcrumbs", () => {
         { label: "Sentry8", href: "/dashboard/org-123" },
         { label: "Products", href: "/dashboard/org-123/products" },
         { label: "Visitoring", href: "/dashboard/org-123/products/visitoring" },
-        { label: "Access roles" },
+        { label: "Permission sets" },
       ],
     ],
     [
@@ -95,6 +95,23 @@ describe("dashboard breadcrumbs", () => {
         { label: "Activity history" },
       ],
     ],
+    [
+      "/dashboard/org-123/profile",
+      [{ label: "Sentry8", href: "/dashboard/org-123" }, { label: "Account" }],
+    ],
+    [
+      "/dashboard/org-123/sessions",
+      [{ label: "Sentry8", href: "/dashboard/org-123" }, { label: "Signed-in devices" }],
+    ],
+    [
+      "/dashboard/org-123/products/visitoring/clients",
+      [
+        { label: "Sentry8", href: "/dashboard/org-123" },
+        { label: "Products", href: "/dashboard/org-123/products" },
+        { label: "Visitoring", href: "/dashboard/org-123/products/visitoring" },
+        { label: "App clients" },
+      ],
+    ],
   ] as const)("maps %s to its hierarchy", (pathname, expected) => {
     expect(buildDashboardBreadcrumbs(pathname, context)).toEqual(expected);
   });
@@ -117,19 +134,19 @@ describe("dashboard breadcrumbs", () => {
 
     expect(html).toContain('<nav aria-label="Breadcrumb"');
     expect(html).toContain('href="/dashboard/org-123/products/visitoring"');
-    expect(html).toContain('<h1 class="dashboard-page-title">Access roles</h1>');
+    expect(html).toContain('<h1 class="dashboard-page-title">Permission sets</h1>');
     expect(html).toContain('aria-hidden="true"');
     expect(html).not.toContain('aria-current="page"');
-    expect(html.match(/Access roles/g)).toHaveLength(1);
+    expect(html.match(/Permission sets/g)).toHaveLength(1);
     expect(html).not.toContain('<a href="/dashboard/org-123/products/visitoring/roles">');
   });
 
   it("omits an empty breadcrumb when the current page has no ancestors", () => {
     const html = renderToStaticMarkup(
-      createElement(BreadcrumbBar, { items: [{ label: "Set up your workspace" }] }),
+      createElement(BreadcrumbBar, { items: [{ label: "Set up your organization" }] }),
     );
 
     expect(html).not.toContain('<nav aria-label="Breadcrumb"');
-    expect(html).toContain('<h1 class="dashboard-page-title">Set up your workspace</h1>');
+    expect(html).toContain('<h1 class="dashboard-page-title">Set up your organization</h1>');
   });
 });

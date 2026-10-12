@@ -10,8 +10,8 @@ export function PublicProductsSection({
     <section className="dashboard-card operations-public-products">
       <div className="dashboard-card-heading">
         <div>
-          <h2>Public products</h2>
-          <p>Transfer a product’s public publisher to another approved organization.</p>
+          <h2>Shared products</h2>
+          <p>Transfer a product’s publisher role to another approved organization.</p>
         </div>
       </div>
       {products.length ? (
@@ -23,14 +23,14 @@ export function PublicProductsSection({
                   <strong>{entry.product.name}</strong>
                   <span className="record-meta">
                     <code>{entry.product.productId}</code> · Published by{" "}
-                    {entry.publisherOrganizationName} · {entry.adopterCount} active{" "}
-                    {entry.adopterCount === 1 ? "adopter" : "adopters"}
+                    {entry.publisherOrganizationName} · used by {entry.adopterCount} other{" "}
+                    {entry.adopterCount === 1 ? "organization" : "organizations"}
                   </span>
                 </div>
                 <span
                   className={`record-badge ${entry.pendingDestinationOrganizationId ? "pending" : "active"}`}
                 >
-                  {entry.pendingDestinationOrganizationId ? "Transfer incomplete" : "Public"}
+                  {entry.pendingDestinationOrganizationId ? "Transfer incomplete" : "Shared"}
                 </span>
               </div>
               <ProductTransferControl
@@ -44,7 +44,7 @@ export function PublicProductsSection({
           ))}
         </div>
       ) : (
-        <p className="empty-list">No public products are available to transfer.</p>
+        <p className="empty-list">No shared products are available to transfer.</p>
       )}
     </section>
   );

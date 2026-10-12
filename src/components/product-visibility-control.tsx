@@ -28,7 +28,7 @@ export function ProductVisibilityControl({
         <h2 id="product-visibility-title">Product availability</h2>
         <p>
           {isPublic
-            ? "Public products can be added to other organizations. Updates to product details and access roles are shared."
+            ? "Shared products can be added to other organizations. Product details and permission sets are shared."
             : "Private products are only available in this organization."}
         </p>
         {isPublic && adopterOrganizations.length ? (
@@ -49,7 +49,7 @@ export function ProductVisibilityControl({
           </button>
         ) : (
           <button className="button button-secondary" type="submit">
-            Make {isPublic ? "private" : "public"}
+            {isPublic ? "Make private" : "Share product"}
           </button>
         )}
       </form>
@@ -66,8 +66,9 @@ export function ProductVisibilityControl({
       >
         <h2 id="product-privacy-dialog-title">Make this product private?</h2>
         <p id="product-privacy-dialog-description">
-          It will be removed from these organizations. Their product memberships, access grants,
-          invitations, app clients, integrations, and API keys will be revoked.
+          The product will be removed from these organizations, and their members will lose access.
+          Pending invitations will be canceled. App clients, integrations, and API keys will be
+          revoked.
         </p>
         <ul className="product-privacy-organization-list">
           {adopterOrganizations.map((organization) => (
@@ -85,7 +86,7 @@ export function ProductVisibilityControl({
             <input type="hidden" name="visibility" value="private" />
             <input type="hidden" name="confirmedPrivateRemoval" value="true" />
             <button className="button button-danger" type="submit">
-              Make private and revoke access
+              Make private and remove access
             </button>
           </form>
         </div>

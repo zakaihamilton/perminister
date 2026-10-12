@@ -20,12 +20,12 @@ export default async function SessionsPage({
   const returnTo = `/dashboard/${organizationId}/sessions`;
   return (
     <>
-      <DashboardHeading description="Review and revoke the devices signed in to your account." />
+      <DashboardHeading description="Review devices signed in to your account. Sign out any device you no longer use." />
       {query.notice === "session-revoked" ? (
-        <DashboardNotice message="Session revoked." kind="success" />
+        <DashboardNotice message="Device signed out." kind="success" />
       ) : null}
       {query.notice === "session-revoke-failed" ? (
-        <DashboardNotice message="That session could not be revoked." kind="error" />
+        <DashboardNotice message="Could not sign out that device." kind="error" />
       ) : null}
       {sessions.length ? (
         <div className="record-list">
@@ -56,7 +56,7 @@ export default async function SessionsPage({
                   <button className="button button-secondary" type="submit">
                     {session.sessionId === current.session.sessionId
                       ? "Sign out this device"
-                      : "Revoke session"}
+                      : "Sign out device"}
                   </button>
                 </form>
               </div>
@@ -66,8 +66,8 @@ export default async function SessionsPage({
       ) : (
         <section className="dashboard-empty-card">
           <div>
-            <h2>No active sessions</h2>
-            <p>Sign in again to create a session.</p>
+            <h2>No signed-in devices</h2>
+            <p>Your account is not signed in on any devices.</p>
           </div>
         </section>
       )}

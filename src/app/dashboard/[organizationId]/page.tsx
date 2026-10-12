@@ -1,17 +1,10 @@
 import { CopyOrganizationIdButton } from "@/components/copy-organization-id-button";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import {
-  OrganizationNextSteps,
-  OrganizationOverviewMetrics,
+  OrganizationCreateProductAction,
   OrganizationProductsSection,
 } from "@/components/organization-overview-sections";
-import {
-  getOrganizationForSubject,
-  listApiKeysForSubject,
-  listOrganizationMembers,
-  listOrganizationPermissionGrants,
-  listProductsForOrganization,
-} from "@/lib/auth/service";
+import { getOrganizationForSubject, listProductsForOrganization } from "@/lib/auth/service";
 import {
   getOrganizationDashboardRequestContext,
   type OrganizationDashboardPageProps,
@@ -21,69 +14,44 @@ export default async function OrganizationOverview(
   props: OrganizationDashboardPageProps<{ notice?: string }>,
 ) {
   const { current, organizationId, query } = await getOrganizationDashboardRequestContext(props);
-  const organizationPromise = getOrganizationForSubject(current.subject.subjectId, organizationId);
-  const membersPromise = organizationPromise.then((organization) =>
-    organization.membership.role === "owner" || organization.membership.role === "admin"
-      ? listOrganizationMembers(current.subject.subjectId, organizationId)
-      : Promise.resolve([]),
-  );
-  const [organization, products, grants, keys, members] = await Promise.all([
-    organizationPromise,
+  const [organization, products] = await Promise.all([
+    getOrganizationForSubject(current.subject.subjectId, organizationId),
     listProductsForOrganization(current.subject.subjectId, organizationId),
-    listOrganizationPermissionGrants(current.subject.subjectId, organizationId),
-    listApiKeysForSubject(current.subject.subjectId),
-    membersPromise,
   ]);
-  const managers =
+  const canManage =
     organization.membership.role === "owner" || organization.membership.role === "admin";
-  const orgKeys = keys.filter((key) => key.scope.organizationId === organizationId);
-  // This request-rendered page must compare key expiry against the current time.
-  const now =
-    // eslint-disable-next-line react-hooks/purity
-    Date.now();
-  const activeKeys = orgKeys.filter(
-    (key) => key.status === "active" && (!key.expiresAt || Date.parse(key.expiresAt) > now),
-  );
 
   return (
     <>
       <DashboardHeading
+        action={
+          <OrganizationCreateProductAction
+            canManage={canManage}
+            hasProducts={products.length > 0}
+            organizationId={organizationId}
+          />
+        }
         description={
-          managers
-            ? "Manage the organization catalog, then manage each product’s members and access inside that product."
-            : "See the products and permissions assigned to you."
+          canManage
+            ? "Manage your products and organization members."
+            : "Find the products you can use."
         }
       />
-      <section
-        className="dashboard-card organization-id-card"
-        aria-labelledby="organization-id-title"
-      >
-        <div className="organization-id-heading">
-          <h2 id="organization-id-title">Organization ID</h2>
-          <p>Use this ID when configuring an app or integration.</p>
-        </div>
+      <div className="organization-id-inline">
+        <span>Organization ID</span>
         <CopyOrganizationIdButton organizationId={organizationId} />
-      </section>
+      </div>
       {query.notice === "invitation-accepted" ? (
         <DashboardNotice
-          message="You joined the product. Open Products to see your access."
+          message="You joined the product. Open Products to see your permissions."
           kind="success"
         />
       ) : null}
-      <OrganizationOverviewMetrics
-        activeKeyCount={activeKeys.length}
-        grantCount={grants.length}
-        managerCount={members.length}
-        managers={managers}
-        organizationId={organizationId}
-        productCount={products.length}
-      />
       <OrganizationProductsSection
-        managers={managers}
+        canManage={canManage}
         organizationId={organizationId}
         products={products}
       />
-      <OrganizationNextSteps managers={managers} organizationId={organizationId} />
     </>
   );
 }

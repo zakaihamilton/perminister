@@ -47,6 +47,9 @@ export default async function ProductsPage(
       <OrganizationProductNotices error={query.error} notice={query.notice} />
       <OrganizationProductCatalog
         canManage={canManage}
+        conflictingSharedProducts={publicProducts.filter(
+          (product) => product.status === "conflict",
+        )}
         organizationId={organizationId}
         products={products}
       />

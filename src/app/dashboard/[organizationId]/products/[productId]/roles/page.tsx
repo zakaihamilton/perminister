@@ -1,4 +1,5 @@
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
+import { ProductNavigation } from "@/components/product-navigation";
 import {
   CreateProductAccessRoleForm,
   ProductAccessRoleCatalog,
@@ -26,22 +27,29 @@ export default async function ProductAccessRolesPage({
   return (
     <>
       <DashboardHeading
-        description="Create reusable permission sets for this organization’s product."
+        description="Create permission sets you can reuse for this product."
         action={
           <Link className="button button-secondary" href={accessPath}>
-            Grant access
+            Assign permissions
           </Link>
         }
       />
+      <ProductNavigation
+        isSharedInstallation={Boolean(access.product.sharedProductRef)}
+        organizationId={organizationId}
+        productId={productId}
+        productName={access.product.name}
+        role={access.membership?.role}
+      />
       {query.notice === "access-role-created" ? (
-        <DashboardNotice message="Access role added." kind="success" />
+        <DashboardNotice message="Permission set created." kind="success" />
       ) : null}
       {query.notice === "access-role-removed" ? (
-        <DashboardNotice message="Access role removed." kind="success" />
+        <DashboardNotice message="Permission set removed." kind="success" />
       ) : null}
       {query.error === "access-role" ? (
         <DashboardNotice
-          message="The access role could not be saved. Use a unique role name and 1–32 valid action names."
+          message="Could not save the permission set. Choose a unique name and use 1–32 valid action names."
           kind="error"
         />
       ) : null}

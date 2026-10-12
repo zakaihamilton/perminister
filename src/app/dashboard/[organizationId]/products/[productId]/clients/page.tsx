@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { ConsumerClientManager } from "@/components/consumer-client-manager";
+import { ProductNavigation } from "@/components/product-navigation";
 import {
   getProductPageContext,
   requireProductManagerRole,
@@ -28,19 +28,18 @@ export default async function ProductClientsPage({
   return (
     <>
       <DashboardHeading
-        description={`Create and manage the backend credentials that connect ${access.product.name} to Perminister.`}
-        action={
-          <Link
-            className="button button-secondary"
-            href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}`}
-          >
-            Back to product
-          </Link>
-        }
+        description={`Connect ${access.product.name} to Perminister with app client credentials.`}
+      />
+      <ProductNavigation
+        isSharedInstallation={Boolean(access.product.sharedProductRef)}
+        organizationId={organizationId}
+        productId={productId}
+        productName={access.product.name}
+        role={access.membership?.role}
       />
       {query.notice === "client-revoked" ? (
         <DashboardNotice
-          message="App client revoked. Its credentials are no longer accepted."
+          message="App client revoked. Its credentials will no longer work."
           kind="success"
         />
       ) : query.error ? (

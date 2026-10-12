@@ -17,18 +17,19 @@ export interface DashboardBreadcrumbContext {
 const organizationPages: Record<string, string> = {
   activity: "Activity",
   "api-keys": "API keys",
-  people: "Catalog managers",
-  profile: "Profile",
-  sessions: "Sessions",
+  people: "Members",
+  profile: "Account",
+  sessions: "Signed-in devices",
   settings: "Settings",
 };
 
 const productPages: Record<string, string> = {
-  access: "Access",
+  access: "Permissions",
   activity: "Activity",
   "api-keys": "API keys",
-  people: "People",
-  roles: "Access roles",
+  clients: "App clients",
+  people: "Members",
+  roles: "Permission sets",
 };
 
 const platformAdminPages: Record<string, string> = {
@@ -60,7 +61,7 @@ export function buildDashboardBreadcrumbs(
 ): DashboardBreadcrumbItem[] {
   const segments = pathname.split("/").filter(Boolean).map(decodeSegment);
   if (segments[0] !== "dashboard") return [];
-  if (segments.length === 1) return [{ label: "Set up your workspace" }];
+  if (segments.length === 1) return [{ label: "Set up your organization" }];
   if (segments[1] === "operations") {
     const breadcrumbs: DashboardBreadcrumbItem[] = [
       { label: "Dashboard", href: "/dashboard" },

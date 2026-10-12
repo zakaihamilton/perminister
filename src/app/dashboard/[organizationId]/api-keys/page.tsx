@@ -53,7 +53,7 @@ export default async function ApiKeysPage({
   return (
     <>
       <DashboardHeading
-        description="Review your keys here. Create and manage them from the product they belong to."
+        description="Review API keys for this organization. Open a product to create or manage its keys."
         action={
           canCreate ? (
             <Link className="button button-primary" href={createHref}>

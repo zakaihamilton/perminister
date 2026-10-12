@@ -29,11 +29,11 @@ export function ApiKeyFormFields({
     <div className="form-grid">
       <div className="form-field-with-tooltip">
         <div className="form-label-row">
-          <label htmlFor={`${formId}-scope`}>Scope type</label>
-          <Tooltip content="Choose whether this key can act across a product, or only within one project or workspace." />
+          <label htmlFor={`${formId}-scope`}>Where can this key be used?</label>
+          <Tooltip content="Choose whether this key works across a product or only in one project or workspace." />
         </div>
         <CustomDropdown
-          aria-label="Scope type"
+          aria-label="Where can this key be used?"
           id={`${formId}-scope`}
           name="scopeKind"
           defaultValue={scopeKind}
@@ -62,7 +62,7 @@ export function ApiKeyFormFields({
       <div className="form-field-with-tooltip">
         <div className="form-label-row">
           <label htmlFor={`${formId}-resource-id`}>Project or workspace ID</label>
-          <Tooltip content="Enter the resource ID used by your product. Leave this blank for product-wide access." />
+          <Tooltip content="Enter the ID used by your product. Leave this blank to allow product-wide use." />
         </div>
         <input
           id={`${formId}-resource-id`}
@@ -77,8 +77,8 @@ export function ApiKeyFormFields({
       </div>
       <div className="form-field-with-tooltip">
         <div className="form-label-row">
-          <label htmlFor={`${formId}-actions`}>Allowed actions</label>
-          <Tooltip content="Use the action names your product checks during authorization, separated by commas." />
+          <label htmlFor={`${formId}-actions`}>Actions this key can perform</label>
+          <Tooltip content="Enter the action names your product checks, separated by commas." />
         </div>
         <input
           id={`${formId}-actions`}

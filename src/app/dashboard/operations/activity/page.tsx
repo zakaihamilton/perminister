@@ -35,7 +35,7 @@ export default async function PlatformActivityPage({
     >
       <ActivityFeed
         entries={activity.entries}
-        emptyMessage="No platform activity has been recorded."
+        emptyMessage="No platform activity has been recorded yet."
         showPlatformContext
         title="Activity history"
         description="Recent events across Perminister, including legacy access history."

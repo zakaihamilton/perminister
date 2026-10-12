@@ -31,9 +31,7 @@ export function ProductTransferControl({
 
   if (!destinations.length) {
     return (
-      <span className="form-hint">
-        No approved destination is available without an unrelated product ID conflict.
-      </span>
+      <span className="form-hint">No eligible organization is available for this transfer.</span>
     );
   }
 
@@ -62,7 +60,7 @@ export function ProductTransferControl({
         disabled={!selectedDestination}
         onClick={openDialog}
       >
-        {isResumingTransfer ? "Resume transfer" : "Transfer owner"}
+        {isResumingTransfer ? "Resume transfer" : "Transfer publisher"}
       </button>
       <dialog
         className="product-privacy-dialog"
@@ -81,8 +79,8 @@ export function ProductTransferControl({
         </h2>
         <p id="product-transfer-dialog-description">
           {isResumingTransfer ? "This will finish the interrupted transfer. " : ""}
-          The product stays public with ID <code>{productId}</code>. Existing adopter setup and
-          access remain in their organizations.
+          The product stays shared with ID <code>{productId}</code>. Existing organizations keep
+          their product setup and access.
         </p>
         <div className="product-privacy-dialog-actions">
           <button className="button button-secondary" type="button" onClick={closeDialog}>

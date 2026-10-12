@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { DashboardHeading } from "@/components/dashboard-shell";
 import {
   ProductDetailsCard,
   ProductOnboardingCard,
   ProductPageNotices,
 } from "@/components/product-detail-sections";
+import { ProductNavigation } from "@/components/product-navigation";
 import {
   getProductPageContext,
   type ProductPageWithSearchParams,
@@ -33,41 +33,19 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
       : Promise.resolve(null),
   ]);
   const connectedClients = productClients.filter((client) => client.status === "active");
-  const productActionLinks = canManageProduct
-    ? [
-        { path: "people", label: "People" },
-        { path: "access", label: "Access" },
-        ...(isSharedInstallation ? [] : [{ path: "roles", label: "Access roles" }]),
-        { path: "clients", label: "App clients" },
-        { path: "api-keys", label: "API keys" },
-        { path: "activity", label: "Activity" },
-      ]
-    : productRole === "member"
-      ? [
-          { path: "access", label: "My access" },
-          { path: "api-keys", label: "API keys" },
-          { path: "activity", label: "Activity" },
-        ]
-      : [];
   return (
     <>
       <DashboardHeading
-        description={product.description || "Product details and stable integration ID."}
-        action={
-          productActionLinks.length ? (
-            <div className="product-detail-actions">
-              {productActionLinks.map((link) => (
-                <Link
-                  className="button button-secondary"
-                  href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/${link.path}`}
-                  key={link.path}
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-          ) : undefined
+        description={
+          product.description || "Manage this product, its members, and their permissions."
         }
+      />
+      <ProductNavigation
+        isSharedInstallation={isSharedInstallation}
+        organizationId={organizationId}
+        productId={productId}
+        productName={product.name}
+        role={productRole}
       />
       <ProductPageNotices
         error={query.error}

@@ -13,7 +13,7 @@ export function ProductPageNotices({
     <>
       {notice === "product-created" ? (
         <DashboardNotice
-          message="Product created. Next, connect the app, invite people, and assign access."
+          message="Product created. Next, connect the app, invite product members, and assign permissions."
           kind="success"
         />
       ) : null}
@@ -22,7 +22,7 @@ export function ProductPageNotices({
       ) : null}
       {notice === "product-added" ? (
         <DashboardNotice
-          message="Shared product added. Its members, access grants, and credentials are managed in this organization."
+          message="Shared product added. Manage its members, permissions, and credentials in this organization."
           kind="success"
         />
       ) : null}
@@ -39,7 +39,7 @@ export function ProductPageNotices({
         <DashboardNotice message="Product availability could not be updated." kind="error" />
       ) : null}
       {isSharedInstallation ? (
-        <DashboardNotice message="This is a shared product. The publisher controls its details and access roles; people, grants, and credentials remain specific to this organization." />
+        <DashboardNotice message="This shared product’s publisher controls its details and permission sets. Members, permissions, and credentials are specific to this organization." />
       ) : null}
     </>
   );

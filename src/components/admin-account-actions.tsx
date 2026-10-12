@@ -42,10 +42,10 @@ export function AdminAccountActions({
           >
             <h2 id={`${dialogId}-title`}>Delete {email ?? "this account"}?</h2>
             <p id={`${dialogId}-description`}>
-              This permanently removes the account’s profile and sign-in details. Organization and
-              product access will be disabled, and its API keys will be revoked. Historical activity
-              remains available for audit. Transfer ownership first if this account is the only
-              active owner of an organization or product.
+              This permanently removes the account’s personal details and sign-in access. Its
+              organization and product memberships will be removed, and its API keys will be
+              revoked. Activity history remains available. Transfer ownership first if this is the
+              only active owner of an organization or product.
             </p>
             <div className="product-privacy-dialog-actions">
               <button className="button button-secondary" type="button" onClick={closeDialog}>

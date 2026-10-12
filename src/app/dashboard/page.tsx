@@ -46,14 +46,14 @@ export default async function DashboardHome({
       <SiteHeader active="dashboard" authenticated />
       <main className="page-shell onboarding-shell">
         <div className="container onboarding-page">
-          <BreadcrumbBar items={[{ label: "Set up your workspace" }]} />
+          <BreadcrumbBar items={[{ label: "Set up your organization" }]} />
           <div className="onboarding-intro">
             <div>
               <p className="eyebrow">Welcome to Perminister</p>
               <p className="page-intro">
-                Request an organization to manage products and access. A platform administrator must
-                approve it before you can use the workspace, or you can join a team with an
-                invitation.
+                Request an organization to manage products, members, and permissions. A platform
+                administrator must approve it before you can use it. You can also join an existing
+                organization with an invitation.
               </p>
             </div>
             <Image

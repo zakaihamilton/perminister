@@ -1,6 +1,5 @@
 import { DashboardHeading } from "@/components/dashboard-shell";
 import { ProfileDetailsSection, ProfileNotices } from "@/components/profile-sections";
-import { isAdministrator } from "@/lib/auth/service";
 import {
   getOrganizationDashboardRequestContext,
   type OrganizationDashboardPageProps,
@@ -13,13 +12,9 @@ export default async function ProfilePage(
 
   return (
     <>
-      <DashboardHeading description="Your Perminister identity is shared across the organizations you belong to." />
+      <DashboardHeading description="Manage the account details and signed-in devices used across your organizations." />
       <ProfileNotices error={query.error} notice={query.notice} />
-      <ProfileDetailsSection
-        isPlatformAdministrator={isAdministrator(current.subject)}
-        organizationId={organizationId}
-        subject={current.subject}
-      />
+      <ProfileDetailsSection organizationId={organizationId} subject={current.subject} />
     </>
   );
 }

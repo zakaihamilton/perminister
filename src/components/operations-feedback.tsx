@@ -15,13 +15,13 @@ export function OperationsFeedback({ query }: { query: OperationsQuery }) {
     <>
       {query.error === "migration" ? (
         <DashboardNotice
-          message="Legacy access could not be retired. Check storage and retry."
+          message="Older access could not be removed. Check storage and try again."
           kind="error"
         />
       ) : null}
       {query.retired ? (
         <DashboardNotice
-          message={`Migration complete: disabled ${query.retired.split(",")[0]} unscoped grants and revoked ${query.retired.split(",")[1] ?? 0} unscoped keys.`}
+          message={`Older access removed: disabled ${query.retired.split(",")[0]} permissions and revoked ${query.retired.split(",")[1] ?? 0} API keys not linked to an organization.`}
           kind="success"
         />
       ) : null}
@@ -59,14 +59,19 @@ export function OperationsFeedback({ query }: { query: OperationsQuery }) {
         <DashboardNotice message="Organization request rejected." kind="success" />
       ) : null}
       {query.notice === "product-transferred" ? (
-        <DashboardNotice message="Public product ownership transferred." kind="success" />
+        <DashboardNotice
+          message="Shared product transferred to its new publisher."
+          kind="success"
+        />
       ) : null}
       {query.error === "product-transfer" ? (
         <DashboardNotice
           message={
             query.reason && productTransferErrors.has(query.reason)
-              ? query.reason
-              : "Public product ownership could not be transferred."
+              ? query.reason === "Only a public publisher product can be transferred."
+                ? "Only a shared product can be transferred."
+                : query.reason
+              : "Could not transfer the shared product to a new publisher."
           }
           kind="error"
         />

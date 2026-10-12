@@ -34,7 +34,7 @@ export function ProductAccessGrantCard({
           <strong>{email ?? "Product member"}</strong>
           <span>{scopeLabel(grant.scope)}</span>
           <small>
-            {grant.accessRole?.name ?? "Custom actions"} · {actions.length} app permission
+            {grant.accessRole?.name ?? "Custom permissions"} · {actions.length} app permission
             {actions.length === 1 ? "" : "s"}
           </small>
           <details className="access-role-details">
@@ -55,7 +55,7 @@ export function ProductAccessGrantCard({
             value={grant.status === "active" ? "disabled" : "active"}
           />
           <button className="button button-secondary" type="submit">
-            {grant.status === "active" ? "Revoke access" : "Restore access"}
+            {grant.status === "active" ? "Remove permissions" : "Restore permissions"}
           </button>
         </form>
       ) : null}
@@ -69,8 +69,8 @@ export function AccessGrantExplainer() {
       <div className="access-visual-overview">
         <div className="dashboard-card-heading">
           <div>
-            <h2 id="access-explainer-title">Choose where access applies</h2>
-            <p>A grant pairs app actions with a product, project, or workspace.</p>
+            <h2 id="access-explainer-title">Choose where permissions apply</h2>
+            <p>Choose whether app permissions apply to a whole product or one resource.</p>
           </div>
         </div>
         <Image
@@ -82,7 +82,7 @@ export function AccessGrantExplainer() {
           sizes="(max-width: 700px) 70vw, 280px"
         />
       </div>
-      <div className="access-scope-guide" role="group" aria-label="Grant scopes">
+      <div className="access-scope-guide" role="group" aria-label="Where permissions apply">
         <article>
           <h3>Entire product</h3>
           <p>All resources in this product.</p>
@@ -97,7 +97,7 @@ export function AccessGrantExplainer() {
         </article>
       </div>
       <p className="access-explainer-note">
-        API keys can use only actions included in a member&apos;s active grants.
+        API keys can use only actions included in a member&apos;s active permissions.
       </p>
     </section>
   );
@@ -118,9 +118,9 @@ export function AccessGrantCreationSection({
     <section className="dashboard-card access-create-card">
       <div className="dashboard-card-heading">
         <div>
-          <h2>Grant access</h2>
+          <h2>Assign permissions</h2>
           <p>
-            Choose a person, set where access applies, then pick a named role or enter custom
+            Choose a product member, where the permissions apply, and a permission set or custom
             actions.
           </p>
         </div>
@@ -149,7 +149,7 @@ export function AccessGrantCreationSection({
             <AccessGrantActionsFields roles={accessRoles} />
           </div>
           <button className="button button-primary" type="submit">
-            Create access grant
+            Assign permissions
           </button>
         </form>
       ) : (

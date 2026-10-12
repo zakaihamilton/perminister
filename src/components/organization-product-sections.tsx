@@ -20,7 +20,7 @@ export function OrganizationProductNotices({ error, notice }: { error?: string; 
         <DashboardNotice message={error} kind="error" />
       ) : null}
       {error === "This public product is no longer available." ? (
-        <DashboardNotice message={error} kind="error" />
+        <DashboardNotice message="This shared product is no longer available." kind="error" />
       ) : null}
       {error === "Perminister could not complete that request." ? (
         <DashboardNotice
@@ -34,13 +34,19 @@ export function OrganizationProductNotices({ error, notice }: { error?: string; 
 
 export function OrganizationProductCatalog({
   canManage,
+  conflictingSharedProducts,
   organizationId,
   products,
 }: {
   canManage: boolean;
+  conflictingSharedProducts: PublicProductCatalogEntry[];
   organizationId: string;
   products: ProductRecord[];
 }) {
+  const conflictingProductIds = new Set(
+    conflictingSharedProducts.map(({ product }) => product.productId),
+  );
+
   if (!products.length) {
     return (
       <section className="dashboard-empty-card">
@@ -53,7 +59,7 @@ export function OrganizationProductCatalog({
           width={1254}
         />
         <div>
-          <h2>Your product catalog starts here</h2>
+          <h2>No products yet</h2>
           <p>Add a website and we’ll suggest the name, description, and icon.</p>
         </div>
         {canManage ? (
@@ -70,34 +76,33 @@ export function OrganizationProductCatalog({
 
   return (
     <div className="product-catalog">
-      {products.map((product) => (
-        <Link
-          className="product-card"
-          href={`/dashboard/${organizationId}/products/${encodeURIComponent(product.productId)}`}
-          key={product.productRecordId}
-        >
-          <ProductIcon name={product.name} src={product.iconUrl} />
-          <span className="product-card-copy">
-            <strong>{product.name}</strong>
-            <small>{product.description || product.websiteUrl}</small>
-            <code>{product.productId}</code>
-            <span
-              className={`record-badge product-visibility-badge ${
-                product.sharedProductRef || product.visibility === "public" ? "active" : ""
-              }`}
-            >
-              {product.sharedProductRef
-                ? "Shared product"
-                : product.visibility === "public"
-                  ? "Public"
-                  : "Private"}
+      {products.map((product) => {
+        const isPublic =
+          Boolean(product.sharedProductRef) ||
+          product.visibility === "public" ||
+          conflictingProductIds.has(product.productId);
+
+        return (
+          <Link
+            className="product-card"
+            href={`/dashboard/${organizationId}/products/${encodeURIComponent(product.productId)}`}
+            key={product.productRecordId}
+          >
+            <ProductIcon name={product.name} src={product.iconUrl} />
+            <span className="product-card-copy">
+              <strong>{product.name}</strong>
+              <small>{product.description || product.websiteUrl}</small>
+              <code>{product.productId}</code>
+              <span className={`record-badge product-visibility-badge ${isPublic ? "active" : ""}`}>
+                {isPublic ? "Public" : "Private"}
+              </span>
             </span>
-          </span>
-          <span className="product-card-arrow" aria-hidden="true">
-            ↗
-          </span>
-        </Link>
-      ))}
+            <span className="product-card-arrow" aria-hidden="true">
+              ↗
+            </span>
+          </Link>
+        );
+      })}
     </div>
   );
 }
@@ -109,17 +114,20 @@ export function PublicProductCatalog({
   organizationId: string;
   products: PublicProductCatalogEntry[];
 }) {
+  const addableProducts = products.filter((entry) => entry.status !== "conflict");
+  const hasConflicts = addableProducts.length !== products.length;
+
   return (
     <section className="dashboard-card public-product-catalog" id="public-product-catalog">
       <div className="dashboard-card-heading">
         <div>
-          <h2>Public product catalog</h2>
+          <h2>Shared products</h2>
           <p>Add a shared product to this organization. Its publisher manages shared details.</p>
         </div>
       </div>
-      {products.length ? (
+      {addableProducts.length ? (
         <div className="public-product-list">
-          {products.map(({ product, publisherOrganizationName, status }) => (
+          {addableProducts.map(({ product, publisherOrganizationName, status }) => (
             <article className="public-product-item" key={product.productRecordId}>
               <ProductIcon name={product.name} src={product.iconUrl} size={42} />
               <div className="public-product-copy">
@@ -131,10 +139,6 @@ export function PublicProductCatalog({
               </div>
               {status === "installed" ? (
                 <span className="record-badge active">Added</span>
-              ) : status === "conflict" ? (
-                <span className="public-product-conflict">
-                  Another product already uses this ID
-                </span>
               ) : (
                 <>
                   {status === "setup-required" ? (
@@ -159,7 +163,11 @@ export function PublicProductCatalog({
           ))}
         </div>
       ) : (
-        <p className="empty-list">No public products are available to add right now.</p>
+        <p className="empty-list">
+          {hasConflicts
+            ? "Shared products with IDs already in use are shown with the matching product above."
+            : "No shared products are available to add right now."}
+        </p>
       )}
     </section>
   );

@@ -20,7 +20,7 @@ export function ProductAccessRoleCatalog({
         <div className="dashboard-card-heading">
           <div>
             <h2>Reusable permission sets</h2>
-            <p>Bundle app actions once, then assign the role to people who need them.</p>
+            <p>Save a set of app permissions, then assign it to the people who need them.</p>
           </div>
         </div>
         <Image
@@ -52,18 +52,18 @@ export function ProductAccessRoleCatalog({
                 <input type="hidden" name="productId" value={productId} />
                 <input type="hidden" name="accessRoleId" value={accessRole.id} />
                 <button className="button button-secondary" type="submit">
-                  Remove role
+                  Remove permission set
                 </button>
               </form>
             </article>
           ))}
         </div>
       ) : (
-        <p className="form-hint">No roles yet. Add one below to reuse its app permissions.</p>
+        <p className="form-hint">No permission sets yet. Add one below to reuse app permissions.</p>
       )}
       <p className="access-role-catalog-note">
-        Use the exact action names your app checks. Removing a role only removes it from future
-        grants; existing grants keep their current permissions.
+        Use the exact action names your app checks. Removing a permission set stops new assignments;
+        existing permissions stay in place.
       </p>
       {children}
     </section>
@@ -84,7 +84,7 @@ export function CreateProductAccessRoleForm({
       <input type="hidden" name="organizationId" value={organizationId} />
       <input type="hidden" name="productId" value={productId} />
       <label>
-        Role name
+        Permission set name
         <input
           name="roleName"
           required
@@ -116,7 +116,7 @@ export function CreateProductAccessRoleForm({
         </small>
       </label>
       <button className="button button-primary" type="submit" disabled={accessRoleCount >= 32}>
-        Add access role
+        Add permission set
       </button>
     </form>
   );

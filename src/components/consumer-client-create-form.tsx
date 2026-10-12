@@ -34,8 +34,7 @@ export function ConsumerClientCreateForm({
         <div>
           <h2>Create app client</h2>
           <p>
-            Create credentials for a backend that uses Perminister for {productName} sign-in and
-            access checks.
+            Connect an app backend to Perminister for {productName} sign-in and permission checks.
           </p>
         </div>
       </div>
@@ -56,7 +55,7 @@ export function ConsumerClientCreateForm({
             />
           </label>
           <label htmlFor={`${formId}-origin`}>
-            App origin
+            Allowed app origin
             <input
               id={`${formId}-origin`}
               name="appOrigin"
@@ -79,7 +78,7 @@ export function ConsumerClientCreateForm({
             />
           </label>
           <label htmlFor={`${formId}-registration`}>
-            Public self-registration
+            Let people sign up themselves
             {firstPartyProduct ? (
               <>
                 <input type="hidden" name="selfRegistrationEnabled" value="false" />

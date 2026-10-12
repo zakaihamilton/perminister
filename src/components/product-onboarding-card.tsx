@@ -19,7 +19,7 @@ export function ProductOnboardingCard({
           <h2>Set up your application</h2>
           <p>
             Perminister handles sign-in and organization membership. Your app keeps its own data and
-            checks each person&apos;s access grants before allowing access to protected resources.
+            checks each person&apos;s permissions before allowing access to protected resources.
           </p>
         </div>
       </div>
@@ -64,7 +64,7 @@ function ProductConnectionStep({
             {connectedClients[0].appName} has active credentials for product ID{" "}
             <code>{productId}</code>. Keep the client secret in the app backend&apos;s environment.
             Reuse this client across organizations; each organization keeps its own people and
-            access grants.
+            permissions.
           </p>
         ) : connectedClients.length > 1 ? (
           <p>
@@ -135,25 +135,25 @@ function ProductAccessStep({
       <span className="onboarding-step">03</span>
       <div>
         <div className="product-onboarding-step-heading">
-          <h3>Manage access</h3>
+          <h3>Permissions</h3>
           {isSharedInstallation ? null : (
             <Link
               className="text-link"
               href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/roles`}
             >
-              Manage roles
+              Manage permission sets
             </Link>
           )}
           <Link
             className="text-link"
             href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access`}
           >
-            Grant access
+            Assign permissions
           </Link>
         </div>
         <p>
-          Create reusable permission sets in Access roles, then assign them to people in Access and
-          choose which resources each grant covers.
+          Create reusable permission sets, then assign them to product members and choose which
+          resources their permissions cover.
         </p>
       </div>
     </li>
