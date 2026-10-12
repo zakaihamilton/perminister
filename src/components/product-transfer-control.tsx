@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { transferPublicProductAction } from "@/app/actions";
+import { transferOwnedPublicProductAction, transferPublicProductAction } from "@/app/actions";
 import { CustomDropdown } from "@/components/custom-dropdown";
 import { useModalDialog } from "@/components/use-modal-dialog";
 
@@ -11,33 +11,46 @@ export function ProductTransferControl({
   productName,
   destinations,
   pendingDestinationOrganizationId,
+  sourceOrganizationId,
 }: {
   productRecordId: string;
   productId: string;
   productName: string;
-  destinations: Array<{ organizationId: string; name: string }>;
+  destinations: Array<{
+    organizationId: string;
+    name: string;
+    disabledReason?: string;
+    transferNotice?: string;
+  }>;
   pendingDestinationOrganizationId?: string;
+  sourceOrganizationId?: string;
 }) {
   const [destinationOrganizationId, setDestinationOrganizationId] = useState(
     pendingDestinationOrganizationId ?? "",
   );
   const { dialogRef, openDialog, closeDialog } = useModalDialog();
+  const availableDestinations = destinations.filter((destination) => !destination.disabledReason);
   const effectiveDestinationOrganizationId =
     pendingDestinationOrganizationId ?? destinationOrganizationId;
-  const selectedDestination = destinations.find(
+  const selectedDestination = availableDestinations.find(
     (destination) => destination.organizationId === effectiveDestinationOrganizationId,
   );
   const isResumingTransfer = !!pendingDestinationOrganizationId;
 
-  if (!destinations.length) {
-    return (
-      <span className="form-hint">No eligible organization is available for this transfer.</span>
-    );
+  if (!availableDestinations.length) {
+    return <span className="form-hint">No organization is available for this transfer.</span>;
   }
 
   return (
-    <form action={transferPublicProductAction} className="product-transfer-form">
+    <form
+      action={sourceOrganizationId ? transferOwnedPublicProductAction : transferPublicProductAction}
+      className="product-transfer-form"
+    >
       <input type="hidden" name="productRecordId" value={productRecordId} />
+      {sourceOrganizationId ? (
+        <input type="hidden" name="sourceOrganizationId" value={sourceOrganizationId} />
+      ) : null}
+      {sourceOrganizationId ? <input type="hidden" name="productId" value={productId} /> : null}
       <div className="product-transfer-field">
         <span>Transfer to</span>
         <CustomDropdown
@@ -45,7 +58,7 @@ export function ProductTransferControl({
           className="product-transfer-dropdown"
           name="destinationOrganizationId"
           onValueChange={setDestinationOrganizationId}
-          options={destinations.map((destination) => ({
+          options={availableDestinations.map((destination) => ({
             value: destination.organizationId,
             label: destination.name,
           }))}
@@ -57,7 +70,7 @@ export function ProductTransferControl({
       <button
         className="button button-secondary"
         type="button"
-        disabled={!selectedDestination}
+        disabled={!selectedDestination || !!selectedDestination.disabledReason}
         onClick={openDialog}
       >
         {isResumingTransfer ? "Resume transfer" : "Transfer publisher"}
@@ -79,8 +92,11 @@ export function ProductTransferControl({
         </h2>
         <p id="product-transfer-dialog-description">
           {isResumingTransfer ? "This will finish the interrupted transfer. " : ""}
-          The product stays shared with ID <code>{productId}</code>. Existing organizations keep
-          their product setup and access.
+          {selectedDestination?.transferNotice
+            ? "The destination’s product details and permission sets will be replaced by the current publisher’s. Existing organization members, clients, and API keys remain attached to this product ID. "
+            : ""}
+          The product keeps ID <code>{productId}</code>. Organizations already using this published
+          product keep their setup and access.
         </p>
         <div className="product-privacy-dialog-actions">
           <button className="button button-secondary" type="button" onClick={closeDialog}>

@@ -44,6 +44,7 @@ import {
   updateOrganizationName,
   updateOrganizationProduct,
   transferPublicProductForAdministrator,
+  transferPublicProductForOrganizationOwner,
   setOrganizationProductVisibility,
   updateProductMemberRole,
   removeProductMember,
@@ -641,6 +642,41 @@ export async function transferPublicProductAction(formData: FormData): Promise<v
   redirect("/dashboard/operations/shared-products?notice=product-transferred");
 }
 
+export async function transferOwnedPublicProductAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const sourceOrganizationId = firstValue(formData, "sourceOrganizationId");
+  const productRecordId = firstValue(formData, "productRecordId");
+  const productId = firstValue(formData, "productId");
+  const returnTo = `/dashboard/${encodeURIComponent(sourceOrganizationId)}/products/${encodeURIComponent(
+    productId,
+  )}`;
+
+  let transfer: Awaited<ReturnType<typeof transferPublicProductForOrganizationOwner>>;
+  try {
+    transfer = await transferPublicProductForOrganizationOwner(
+      current.subject.subjectId,
+      sourceOrganizationId,
+      productRecordId,
+      firstValue(formData, "destinationOrganizationId"),
+    );
+  } catch (error) {
+    const reason = encodeURIComponent(publicActionError(error));
+    redirect(`${returnTo}?error=product-transfer&reason=${reason}`);
+  }
+
+  revalidatePath("/dashboard/operations/shared-products");
+  for (const organizationId of transfer.affectedOrganizationIds) {
+    revalidatePath(`/dashboard/${encodeURIComponent(organizationId)}/products`);
+    revalidatePath(
+      `/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(transfer.product.productId)}`,
+    );
+  }
+  redirect(
+    `/dashboard/${encodeURIComponent(transfer.destinationOrganizationId)}/products/${encodeURIComponent(transfer.product.productId)}?notice=product-transferred`,
+  );
+}
+
 export async function setOrganizationProductVisibilityAction(formData: FormData): Promise<void> {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
@@ -655,6 +691,7 @@ export async function setOrganizationProductVisibilityAction(formData: FormData)
   let before: Awaited<ReturnType<typeof getProductShareInfo>>;
   try {
     before = await getProductShareInfo(current.subject.subjectId, organizationId, productRecordId);
+    if (!before) throw new Error("Product availability is managed by its publishing organization.");
     await setOrganizationProductVisibility(
       current.subject.subjectId,
       organizationId,

@@ -27,11 +27,9 @@ export function PublicProductsSection({
                     {entry.adopterCount === 1 ? "organization" : "organizations"}
                   </span>
                 </div>
-                <span
-                  className={`record-badge ${entry.pendingDestinationOrganizationId ? "pending" : "active"}`}
-                >
-                  {entry.pendingDestinationOrganizationId ? "Transfer incomplete" : "Shared"}
-                </span>
+                {entry.pendingDestinationOrganizationId ? (
+                  <span className="record-badge pending">Transfer incomplete</span>
+                ) : null}
               </div>
               <ProductTransferControl
                 productRecordId={entry.product.productRecordId}

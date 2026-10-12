@@ -1,8 +1,9 @@
 import { updateOrganizationProductAction } from "@/app/actions";
 import { ProductIcon } from "@/components/product-icon";
+import { ProductTransferControl } from "@/components/product-transfer-control";
 import { ProductVisibilityControl } from "@/components/product-visibility-control";
 import type { ProductRecord } from "@/lib/auth/domain";
-import type { ProductShareInfo } from "@/lib/auth/service";
+import type { OrganizationProductTransferOptions, ProductShareInfo } from "@/lib/auth/service";
 
 export function ProductDetailsCard({
   canManageDetails,
@@ -10,13 +11,20 @@ export function ProductDetailsCard({
   organizationId,
   product,
   shareInfo,
+  canTransferPublisher,
+  transferOptions,
 }: {
   canManageDetails: boolean;
   initialDialogOpen: boolean;
   organizationId: string;
   product: ProductRecord;
   shareInfo: ProductShareInfo | null;
+  canTransferPublisher: boolean;
+  transferOptions: OrganizationProductTransferOptions;
 }) {
+  const showTransferControl =
+    canTransferPublisher && !product.sharedProductRef && transferOptions.destinations.length > 0;
+
   return (
     <section className="dashboard-card product-detail-card">
       <div className="product-detail-top">
@@ -80,7 +88,7 @@ export function ProductDetailsCard({
           <dd>{new Date(product.createdAt).toLocaleDateString()}</dd>
         </dl>
       )}
-      {canManageDetails && shareInfo ? (
+      {canManageDetails && !product.sharedProductRef && shareInfo ? (
         <ProductVisibilityControl
           organizationId={organizationId}
           productId={product.productId}
@@ -89,6 +97,28 @@ export function ProductDetailsCard({
           adopterOrganizations={shareInfo.adopterOrganizations}
           initialDialogOpen={initialDialogOpen}
         />
+      ) : null}
+      {showTransferControl ? (
+        <section
+          className="product-visibility-control product-publisher-transfer-control"
+          aria-labelledby="product-publisher-transfer-title"
+        >
+          <div>
+            <h2 id="product-publisher-transfer-title">Transfer publisher</h2>
+            <p>
+              Transfer this product’s publisher role to another approved organization you own.
+              Organizations already using this published product keep their setup and access.
+            </p>
+          </div>
+          <ProductTransferControl
+            destinations={transferOptions.destinations}
+            pendingDestinationOrganizationId={transferOptions.pendingDestinationOrganizationId}
+            productId={product.productId}
+            productName={product.name}
+            productRecordId={product.productRecordId}
+            sourceOrganizationId={organizationId}
+          />
+        </section>
       ) : null}
     </section>
   );

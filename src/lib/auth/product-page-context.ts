@@ -5,7 +5,7 @@ import { notFound, redirect } from "next/navigation";
 
 export type ProductPageRouteParams = { organizationId: string; productId: string };
 export type ProductPageParams = { params: Promise<ProductPageRouteParams> };
-export type ProductPageSearchParams = { notice?: string; error?: string };
+export type ProductPageSearchParams = { notice?: string; error?: string; reason?: string };
 export type ProductPageWithSearchParams = {
   params: Promise<ProductPageRouteParams>;
   searchParams: Promise<ProductPageSearchParams>;

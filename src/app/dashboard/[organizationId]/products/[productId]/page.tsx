@@ -9,7 +9,11 @@ import {
   getProductPageContext,
   type ProductPageWithSearchParams,
 } from "@/lib/auth/product-page-context";
-import { getProductShareInfo, listConsumerClientsForProduct } from "@/lib/auth/service";
+import {
+  getOwnedPublicProductTransferOptions,
+  getProductShareInfo,
+  listConsumerClientsForProduct,
+} from "@/lib/auth/service";
 
 export default async function ProductPage({ params, searchParams }: ProductPageWithSearchParams) {
   const [{ current, organizationId, productId, access: productAccess }, query] = await Promise.all([
@@ -22,15 +26,24 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
     productAccess.catalogManager &&
     (productAccess.catalogRole === "owner" || productAccess.catalogRole === "admin") &&
     !isSharedInstallation;
+  const canTransferPublisher =
+    productAccess.catalogManager && productAccess.catalogRole === "owner" && !isSharedInstallation;
   const productRole = productAccess.membership?.role;
   const canManageProduct = productRole === "owner" || productRole === "admin";
-  const [productClients, shareInfo] = await Promise.all([
+  const [productClients, shareInfo, transferOptions] = await Promise.all([
     canManageProduct
       ? listConsumerClientsForProduct(current.subject.subjectId, organizationId, product.productId)
       : Promise.resolve([]),
     canManageDetails
       ? getProductShareInfo(current.subject.subjectId, organizationId, product.productRecordId)
       : Promise.resolve(null),
+    canTransferPublisher
+      ? getOwnedPublicProductTransferOptions(
+          current.subject.subjectId,
+          organizationId,
+          product.productRecordId,
+        )
+      : Promise.resolve({ destinations: [] }),
   ]);
   const connectedClients = productClients.filter((client) => client.status === "active");
   return (
@@ -51,6 +64,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
         error={query.error}
         isSharedInstallation={isSharedInstallation}
         notice={query.notice}
+        reason={query.reason}
       />
       {canManageProduct ? (
         <ProductOnboardingCard
@@ -66,6 +80,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
         organizationId={organizationId}
         product={product}
         shareInfo={shareInfo}
+        canTransferPublisher={canTransferPublisher}
+        transferOptions={transferOptions}
       />
     </>
   );
