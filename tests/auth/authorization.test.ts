@@ -217,6 +217,23 @@ class MemoryStore {
     );
   }
 
+  async listOrganizationEvents(organizationId: string, productId?: string) {
+    return this.events.filter((event) => {
+      const eventOrganizationId =
+        typeof event.payload.organizationId === "string"
+          ? event.payload.organizationId
+          : event.aggregate.kind === "organization"
+            ? event.aggregate.id
+            : null;
+      const eventProductId =
+        typeof event.payload.productId === "string" ? event.payload.productId : null;
+      return (
+        eventOrganizationId === organizationId &&
+        (productId === undefined || eventProductId === productId)
+      );
+    });
+  }
+
   async listAllEvents() {
     return [...this.events];
   }
@@ -1205,7 +1222,12 @@ describe("platform public product ownership transfer", () => {
         expect.objectContaining({
           type: "product.transferred",
           organization: "Destination Org",
-          details: "Atlas transferred from Legacy Organization to Destination Org",
+          details: expect.arrayContaining([
+            {
+              label: "Transfer",
+              value: "Atlas transferred from Legacy Organization to Destination Org",
+            },
+          ]),
         }),
       ]),
     );
@@ -1419,19 +1441,34 @@ describe("platform activity pagination", () => {
       createdAt: now,
       updatedAt: now,
     } as AuthRecord);
-    store.events.push({
+    store.seed({
+      kind: "organization-membership",
       schemaVersion: 1,
-      eventId: "eeeeeeee-eeee-4eee-8eee-ffffffffffff" as never,
-      aggregate: { kind: "organization", id: ORGANIZATION_ID as never },
-      aggregateVersion: 1,
-      occurredAt: now,
-      actor: { kind: "subject", subjectId: SUBJECT_ID as never },
-      type: "organization.member-disabled",
-      payload: {
-        organizationId: ORGANIZATION_ID,
-        subjectId: ROLE_TARGET_SUBJECT_ID,
-      },
-    });
+      organizationMembershipId: ROLE_TARGET_MEMBERSHIP_ID as never,
+      organizationId: ORGANIZATION_ID as never,
+      subjectId: ROLE_TARGET_SUBJECT_ID as never,
+      role: "member",
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    store.seed({
+      kind: "organization-membership",
+      schemaVersion: 1,
+      organizationMembershipId: ORG_ADMIN_MEMBERSHIP_ID as never,
+      organizationId: ORGANIZATION_ID as never,
+      subjectId: SUBJECT_ID as never,
+      role: "owner",
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    await service.updateOrganizationMemberRole(
+      SUBJECT_ID as never,
+      ORGANIZATION_ID,
+      ROLE_TARGET_MEMBERSHIP_ID,
+      "admin",
+    );
 
     const page = await service.listPlatformAudit(SUBJECT_ID as never);
 
@@ -1439,7 +1476,85 @@ describe("platform activity pagination", () => {
       organization: "Legacy Organization",
       user: "Member Example (member@example.com)",
       actor: "person@example.com",
+      summary: "Changed an organization member role",
+      target: "Member Example (member@example.com)",
+      details: expect.arrayContaining([{ label: "Role", before: "member", after: "admin" }]),
     });
+  });
+
+  it("shows only allowlisted API-key and invitation details", async () => {
+    const now = new Date().toISOString();
+    store.events.push(
+      {
+        schemaVersion: 1,
+        eventId: "eeeeeeee-eeee-4eee-8eee-fffffffffff1" as never,
+        aggregate: { kind: "api-key", id: API_KEY_ID as never },
+        aggregateVersion: 1,
+        occurredAt: now,
+        actor: { kind: "subject", subjectId: SUBJECT_ID as never },
+        type: "api-key.created",
+        payload: {
+          organizationId: ORGANIZATION_ID,
+          subjectId: SUBJECT_ID,
+          keyClass: "integration",
+          expiresAt: null,
+          changes: [{ field: "actions", before: [], after: ["project.read"] }],
+          token: "must-not-be-rendered",
+        },
+      },
+      {
+        schemaVersion: 1,
+        eventId: "eeeeeeee-eeee-4eee-8eee-fffffffffff2" as never,
+        aggregate: { kind: "organization-invitation", id: INVITATION_ID as never },
+        aggregateVersion: 1,
+        occurredAt: now,
+        actor: { kind: "subject", subjectId: SUBJECT_ID as never },
+        type: "product.invitation-created",
+        payload: {
+          organizationId: ORGANIZATION_ID,
+          invitationRole: "member",
+          invitationExpiresAt: "2026-10-20T10:00:00.000Z",
+          email: "private@example.com",
+          token: "must-not-be-rendered",
+        },
+      },
+    );
+
+    const page = await service.listPlatformAudit(SUBJECT_ID as never);
+    const keyEntry = page.entries.find((entry) => entry.type === "api-key.created");
+    const invitationEntry = page.entries.find(
+      (entry) => entry.type === "product.invitation-created",
+    );
+
+    expect(keyEntry).toMatchObject({
+      summary: "Created an API key",
+      target: "integration API key",
+      details: expect.arrayContaining([
+        { label: "Key type", value: "integration" },
+        { label: "Allowed actions", before: "None", after: "project.read" },
+      ]),
+    });
+    expect(invitationEntry).toMatchObject({
+      target: "Product invitation",
+      details: expect.arrayContaining([
+        { label: "Invitation role", value: "member" },
+        { label: "Invitation expires", value: "2026-10-20T10:00:00.000Z" },
+      ]),
+    });
+    expect(JSON.stringify([keyEntry, invitationEntry])).not.toContain("must-not-be-rendered");
+    expect(JSON.stringify([keyEntry, invitationEntry])).not.toContain("private@example.com");
+  });
+
+  it("keeps older events useful without inventing before-and-after values", async () => {
+    seedAuditEvents(store, 1);
+
+    const page = await service.listPlatformAudit(SUBJECT_ID as never);
+
+    expect(page.entries[0]).toMatchObject({
+      summary: "Audit · 0",
+      details: [{ label: "Event type", value: "audit.0" }],
+    });
+    expect(page.entries[0].details.some((detail) => detail.before || detail.after)).toBe(false);
   });
 
   it("requires platform administrator access", async () => {
@@ -2212,6 +2327,78 @@ describe("product access roles", () => {
     service = await import("../../src/lib/auth/service");
   });
 
+  it("uses display names without exposing emails in product activity", async () => {
+    const now = new Date().toISOString();
+    store.seed({
+      kind: "subject",
+      schemaVersion: 1,
+      subjectId: SUBJECT_ID as never,
+      status: "active",
+      firstName: "Admin",
+      lastName: "Example",
+      primaryEmail: "person@example.com",
+      emailVerifiedAt: now,
+      passwordCredential: null,
+      authVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    store.seed({
+      kind: "subject",
+      schemaVersion: 1,
+      subjectId: ROLE_TARGET_SUBJECT_ID as never,
+      status: "active",
+      firstName: "Member",
+      lastName: "Example",
+      primaryEmail: "member@example.com",
+      emailVerifiedAt: now,
+      passwordCredential: null,
+      authVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    store.seed({
+      kind: "organization-membership",
+      schemaVersion: 1,
+      organizationMembershipId: ROLE_TARGET_MEMBERSHIP_ID as never,
+      organizationId: ORGANIZATION_ID as never,
+      productId: SCOPE.productId,
+      subjectId: ROLE_TARGET_SUBJECT_ID as never,
+      role: "member",
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    store.events.push({
+      schemaVersion: 1,
+      eventId: "eeeeeeee-eeee-4eee-8eee-ffffffffffff" as never,
+      aggregate: { kind: "organization-membership", id: ROLE_TARGET_MEMBERSHIP_ID as never },
+      aggregateVersion: 1,
+      occurredAt: now,
+      actor: { kind: "subject", subjectId: SUBJECT_ID as never },
+      type: "product.member-role-updated",
+      payload: {
+        organizationId: ORGANIZATION_ID,
+        productId: SCOPE.productId,
+        subjectId: ROLE_TARGET_SUBJECT_ID,
+      },
+    });
+
+    const entries = await service.listProductAudit(
+      SUBJECT_ID as never,
+      ORGANIZATION_ID,
+      SCOPE.productId,
+    );
+
+    expect(entries[0]).toMatchObject({
+      summary: "Changed a product member role",
+      actor: "Admin Example",
+      affectedUser: "Member Example",
+      target: "Member Example",
+    });
+    expect(JSON.stringify(entries)).not.toContain("@example.com");
+  });
+
   it.each(["owner", "admin"] as const)(
     "allows a product %s to create and remove reusable roles",
     async (role) => {
@@ -2292,6 +2479,18 @@ describe("product access roles", () => {
       accessRole: { id: accessRole.id, name: accessRole.name },
       grants: [{ actions: ["telemetry.read", "telemetry.events.read"] }],
     });
+    expect(
+      store.events.find((event) => event.type === "permission.granted")?.payload,
+    ).toMatchObject({
+      accessRoleName: "Telemetry viewer",
+      changes: [
+        {
+          field: "actions",
+          before: [],
+          after: ["telemetry.read", "telemetry.events.read"],
+        },
+      ],
+    });
 
     await service.removeProductAccessRole(
       SUBJECT_ID as never,
@@ -2314,6 +2513,39 @@ describe("product access roles", () => {
         accessRole.id,
       ),
     ).rejects.toThrow("Choose an access role configured for this product.");
+  });
+
+  it("records safe invitation details without the address or token", async () => {
+    const { invitation, token } = await service.createProductInvitation(
+      SUBJECT_ID as never,
+      ORGANIZATION_ID,
+      SCOPE.productId,
+      "invitee@example.com",
+      "member",
+    );
+    const event = store.events.find((item) => item.type === "product.invitation-created");
+
+    expect(event?.payload).toMatchObject({
+      invitationRole: "member",
+      invitationExpiresAt: invitation.expiresAt,
+    });
+    expect(JSON.stringify(event)).not.toContain("invitee@example.com");
+    expect(JSON.stringify(event)).not.toContain(token);
+  });
+
+  it("records safe API-key details without the generated key", async () => {
+    const { record, token } = await service.createApiKeyForSubject(SUBJECT_ID as never, {
+      scope: SCOPE,
+      actions: ["project.read"],
+      expiresAt: null,
+    });
+    const event = store.events.find((item) => item.aggregate.id === record.apiKeyId);
+
+    expect(event?.payload).toMatchObject({
+      keyClass: record.keyClass,
+      changes: [{ field: "actions", before: [], after: ["project.read"] }],
+    });
+    expect(JSON.stringify(event)).not.toContain(token);
   });
 });
 
@@ -2348,6 +2580,6 @@ describe("access grant role selector", () => {
     const html = renderToStaticMarkup(createElement(AccessGrantActionsFields, { roles: [role] }));
 
     expect(html).toContain("Telemetry viewer");
-    expect(html).toContain("Custom actions");
+    expect(html).toContain("Custom permissions");
   });
 });

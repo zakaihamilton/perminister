@@ -46,7 +46,7 @@ export default async function NewOrganizationPage({
       lastName={current.subject.lastName ?? null}
     >
       <DashboardHeading
-        description="Every new organization needs platform approval before its workspace can be used."
+        description="A platform administrator must approve each new organization before you can use it."
         action={
           <Link
             className="button button-secondary"

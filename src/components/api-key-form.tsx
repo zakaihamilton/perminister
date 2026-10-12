@@ -37,8 +37,8 @@ export function ApiKeyForm({
       ) : null}
       <ApiKeyFormFields defaults={defaults} formId={formId} products={products} />
       <p className="form-hint">
-        Choose a product where your account already has the selected actions. Add a project or
-        workspace ID when needed.
+        Choose a product where your account already has these permissions. Add a project or
+        workspace ID to limit where the key can be used.
       </p>
       <button className="button button-primary form-submit" disabled={pending} type="submit">
         {pending ? "Saving…" : submitLabel}

@@ -35,7 +35,7 @@ export function ConsumerClientManager({
       ) : null}
       {state.clientId && state.secret ? (
         <section className="one-time-secret" aria-live="polite">
-          <strong>Copy these credentials now. The secret will not be shown again.</strong>
+          <strong>Copy these app client details now. The secret will not be shown again.</strong>
           <span>Client ID</span>
           <code>{state.clientId}</code>
           <span>Client secret</span>

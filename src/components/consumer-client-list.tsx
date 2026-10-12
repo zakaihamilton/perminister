@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { revokeConsumerClientAction } from "@/app/actions";
 import type { ConsumerClientSummary } from "@/lib/auth/service";
 
@@ -26,6 +29,8 @@ export function ConsumerClientList({
   returnTo,
   pending,
 }: ConsumerClientListProps) {
+  const [rotatingClientId, setRotatingClientId] = useState<string | null>(null);
+
   return (
     <section className="dashboard-card">
       <div className="dashboard-card-heading">
@@ -51,7 +56,7 @@ export function ConsumerClientList({
               </div>
               <dl className="consumer-client-details-grid">
                 <div>
-                  <dt>Origin</dt>
+                  <dt>Allowed origin</dt>
                   <dd>{client.appOrigin ?? "Not set"}</dd>
                 </div>
                 <div>
@@ -59,7 +64,7 @@ export function ConsumerClientList({
                   <dd>{sessionLifetimeLabel(client.sessionLifetimeMs)}</dd>
                 </div>
                 <div>
-                  <dt>Self-registration</dt>
+                  <dt>People can sign up</dt>
                   <dd>{client.selfRegistrationEnabled ? "Enabled" : "Disabled"}</dd>
                 </div>
                 <div>
@@ -71,31 +76,53 @@ export function ConsumerClientList({
               </dl>
               {client.status === "active" ? (
                 <div className="consumer-client-card-actions">
-                  <details className="rotate-details">
-                    <summary>Rotate secret</summary>
-                    <form action={action} className="auth-form management-form">
+                  <div className="consumer-client-card-buttons">
+                    <button
+                      aria-controls={
+                        rotatingClientId === client.clientId
+                          ? `rotate-secret-${client.clientId}`
+                          : undefined
+                      }
+                      aria-expanded={rotatingClientId === client.clientId}
+                      className="button button-secondary"
+                      onClick={() =>
+                        setRotatingClientId((current) =>
+                          current === client.clientId ? null : client.clientId,
+                        )
+                      }
+                      type="button"
+                    >
+                      Rotate secret
+                    </button>
+                    <form action={revokeConsumerClientAction}>
+                      <input type="hidden" name="organizationId" value={organizationId} />
+                      <input type="hidden" name="productId" value={productId} />
+                      <input type="hidden" name="returnTo" value={returnTo} />
+                      <input type="hidden" name="clientId" value={client.clientId} />
+                      <button className="button button-secondary" type="submit">
+                        Revoke app client
+                      </button>
+                    </form>
+                  </div>
+                  {rotatingClientId === client.clientId ? (
+                    <form
+                      action={action}
+                      className="auth-form management-form"
+                      id={`rotate-secret-${client.clientId}`}
+                    >
                       <input type="hidden" name="organizationId" value={organizationId} />
                       <input type="hidden" name="productId" value={productId} />
                       <input type="hidden" name="returnTo" value={returnTo} />
                       <input type="hidden" name="clientId" value={client.clientId} />
                       <p>
-                        Rotating replaces the current secret immediately. Update the app backend
-                        with the new value.
+                        This replaces the current secret immediately. Update the app backend with
+                        the new value before it makes another request.
                       </p>
                       <button className="button button-secondary" disabled={pending} type="submit">
-                        {pending ? "Rotating…" : "Rotate secret"}
+                        {pending ? "Rotating…" : "Replace secret"}
                       </button>
                     </form>
-                  </details>
-                  <form action={revokeConsumerClientAction}>
-                    <input type="hidden" name="organizationId" value={organizationId} />
-                    <input type="hidden" name="productId" value={productId} />
-                    <input type="hidden" name="returnTo" value={returnTo} />
-                    <input type="hidden" name="clientId" value={client.clientId} />
-                    <button className="button button-secondary" type="submit">
-                      Revoke client
-                    </button>
-                  </form>
+                  ) : null}
                 </div>
               ) : null}
             </article>

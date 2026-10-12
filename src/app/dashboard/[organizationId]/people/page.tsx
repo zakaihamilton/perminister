@@ -2,7 +2,7 @@ import { revokeOrganizationInvitationAction } from "@/app/actions";
 import { PendingInvitations } from "@/components/pending-invitations";
 import { DashboardHeading } from "@/components/dashboard-shell";
 import {
-  InviteCatalogManagerSection,
+  InviteOrganizationMemberSection,
   OrganizationPeopleNotices,
   OrganizationPeopleSection,
 } from "@/components/organization-people-sections";
@@ -30,7 +30,7 @@ export default async function PeoplePage(
   const owner = organization.membership.role === "owner";
   return (
     <>
-      <DashboardHeading description="Catalog managers maintain organization and product details. Product roles and permissions are managed inside each product." />
+      <DashboardHeading description="Organization owners and admins manage members and invitations. Each product has its own members and permissions." />
       <OrganizationPeopleNotices error={query.error} notice={query.notice} />
       <OrganizationPeopleSection
         currentSubjectId={current.subject.subjectId}
@@ -39,7 +39,7 @@ export default async function PeoplePage(
         owner={owner}
       />
 
-      {owner ? <InviteCatalogManagerSection organizationId={organizationId} /> : null}
+      {owner ? <InviteOrganizationMemberSection organizationId={organizationId} /> : null}
 
       <PendingInvitations
         invitations={invitations}
@@ -47,8 +47,8 @@ export default async function PeoplePage(
         formAction={revokeOrganizationInvitationAction}
       />
       <p className="role-help">
-        Product Owner and Admin roles, invitations, and permission grants are managed in that
-        product’s People and Access pages.
+        Product owner and admin roles, invitations, and permissions are managed on that
+        product&apos;s Members and Permissions pages.
       </p>
     </>
   );

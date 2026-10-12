@@ -5,6 +5,7 @@ import {
   ProductApiKeyCreationSection,
   ProductApiKeyRecords,
 } from "@/components/product-api-key-sections";
+import { ProductNavigation } from "@/components/product-navigation";
 import {
   getProductPageContext,
   type ProductPageWithSearchParams,
@@ -44,7 +45,7 @@ export default async function ProductApiKeysPage({
   return (
     <>
       <DashboardHeading
-        description="Create and manage server credentials scoped to this product."
+        description="Create and manage API keys that work with this product."
         action={
           <div className="product-detail-actions">
             {canCreate ? (
@@ -56,16 +57,15 @@ export default async function ProductApiKeysPage({
                 Create API key
               </button>
             )}
-            {canManageAccess ? (
-              <Link
-                className="button button-secondary"
-                href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access`}
-              >
-                Manage access
-              </Link>
-            ) : null}
           </div>
         }
+      />
+      <ProductNavigation
+        isSharedInstallation={Boolean(access.product.sharedProductRef)}
+        organizationId={organizationId}
+        productId={productId}
+        productName={access.product.name}
+        role={access.membership?.role}
       />
       <ApiKeyNotices
         notice={query.notice}

@@ -1009,19 +1009,29 @@ export interface ProductAccessSummary {
   catalogRole: OrganizationRole | null;
 }
 
+export interface ActivityDetail {
+  label: string;
+  value?: string;
+  before?: string;
+  after?: string;
+}
+
 export interface OrganizationActivityEntry {
   eventId: EventId;
   type: string;
+  summary: string;
   occurredAt: string;
   actor: string;
+  target: string;
+  affectedUser: string | null;
   aggregateKind: string;
+  details: ActivityDetail[];
 }
 
 export interface PlatformActivityEntry extends OrganizationActivityEntry {
   organization: string;
   user: string | null;
   actorIsUser: boolean;
-  details?: string;
 }
 
 export interface PlatformAuditPage {
@@ -1035,14 +1045,85 @@ export interface PlatformAuditPage {
 const PLATFORM_AUDIT_PAGE_SIZE = 25;
 const PLATFORM_AUDIT_MAX_EVENTS = 100;
 
-function organizationActivityEntry(event: AuthEvent): OrganizationActivityEntry {
-  return {
-    eventId: event.eventId,
-    type: event.type,
-    occurredAt: event.occurredAt,
-    actor: event.actor.kind === "subject" ? "account" : event.actor.kind,
-    aggregateKind: event.aggregate.kind,
-  };
+const ACTIVITY_SUMMARIES: Readonly<Record<string, string>> = {
+  "api-key.created": "Created an API key",
+  "api-key.revoked": "Revoked an API key",
+  "api-key.rotated.created": "Created a replacement API key",
+  "api-key.rotated.revoked-previous": "Revoked the previous API key",
+  "api-key.service-created": "Created an integration API key",
+  "api-key.service-revoked": "Revoked an integration API key",
+  "api-key.service-rotated.created": "Created a replacement integration API key",
+  "api-key.service-rotated.revoked-previous": "Revoked the previous integration API key",
+  "consumer-client.created": "Created an application client",
+  "consumer-client.secret-rotated": "Rotated an application client secret",
+  "consumer-client.revoked": "Revoked an application client",
+  "consumer.member-role-updated": "Changed a member's application role",
+  "credential.admin-reset": "Reset an account password",
+  "credential.password-changed": "Changed an account password",
+  "credential.password-reset": "Reset an account password",
+  "identity.admin-provisioned": "Provisioned an account",
+  "identity.disabled": "Disabled an account",
+  "identity.enabled": "Enabled an account",
+  "identity.profile-updated": "Updated an account profile",
+  "identity.registered": "Created an account",
+  "organization.approved": "Approved an organization",
+  "organization.member-added": "Added an organization member",
+  "organization.member-removed": "Removed an organization member",
+  "organization.member-role-updated": "Changed an organization member role",
+  "organization.rejected": "Rejected an organization",
+  "organization.requested": "Requested an organization",
+  "organization.updated": "Updated an organization",
+  "organization.invitation-created": "Invited an organization administrator",
+  "organization.invitation-replaced": "Replaced an organization invitation",
+  "organization.invitation-revoked": "Revoked an organization invitation",
+  "organization.invitation-consumed": "Accepted an organization invitation",
+  "organization.catalog-manager-invitation-accepted": "Accepted an organization invitation",
+  "permission.granted": "Granted permissions",
+  "permission.revoked": "Revoked permissions",
+  "permission.restored": "Restored permissions",
+  "product.access-role-created": "Created a product access role",
+  "product.access-role-removed": "Removed a product access role",
+  "product.created": "Created a product",
+  "product.member-added": "Added a product member",
+  "product.member-keys-revoked": "Revoked a removed member's API keys",
+  "product.member-removed": "Removed a product member",
+  "product.member-reactivated": "Reactivated a product member",
+  "product.member-role-updated": "Changed a product member role",
+  "product.owner-assigned": "Assigned a product owner",
+  "product.published": "Published a product",
+  "product.shared-installed": "Installed a shared product",
+  "product.shared-installation-reactivated": "Reactivated a shared product installation",
+  "product.shared-installation-removed": "Removed a shared product installation",
+  "product.shared-installation-repointed": "Moved a shared product installation",
+  "product.transferred": "Transferred a product",
+  "product.transferred-from": "Transferred a product",
+  "product.unpublished": "Unpublished a product",
+  "product.updated": "Updated a product",
+  "product.invitation-created": "Invited a product member",
+  "product.invitation-replaced": "Replaced a product invitation",
+  "product.invitation-revoked": "Revoked a product invitation",
+  "product.invitation-accepted": "Accepted a product invitation",
+  "product.shared-invitation-revoked": "Revoked a shared product invitation",
+  "service-principal.created": "Created an integration",
+  "service-principal.disabled": "Disabled an integration",
+  "service-principal.enabled": "Enabled an integration",
+  "session.created": "Signed in",
+  "session.consumer-created": "Signed in to a product",
+  "session.revoked": "Signed out",
+};
+
+function humanizeActivityType(type: string): string {
+  return type
+    .split(".")
+    .map((part) => part.replaceAll("-", " "))
+    .join(" · ")
+    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+}
+
+function activitySummary(type: string): string {
+  return Object.prototype.hasOwnProperty.call(ACTIVITY_SUMMARIES, type)
+    ? ACTIVITY_SUMMARIES[type]
+    : humanizeActivityType(type);
 }
 
 function eventPayloadId(event: AuthEvent, key: string): string | null {
@@ -1074,59 +1155,157 @@ function platformEventUserId(event: AuthEvent): string | null {
   return eventPayloadId(event, "subjectId");
 }
 
-function platformSubjectLabel(
+function activitySubjectId(event: AuthEvent): string | null {
+  return platformEventUserId(event);
+}
+
+function activitySubjectLabel(
   subjectId: string,
   subjects: ReadonlyMap<string, SubjectRecord>,
+  includeEmail = false,
 ): string {
   const subject = subjects.get(subjectId);
   if (!subject) return `Account ${subjectId}`;
   const name = [subject.firstName, subject.lastName].filter(Boolean).join(" ");
-  if (name && subject.primaryEmail) return `${name} (${subject.primaryEmail})`;
-  return name || subject.primaryEmail || `Account ${subjectId}`;
+  if (includeEmail && name && subject.primaryEmail) return `${name} (${subject.primaryEmail})`;
+  return name || (includeEmail ? subject.primaryEmail : null) || `Account ${subjectId}`;
 }
 
-function platformEventDetails(
+function eventAggregateRecordKind(event: AuthEvent): AuthRecordKind | null {
+  return event.aggregate.kind === "directory" ? null : event.aggregate.kind;
+}
+
+async function activityAggregateRecord(event: AuthEvent): Promise<AuthRecord | null> {
+  const kind = eventAggregateRecordKind(event);
+  if (!kind) return null;
+  try {
+    return (await loadRecord(kind, event.aggregate.id))?.record ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function activityTargetLabel(
   event: AuthEvent,
-  organizationNames: ReadonlyMap<string, string>,
-): string | undefined {
-  if (event.type !== "product.transferred") return undefined;
-  const sourceOrganizationId = eventPayloadId(event, "sourceOrganizationId");
-  const destinationOrganizationId = eventPayloadId(event, "destinationOrganizationId");
-  const productName = event.payload.productName;
-  if (!sourceOrganizationId || !destinationOrganizationId || typeof productName !== "string") {
-    return undefined;
+  record: AuthRecord | null,
+  subjects: ReadonlyMap<string, SubjectRecord>,
+  includeSubjectEmails: boolean,
+): string {
+  if (event.type === "product.transferred" && typeof event.payload.productName === "string") {
+    return event.payload.productName;
   }
-  const sourceName =
-    organizationNames.get(sourceOrganizationId) ?? `Organization ${sourceOrganizationId}`;
-  const destinationName =
-    organizationNames.get(destinationOrganizationId) ?? `Organization ${destinationOrganizationId}`;
-  return `${productName} transferred from ${sourceName} to ${destinationName}`;
+  if (event.aggregate.kind === "organization-invitation" && event.type.startsWith("product.")) {
+    return "Product invitation";
+  }
+  if (record) {
+    switch (record.kind) {
+      case "organization":
+        return record.name;
+      case "organization-membership":
+        return activitySubjectLabel(record.subjectId, subjects, includeSubjectEmails);
+      case "product":
+        return record.name;
+      case "organization-invitation":
+        return record.productId ? "Product invitation" : "Organization invitation";
+      case "subject":
+        return activitySubjectLabel(record.subjectId, subjects, includeSubjectEmails);
+      case "membership":
+        return record.accessRole?.name
+          ? `${record.accessRole.name} permission grant`
+          : "Permission grant";
+      case "service-principal":
+        return record.name;
+      case "api-key":
+        return `${record.keyClass.replaceAll("-", " ")} API key`;
+      case "consumer-client":
+        return record.appName;
+      case "consumer-authorization-code":
+        return "Authorization code";
+      case "session":
+        return "Session";
+      case "email-action":
+        return "Email action";
+    }
+  }
+  if (event.aggregate.kind === "directory") return "Directory";
+  return humanizeActivityType(event.aggregate.kind);
 }
 
-async function platformActivityEntries(
-  events: readonly AuthEvent[],
-): Promise<PlatformActivityEntry[]> {
-  const organizationIds = new Set<string>();
-  const subjectIds = new Set<string>();
-  for (const event of events) {
-    const organizationId = platformEventOrganizationId(event);
-    const sourceOrganizationId = eventPayloadId(event, "sourceOrganizationId");
-    const userId = platformEventUserId(event);
-    if (organizationId) organizationIds.add(organizationId);
-    if (sourceOrganizationId) organizationIds.add(sourceOrganizationId);
-    if (userId) subjectIds.add(userId);
-    if (event.actor.kind === "subject") subjectIds.add(event.actor.subjectId);
+const ACTIVITY_CHANGE_LABELS: Readonly<Record<string, string>> = {
+  actions: "Allowed actions",
+  role: "Role",
+  status: "Status",
+};
+
+function activityDetailValue(value: unknown): string | null {
+  if (value === null) return "None";
+  if (typeof value === "string") return value.slice(0, 300);
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value) && value.every((item) => typeof item === "string")) {
+    return value.join(", ").slice(0, 300) || "None";
+  }
+  return null;
+}
+
+function activityDetails(event: AuthEvent): ActivityDetail[] {
+  const details: ActivityDetail[] = [{ label: "Event type", value: event.type }];
+  const payloadDetailLabels: Readonly<Record<string, string>> = {
+    accessRoleName: "Access role",
+    expiresAt: "Expires",
+    invitationExpiresAt: "Invitation expires",
+    invitationRole: "Invitation role",
+    keyClass: "Key type",
+    productName: "Product",
+  };
+  for (const [key, label] of Object.entries(payloadDetailLabels)) {
+    const value = activityDetailValue(event.payload[key]);
+    if (value && value !== "None") details.push({ label, value });
   }
 
-  const [organizations, subjects] = await Promise.all([
-    mapWithConcurrency([...organizationIds], async (organizationId) => {
-      try {
-        const organization = await loadRecord("organization", organizationId);
-        return { id: organizationId, name: organization?.record.name ?? null };
-      } catch {
-        return { id: organizationId, name: null };
-      }
-    }),
+  const rawChanges = event.payload.changes;
+  if (!Array.isArray(rawChanges)) return details;
+  for (const change of rawChanges) {
+    if (typeof change !== "object" || change === null || Array.isArray(change)) continue;
+    const field = change.field;
+    if (
+      typeof field !== "string" ||
+      !Object.prototype.hasOwnProperty.call(ACTIVITY_CHANGE_LABELS, field)
+    ) {
+      continue;
+    }
+    const before = activityDetailValue(change.before);
+    const after = activityDetailValue(change.after);
+    if (before === null || after === null) continue;
+    details.push({ label: ACTIVITY_CHANGE_LABELS[field], before, after });
+  }
+  return details;
+}
+
+async function organizationActivityEntries(
+  events: readonly AuthEvent[],
+  includeSubjectEmails = false,
+): Promise<OrganizationActivityEntry[]> {
+  const aggregateRecords = await mapWithConcurrency(events, activityAggregateRecord);
+  const aggregateRecordByEvent = new Map(
+    events.map((event, index) => [event.eventId, aggregateRecords[index]]),
+  );
+  const subjectIds = new Set<string>();
+  const servicePrincipalIds = new Set<string>();
+  for (const event of events) {
+    const subjectId = activitySubjectId(event);
+    if (subjectId) subjectIds.add(subjectId);
+    if (event.actor.kind === "subject") subjectIds.add(event.actor.subjectId);
+    if (event.actor.kind === "service") servicePrincipalIds.add(event.actor.servicePrincipalId);
+    const record = aggregateRecordByEvent.get(event.eventId);
+    if (!record) continue;
+    if (record.kind === "organization-membership" || record.kind === "membership") {
+      subjectIds.add(record.subjectId);
+    } else if (record.kind === "subject") {
+      subjectIds.add(record.subjectId);
+    }
+  }
+
+  const [subjects, servicePrincipals] = await Promise.all([
     mapWithConcurrency([...subjectIds], async (subjectId) => {
       try {
         const subject = await loadRecord("subject", subjectId);
@@ -1135,29 +1314,103 @@ async function platformActivityEntries(
         return { id: subjectId, record: null };
       }
     }),
+    mapWithConcurrency([...servicePrincipalIds], async (servicePrincipalId) => {
+      try {
+        const principal = await loadRecord("service-principal", servicePrincipalId);
+        return { id: servicePrincipalId, name: principal?.record.name ?? null };
+      } catch {
+        return { id: servicePrincipalId, name: null };
+      }
+    }),
+  ]);
+  const subjectRecords = new Map<string, SubjectRecord>();
+  for (const subject of subjects) {
+    if (subject.record) subjectRecords.set(subject.id, subject.record);
+  }
+  const servicePrincipalNames = new Map<string, string>();
+  for (const principal of servicePrincipals) {
+    if (principal.name) servicePrincipalNames.set(principal.id, principal.name);
+  }
+
+  return events.map((event) => {
+    const actor =
+      event.actor.kind === "subject"
+        ? activitySubjectLabel(event.actor.subjectId, subjectRecords, includeSubjectEmails)
+        : event.actor.kind === "service"
+          ? (servicePrincipalNames.get(event.actor.servicePrincipalId) ?? "Service integration")
+          : "System";
+    const subjectId = activitySubjectId(event);
+    const record = aggregateRecordByEvent.get(event.eventId) ?? null;
+    return {
+      eventId: event.eventId,
+      type: event.type,
+      summary: activitySummary(event.type),
+      occurredAt: event.occurredAt,
+      actor,
+      target: activityTargetLabel(event, record, subjectRecords, includeSubjectEmails),
+      affectedUser: subjectId
+        ? activitySubjectLabel(subjectId, subjectRecords, includeSubjectEmails)
+        : null,
+      aggregateKind: event.aggregate.kind,
+      details: activityDetails(event),
+    };
+  });
+}
+
+async function platformActivityEntries(
+  events: readonly AuthEvent[],
+): Promise<PlatformActivityEntry[]> {
+  const organizationIds = new Set<string>();
+  for (const event of events) {
+    const organizationId = platformEventOrganizationId(event);
+    const sourceOrganizationId = eventPayloadId(event, "sourceOrganizationId");
+    if (organizationId) organizationIds.add(organizationId);
+    if (sourceOrganizationId) organizationIds.add(sourceOrganizationId);
+  }
+
+  const [organizations, entries] = await Promise.all([
+    mapWithConcurrency([...organizationIds], async (organizationId) => {
+      try {
+        const organization = await loadRecord("organization", organizationId);
+        return { id: organizationId, name: organization?.record.name ?? null };
+      } catch {
+        return { id: organizationId, name: null };
+      }
+    }),
+    organizationActivityEntries(events, true),
   ]);
   const organizationNames = new Map<string, string>();
   for (const organization of organizations) {
     if (organization.name) organizationNames.set(organization.id, organization.name);
   }
-  const subjectRecords = new Map<string, SubjectRecord>();
-  for (const subject of subjects) {
-    if (subject.record) subjectRecords.set(subject.id, subject.record);
-  }
-
-  return events.map((event) => {
+  return events.map((event, index) => {
     const organizationId = platformEventOrganizationId(event);
     const userId = platformEventUserId(event);
-    const actorId = event.actor.kind === "subject" ? event.actor.subjectId : null;
+    const entry = entries[index];
     return {
-      ...organizationActivityEntry(event),
-      actor: actorId ? platformSubjectLabel(actorId, subjectRecords) : event.actor.kind,
+      ...entry,
       organization: organizationId
         ? (organizationNames.get(organizationId) ?? `Organization ${organizationId}`)
         : "Platform-wide",
-      user: userId ? platformSubjectLabel(userId, subjectRecords) : null,
+      user: entry.affectedUser,
       actorIsUser: event.actor.kind === "subject" && event.actor.subjectId === userId,
-      details: platformEventDetails(event, organizationNames),
+      details: [
+        ...entry.details,
+        ...(event.type === "product.transferred"
+          ? [
+              {
+                label: "Transfer",
+                value: `${event.payload.productName ?? entry.target} transferred from ${
+                  organizationNames.get(eventPayloadId(event, "sourceOrganizationId") ?? "") ??
+                  "the source organization"
+                } to ${
+                  organizationNames.get(eventPayloadId(event, "destinationOrganizationId") ?? "") ??
+                  "the destination organization"
+                }`,
+              },
+            ]
+          : []),
+      ],
     };
   });
 }
@@ -1264,7 +1517,12 @@ export async function createOrganization(
       createdAt: now,
       updatedAt: now,
     };
-    await persistRecord(membership, "organization.member-added", { kind: "subject", subjectId });
+    await persistRecord(
+      membership,
+      "organization.member-added",
+      { kind: "subject", subjectId },
+      { changes: [{ field: "role", before: "None", after: membership.role }] },
+    );
     return organization;
   });
 }
@@ -1601,10 +1859,17 @@ export async function updateOrganizationMemberRole(
         throw new Error("An organization must keep at least one owner.");
       }
       const next = { ...membership, role, updatedAt: new Date().toISOString() };
-      await persistRecord(next, "organization.member-role-updated", {
-        kind: "subject",
-        subjectId: actorMembership.subjectId,
-      });
+      await persistRecord(
+        next,
+        "organization.member-role-updated",
+        {
+          kind: "subject",
+          subjectId: actorMembership.subjectId,
+        },
+        {
+          changes: [{ field: "role", before: membership.role, after: role }],
+        },
+      );
     }),
   );
 }
@@ -1771,10 +2036,17 @@ export async function createOrganizationProduct(
         createdAt: existingOwnerMembership?.createdAt ?? now,
         updatedAt: now,
       };
-      await persistRecord(ownerMembership, "product.owner-assigned", {
-        kind: "subject",
-        subjectId: actorId,
-      });
+      await persistRecord(
+        ownerMembership,
+        "product.owner-assigned",
+        {
+          kind: "subject",
+          subjectId: actorId,
+        },
+        {
+          changes: [{ field: "role", before: "None", after: ownerMembership.role }],
+        },
+      );
       return product;
     }),
   );
@@ -3251,6 +3523,7 @@ export async function updateProductMemberRole(
         { ...current, role, updatedAt: new Date().toISOString() },
         "product.member-role-updated",
         { kind: "subject", subjectId: owner.subjectId },
+        { changes: [{ field: "role", before: current.role, after: role }] },
       );
     },
   );
@@ -3615,14 +3888,22 @@ async function ensureConsumerProductMembershipUnlocked(
     createdAt: now,
     updatedAt: now,
   };
-  await persistRecord(membership, "product.member-added", {
-    kind: "subject",
-    subjectId: subject.subjectId,
-  });
+  await persistRecord(
+    membership,
+    "product.member-added",
+    {
+      kind: "subject",
+      subjectId: subject.subjectId,
+    },
+    {
+      changes: [{ field: "role", before: "None", after: membership.role }],
+    },
+  );
   return membership;
 }
 
 async function setConsumerMemberRoleUnlocked(
+  actorId: SubjectId,
   authenticatedProductId: string,
   subjectId: SubjectId,
   scope: ResourceScope,
@@ -3640,10 +3921,20 @@ async function setConsumerMemberRoleUnlocked(
     throw new Error("The account is not an active member of this product.");
   }
   const grant = roleGrant(authenticatedProductId, subjectId, scope, role, actions, existing);
-  await persistRecord(grant, "consumer.member-role-updated", {
-    kind: "subject",
-    subjectId: membership.subjectId,
-  });
+  await persistRecord(
+    grant,
+    "consumer.member-role-updated",
+    { kind: "subject", subjectId: actorId },
+    {
+      changes: [
+        {
+          field: "role",
+          before: existing?.accessRole?.name ?? "None",
+          after: grant.accessRole?.name ?? role,
+        },
+      ],
+    },
+  );
   return grant;
 }
 
@@ -3940,6 +4231,7 @@ export async function createConsumerMember(
       );
       const priorGrant = productMembership ? consumerMemberGrant(productMembership, scope) : null;
       const grant = await setConsumerMemberRoleUnlocked(
+        actorMembership.subjectId,
         authenticatedProductId,
         subject.subjectId,
         scope,
@@ -4039,6 +4331,7 @@ export async function updateConsumerMember(
       }
       if (input.role !== undefined) {
         nextGrant = await setConsumerMemberRoleUnlocked(
+          actorId,
           authenticatedProductId,
           subjectId,
           scope,
@@ -4972,10 +5265,18 @@ export async function createOrganizationInvitation(
         );
       }
       const { invitation, token } = createInvitationDraft(actorId, organizationId, email, role);
-      await persistRecord(invitation, "organization.invitation-created", {
-        kind: "subject",
-        subjectId: actorId,
-      });
+      await persistRecord(
+        invitation,
+        "organization.invitation-created",
+        {
+          kind: "subject",
+          subjectId: actorId,
+        },
+        {
+          invitationRole: invitation.role,
+          invitationExpiresAt: invitation.expiresAt,
+        },
+      );
       return { invitation, token, organizationName: organization.record.name };
     }),
   );
@@ -5034,10 +5335,18 @@ export async function createProductInvitation(
         role,
         productId,
       );
-      await persistRecord(invitation, "product.invitation-created", {
-        kind: "subject",
-        subjectId: actorId,
-      });
+      await persistRecord(
+        invitation,
+        "product.invitation-created",
+        {
+          kind: "subject",
+          subjectId: actorId,
+        },
+        {
+          invitationRole: invitation.role,
+          invitationExpiresAt: invitation.expiresAt,
+        },
+      );
       return { invitation, token, productName: product.name };
     }),
   );
@@ -5269,9 +5578,9 @@ export async function listOrganizationAudit(
 ): Promise<OrganizationActivityEntry[]> {
   return authMutationQueue.run(async () => {
     await requireOrganizationRoleUnlocked(subjectId, organizationId, ["owner", "admin"]);
-    return (await store().listOrganizationEvents(organizationId))
-      .slice(0, 100)
-      .map(organizationActivityEntry);
+    return organizationActivityEntries(
+      (await store().listOrganizationEvents(organizationId)).slice(0, 100),
+    );
   });
 }
 
@@ -5286,9 +5595,9 @@ export async function listProductAudit(
       "admin",
       "member",
     ]);
-    return (await store().listOrganizationEvents(organizationId, productId))
-      .slice(0, 100)
-      .map(organizationActivityEntry);
+    return organizationActivityEntries(
+      (await store().listOrganizationEvents(organizationId, productId)).slice(0, 100),
+    );
   });
 }
 
@@ -5693,10 +6002,18 @@ export async function createPermissionGrant(
         createdAt: now,
         updatedAt: now,
       };
-      await persistRecord(membership, "permission.granted", {
-        kind: "subject",
-        subjectId: actorMembership.subjectId,
-      });
+      await persistRecord(
+        membership,
+        "permission.granted",
+        {
+          kind: "subject",
+          subjectId: actorMembership.subjectId,
+        },
+        {
+          ...(role ? { accessRoleName: role.name } : {}),
+          changes: [{ field: "actions", before: [], after: [...actions] }],
+        },
+      );
       return membership;
     }),
   );
@@ -5740,6 +6057,7 @@ export async function updateGrantStatus(
         { ...current.record, status, updatedAt: new Date().toISOString() },
         status === "disabled" ? "permission.revoked" : "permission.restored",
         { kind: "subject", subjectId: actorMembership.subjectId },
+        { changes: [{ field: "status", before: current.record.status, after: status }] },
       );
     });
   });
@@ -6011,6 +6329,11 @@ export async function createApiKeyForServicePrincipal(
           kind: "subject",
           subjectId: actor.subjectId,
         },
+        {
+          keyClass: record.keyClass,
+          expiresAt: record.expiresAt,
+          changes: [{ field: "actions", before: [], after: [...record.actions] }],
+        },
       );
       let rotationWarning: string | null = null;
       if (previous) {
@@ -6136,10 +6459,19 @@ export async function createApiKeyForSubject(
         options.expiresAt,
         previous,
       );
-      await persistRecord(record, previous ? "api-key.rotated.created" : "api-key.created", {
-        kind: "subject",
-        subjectId,
-      });
+      await persistRecord(
+        record,
+        previous ? "api-key.rotated.created" : "api-key.created",
+        {
+          kind: "subject",
+          subjectId,
+        },
+        {
+          keyClass: record.keyClass,
+          expiresAt: record.expiresAt,
+          changes: [{ field: "actions", before: [], after: [...record.actions] }],
+        },
+      );
       let rotationWarning: string | null = null;
       if (previous) {
         try {

@@ -9,25 +9,24 @@ import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 import type { ProductMemberView } from "@/lib/auth/service";
 
 const productPeopleErrorText: Record<string, string> = {
-  "mail-unconfigured": "Invitation email is unavailable until Resend is configured.",
-  "invite-failed":
-    "The invitation could not be sent. Check the email address and your product role.",
-  "member-update": "Only a Product Owner can change roles, and the product must keep an Owner.",
-  "member-remove": "The member could not be removed. The product must keep an Owner.",
-  "invite-revoke": "The invitation could not be revoked.",
+  "mail-unconfigured": "Invitations are unavailable until email delivery is set up.",
+  "invite-failed": "The invitation could not be sent. Check the email address and your role.",
+  "member-update": "Only the product owner can change roles, and the product must keep an owner.",
+  "member-remove": "The member could not be removed. The product must keep an owner.",
+  "invite-revoke": "The invitation could not be canceled.",
 };
 
 export function ProductPeopleNotices({ error, notice }: { error?: string; notice?: string }) {
   return (
     <>
       {notice === "invite-sent" ? (
-        <DashboardNotice message="Product invitation sent." kind="success" />
+        <DashboardNotice message="Invitation sent by email." kind="success" />
       ) : null}
       {notice === "invite-revoked" ? (
-        <DashboardNotice message="Invitation revoked." kind="success" />
+        <DashboardNotice message="Invitation canceled." kind="success" />
       ) : null}
       {notice === "member-updated" ? (
-        <DashboardNotice message="Product role updated." kind="success" />
+        <DashboardNotice message="Member role updated." kind="success" />
       ) : null}
       {notice === "member-removed" ? (
         <DashboardNotice message="Member removed from this product." kind="success" />
@@ -92,7 +91,7 @@ function ProductMemberRow({
             <input type="hidden" name="productId" value={productId} />
             <input type="hidden" name="subjectId" value={membership.subjectId} />
             <button className="button button-secondary" type="submit">
-              Remove
+              Remove member
             </button>
           </form>
         </div>
@@ -148,7 +147,7 @@ export function InviteProductMemberSection({
 }) {
   if (!isMailDeliveryConfigured()) {
     return (
-      <DashboardNotice message="Invitation email is unavailable until the Perminister operator configures Resend." />
+      <DashboardNotice message="Invitations are unavailable until email delivery is set up." />
     );
   }
 
@@ -156,7 +155,7 @@ export function InviteProductMemberSection({
     <section className="dashboard-card invite-card">
       <div className="dashboard-card-heading">
         <div>
-          <h2>Invite someone to this product</h2>
+          <h2>Invite a product member</h2>
           <p>Invitations apply to this product only and expire after seven days.</p>
         </div>
       </div>

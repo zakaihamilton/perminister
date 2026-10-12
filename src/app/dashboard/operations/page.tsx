@@ -35,13 +35,13 @@ export default async function OperationsPage({
   ]);
   return (
     <OperationsShell
-      breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Platform operations" }]}
+      breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Platform admin" }]}
     >
       <DashboardHeading
-        description="Review organization requests, support accounts, and retire unscoped legacy access."
+        description="Review organization requests, manage accounts and shared products, and remove older access that is not linked to an organization."
         action={
           <Link className="button button-secondary" href="/dashboard/operations/activity">
-            Historical activity
+            Activity history
           </Link>
         }
       />

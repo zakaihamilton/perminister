@@ -4,7 +4,7 @@ import {
   ProductAccessGrantCard,
 } from "@/components/product-access-sections";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
-import Link from "next/link";
+import { ProductNavigation } from "@/components/product-navigation";
 import { listProductMembers, listProductPermissionGrants } from "@/lib/auth/service";
 import {
   getProductPageContext,
@@ -41,29 +41,26 @@ export default async function ProductAccessPage({
       <DashboardHeading
         description={
           canManage
-            ? "Choose what product members can do and which resources it applies to."
-            : "Review the app permissions assigned to you and where they apply."
-        }
-        action={
-          canManage ? (
-            <Link
-              className="button button-secondary"
-              href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/roles`}
-            >
-              Access roles
-            </Link>
-          ) : null
+            ? "Choose what product members can do and where those permissions apply."
+            : "Review the permissions you have and where they apply."
         }
       />
+      <ProductNavigation
+        isSharedInstallation={Boolean(access.product.sharedProductRef)}
+        organizationId={organizationId}
+        productId={productId}
+        productName={access.product.name}
+        role={role}
+      />
       {query.notice === "grant-created" ? (
-        <DashboardNotice message="Access grant created." kind="success" />
+        <DashboardNotice message="Permission added." kind="success" />
       ) : null}
       {query.notice === "grant-updated" ? (
-        <DashboardNotice message="Access grant updated." kind="success" />
+        <DashboardNotice message="Permission updated." kind="success" />
       ) : null}
       {query.error === "grant-failed" ? (
         <DashboardNotice
-          message="That access grant could not be created. Check the member and resource ID, or confirm the selected role is still configured."
+          message="Could not add that permission. Check the member and resource ID, and make sure the selected permission set is still available."
           kind="error"
         />
       ) : null}
@@ -91,11 +88,11 @@ export default async function ProductAccessPage({
       ) : (
         <section className="dashboard-empty-card">
           <div>
-            <h2>No access grants yet</h2>
+            <h2>No permissions yet</h2>
             <p>
               {canManage
-                ? "Add access when a member needs to use app features."
-                : "A product Owner or Admin can assign app permissions to you."}
+                ? "Add permissions when a member needs to use this product."
+                : "A product owner or admin can give you permission to use this product."}
             </p>
           </div>
         </section>

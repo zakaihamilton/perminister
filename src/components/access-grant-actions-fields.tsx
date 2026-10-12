@@ -14,7 +14,7 @@ export function AccessGrantActionsFields({ roles }: { roles: readonly ProductAcc
   if (roles.length === 0) {
     return (
       <label className="access-actions-field" htmlFor="grant-actions">
-        Custom API actions
+        Custom app permissions
         <input
           id="grant-actions"
           name="actions"
@@ -33,18 +33,18 @@ export function AccessGrantActionsFields({ roles }: { roles: readonly ProductAcc
 
   return (
     <div className="access-actions-field">
-      <label htmlFor="grant-access-role">Access role</label>
+      <label htmlFor="grant-access-role">Permission set</label>
       <CustomDropdown
-        aria-label="Access role"
+        aria-label="Permission set"
         aria-describedby={customSelected ? undefined : "grant-access-role-help"}
         id="grant-access-role"
         name="accessRoleChoice"
         required
         defaultValue=""
-        placeholder="Choose an access role"
+        placeholder="Choose a permission set"
         options={[
           ...roles.map((role) => ({ value: role.id, label: role.name })),
-          { value: CUSTOM_ACTIONS, label: "Custom actions" },
+          { value: CUSTOM_ACTIONS, label: "Custom permissions" },
         ]}
         onValueChange={setChoice}
       />
@@ -52,7 +52,7 @@ export function AccessGrantActionsFields({ roles }: { roles: readonly ProductAcc
         <>
           <input type="hidden" name="accessRoleId" value={selectedRole.id} />
           <small className="access-form-field-help" id="grant-access-role-help">
-            {selectedRole.description || "This role was set up for this product."}
+            {selectedRole.description || "This permission set was created for this product."}
           </small>
           <small className="access-form-field-help">
             Includes {selectedRole.actions.length} app permission
@@ -70,7 +70,7 @@ export function AccessGrantActionsFields({ roles }: { roles: readonly ProductAcc
       ) : null}
       {customSelected ? (
         <label className="access-custom-actions" htmlFor="grant-actions">
-          Custom API actions
+          Custom app permissions
           <input
             id="grant-actions"
             name="actions"
@@ -87,7 +87,7 @@ export function AccessGrantActionsFields({ roles }: { roles: readonly ProductAcc
       ) : null}
       {!selectedRole && !customSelected ? (
         <small className="access-form-field-help" id="grant-access-role-help">
-          Choose the role configured for this product that matches what this person needs to do.
+          Choose the permission set that matches what this person needs to do.
         </small>
       ) : null}
     </div>

@@ -16,8 +16,9 @@ export function AccountsSection({ accounts }: { accounts: PublicAccount[] }) {
             <p>
               {account.email ?? "No email"}
               <span>
-                {account.status} · {account.emailVerified ? "verified" : "not verified"}
-                {account.administrator ? " · platform administrator" : ""}
+                {account.status === "active" ? "Account active" : "Account disabled"} ·{" "}
+                {account.emailVerified ? "Email verified" : "Email not verified"}
+                {account.administrator ? " · Platform administrator" : ""}
               </span>
             </p>
             {!account.administrator ? (
@@ -27,7 +28,7 @@ export function AccountsSection({ accounts }: { accounts: PublicAccount[] }) {
                 status={account.status}
               />
             ) : (
-              <span className="record-badge active">Restricted admin</span>
+              <span className="record-badge active">Platform administrator</span>
             )}
           </article>
         ))}

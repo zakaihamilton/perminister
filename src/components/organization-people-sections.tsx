@@ -9,7 +9,7 @@ import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 import type { OrganizationMemberView } from "@/lib/auth/service";
 
 const peopleErrorText: Record<string, string> = {
-  "mail-unconfigured": "Invitation email is unavailable until Resend is configured.",
+  "mail-unconfigured": "Invitations are unavailable until email delivery is set up.",
   "invite-failed": "The invitation could not be sent. Check the email address and try again.",
   "member-update": "Only an owner can change roles, and the organization must keep an owner.",
   "member-remove": "The member could not be removed. The organization must keep an owner.",
@@ -20,7 +20,7 @@ export function OrganizationPeopleNotices({ error, notice }: { error?: string; n
   return (
     <>
       {notice === "invite-sent" ? (
-        <DashboardNotice message="Invitation email sent." kind="success" />
+        <DashboardNotice message="Invitation sent by email." kind="success" />
       ) : null}
       {notice === "member-updated" ? (
         <DashboardNotice message="Member role updated." kind="success" />
@@ -29,7 +29,7 @@ export function OrganizationPeopleNotices({ error, notice }: { error?: string; n
         <DashboardNotice message="Member removed from the organization." kind="success" />
       ) : null}
       {notice === "invite-revoked" ? (
-        <DashboardNotice message="Invitation revoked." kind="success" />
+        <DashboardNotice message="Invitation canceled." kind="success" />
       ) : null}
       {error && peopleErrorText[error] ? (
         <DashboardNotice message={peopleErrorText[error]} kind="error" />
@@ -60,7 +60,9 @@ function OrganizationMemberRow({
         <strong>{member.email ?? "Account unavailable"}</strong>
         <small>{member.emailVerified ? "Verified email" : "Email not verified"}</small>
       </div>
-      <span className={`role-pill role-${member.membership.role}`}>{member.membership.role}</span>
+      <span className={`role-pill role-${member.membership.role}`}>
+        {member.membership.role.charAt(0).toUpperCase() + member.membership.role.slice(1)}
+      </span>
       {owner ? (
         <div className="people-row-actions">
           <form action={updateOrganizationMemberRoleAction}>
@@ -89,7 +91,7 @@ function OrganizationMemberRow({
               <input type="hidden" name="organizationId" value={organizationId} />
               <input type="hidden" name="membershipId" value={membershipId} />
               <button className="button button-secondary" type="submit">
-                Remove
+                Remove member
               </button>
             </form>
           ) : null}
@@ -114,9 +116,9 @@ export function OrganizationPeopleSection({
     <section className="dashboard-card people-card">
       <div className="dashboard-card-heading">
         <div>
-          <h2>Organization catalog managers</h2>
+          <h2>Organization members</h2>
           <p>
-            {members.length} active {members.length === 1 ? "manager" : "managers"}
+            {members.length} active {members.length === 1 ? "member" : "members"}
           </p>
         </div>
       </div>
@@ -135,12 +137,12 @@ export function OrganizationPeopleSection({
   );
 }
 
-export function InviteCatalogManagerSection({ organizationId }: { organizationId: string }) {
+export function InviteOrganizationMemberSection({ organizationId }: { organizationId: string }) {
   return (
     <section className="dashboard-card invite-card">
       <div className="dashboard-card-heading">
         <div>
-          <h2>Invite a catalog manager</h2>
+          <h2>Invite an organization member</h2>
           <p>They’ll receive a secure invitation link by email.</p>
         </div>
       </div>
@@ -174,7 +176,8 @@ export function InviteCatalogManagerSection({ organizationId }: { organizationId
         </form>
       ) : (
         <p className="dashboard-notice info">
-          Invitation email is unavailable until the Perminister operator configures Resend.
+          Invitations are unavailable until email delivery is set up. Contact the Perminister
+          administrator for help.
         </p>
       )}
     </section>

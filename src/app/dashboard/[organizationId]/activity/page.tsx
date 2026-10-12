@@ -19,7 +19,7 @@ export default async function ActivityPage({
   const entries = await listOrganizationAudit(current.subject.subjectId, organizationId);
   return (
     <>
-      <DashboardHeading description="Recent changes to organization membership, products, grants, and keys." />
+      <DashboardHeading description="Recent changes to organization members, products, permissions, and API keys." />
       <ActivityFeed entries={entries} emptyMessage="Organization changes will appear here." />
     </>
   );

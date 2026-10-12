@@ -1,5 +1,6 @@
 import { revokeProductInvitationAction } from "@/app/actions";
 import { DashboardHeading } from "@/components/dashboard-shell";
+import { ProductNavigation } from "@/components/product-navigation";
 import { PendingInvitations } from "@/components/pending-invitations";
 import {
   InviteProductMemberSection,
@@ -30,7 +31,14 @@ export default async function ProductPeoplePage({
   const isOwner = role === "owner";
   return (
     <>
-      <DashboardHeading description="Manage this product’s members and their product roles." />
+      <DashboardHeading description="Manage who can use this product and what they can do." />
+      <ProductNavigation
+        isSharedInstallation={Boolean(access.product.sharedProductRef)}
+        organizationId={organizationId}
+        productId={productId}
+        productName={access.product.name}
+        role={role}
+      />
       <ProductPeopleNotices error={query.error} notice={query.notice} />
       <ProductPeopleSection
         isOwner={isOwner}
@@ -51,8 +59,9 @@ export default async function ProductPeoplePage({
         formAction={revokeProductInvitationAction}
       />
       <p className="role-help">
-        Product Owners change roles or remove members. Product Owners and Admins can invite Members
-        and manage access grants. A member’s role does not grant API actions.
+        Product owners can change roles and remove members. Product owners and admins can invite
+        people and manage permissions. A member also needs permission assigned before they can use
+        app actions.
       </p>
     </>
   );

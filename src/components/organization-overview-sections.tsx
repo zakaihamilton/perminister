@@ -1,57 +1,31 @@
 import Link from "next/link";
-import Image from "next/image";
 import { ProductIcon } from "@/components/product-icon";
 import type { ProductRecord } from "@/lib/auth/domain";
 
-export function OrganizationOverviewMetrics({
-  activeKeyCount,
-  grantCount,
-  managerCount,
-  managers,
+export function OrganizationCreateProductAction({
+  canManage,
+  hasProducts,
   organizationId,
-  productCount,
 }: {
-  activeKeyCount: number;
-  grantCount: number;
-  managerCount: number;
-  managers: boolean;
+  canManage: boolean;
+  hasProducts: boolean;
   organizationId: string;
-  productCount: number;
 }) {
+  if (!canManage || !hasProducts) return null;
+
   return (
-    <section className="dashboard-metric-grid" aria-label="Workspace summary">
-      <Link className="dashboard-metric-card" href={`/dashboard/${organizationId}/products`}>
-        <span>{managers ? "Products" : "Your products"}</span>
-        <strong>{productCount}</strong>
-        <small>{managers ? "View product catalog" : "View assigned products"}</small>
-      </Link>
-      <Link className="dashboard-metric-card" href={`/dashboard/${organizationId}/products`}>
-        <span>{managers ? "Access grants" : "Your grants"}</span>
-        <strong>{grantCount}</strong>
-        <small>Open a product to review permissions</small>
-      </Link>
-      <Link className="dashboard-metric-card" href={`/dashboard/${organizationId}/api-keys`}>
-        <span>Your API keys</span>
-        <strong>{activeKeyCount}</strong>
-        <small>Manage integrations</small>
-      </Link>
-      {managers ? (
-        <Link className="dashboard-metric-card" href={`/dashboard/${organizationId}/people`}>
-          <span>People</span>
-          <strong>{managerCount}</strong>
-          <small>Manage organization members</small>
-        </Link>
-      ) : null}
-    </section>
+    <Link className="button button-primary" href={`/dashboard/${organizationId}/products/new`}>
+      Create product
+    </Link>
   );
 }
 
 export function OrganizationProductsSection({
-  managers,
+  canManage,
   organizationId,
   products,
 }: {
-  managers: boolean;
+  canManage: boolean;
   organizationId: string;
   products: ProductRecord[];
 }) {
@@ -62,13 +36,13 @@ export function OrganizationProductsSection({
           <div>
             <h2>Products</h2>
             <p>
-              {managers
-                ? "Open a product to manage its members and access."
-                : "Open a product to review its details and your access."}
+              {canManage
+                ? "Open a product to manage its members and permissions."
+                : "Open a product to see its details and your permissions."}
             </p>
           </div>
           <Link className="text-link" href={`/dashboard/${organizationId}/products`}>
-            View all
+            View all products
           </Link>
         </div>
         <div className="dashboard-product-preview-list">
@@ -90,71 +64,32 @@ export function OrganizationProductsSection({
     );
   }
 
-  if (!managers) return null;
-
   return (
-    <section className="dashboard-empty-card">
-      <Image
-        alt="A workspace folder ready for its first product and team members."
-        className="empty-state-illustration"
-        height={1254}
-        sizes="88px"
-        src="/illustrations/workspace-invitation.png"
-        width={1254}
-      />
+    <section className="dashboard-empty-card organization-products-empty">
       <div>
-        <h2>No products yet</h2>
-        <p>Add your first product to start assigning access and creating API keys.</p>
+        <h2>{canManage ? "No products yet" : "No products available"}</h2>
+        <p>
+          {canManage
+            ? "Create a product or add one from the shared catalog. Each product has its own members and permissions."
+            : "Ask an organization owner or admin to add you to a product."}
+        </p>
       </div>
-      <Link
-        className="button button-secondary"
-        href={`/dashboard/${organizationId}/products#public-product-catalog`}
-      >
-        Add existing product
-      </Link>
-      <Link className="button button-primary" href={`/dashboard/${organizationId}/products/new`}>
-        Create a product
-      </Link>
-    </section>
-  );
-}
-
-export function OrganizationNextSteps({
-  managers,
-  organizationId,
-}: {
-  managers: boolean;
-  organizationId: string;
-}) {
-  return (
-    <section className="dashboard-next-steps">
-      <h2>Next steps</h2>
-      <div className="next-step-grid">
-        {managers ? (
-          <Link href={`/dashboard/${organizationId}/people`}>
-            <span>01</span>
-            <strong>Manage catalog managers</strong>
-            <small>Control who can edit organization and product details.</small>
+      {canManage ? (
+        <div className="organization-empty-actions">
+          <Link
+            className="button button-primary"
+            href={`/dashboard/${organizationId}/products/new`}
+          >
+            Create product
           </Link>
-        ) : null}
-        {managers ? (
-          <Link href={`/dashboard/${organizationId}/access`}>
-            <span>02</span>
-            <strong>Create a product</strong>
-            <small>Product members and API actions are managed per product.</small>
+          <Link
+            className="button button-secondary"
+            href={`/dashboard/${organizationId}/products#public-product-catalog`}
+          >
+            Browse shared products
           </Link>
-        ) : null}
-        <Link href={`/dashboard/${organizationId}/api-keys`}>
-          <span>03</span>
-          <strong>Create an API key</strong>
-          <small>Use a key for server-to-server requests.</small>
-        </Link>
-        <Link href="/developers/getting-started">
-          <span>04</span>
-          <strong>Read the integration guide</strong>
-          <small>Connect your product to Perminister.</small>
-        </Link>
-      </div>
+        </div>
+      ) : null}
     </section>
   );
 }

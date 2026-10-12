@@ -48,7 +48,7 @@ describe("public product transfer control", () => {
     expect(screen.getByRole("option", { name: "Acme" })).toBeTruthy();
 
     await user.click(screen.getByRole("option", { name: "Northstar" }));
-    await user.click(screen.getByRole("button", { name: "Transfer owner" }));
+    await user.click(screen.getByRole("button", { name: "Transfer publisher" }));
 
     expect(screen.getByRole("dialog").textContent).toContain("Transfer Atlas to Northstar?");
     expect(screen.getByRole("button", { name: "Confirm transfer" })).toBeTruthy();
@@ -65,9 +65,7 @@ describe("public product transfer control", () => {
     );
 
     expect(
-      screen.getByText(
-        "No approved destination is available without an unrelated product ID conflict.",
-      ),
+      screen.getByText("No eligible organization is available for this transfer."),
     ).toBeTruthy();
     expect(screen.queryByRole("combobox", { name: "Transfer to organization" })).toBeNull();
   });

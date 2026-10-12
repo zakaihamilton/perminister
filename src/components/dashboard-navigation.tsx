@@ -33,14 +33,14 @@ export function DashboardNavigation({
   const pathname = usePathname();
   const root = organizationId ? `/dashboard/${organizationId}` : null;
   const canManage = role === "owner" || role === "admin";
-  const workspaceLinks: NavigationItem[] = root
+  const organizationLinks: NavigationItem[] = root
     ? [
         { label: "Overview", href: root, key: "overview" },
         { label: "Products", href: `${root}/products`, key: "products" },
         { label: "API keys", href: `${root}/api-keys`, key: "api-keys" },
         ...(canManage
           ? [
-              { label: "Catalog managers", href: `${root}/people`, key: "people" },
+              { label: "Members", href: `${root}/people`, key: "people" },
               { label: "Activity", href: `${root}/activity`, key: "activity" },
             ]
           : []),
@@ -50,10 +50,7 @@ export function DashboardNavigation({
       ]
     : [];
   const accountLinks: NavigationItem[] = root
-    ? [
-        { label: "Profile", href: `${root}/profile`, key: "profile" },
-        { label: "Sessions", href: `${root}/sessions`, key: "sessions" },
-      ]
+    ? [{ label: "Account", href: `${root}/profile`, key: "profile" }]
     : [];
   const activeKey = pathname.startsWith("/dashboard/operations")
     ? "operations"
@@ -71,16 +68,15 @@ export function DashboardNavigation({
                 ? "activity"
                 : pathname.startsWith(`${root}/settings`)
                   ? "settings"
-                  : pathname.startsWith(`${root}/profile`)
+                  : pathname.startsWith(`${root}/profile`) ||
+                      pathname.startsWith(`${root}/sessions`)
                     ? "profile"
-                    : pathname.startsWith(`${root}/sessions`)
-                      ? "sessions"
-                      : undefined;
+                    : undefined;
 
   return (
     <nav className="dashboard-nav" aria-label="Dashboard pages">
-      {workspaceLinks.length ? <p className="dashboard-nav-label">Workspace</p> : null}
-      <NavigationLinkList items={workspaceLinks} activeKey={activeKey} />
+      {organizationLinks.length ? <p className="dashboard-nav-label">Organization</p> : null}
+      <NavigationLinkList items={organizationLinks} activeKey={activeKey} />
       {isPlatformAdministrator ? (
         <>
           <p className="dashboard-nav-label platform-nav-label">Platform</p>
@@ -89,13 +85,13 @@ export function DashboardNavigation({
             href="/dashboard/operations"
             aria-label={
               pendingOrganizationRequestCount
-                ? `Platform operations, ${pendingOrganizationRequestCount} pending organization requests`
-                : "Platform operations"
+                ? `Platform admin, ${pendingOrganizationRequestCount} organization requests to review`
+                : "Platform admin"
             }
             aria-current={activeKey === "operations" ? "page" : undefined}
           >
             <span className="dashboard-nav-mark mark-operations" aria-hidden="true" />
-            <span>Platform operations</span>
+            <span>Platform admin</span>
             {pendingOrganizationRequestCount ? (
               <span className="dashboard-nav-count" aria-hidden="true">
                 {pendingOrganizationRequestCount}
@@ -105,9 +101,10 @@ export function DashboardNavigation({
         </>
       ) : null}
       {accountLinks.length ? (
-        <p className="dashboard-nav-label account-nav-label">Your account</p>
+        <div className="dashboard-account-nav">
+          <NavigationLinkList items={accountLinks} activeKey={activeKey} />
+        </div>
       ) : null}
-      <NavigationLinkList items={accountLinks} activeKey={activeKey} />
     </nav>
   );
 }

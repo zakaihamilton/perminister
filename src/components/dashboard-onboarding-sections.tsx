@@ -27,7 +27,7 @@ export function DashboardOnboardingNotices({
       ) : null}
       {notice === "organization-pending" ? (
         <p className="dashboard-notice info" role="status">
-          Your request was submitted. You can use the workspace after it is approved.
+          Your request was submitted. You can use the organization after it is approved.
         </p>
       ) : null}
       {notice === "account-created-mail-unconfigured" ? (
@@ -70,8 +70,8 @@ function PendingOrganizationCard({ request }: { request: OrganizationRequestSumm
       <div>
         <h2>Organization request pending</h2>
         <p>
-          <strong>{request.organization.name}</strong> is waiting for platform approval. We’ll make
-          the workspace available here after it is approved.
+          <strong>{request.organization.name}</strong> is waiting for approval by a platform
+          administrator. It will be available here after approval.
         </p>
         <span className="record-meta">
           Submitted {new Date(request.organization.createdAt).toLocaleString()}
@@ -87,7 +87,7 @@ function EmailVerificationCard() {
       <span className="onboarding-step">01</span>
       <div>
         <h2>Verify your email address</h2>
-        <p>We use a verified address to protect organization ownership and invitations.</p>
+        <p>We verify your email to protect organization ownership and invitations.</p>
         {isMailDeliveryConfigured() ? (
           <form action={requestVerificationAction}>
             <button className="button button-primary" type="submit">
@@ -96,8 +96,7 @@ function EmailVerificationCard() {
           </form>
         ) : (
           <p className="form-hint">
-            Email delivery is not configured. Ask the Perminister operator to configure Resend
-            before continuing.
+            Email delivery is unavailable. Contact a Perminister administrator before continuing.
           </p>
         )}
       </div>
@@ -169,7 +168,7 @@ export function PlatformOperationsLink({ pendingCount }: { pendingCount: number 
   return (
     <p className="onboarding-ops-link">
       <Link href="/dashboard/operations">
-        Platform operations
+        Platform admin
         {pendingCount ? ` (${pendingCount} pending organization requests)` : ""}
       </Link>
     </p>

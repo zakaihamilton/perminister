@@ -27,9 +27,9 @@ export function AccessGrantScopeFields() {
   return (
     <>
       <div className="access-scope-field">
-        <label htmlFor="grant-scope">Scope</label>
+        <label htmlFor="grant-scope">Where do permissions apply?</label>
         <CustomDropdown
-          aria-label="Scope"
+          aria-label="Where do permissions apply?"
           aria-describedby="grant-scope-help"
           id="grant-scope"
           name="scopeKind"

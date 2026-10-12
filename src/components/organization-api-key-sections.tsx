@@ -27,7 +27,10 @@ export function OrganizationApiKeyRecords({
       <section className="dashboard-empty-card api-key-empty-card">
         <div>
           <h2>No API keys yet</h2>
-          <p>Choose a product below to view its keys or create one when access is granted.</p>
+          <p>
+            Open a product below to view its keys. You can create a key when you have permission to
+            use that product.
+          </p>
         </div>
       </section>
     );
@@ -44,7 +47,7 @@ export function OrganizationApiKeyRecords({
             apiKey={key}
             extraActions={
               <Link className="button button-secondary" href={productHref}>
-                Manage product keys
+                View product API keys
               </Link>
             }
             key={key.apiKeyId}
@@ -70,7 +73,7 @@ export function OrganizationProductKeyLinks({
       <section className="dashboard-empty-card">
         <div>
           <h2>No products in this organization</h2>
-          <p>An organization admin can add a product before API keys can be created.</p>
+          <p>An organization owner or admin can add a product before API keys can be created.</p>
         </div>
       </section>
     );
@@ -80,8 +83,8 @@ export function OrganizationProductKeyLinks({
     <section className="dashboard-card api-key-products-card" id="api-key-products">
       <div className="dashboard-card-heading">
         <div>
-          <h2>Product keys</h2>
-          <p>Each product has its own key list and creation settings.</p>
+          <h2>API keys by product</h2>
+          <p>Each product has its own API keys and settings.</p>
         </div>
       </div>
       <div className="api-key-product-list">
@@ -95,7 +98,7 @@ export function OrganizationProductKeyLinks({
               className="button button-secondary"
               href={`/dashboard/${organizationId}/products/${encodeURIComponent(product.productId)}/api-keys`}
             >
-              Manage keys
+              View API keys
             </Link>
           </article>
         ))}
@@ -116,7 +119,7 @@ export function ApiKeyAccessHint({
   if (canCreate || !isEmailVerified || !hasProducts) return null;
   return (
     <p className="form-hint api-key-empty-hint">
-      An active access grant is required before you can create a key.
+      You need active permission for a product before you can create a key.
     </p>
   );
 }

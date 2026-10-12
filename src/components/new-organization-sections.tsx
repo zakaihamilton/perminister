@@ -26,7 +26,7 @@ export function NewOrganizationRequestNotices({
       ) : null}
       {notice === "organization-pending" ? (
         <DashboardNotice
-          message="Your request was submitted. You can use the workspace after it is approved."
+          message="Your request was submitted. You can use the organization after it is approved."
           kind="info"
         />
       ) : null}
@@ -46,7 +46,7 @@ export function OrganizationRequestHistory({
       <div className="dashboard-card-heading">
         <div>
           <h2>Your organization requests</h2>
-          <p>Pending requests are not available in the organization switcher.</p>
+          <p>Organizations are added to your list after the request is approved.</p>
         </div>
       </div>
       <div className="record-list">
@@ -92,7 +92,7 @@ export function OrganizationRequestSubmission({
           <input name="name" required minLength={2} maxLength={80} placeholder="Acme Studio" />
         </label>
         <p className="form-hint">
-          You’ll become the Owner if approved. The workspace stays unavailable until then.
+          You’ll become the organization owner if approved. You can use it after approval.
         </p>
         <button className="button button-primary" type="submit">
           Submit for approval

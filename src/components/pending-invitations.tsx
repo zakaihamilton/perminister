@@ -41,7 +41,7 @@ export function PendingInvitations({
             {productId ? <input type="hidden" name="productId" value={productId} /> : null}
             <input type="hidden" name="invitationId" value={invitation.invitationId} />
             <button className="button button-secondary" type="submit">
-              Revoke invitation
+              Cancel invitation
             </button>
           </form>
         </div>

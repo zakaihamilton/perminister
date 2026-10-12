@@ -4,15 +4,15 @@ export function LegacyAccessSection({ legacy }: { legacy: { grants: number; keys
   return (
     <section className="dashboard-card operations-migration">
       <div>
-        <h2>Retire legacy access</h2>
+        <h2>Remove older access</h2>
         <p>
-          This disables grants and revokes API keys that do not belong to an organization.
-          Identities, sessions, and audit history are preserved. The operation is safe to repeat.
+          This disables permissions and revokes API keys that are not linked to an organization.
+          Accounts, signed-in devices, and activity history remain. You can safely run this again.
         </p>
       </div>
       <div className="migration-counts">
         <span>
-          <strong>{legacy.grants}</strong> active grants
+          <strong>{legacy.grants}</strong> active permissions
         </span>
         <span>
           <strong>{legacy.keys}</strong> active API keys
@@ -21,11 +21,11 @@ export function LegacyAccessSection({ legacy }: { legacy: { grants: number; keys
       {legacy.grants || legacy.keys ? (
         <form action={retireLegacyAccessAction}>
           <button className="button button-primary" type="submit">
-            Disable legacy access
+            Remove older access
           </button>
         </form>
       ) : (
-        <p className="form-hint">No active unscoped grants or keys remain.</p>
+        <p className="form-hint">No active permissions or API keys outside organizations remain.</p>
       )}
     </section>
   );
