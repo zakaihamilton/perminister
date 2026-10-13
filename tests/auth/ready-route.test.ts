@@ -80,7 +80,8 @@ describe("GET /api/ready", () => {
   it("rejects Vercel readiness when the Railway proxy secret does not match", async () => {
     vi.stubEnv("VERCEL", "1");
     vi.stubEnv("VERCEL_ENV", "production");
-    vi.stubEnv("NEXT_DEPLOYMENT_ID", "release-1");
+    vi.stubEnv("NEXT_DEPLOYMENT_ID", "dpl_vercel-deployment-id");
+    vi.stubEnv("VERCEL_GIT_COMMIT_SHA", "release-1");
     vi.stubEnv("PERMINISTER_WRITE_PROXY_URL", "https://writer.example");
     vi.stubEnv("PERMINISTER_WRITE_PROXY_SECRET", "v".repeat(32));
     mocks.check.mockResolvedValue(undefined);
@@ -108,7 +109,8 @@ describe("GET /api/ready", () => {
   it("reports Vercel ready when Railway accepts the configured proxy secret", async () => {
     vi.stubEnv("VERCEL", "1");
     vi.stubEnv("VERCEL_ENV", "production");
-    vi.stubEnv("NEXT_DEPLOYMENT_ID", "release-1");
+    vi.stubEnv("NEXT_DEPLOYMENT_ID", "dpl_vercel-deployment-id");
+    vi.stubEnv("VERCEL_GIT_COMMIT_SHA", "release-1");
     vi.stubEnv("PERMINISTER_WRITE_PROXY_URL", "https://writer.example");
     vi.stubEnv("PERMINISTER_WRITE_PROXY_SECRET", "v".repeat(32));
     mocks.check.mockResolvedValue(undefined);
@@ -136,7 +138,7 @@ describe("GET /api/ready", () => {
   it("reports Vercel not-ready when its write proxy secret is missing", async () => {
     vi.stubEnv("VERCEL", "1");
     vi.stubEnv("VERCEL_ENV", "production");
-    vi.stubEnv("NEXT_DEPLOYMENT_ID", "release-1");
+    vi.stubEnv("VERCEL_GIT_COMMIT_SHA", "release-1");
     vi.stubEnv("PERMINISTER_WRITE_PROXY_URL", "https://writer.example");
     vi.stubEnv("PERMINISTER_WRITE_PROXY_SECRET", "");
     mocks.check.mockResolvedValue(undefined);
