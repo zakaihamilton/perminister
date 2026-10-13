@@ -945,7 +945,7 @@ describe("platform public product ownership transfer", () => {
     vi.unstubAllEnvs();
   });
 
-  it("includes matching adopter installations and excludes unrelated product ID conflicts", async () => {
+  it("includes adopter installations and explains destinations with pending or replaceable products", async () => {
     seedSourceProduct();
     seedOrganization(TRANSFER_DESTINATION_ORG_ID, "Destination Org");
     const conflictOrganizationId = "13131313-1313-4313-8313-131313131313";
@@ -995,8 +995,25 @@ describe("platform public product ownership transfer", () => {
     expect(products[0]).toMatchObject({
       product: { productRecordId: ROLE_PRODUCT_RECORD_ID, productId: "atlas" },
       publisherOrganizationName: "Legacy Organization",
-      destinations: [{ organizationId: TRANSFER_DESTINATION_ORG_ID, name: "Destination Org" }],
     });
+    expect(products[0].destinations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          organizationId: TRANSFER_DESTINATION_ORG_ID,
+          name: "Destination Org",
+        }),
+        expect.objectContaining({
+          organizationId: conflictOrganizationId,
+          name: "Conflict Org",
+          transferNotice: "Existing product details will be replaced",
+        }),
+        expect.objectContaining({
+          organizationId: pendingOrganizationId,
+          name: "Pending Org",
+          disabledReason: "Waiting for organization approval",
+        }),
+      ]),
+    );
   });
 
   it("moves publisher ownership while preserving former publisher and adopter setup", async () => {
@@ -1341,7 +1358,7 @@ describe("platform public product ownership transfer", () => {
     ).rejects.toThrow("Only a public publisher product can be transferred.");
   });
 
-  it("rejects a destination product-ID conflict even when the action bypasses the picker", async () => {
+  it("replaces destination product details when the action targets an existing product ID", async () => {
     seedSourceProduct();
     seedOrganization(TRANSFER_DESTINATION_ORG_ID, "Destination Org");
     store.seed({
@@ -1360,14 +1377,42 @@ describe("platform public product ownership transfer", () => {
       updatedAt: new Date().toISOString(),
     } as AuthRecord);
 
-    await expect(
-      service.transferPublicProductForAdministrator(
-        SUBJECT_ID as never,
-        ROLE_PRODUCT_RECORD_ID,
+    const existingProductRecordId = "17171717-1717-4717-8717-171717171717";
+    const result = await service.transferPublicProductForAdministrator(
+      SUBJECT_ID as never,
+      ROLE_PRODUCT_RECORD_ID,
+      TRANSFER_DESTINATION_ORG_ID,
+    );
+
+    expect(result).toMatchObject({
+      product: {
+        productRecordId: existingProductRecordId,
+        organizationId: TRANSFER_DESTINATION_ORG_ID,
+        productId: "atlas",
+        name: "Atlas",
+        description: "Shared access for Atlas.",
+        websiteUrl: "https://atlas.example.com",
+        visibility: "public",
+      },
+      sourceOrganizationId: ORGANIZATION_ID,
+      destinationOrganizationId: TRANSFER_DESTINATION_ORG_ID,
+      affectedOrganizationIds: expect.arrayContaining([
+        ORGANIZATION_ID,
         TRANSFER_DESTINATION_ORG_ID,
-      ),
-    ).rejects.toThrow("The destination already has a product with this product ID.");
-    expect(store.writes).toHaveLength(0);
+      ]),
+    });
+    expect(store.records.get(store.key("product", existingProductRecordId))?.record).toMatchObject({
+      organizationId: TRANSFER_DESTINATION_ORG_ID,
+      productId: "atlas",
+      name: "Atlas",
+      description: "Shared access for Atlas.",
+      websiteUrl: "https://atlas.example.com",
+      visibility: "public",
+    });
+    expect(store.records.get(store.key("product", ROLE_PRODUCT_RECORD_ID))?.record).toMatchObject({
+      organizationId: ORGANIZATION_ID,
+      visibility: "private",
+    });
   });
 });
 

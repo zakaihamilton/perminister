@@ -31,7 +31,7 @@ afterEach(() => {
 
 describe("organization navigation", () => {
   it.each([
-    ["owner", ["Overview", "Products", "API keys", "Members", "Activity", "Organization settings"]],
+    ["owner", ["Overview", "Products", "API keys", "Members", "Activity", "Settings"]],
     ["admin", ["Overview", "Products", "API keys", "Members", "Activity"]],
     ["member", ["Overview", "Products", "API keys"]],
   ] as const)("shows the right organization links for %s", (role, expectedLinks) => {
@@ -62,7 +62,7 @@ describe("organization navigation", () => {
     expect(
       screen
         .getByRole("link", {
-          name: "Platform admin, 2 organization requests to review",
+          name: "Platform admin, 2 pending organization requests",
         })
         .getAttribute("aria-current"),
     ).toBe("page");

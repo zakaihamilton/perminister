@@ -64,9 +64,7 @@ describe("public product transfer control", () => {
       />,
     );
 
-    expect(
-      screen.getByText("No eligible organization is available for this transfer."),
-    ).toBeTruthy();
+    expect(screen.getByText("No organization is available for this transfer.")).toBeTruthy();
     expect(screen.queryByRole("combobox", { name: "Transfer to organization" })).toBeNull();
   });
 });
