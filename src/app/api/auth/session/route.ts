@@ -9,6 +9,8 @@ import {
 export const runtime = "nodejs";
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
+const PUBLIC_ORIGIN_HOST_HEADER = "x-perminister-public-host";
+const PUBLIC_ORIGIN_PROTOCOL_HEADER = "x-perminister-public-proto";
 
 function formValue(formData: FormData, name: string): string {
   const value = formData.get(name);
@@ -22,8 +24,14 @@ function isSameOriginRequest(request: Request): boolean {
   try {
     const origin = new URL(originHeader);
     const requestUrl = new URL(request.url);
-    const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
-    const protocol = request.headers.get("x-forwarded-proto") ?? requestUrl.protocol.slice(0, -1);
+    const host =
+      request.headers.get(PUBLIC_ORIGIN_HOST_HEADER) ??
+      request.headers.get("x-forwarded-host") ??
+      request.headers.get("host");
+    const protocol =
+      request.headers.get(PUBLIC_ORIGIN_PROTOCOL_HEADER) ??
+      request.headers.get("x-forwarded-proto") ??
+      requestUrl.protocol.slice(0, -1);
 
     return (
       !!host &&
