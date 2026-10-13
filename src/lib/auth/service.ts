@@ -2050,6 +2050,21 @@ export const listOrganizationMembers = cache(async function listOrganizationMemb
   });
 });
 
+export const countOrganizationMembersForSubject = cache(
+  async function countOrganizationMembersForSubject(
+    actorId: SubjectId,
+    organizationId: string,
+  ): Promise<number> {
+    return authMutationQueue.read(async () => {
+      await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
+      const memberships = await store().listOrganizationMemberships(organizationId);
+      return memberships.filter(
+        (membership) => !membership.productId && membership.status === "active",
+      ).length;
+    });
+  },
+);
+
 async function requireOrganizationOwnerAndMemberUnlocked(
   actorId: SubjectId,
   organizationId: string,
@@ -6167,11 +6182,16 @@ export const listOrganizationPermissionGrants = cache(
 export async function listOrganizationAudit(
   subjectId: SubjectId,
   organizationId: string,
+  limit = 100,
 ): Promise<OrganizationActivityEntry[]> {
   return authMutationQueue.read(async () => {
     await requireOrganizationRoleUnlocked(subjectId, organizationId, ["owner", "admin"]);
+    const cappedLimit = Math.min(100, Math.max(0, Math.floor(limit)));
     return organizationActivityEntries(
-      (await store().listOrganizationEvents(organizationId, undefined, 100)).slice(0, 100),
+      (await store().listOrganizationEvents(organizationId, undefined, cappedLimit)).slice(
+        0,
+        cappedLimit,
+      ),
     );
   });
 }

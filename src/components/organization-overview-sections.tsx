@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { ProductIcon } from "@/components/product-icon";
-import type { ProductRecord } from "@/lib/auth/domain";
+import { Tooltip } from "@/components/tooltip";
+import { OrganizationProductBrowser } from "@/components/organization-product-browser";
+import type { OrganizationActivityEntry } from "@/lib/auth/service";
+import type { OrganizationRole, ProductRecord } from "@/lib/auth/domain";
 
 export function OrganizationCreateProductAction({
   canManage,
@@ -17,6 +19,104 @@ export function OrganizationCreateProductAction({
     <Link className="button button-primary" href={`/dashboard/${organizationId}/products/new`}>
       Create product
     </Link>
+  );
+}
+
+export function OrganizationOverviewMetrics({
+  activeApiKeyCount,
+  memberCount,
+  productCount,
+  role,
+}: {
+  activeApiKeyCount: number;
+  memberCount: number | null;
+  productCount: number;
+  role: OrganizationRole;
+}) {
+  const metrics = [
+    {
+      label: "Products",
+      value: productCount.toLocaleString(),
+      caption: "available to you",
+      help: "Products you can open in this organization.",
+      icon: "products",
+    },
+    memberCount === null
+      ? {
+          label: "Your role",
+          value: role[0].toUpperCase() + role.slice(1),
+          caption: "organization access",
+          help: "Your organization-level access. Product permissions are managed separately.",
+          icon: "members",
+        }
+      : {
+          label: "Members",
+          value: memberCount.toLocaleString(),
+          caption: "active organization members",
+          help: "Active organization memberships. Product-only memberships are not included.",
+          icon: "members",
+        },
+    {
+      label: "Your keys",
+      value: activeApiKeyCount.toLocaleString(),
+      caption: "active in this organization",
+      help: "Active, unexpired API keys created by your account for this organization.",
+      icon: "keys",
+    },
+  ] as const;
+
+  return (
+    <section aria-label="Organization summary" className="organization-overview-metrics">
+      {metrics.map((metric) => (
+        <article className="organization-overview-stat" key={metric.label}>
+          <div className="organization-overview-stat-heading">
+            <span
+              className={`organization-overview-stat-icon is-${metric.icon}`}
+              aria-hidden="true"
+            >
+              {metric.icon === "products" ? <ProductsMetricIcon /> : null}
+              {metric.icon === "members" ? <MembersMetricIcon /> : null}
+              {metric.icon === "keys" ? <KeysMetricIcon /> : null}
+            </span>
+            <span className="organization-overview-stat-label">{metric.label}</span>
+            <Tooltip
+              content={metric.help}
+              label={`${metric.label} details`}
+              triggerProps={{ className: "tooltip-trigger organization-overview-info" }}
+            />
+          </div>
+          <strong className="organization-overview-stat-value">{metric.value}</strong>
+          <span className="organization-overview-stat-caption">{metric.caption}</span>
+        </article>
+      ))}
+    </section>
+  );
+}
+
+function ProductsMetricIcon() {
+  return (
+    <svg fill="none" viewBox="0 0 24 24">
+      <path d="m12 3 8 4.4v9.2L12 21l-8-4.4V7.4L12 3Z" />
+      <path d="m4.5 7.7 7.5 4.2 7.5-4.2M12 12v8.5" />
+    </svg>
+  );
+}
+
+function MembersMetricIcon() {
+  return (
+    <svg fill="none" viewBox="0 0 24 24">
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3.5 20v-1.3a5.5 5.5 0 0 1 11 0V20h-11ZM16 5.5a3 3 0 0 1 0 5.8M17 14.5a4.7 4.7 0 0 1 3.5 4.6v.9" />
+    </svg>
+  );
+}
+
+function KeysMetricIcon() {
+  return (
+    <svg fill="none" viewBox="0 0 24 24">
+      <circle cx="8" cy="15" r="4" />
+      <path d="m11 12 8-8 2 2-2 2 2 2-3 3-2-2-2 2" />
+    </svg>
   );
 }
 
@@ -45,21 +145,19 @@ export function OrganizationProductsSection({
             View all products
           </Link>
         </div>
-        <div className="dashboard-product-preview-list">
-          {products.slice(0, 3).map((product) => (
-            <Link
-              className="dashboard-product-preview"
-              href={`/dashboard/${organizationId}/products/${encodeURIComponent(product.productId)}`}
-              key={product.productRecordId}
-            >
-              <ProductIcon name={product.name} src={product.iconUrl} />
-              <span>
-                <strong>{product.name}</strong>
-                <small>{product.description || product.websiteUrl}</small>
-              </span>
-            </Link>
-          ))}
-        </div>
+        <OrganizationProductBrowser
+          canManage={canManage}
+          organizationId={organizationId}
+          products={products
+            .slice(0, 6)
+            .map(({ productId, name, description, websiteUrl, iconUrl }) => ({
+              productId,
+              name,
+              description,
+              websiteUrl,
+              iconUrl,
+            }))}
+        />
       </section>
     );
   }
@@ -91,5 +189,72 @@ export function OrganizationProductsSection({
         </div>
       ) : null}
     </section>
+  );
+}
+
+export function OrganizationActivityPreview({
+  entries,
+  organizationId,
+}: {
+  entries: OrganizationActivityEntry[];
+  organizationId: string;
+}) {
+  return (
+    <section className="dashboard-card organization-activity-preview">
+      <div className="dashboard-card-heading organization-activity-heading">
+        <div>
+          <h2>Recent activity</h2>
+          <p>Changes to members, products, access, and API keys.</p>
+        </div>
+        <Link className="text-link" href={`/dashboard/${organizationId}/activity`}>
+          View all
+        </Link>
+      </div>
+      {entries.length ? (
+        <ol className="organization-activity-list">
+          {entries.slice(0, 4).map((entry) => (
+            <li className="organization-activity-item" key={entry.eventId}>
+              <span className="organization-activity-marker" aria-hidden="true" />
+              <div>
+                <p>
+                  <strong>{entry.actor}</strong> {lowercaseFirst(entry.summary)}.
+                </p>
+                <time
+                  dateTime={entry.occurredAt}
+                  title={new Date(entry.occurredAt).toLocaleString()}
+                >
+                  {new Intl.DateTimeFormat("en", {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  }).format(new Date(entry.occurredAt))}
+                </time>
+              </div>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <div className="organization-activity-empty">
+          <span className="organization-activity-empty-icon" aria-hidden="true">
+            <ActivityMetricIcon />
+          </span>
+          <strong>No activity yet</strong>
+          <p>Organization changes will appear here.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function lowercaseFirst(value: string): string {
+  return value ? value[0].toLowerCase() + value.slice(1) : value;
+}
+
+function ActivityMetricIcon() {
+  return (
+    <svg fill="none" viewBox="0 0 24 24">
+      <path d="M3 12h4l2.2-6 4.1 12 2.2-6H21" />
+    </svg>
   );
 }
