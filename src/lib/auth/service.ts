@@ -1496,10 +1496,9 @@ async function organizationActivityEntries(
     (event) => activityAggregateRecord(event, productNames),
     ACTIVITY_READ_CONCURRENCY,
   );
-  const [aggregateRecords, subjects, servicePrincipals] = await Promise.all([
-    aggregateRecordsPromise,
+  const loadSubjects = (ids: Iterable<string>) =>
     mapWithConcurrency(
-      [...subjectIds].filter((subjectId) => !subjectRecords.has(subjectId)),
+      [...ids],
       async (subjectId) => {
         try {
           const subject = await loadRecord("subject", subjectId);
@@ -1509,7 +1508,10 @@ async function organizationActivityEntries(
         }
       },
       ACTIVITY_READ_CONCURRENCY,
-    ),
+    );
+  const [aggregateRecords, subjects, servicePrincipals] = await Promise.all([
+    aggregateRecordsPromise,
+    loadSubjects([...subjectIds].filter((subjectId) => !subjectRecords.has(subjectId))),
     mapWithConcurrency(
       [...servicePrincipalIds],
       async (servicePrincipalId) => {
@@ -1550,18 +1552,7 @@ async function organizationActivityEntries(
     (subjectId) => !subjectRecords.has(subjectId),
   );
   if (additionalSubjectIds.length > 0) {
-    const additionalSubjects = await mapWithConcurrency(
-      additionalSubjectIds,
-      async (subjectId) => {
-        try {
-          const subject = await loadRecord("subject", subjectId);
-          return { id: subjectId, record: subject?.record ?? null };
-        } catch {
-          return { id: subjectId, record: null };
-        }
-      },
-      ACTIVITY_READ_CONCURRENCY,
-    );
+    const additionalSubjects = await loadSubjects(additionalSubjectIds);
     for (const subject of additionalSubjects) {
       if (subject.record) subjectRecords.set(subject.id, subject.record);
     }
@@ -3860,6 +3851,28 @@ async function consumerClientOrganizationsForPublisherUnlocked(
   return organizationIds;
 }
 
+async function requireManagedConsumerClientUnlocked(
+  organizationId: string,
+  productId: string,
+  clientId: string,
+  requireActive: boolean,
+  errorMessage: string,
+): Promise<VersionedRecord<ConsumerClientRecord>> {
+  const found = await loadRecord("consumer-client", clientId);
+  const publisher = await consumerClientPublisherProductUnlocked(organizationId, productId);
+  const manageableOrganizations = await consumerClientOrganizationsForPublisherUnlocked(publisher);
+  if (
+    !found ||
+    found.record.productId !== productId ||
+    (requireActive && found.record.status !== "active") ||
+    !found.record.organizationId ||
+    !manageableOrganizations.has(found.record.organizationId)
+  ) {
+    throw new Error(errorMessage);
+  }
+  return found;
+}
+
 async function requirePublisherManagedConsumerClientProductUnlocked(
   organizationId: string,
   productId: string,
@@ -4040,22 +4053,13 @@ export async function rotateConsumerClient(
     organizationId,
     productId,
     async (actor, normalizedProductId) => {
-      const found = await loadRecord("consumer-client", clientId);
-      const publisher = await consumerClientPublisherProductUnlocked(
+      const found = await requireManagedConsumerClientUnlocked(
         organizationId,
         normalizedProductId,
+        clientId,
+        true,
+        "Choose an active application client for this product.",
       );
-      const manageableOrganizations =
-        await consumerClientOrganizationsForPublisherUnlocked(publisher);
-      if (
-        !found ||
-        found.record.productId !== normalizedProductId ||
-        found.record.status !== "active" ||
-        !found.record.organizationId ||
-        !manageableOrganizations.has(found.record.organizationId)
-      ) {
-        throw new Error("Choose an active application client for this product.");
-      }
       const secret = `pmc_${found.record.consumerClientId}_${randomBytes(32).toString("base64url")}`;
       const next: ConsumerClientRecord = {
         ...found.record,
@@ -4083,21 +4087,13 @@ export async function revokeConsumerClient(
     organizationId,
     productId,
     async (actor, normalizedProductId) => {
-      const found = await loadRecord("consumer-client", clientId);
-      const publisher = await consumerClientPublisherProductUnlocked(
+      const found = await requireManagedConsumerClientUnlocked(
         organizationId,
         normalizedProductId,
+        clientId,
+        false,
+        "Application client not found.",
       );
-      const manageableOrganizations =
-        await consumerClientOrganizationsForPublisherUnlocked(publisher);
-      if (
-        !found ||
-        found.record.productId !== normalizedProductId ||
-        !found.record.organizationId ||
-        !manageableOrganizations.has(found.record.organizationId)
-      ) {
-        throw new Error("Application client not found.");
-      }
       if (found.record.status === "revoked") return;
       const now = new Date().toISOString();
       await persistRecord(
@@ -6867,6 +6863,42 @@ export interface CreatedApiKey {
   rotationWarning: string | null;
 }
 
+async function createApiKeyWithRotationUnlocked(
+  owner: ApiKeyOwner,
+  scope: ResourceScope,
+  actions: readonly string[],
+  expiresAt: string | null,
+  previous: ApiKeyRecord | null,
+  actorSubjectId: SubjectId,
+  events: {
+    created: string;
+    rotatedCreated: string;
+    revokedPrevious: string;
+    rotationWarning: string;
+  },
+): Promise<CreatedApiKey> {
+  const { record, token } = createApiKeyDraft(owner, scope, actions, expiresAt, previous);
+  const actor = { kind: "subject" as const, subjectId: actorSubjectId };
+  await persistRecord(record, previous ? events.rotatedCreated : events.created, actor, {
+    keyClass: record.keyClass,
+    expiresAt: record.expiresAt,
+    changes: [{ field: "actions", before: [], after: [...record.actions] }],
+  });
+  let rotationWarning: string | null = null;
+  if (previous) {
+    try {
+      await persistRecord(
+        { ...previous, status: "revoked", revokedAt: new Date().toISOString() },
+        events.revokedPrevious,
+        actor,
+      );
+    } catch {
+      rotationWarning = events.rotationWarning;
+    }
+  }
+  return { record, token, rotationWarning };
+}
+
 export async function createServicePrincipal(
   actorId: SubjectId,
   organizationId: string,
@@ -7018,40 +7050,21 @@ export async function createApiKeyForServicePrincipal(
         "Choose one of this integration's API keys to rotate.",
       );
       await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
-      const { record, token } = createApiKeyDraft(
+      return createApiKeyWithRotationUnlocked(
         { kind: "service", servicePrincipalId: servicePrincipalId as ServicePrincipalId },
         scope,
         actions,
         options.expiresAt,
         previous,
-      );
-      await persistRecord(
-        record,
-        previous ? "api-key.service-rotated.created" : "api-key.service-created",
+        actor.subjectId,
         {
-          kind: "subject",
-          subjectId: actor.subjectId,
-        },
-        {
-          keyClass: record.keyClass,
-          expiresAt: record.expiresAt,
-          changes: [{ field: "actions", before: [], after: [...record.actions] }],
+          created: "api-key.service-created",
+          rotatedCreated: "api-key.service-rotated.created",
+          revokedPrevious: "api-key.service-rotated.revoked-previous",
+          rotationWarning:
+            "The new key was created, but the previous key could not be revoked. Revoke it from the integration key list.",
         },
       );
-      let rotationWarning: string | null = null;
-      if (previous) {
-        try {
-          await persistRecord(
-            { ...previous, status: "revoked", revokedAt: new Date().toISOString() },
-            "api-key.service-rotated.revoked-previous",
-            { kind: "subject", subjectId: actor.subjectId },
-          );
-        } catch {
-          rotationWarning =
-            "The new key was created, but the previous key could not be revoked. Revoke it from the integration key list.";
-        }
-      }
-      return { record, token, rotationWarning };
     }),
   );
 }
@@ -7155,40 +7168,21 @@ export async function createApiKeyForSubject(
         scope.organizationId,
         "Choose one of your own API keys to rotate.",
       );
-      const { record, token } = createApiKeyDraft(
+      return createApiKeyWithRotationUnlocked(
         { kind: "subject", subjectId },
         scope,
         actions,
         options.expiresAt,
         previous,
-      );
-      await persistRecord(
-        record,
-        previous ? "api-key.rotated.created" : "api-key.created",
+        subjectId,
         {
-          kind: "subject",
-          subjectId,
-        },
-        {
-          keyClass: record.keyClass,
-          expiresAt: record.expiresAt,
-          changes: [{ field: "actions", before: [], after: [...record.actions] }],
+          created: "api-key.created",
+          rotatedCreated: "api-key.rotated.created",
+          revokedPrevious: "api-key.rotated.revoked-previous",
+          rotationWarning:
+            "The new key was created, but the previous key could not be revoked. Revoke it from the key list.",
         },
       );
-      let rotationWarning: string | null = null;
-      if (previous) {
-        try {
-          await persistRecord(
-            { ...previous, status: "revoked", revokedAt: new Date().toISOString() },
-            "api-key.rotated.revoked-previous",
-            { kind: "subject", subjectId },
-          );
-        } catch {
-          rotationWarning =
-            "The new key was created, but the previous key could not be revoked. Revoke it from the key list.";
-        }
-      }
-      return { record, token, rotationWarning };
     }),
   );
 }
