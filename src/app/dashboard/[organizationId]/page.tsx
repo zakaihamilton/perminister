@@ -2,9 +2,17 @@ import { CopyOrganizationIdButton } from "@/components/copy-organization-id-butt
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import {
   OrganizationCreateProductAction,
+  OrganizationActivityPreview,
+  OrganizationOverviewMetrics,
   OrganizationProductsSection,
 } from "@/components/organization-overview-sections";
-import { getOrganizationForSubject, listProductsForOrganization } from "@/lib/auth/service";
+import {
+  countOrganizationMembersForSubject,
+  getOrganizationForSubject,
+  listApiKeysForSubject,
+  listOrganizationAudit,
+  listProductsForOrganization,
+} from "@/lib/auth/service";
 import {
   getOrganizationDashboardRequestContext,
   type OrganizationDashboardPageProps,
@@ -14,12 +22,28 @@ export default async function OrganizationOverview(
   props: OrganizationDashboardPageProps<{ notice?: string }>,
 ) {
   const { current, organizationId, query } = await getOrganizationDashboardRequestContext(props);
-  const [organization, products] = await Promise.all([
+  const [organization, products, apiKeys] = await Promise.all([
     getOrganizationForSubject(current.subject.subjectId, organizationId),
     listProductsForOrganization(current.subject.subjectId, organizationId),
+    listApiKeysForSubject(current.subject.subjectId),
   ]);
   const canManage =
     organization.membership.role === "owner" || organization.membership.role === "admin";
+  const managerOverview = canManage
+    ? await Promise.all([
+        countOrganizationMembersForSubject(current.subject.subjectId, organizationId),
+        listOrganizationAudit(current.subject.subjectId, organizationId, 4),
+      ])
+    : null;
+  const now =
+    // eslint-disable-next-line react-hooks/purity
+    Date.now();
+  const activeApiKeyCount = apiKeys.filter(
+    (key) =>
+      key.scope.organizationId === organizationId &&
+      key.status === "active" &&
+      (!key.expiresAt || Date.parse(key.expiresAt) > now),
+  ).length;
 
   return (
     <>
@@ -33,25 +57,43 @@ export default async function OrganizationOverview(
         }
         description={
           canManage
-            ? "Manage your products and organization members."
-            : "Find the products you can use."
+            ? "Your products, members, and access in one place."
+            : "Open the products you can access in this organization."
         }
       />
-      <div className="organization-id-inline">
-        <span>Organization ID</span>
-        <CopyOrganizationIdButton organizationId={organizationId} />
-      </div>
-      {query.notice === "invitation-accepted" ? (
-        <DashboardNotice
-          message="You joined the product. Open Products to see your permissions."
-          kind="success"
+      <div className="organization-overview-page">
+        <div className="organization-id-inline">
+          <span>Organization ID</span>
+          <CopyOrganizationIdButton organizationId={organizationId} />
+        </div>
+        {query.notice === "invitation-accepted" ? (
+          <DashboardNotice
+            message="You joined the product. Open Products to see your permissions."
+            kind="success"
+          />
+        ) : null}
+        <OrganizationOverviewMetrics
+          activeApiKeyCount={activeApiKeyCount}
+          memberCount={managerOverview?.[0] ?? null}
+          productCount={products.length}
+          role={organization.membership.role}
         />
-      ) : null}
-      <OrganizationProductsSection
-        canManage={canManage}
-        organizationId={organizationId}
-        products={products}
-      />
+        <div
+          className={`organization-overview-grid${managerOverview ? "" : " is-products-only"}`}
+        >
+          <OrganizationProductsSection
+            canManage={canManage}
+            organizationId={organizationId}
+            products={products}
+          />
+          {managerOverview ? (
+            <OrganizationActivityPreview
+              entries={managerOverview[1]}
+              organizationId={organizationId}
+            />
+          ) : null}
+        </div>
+      </div>
     </>
   );
 }
