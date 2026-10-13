@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { SiteFooter, SiteHeader } from "@/components/site-shell";
-import { requestPasswordRecoveryAction } from "@/app/actions";
 import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 
 const errorText: Record<string, string> = {
@@ -47,7 +46,11 @@ export default async function ForgotPasswordPage({
                 Resend is not configured. No recovery email can be sent yet.
               </p>
             ) : null}
-            <form action={requestPasswordRecoveryAction} className="auth-form">
+            <form
+              action="/actions/requestPasswordRecoveryAction"
+              method="post"
+              className="auth-form"
+            >
               <label>
                 Email address
                 <input name="email" type="email" autoComplete="email" maxLength={254} required />

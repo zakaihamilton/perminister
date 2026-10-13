@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { requestVerificationAction, updateAccountProfileAction } from "@/app/actions";
 import { DashboardNotice } from "@/components/dashboard-shell";
 import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 import type { SubjectRecord } from "@/lib/auth/domain";
@@ -52,7 +51,11 @@ export function ProfileDetailsSection({
   return (
     <section className="dashboard-card profile-card">
       <h2>Personal details</h2>
-      <form action={updateAccountProfileAction} className="auth-form profile-name-form">
+      <form
+        action="/actions/updateAccountProfileAction"
+        method="post"
+        className="auth-form profile-name-form"
+      >
         <input type="hidden" name="returnTo" value={returnTo} />
         <label>
           First name
@@ -115,7 +118,7 @@ function ProfileVerificationAction({ returnTo }: { returnTo: string }) {
   return (
     <div className="profile-actions">
       {isMailDeliveryConfigured() ? (
-        <form action={requestVerificationAction}>
+        <form action="/actions/requestVerificationAction" method="post">
           <input type="hidden" name="returnTo" value={returnTo} />
           <button className="button button-primary" type="submit">
             Send verification link

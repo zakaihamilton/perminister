@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
-import { createOrRotateConsumerClientAction, type ConsumerClientActionState } from "@/app/actions";
+import { useState, type FormEvent } from "react";
+import type { ConsumerClientActionState } from "@/app/actions";
+import { submitStableAction } from "@/lib/action-client";
 import type { ConsumerClientSummary } from "@/lib/auth/service";
 import { ConsumerClientCreateForm } from "@/components/consumer-client-create-form";
 import { ConsumerClientList } from "@/components/consumer-client-list";
@@ -12,6 +13,7 @@ interface ConsumerClientManagerProps {
   productName: string;
   returnTo: string;
   clients: ConsumerClientSummary[];
+  readOnly?: boolean;
 }
 
 export function ConsumerClientManager({
@@ -20,20 +22,36 @@ export function ConsumerClientManager({
   productName,
   returnTo,
   clients,
+  readOnly = false,
 }: ConsumerClientManagerProps) {
-  const [state, action, pending] = useActionState<ConsumerClientActionState, FormData>(
-    createOrRotateConsumerClientAction,
-    {},
-  );
+  const [state, setState] = useState<ConsumerClientActionState>({});
+  const [pending, setPending] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPending(true);
+    try {
+      setState(
+        await submitStableAction<ConsumerClientActionState>(
+          "createOrRotateConsumerClientAction",
+          new FormData(event.currentTarget),
+        ),
+      );
+    } catch (error) {
+      setState({ error: error instanceof Error ? error.message : "Please try again." });
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
     <>
-      {state.error ? (
+      {!readOnly && state.error ? (
         <p className="form-error" role="alert">
           {state.error}
         </p>
       ) : null}
-      {state.clientId && state.secret ? (
+      {!readOnly && state.clientId && state.secret ? (
         <section className="one-time-secret" aria-live="polite">
           <strong>Copy these app client details now. The secret will not be shown again.</strong>
           <span>Client ID</span>
@@ -43,21 +61,24 @@ export function ConsumerClientManager({
           <p>Store both values in the application backend&apos;s environment.</p>
         </section>
       ) : null}
-      <ConsumerClientCreateForm
-        action={action}
-        organizationId={organizationId}
-        productId={productId}
-        productName={productName}
-        returnTo={returnTo}
-        pending={pending}
-      />
+      {!readOnly ? (
+        <ConsumerClientCreateForm
+          onSubmit={handleSubmit}
+          organizationId={organizationId}
+          productId={productId}
+          productName={productName}
+          returnTo={returnTo}
+          pending={pending}
+        />
+      ) : null}
       <ConsumerClientList
-        action={action}
+        onRotateSubmit={handleSubmit}
         clients={clients}
         organizationId={organizationId}
         productId={productId}
         returnTo={returnTo}
         pending={pending}
+        readOnly={readOnly}
       />
     </>
   );

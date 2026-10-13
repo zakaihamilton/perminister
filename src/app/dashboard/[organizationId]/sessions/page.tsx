@@ -1,4 +1,3 @@
-import { revokeSessionAction } from "@/app/actions";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { getCurrentSession, listSessionsForSubject } from "@/lib/auth/service";
 import { redirect } from "next/navigation";
@@ -50,7 +49,7 @@ export default async function SessionsPage({
                 <span className="record-badge active">Active</span>
               </div>
               <div className="record-actions">
-                <form action={revokeSessionAction}>
+                <form action="/actions/revokeSessionAction" method="post">
                   <input type="hidden" name="sessionId" value={session.sessionId} />
                   <input type="hidden" name="returnTo" value={returnTo} />
                   <button className="button button-secondary" type="submit">

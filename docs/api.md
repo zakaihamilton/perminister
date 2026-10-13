@@ -6,14 +6,17 @@ The paths below are relative to the Perminister base URL provided by the platfor
 
 ## Client credentials
 
-Product owners and admins create an app client from the product’s **App clients** page. Each client
-is bound to that product and has its own session lifetime, optional app origin, and self-registration
-setting. Perminister returns the client ID and secret once; copy them into the
-application backend’s environment. Owners and admins can rotate or revoke credentials from the same
-page. Rotating a secret immediately invalidates the previous one, and revoking a client stops its
-credentials from working. Set the exact canonical product origin to enable Sign in with Perminister.
-The SSO callback path is `/auth/perminister/callback`. The application backend sends these headers when calling consumer
-endpoints:
+Product owners and admins create app clients from the product’s **App clients** page in its
+publishing organization. Each client is bound to that product and has its own session lifetime,
+optional app origin, and self-registration setting. For a public product, the publisher manages this
+configuration once and all organizations using the product share it. Product managers in those
+organizations can view client details, while only the publisher can create, rotate, or revoke
+clients. A product can have multiple clients for separate app deployments or environments.
+Perminister returns each client ID and secret once; copy them into the corresponding application
+backend’s environment. Rotating a secret immediately invalidates the previous one, and revoking a
+client stops its credentials from working. Set the exact canonical product origin to enable Sign in
+with Perminister. The SSO callback path is `/auth/perminister/callback`. The application backend
+sends these headers when calling consumer endpoints:
 
 ```http
 X-Perminister-Client-Id: <CLIENT_ID>
@@ -29,12 +32,13 @@ headers for authorization.
 
 Products are private to their organization when created. An organization owner or admin can make a
 product public from its details page. Owners and admins in other approved organizations can then add
-it from their **Products** page without recreating its product ID or configuration. Product details
-and access role templates come from the publishing organization and stay in sync; each organization
-keeps its own members, access grants, app clients, integrations, and API keys. A different product
-with the same ID blocks an install until that conflict is resolved. Making a shared product private
-removes its installations from other organizations and revokes their product-scoped access and
-credentials.
+it from their **Products** page without recreating its product ID or configuration. Product details,
+access role templates, and app client configuration come from the publishing organization and stay
+in sync; each organization keeps its own members, access grants, integrations, and API keys. A
+different product with the same ID blocks an install until that conflict is resolved. Making a
+shared product private removes its installations from other organizations and revokes their
+organization-specific access, pending invitations, integrations, and API keys. The publisher’s app
+clients remain with the product in the publisher organization.
 
 JSON request bodies must use `Content-Type: application/json`. Most are limited to 8 KiB; consumer
 member and account management requests allow 16 KiB, and the legacy import allows 25 MiB. Malformed

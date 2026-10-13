@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import { addPublicProductAction } from "@/app/actions";
 import { ProductIcon } from "@/components/product-icon";
 import { DashboardNotice } from "@/components/dashboard-shell";
 import type { ProductRecord } from "@/lib/auth/domain";
@@ -146,7 +145,7 @@ export function PublicProductCatalog({
                       Setup incomplete; no product owner is active.
                     </span>
                   ) : null}
-                  <form action={addPublicProductAction}>
+                  <form action="/actions/addPublicProductAction" method="post">
                     <input type="hidden" name="organizationId" value={organizationId} />
                     <input
                       type="hidden"

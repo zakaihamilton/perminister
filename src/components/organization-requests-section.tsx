@@ -1,4 +1,3 @@
-import { reviewOrganizationRequestAction } from "@/app/actions";
 import type { OrganizationReviewRequest } from "@/lib/auth/service";
 
 export function OrganizationRequestsSection({
@@ -29,14 +28,14 @@ export function OrganizationRequestsSection({
                 <span className="record-badge pending">Pending</span>
               </div>
               <div className="record-actions">
-                <form action={reviewOrganizationRequestAction}>
+                <form action="/actions/reviewOrganizationRequestAction" method="post">
                   <input type="hidden" name="organizationId" value={organization.organizationId} />
                   <input type="hidden" name="approvalStatus" value="approved" />
                   <button className="button button-primary" type="submit">
                     Approve
                   </button>
                 </form>
-                <form action={reviewOrganizationRequestAction}>
+                <form action="/actions/reviewOrganizationRequestAction" method="post">
                   <input type="hidden" name="organizationId" value={organization.organizationId} />
                   <input type="hidden" name="approvalStatus" value="rejected" />
                   <button className="button button-secondary" type="submit">

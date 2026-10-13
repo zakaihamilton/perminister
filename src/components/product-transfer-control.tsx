@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { transferOwnedPublicProductAction, transferPublicProductAction } from "@/app/actions";
 import { CustomDropdown } from "@/components/custom-dropdown";
 import { useModalDialog } from "@/components/use-modal-dialog";
 
@@ -42,10 +41,7 @@ export function ProductTransferControl({
   }
 
   return (
-    <form
-      action={sourceOrganizationId ? transferOwnedPublicProductAction : transferPublicProductAction}
-      className="product-transfer-form"
-    >
+    <form action="/actions/transferProductAction" method="post" className="product-transfer-form">
       <input type="hidden" name="productRecordId" value={productRecordId} />
       {sourceOrganizationId ? (
         <input type="hidden" name="sourceOrganizationId" value={sourceOrganizationId} />

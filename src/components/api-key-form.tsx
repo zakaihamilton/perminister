@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useId } from "react";
-import { createApiKeyAction, type CreateApiKeyState } from "@/app/actions";
+import { useId, useState, type FormEvent } from "react";
+import type { CreateApiKeyState } from "@/app/actions";
+import { submitStableAction } from "@/lib/action-client";
 import { ApiKeyFormFields, type ApiKeyFormDefaults } from "@/components/api-key-form-fields";
 import type { ProductRecord } from "@/lib/auth/domain";
 
@@ -22,14 +23,34 @@ export function ApiKeyForm({
   returnTo,
   defaults,
 }: ApiKeyFormProps) {
-  const [state, action, pending] = useActionState<CreateApiKeyState, FormData>(
-    createApiKeyAction,
-    {},
-  );
+  const [state, setState] = useState<CreateApiKeyState>({});
+  const [pending, setPending] = useState(false);
   const formId = useId();
 
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPending(true);
+    try {
+      setState(
+        await submitStableAction<CreateApiKeyState>(
+          "createApiKeyAction",
+          new FormData(event.currentTarget),
+        ),
+      );
+    } catch (error) {
+      setState({ error: error instanceof Error ? error.message : "Please try again." });
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
-    <form action={action} className="auth-form management-form">
+    <form
+      action="/actions/createApiKeyAction"
+      method="post"
+      onSubmit={handleSubmit}
+      className="auth-form management-form"
+    >
       <input type="hidden" name="organizationId" value={organizationId} />
       <input type="hidden" name="returnTo" value={returnTo} />
       {rotateFromApiKeyId ? (

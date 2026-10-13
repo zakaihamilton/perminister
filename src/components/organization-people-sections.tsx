@@ -1,8 +1,3 @@
-import {
-  inviteOrganizationMemberAction,
-  removeOrganizationMemberAction,
-  updateOrganizationMemberRoleAction,
-} from "@/app/actions";
 import { CustomDropdown } from "@/components/custom-dropdown";
 import { DashboardNotice } from "@/components/dashboard-shell";
 import { isMailDeliveryConfigured } from "@/lib/auth/mail";
@@ -65,7 +60,7 @@ function OrganizationMemberRow({
       </span>
       {owner ? (
         <div className="people-row-actions">
-          <form action={updateOrganizationMemberRoleAction}>
+          <form action="/actions/updateOrganizationMemberRoleAction" method="post">
             <input type="hidden" name="organizationId" value={organizationId} />
             <input type="hidden" name="membershipId" value={membershipId} />
             <label className="visually-hidden" htmlFor={`role-${membershipId}`}>
@@ -87,7 +82,7 @@ function OrganizationMemberRow({
             </button>
           </form>
           {member.membership.subjectId !== currentSubjectId ? (
-            <form action={removeOrganizationMemberAction}>
+            <form action="/actions/removeOrganizationMemberAction" method="post">
               <input type="hidden" name="organizationId" value={organizationId} />
               <input type="hidden" name="membershipId" value={membershipId} />
               <button className="button button-secondary" type="submit">
@@ -147,7 +142,11 @@ export function InviteOrganizationMemberSection({ organizationId }: { organizati
         </div>
       </div>
       {isMailDeliveryConfigured() ? (
-        <form action={inviteOrganizationMemberAction} className="auth-form invite-form">
+        <form
+          action="/actions/inviteOrganizationMemberAction"
+          method="post"
+          className="auth-form invite-form"
+        >
           <input type="hidden" name="organizationId" value={organizationId} />
           <label>
             Email address

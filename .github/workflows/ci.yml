@@ -28,6 +28,7 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm test
+      - run: node scripts/check-stable-form-actions.mjs
       - run: npm run typecheck
       - run: npm run build
       - run: npm run health -- --details

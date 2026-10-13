@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
-import { createProductAccessRoleAction, removeProductAccessRoleAction } from "@/app/actions";
 import type { ProductAccessRole } from "@/lib/auth/access-roles";
 
 export function ProductAccessRoleCatalog({
@@ -47,7 +46,7 @@ export function ProductAccessRoleCatalog({
                   <small>{accessRole.actions.join(", ")}</small>
                 </details>
               </div>
-              <form action={removeProductAccessRoleAction}>
+              <form action="/actions/removeProductAccessRoleAction" method="post">
                 <input type="hidden" name="organizationId" value={organizationId} />
                 <input type="hidden" name="productId" value={productId} />
                 <input type="hidden" name="accessRoleId" value={accessRole.id} />
@@ -80,7 +79,11 @@ export function CreateProductAccessRoleForm({
   productId: string;
 }) {
   return (
-    <form action={createProductAccessRoleAction} className="auth-form access-role-create-form">
+    <form
+      action="/actions/createProductAccessRoleAction"
+      method="post"
+      className="auth-form access-role-create-form"
+    >
       <input type="hidden" name="organizationId" value={organizationId} />
       <input type="hidden" name="productId" value={productId} />
       <label>

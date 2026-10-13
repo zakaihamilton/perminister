@@ -1,22 +1,17 @@
-import type { FormHTMLAttributes } from "react";
 import type { OrganizationInvitationRecord } from "@/lib/auth/domain";
 
 type Invitation = Pick<
   OrganizationInvitationRecord,
   "invitationId" | "email" | "role" | "expiresAt"
 >;
-type FormAction = NonNullable<FormHTMLAttributes<HTMLFormElement>["action"]>;
-
 export function PendingInvitations({
   invitations,
   organizationId,
   productId,
-  formAction,
 }: {
   invitations: readonly Invitation[];
   organizationId: string;
   productId?: string;
-  formAction: FormAction;
 }) {
   if (invitations.length === 0) return null;
 
@@ -36,14 +31,24 @@ export function PendingInvitations({
               {invitation.role} · expires {new Date(invitation.expiresAt).toLocaleDateString()}
             </small>
           </span>
-          <form action={formAction}>
-            <input type="hidden" name="organizationId" value={organizationId} />
-            {productId ? <input type="hidden" name="productId" value={productId} /> : null}
-            <input type="hidden" name="invitationId" value={invitation.invitationId} />
-            <button className="button button-secondary" type="submit">
-              Cancel invitation
-            </button>
-          </form>
+          {productId ? (
+            <form action="/actions/revokeProductInvitationAction" method="post">
+              <input type="hidden" name="organizationId" value={organizationId} />
+              <input type="hidden" name="productId" value={productId} />
+              <input type="hidden" name="invitationId" value={invitation.invitationId} />
+              <button className="button button-secondary" type="submit">
+                Cancel invitation
+              </button>
+            </form>
+          ) : (
+            <form action="/actions/revokeOrganizationInvitationAction" method="post">
+              <input type="hidden" name="organizationId" value={organizationId} />
+              <input type="hidden" name="invitationId" value={invitation.invitationId} />
+              <button className="button button-secondary" type="submit">
+                Cancel invitation
+              </button>
+            </form>
+          )}
         </div>
       ))}
     </section>

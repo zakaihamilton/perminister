@@ -256,7 +256,10 @@ export interface ConsumerClientRecord {
   kind: "consumer-client";
   schemaVersion: 1;
   consumerClientId: ConsumerClientId;
-  /** Organization whose product managers may manage this credential. */
+  /**
+   * Organization currently associated with this credential. Public product clients are managed
+   * by the publisher.
+   */
   organizationId?: OrganizationId;
   productId: ProductId;
   appName: string;

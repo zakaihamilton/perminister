@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SiteFooter, SiteHeader } from "@/components/site-shell";
-import { registerAction } from "@/app/actions";
 import { getCurrentSession } from "@/lib/auth/service";
 
 const errorText: Record<string, string> = {
@@ -52,7 +51,7 @@ export default async function RegisterPage({
                 {errorText[params.error]}
               </p>
             ) : null}
-            <form action={registerAction} className="auth-form">
+            <form action="/actions/registerAction" method="post" className="auth-form">
               {invitationToken ? (
                 <input type="hidden" name="invitationToken" value={invitationToken} />
               ) : null}

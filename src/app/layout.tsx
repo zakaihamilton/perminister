@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import { Suspense } from "react";
 import Script from "next/script";
+import { ActionRefreshNotice } from "@/components/action-refresh-notice";
 import "./globals.css";
 
 const themeBootstrap = `(() => {
@@ -27,7 +29,12 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
           {themeBootstrap}
         </Script>
       </head>
-      <body>{children}</body>
+      <body>
+        <Suspense fallback={null}>
+          <ActionRefreshNotice />
+        </Suspense>
+        {children}
+      </body>
     </html>
   );
 }

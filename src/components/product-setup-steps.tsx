@@ -1,8 +1,9 @@
-import { createOrganizationProductAction, type ProductLookupState } from "@/app/actions";
+import type { ProductLookupState } from "@/app/actions";
 import { ProductIcon } from "@/components/product-icon";
+import type { FormEventHandler } from "react";
 
 export function ProductWebsiteLookupStep({
-  lookupAction,
+  onLookupSubmit,
   lookupState,
   onStartManualEntry,
   onSourceChange,
@@ -11,7 +12,7 @@ export function ProductWebsiteLookupStep({
   source,
   organizationId,
 }: {
-  lookupAction: (payload: FormData) => void;
+  onLookupSubmit: FormEventHandler<HTMLFormElement>;
   lookupState: ProductLookupState;
   onStartManualEntry: () => void;
   onSourceChange: (value: string) => void;
@@ -26,7 +27,12 @@ export function ProductWebsiteLookupStep({
       <div className="product-setup-step-body">
         <h2>Start with a website</h2>
         <p>Enter a website address to suggest product details, or enter the details manually.</p>
-        <form action={lookupAction} className="product-source-form">
+        <form
+          action="/actions/lookupProductWebsiteAction"
+          method="post"
+          onSubmit={onLookupSubmit}
+          className="product-source-form"
+        >
           <input type="hidden" name="organizationId" value={organizationId} />
           <label>
             Website address
@@ -97,7 +103,11 @@ export function ProductDetailsReviewStep({
         {iconUrl ? (
           <ProductIcon name={name} src={iconUrl} className="product-icon-preview" size={45} />
         ) : null}
-        <form action={createOrganizationProductAction} className="auth-form product-details-form">
+        <form
+          action="/actions/createOrganizationProductAction"
+          method="post"
+          className="auth-form product-details-form"
+        >
           <input type="hidden" name="organizationId" value={organizationId} />
           <label>
             Product name

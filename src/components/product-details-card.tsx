@@ -1,4 +1,3 @@
-import { updateOrganizationProductAction } from "@/app/actions";
 import { ProductIcon } from "@/components/product-icon";
 import { ProductTransferControl } from "@/components/product-transfer-control";
 import { ProductVisibilityControl } from "@/components/product-visibility-control";
@@ -38,7 +37,11 @@ export function ProductDetailsCard({
         </div>
       </div>
       {canManageDetails ? (
-        <form action={updateOrganizationProductAction} className="auth-form product-edit-form">
+        <form
+          action="/actions/updateOrganizationProductAction"
+          method="post"
+          className="auth-form product-edit-form"
+        >
           <input type="hidden" name="organizationId" value={organizationId} />
           <input type="hidden" name="productRecordId" value={product.productRecordId} />
           <h2>Product details</h2>

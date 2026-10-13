@@ -50,7 +50,7 @@ export default async function LoginPage({
       <SiteHeader active="none" authenticated={false} />
       <main className="page-shell auth-page-shell">
         <div className="container auth-page">
-          <header className="auth-heading">
+          <header className="auth-heading login-heading">
             <p className="eyebrow">Account access</p>
             <h1>Sign in to Perminister</h1>
             <p>Use your central identity to manage permissions and API keys.</p>

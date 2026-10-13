@@ -40,6 +40,11 @@ type RecentActivityCacheEntry = {
 const recentActivityCache = new Map<string, RecentActivityCacheEntry>();
 const recentActivityReads = new Map<string, Promise<AuthEvent[]>>();
 
+function activityOrganizationId(event: AuthEvent): string | null {
+  if (typeof event.payload.organizationId === "string") return event.payload.organizationId;
+  return event.aggregate.kind === "organization" ? event.aggregate.id : null;
+}
+
 function recentActivityCacheKey(organizationId: string, productId?: string): string {
   return JSON.stringify([organizationId, productId ?? null]);
 }
@@ -629,21 +634,27 @@ export class SpacesAuthStore {
       : `${OBJECT_PREFIX}activity/by-organization/${organizationId}/`;
     const maxEvents =
       limit === undefined ? null : Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 0;
+    const belongsToOrganization = (event: AuthEvent) =>
+      activityOrganizationId(event) === organizationId;
     if (maxEvents === null || maxEvents > RECENT_ACTIVITY_CACHE_LIMIT) {
-      return this.readEventsFromPointers(prefix, maxEvents ?? undefined);
+      return this.readEventsFromPointers(prefix, maxEvents ?? undefined, belongsToOrganization);
     }
     if (maxEvents === 0) return [];
 
     const cacheKey = recentActivityCacheKey(organizationId, productId);
     const cached = getRecentActivityCache(cacheKey);
     if (cached) {
-      return cached.events.slice(0, maxEvents);
+      return cached.events.filter(belongsToOrganization).slice(0, maxEvents);
     }
 
     const pendingRead = recentActivityReads.get(cacheKey);
-    if (pendingRead) return (await pendingRead).slice(0, maxEvents);
+    if (pendingRead) return (await pendingRead).filter(belongsToOrganization).slice(0, maxEvents);
 
-    const read = this.readEventsFromPointers(prefix, RECENT_ACTIVITY_CACHE_LIMIT).then((events) => {
+    const read = this.readEventsFromPointers(
+      prefix,
+      RECENT_ACTIVITY_CACHE_LIMIT,
+      belongsToOrganization,
+    ).then((events) => {
       setRecentActivityCache(cacheKey, events);
       return events;
     });
@@ -786,13 +797,17 @@ export class SpacesAuthStore {
     if (!event.type || event.type.length > 100) throw new Error("Invalid activity event type");
   }
 
-  private async readEventsFromPointers(prefix: string, limit?: number): Promise<AuthEvent[]> {
+  private async readEventsFromPointers(
+    prefix: string,
+    limit?: number,
+    includeEvent?: (event: AuthEvent) => boolean,
+  ): Promise<AuthEvent[]> {
     const pointers = await this.listKeys(prefix);
     const maxEvents =
       limit === undefined ? null : Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 0;
     if (maxEvents === 0) return [];
     if (maxEvents === null || pointers.length <= maxEvents) {
-      return this.readEventsFromPointerKeys(pointers);
+      return this.readEventsFromPointerKeys(pointers, includeEvent);
     }
 
     const pointersByDate = new Map<string, string[]>();
@@ -815,13 +830,18 @@ export class SpacesAuthStore {
         candidatePointers.push(...dateGroups[nextDateGroup]!);
         nextDateGroup += 1;
       }
-      recentEvents.push(...(await this.readEventsFromPointerKeys(candidatePointers)));
+      recentEvents.push(
+        ...(await this.readEventsFromPointerKeys(candidatePointers, includeEvent)),
+      );
     }
 
     return this.sortEvents(recentEvents).slice(0, maxEvents);
   }
 
-  private async readEventsFromPointerKeys(pointers: readonly string[]): Promise<AuthEvent[]> {
+  private async readEventsFromPointerKeys(
+    pointers: readonly string[],
+    includeEvent?: (event: AuthEvent) => boolean,
+  ): Promise<AuthEvent[]> {
     const pointerValues = await mapWithConcurrency(
       pointers,
       (pointerKey) => this.readJson<{ key?: unknown }>(pointerKey),
@@ -840,7 +860,11 @@ export class SpacesAuthStore {
       },
       ACTIVITY_READ_CONCURRENCY,
     );
-    return this.sortEvents(events.filter((event): event is AuthEvent => event !== null));
+    return this.sortEvents(
+      events.filter(
+        (event): event is AuthEvent => event !== null && (!includeEvent || includeEvent(event)),
+      ),
+    );
   }
 
   private updateRecentActivityCache(

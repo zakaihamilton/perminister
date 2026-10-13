@@ -1305,14 +1305,6 @@ button:focus-visible {
   color: var(--muted);
   font-size: 14px;
 }
-.footer-note {
-  margin-left: auto;
-  color: var(--muted);
-  font:
-    13px "DM Mono",
-    monospace;
-}
-
 /* Dashboard */
 .dashboard-page,
 .developers-page {
@@ -2267,10 +2259,6 @@ button:focus-visible {
     gap: 4px 12px;
     padding: 15px 0;
   }
-  .footer-note {
-    width: 100%;
-    margin-left: 0;
-  }
   .dashboard-page {
     padding: 33px 0 60px;
   }
@@ -2769,6 +2757,16 @@ button:focus-visible {
   background: #f5f7ff;
   font-size: 14px;
   line-height: 1.5;
+}
+.action-refresh-notice {
+  position: fixed;
+  z-index: 10000;
+  top: 16px;
+  left: 50%;
+  width: min(640px, calc(100% - 32px));
+  margin: 0;
+  transform: translateX(-50%);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 12%);
 }
 .dashboard-notice.success {
   border-color: #cde6d5;
@@ -4541,6 +4539,10 @@ summary:focus-visible {
   font-size: 15px;
   line-height: 1.65;
 }
+.login-heading > p:last-child {
+  max-width: none;
+  white-space: nowrap;
+}
 .auth-card {
   border: 1px solid var(--line);
   border-radius: 5px;
@@ -4777,8 +4779,7 @@ summary:focus-visible {
   min-height: 78px;
   border-top-color: var(--line);
 }
-.site-footer p,
-.footer-note {
+.site-footer p {
   color: var(--muted);
   font-size: 12px;
 }
@@ -6270,7 +6271,6 @@ html[data-theme="dark"] .secure-list li,
 html[data-theme="dark"] .planned-list li,
 html[data-theme="dark"] .health-note,
 html[data-theme="dark"] .site-footer p,
-html[data-theme="dark"] .footer-note,
 html[data-theme="dark"] .simple-cta p,
 html[data-theme="dark"] .simple-steps p,
 html[data-theme="dark"] .simple-hero-copy > p:not(.eyebrow),
@@ -6750,6 +6750,9 @@ html[data-theme="dark"] .simple-panel-links span {
   .auth-card {
     padding: 19px;
   }
+  .login-heading > p:last-child {
+    white-space: normal;
+  }
   .auth-heading h1,
   .auth-card h1 {
     font-size: 38px;
@@ -6868,9 +6871,6 @@ html[data-theme="dark"] .home-page {
   --blue-pale: #2a394a;
   --blue-action: #385d86;
   --blue-action-hover: #2e4f74;
-}
-.home-page .site-footer .footer-note {
-  font-size: 14px;
 }
 .home-page-main {
   flex: 1 0 auto;
@@ -7151,8 +7151,7 @@ html[data-theme="dark"] .home-closing-button:hover {
   gap: 12px 24px;
   padding-block: 16px;
 }
-.site-footer p,
-.site-footer .footer-note {
+.site-footer p {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
@@ -7161,7 +7160,9 @@ html[data-theme="dark"] .home-closing-button:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px 20px;
+  margin-left: auto;
   font-size: 14px;
 }
 .footer-links a {
@@ -7197,11 +7198,6 @@ html[data-theme="dark"] .home-closing-button:hover {
   color: var(--blue-dark);
   background: var(--blue-pale);
 }
-.site-footer .footer-note {
-  margin-left: auto;
-  font-family: inherit;
-}
-
 .privacy-page {
   padding: clamp(44px, 7vw, 82px) 0 clamp(64px, 8vw, 96px);
 }
@@ -7290,18 +7286,10 @@ html[data-theme="dark"] .home-closing-button:hover {
   .footer-links {
     flex-basis: 100%;
   }
-  .site-footer .footer-note {
-    width: auto;
-    margin-left: auto;
-  }
 }
 @media (max-width: 480px) {
   .site-footer p {
     flex-basis: 100%;
-  }
-  .site-footer .footer-note {
-    width: 100%;
-    margin-left: 0;
   }
   .privacy-page {
     padding-top: 38px;
@@ -7930,11 +7918,7 @@ html[data-theme="dark"] .access-role-actions code {
   width: min(1160px, 100%);
 }
 .dashboard-page-title {
-  font-family:
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: clamp(36px, 4.2vw, 48px);
   font-weight: 700;
   letter-spacing: -0.055em;

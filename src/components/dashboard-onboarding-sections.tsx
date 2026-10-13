@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { createOrganizationAction, requestVerificationAction } from "@/app/actions";
 import { OrganizationRequestHistoryRecord } from "@/components/organization-request-history-record";
 import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 import type { OrganizationRequestSummary } from "@/lib/auth/service";
@@ -89,7 +88,7 @@ function EmailVerificationCard() {
         <h2>Verify your email address</h2>
         <p>We verify your email to protect organization ownership and invitations.</p>
         {isMailDeliveryConfigured() ? (
-          <form action={requestVerificationAction}>
+          <form action="/actions/requestVerificationAction" method="post">
             <button className="button button-primary" type="submit">
               Send verification link
             </button>
@@ -114,7 +113,11 @@ function OrganizationRequestCard() {
           You’ll become its Owner if approved. Products, invitations, and access stay unavailable
           until then.
         </p>
-        <form action={createOrganizationAction} className="auth-form onboarding-form">
+        <form
+          action="/actions/createOrganizationAction"
+          method="post"
+          className="auth-form onboarding-form"
+        >
           <label>
             Organization name
             <input name="name" required minLength={2} maxLength={80} placeholder="Acme Studio" />

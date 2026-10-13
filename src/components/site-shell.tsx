@@ -109,7 +109,6 @@ export function SiteFooter() {
           </svg>
         </a>
       </nav>
-      <span className="footer-note">Perminister · identity and access</span>
     </footer>
   );
 }

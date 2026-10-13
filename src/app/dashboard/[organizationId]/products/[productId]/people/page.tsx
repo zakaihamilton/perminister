@@ -1,4 +1,3 @@
-import { revokeProductInvitationAction } from "@/app/actions";
 import { DashboardHeading } from "@/components/dashboard-shell";
 import { ProductNavigation } from "@/components/product-navigation";
 import { PendingInvitations } from "@/components/pending-invitations";
@@ -56,7 +55,6 @@ export default async function ProductPeoplePage({
         invitations={invitations}
         organizationId={organizationId}
         productId={productId}
-        formAction={revokeProductInvitationAction}
       />
       <p className="role-help">
         Product owners can change roles and remove members. Product owners and admins can invite

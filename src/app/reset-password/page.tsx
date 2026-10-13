@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { SiteFooter, SiteHeader } from "@/components/site-shell";
-import { resetPasswordAction } from "@/app/actions";
 
 export default async function ResetPasswordPage({
   searchParams,
@@ -33,7 +32,7 @@ export default async function ResetPasswordPage({
               </p>
             ) : null}
             {token ? (
-              <form action={resetPasswordAction} className="auth-form">
+              <form action="/actions/resetPasswordAction" method="post" className="auth-form">
                 <input type="hidden" name="token" value={token} />
                 <label>
                   New password

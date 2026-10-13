@@ -1,4 +1,3 @@
-import { updateOrganizationNameAction } from "@/app/actions";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { getOrganizationForSubject } from "@/lib/auth/service";
 import { notFound } from "next/navigation";
@@ -26,7 +25,7 @@ export default async function OrganizationSettingsPage(
         />
       ) : null}
       <section className="dashboard-card settings-card">
-        <form action={updateOrganizationNameAction} className="auth-form">
+        <form action="/actions/updateOrganizationNameAction" method="post" className="auth-form">
           <input type="hidden" name="organizationId" value={organizationId} />
           <label>
             Organization name

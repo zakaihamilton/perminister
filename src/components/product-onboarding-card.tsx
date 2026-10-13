@@ -4,11 +4,13 @@ import type { ConsumerClientSummary } from "@/lib/auth/service";
 export function ProductOnboardingCard({
   connectedClients,
   isSharedInstallation,
+  isPublicPublisher,
   organizationId,
   productId,
 }: {
   connectedClients: readonly Pick<ConsumerClientSummary, "appName">[];
   isSharedInstallation: boolean;
+  isPublicPublisher: boolean;
   organizationId: string;
   productId: string;
 }) {
@@ -26,6 +28,8 @@ export function ProductOnboardingCard({
       <ol className="product-onboarding-steps">
         <ProductConnectionStep
           connectedClients={connectedClients}
+          isSharedInstallation={isSharedInstallation}
+          isPublicPublisher={isPublicPublisher}
           organizationId={organizationId}
           productId={productId}
         />
@@ -42,10 +46,14 @@ export function ProductOnboardingCard({
 
 function ProductConnectionStep({
   connectedClients,
+  isSharedInstallation,
+  isPublicPublisher,
   organizationId,
   productId,
 }: {
   connectedClients: readonly Pick<ConsumerClientSummary, "appName">[];
+  isSharedInstallation: boolean;
+  isPublicPublisher: boolean;
   organizationId: string;
   productId: string;
 }) {
@@ -59,12 +67,35 @@ function ProductConnectionStep({
             {connectedClients.length ? "Credentials set" : "Next step"}
           </span>
         </div>
-        {connectedClients.length === 1 ? (
+        {isSharedInstallation ? (
+          <>
+            {connectedClients.length ? (
+              <p>
+                {connectedClients.length === 1
+                  ? `${connectedClients[0].appName} is connected for this public product.`
+                  : `${connectedClients.length} app clients are configured for this public product.`}{" "}
+                App client settings are managed by the publisher and apply to all organizations
+                using the product.
+              </p>
+            ) : (
+              <p>
+                The publisher has not configured an active app client for this public product yet.
+              </p>
+            )}
+            <Link
+              className="text-link"
+              href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/clients`}
+            >
+              View app clients
+            </Link>
+          </>
+        ) : connectedClients.length === 1 ? (
           <p>
             {connectedClients[0].appName} has active credentials for product ID{" "}
             <code>{productId}</code>. Keep the client secret in the app backend&apos;s environment.
-            Reuse this client across organizations; each organization keeps its own people and
-            permissions.
+            {isPublicPublisher
+              ? " Reuse this client across organizations; each organization keeps its own people and permissions."
+              : ""}
           </p>
         ) : connectedClients.length > 1 ? (
           <p>
@@ -74,7 +105,10 @@ function ProductConnectionStep({
         ) : (
           <p>
             Create an app client in Perminister, then store its client ID and secret in the app
-            backend&apos;s environment. Use the same product ID in every organization.{" "}
+            backend&apos;s environment.
+            {isPublicPublisher
+              ? " Use the same product ID in every organization that installs this public product."
+              : ""}{" "}
             <Link
               className="text-link"
               href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/clients`}

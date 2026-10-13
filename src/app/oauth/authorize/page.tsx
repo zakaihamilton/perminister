@@ -7,7 +7,6 @@ import {
   safeConsumerAuthorizationReturnTo,
   type ConsumerAuthorizationRequest,
 } from "@/lib/auth/consumer-sso";
-import { approveConsumerAuthorizationAction, cancelConsumerAuthorizationAction } from "./action";
 
 function singleValue(value: string | string[] | undefined): string {
   return typeof value === "string" ? value : "";
@@ -98,13 +97,21 @@ export default async function ConsumerAuthorizationPage({
                   <strong>{current.subject.primaryEmail ?? "your Perminister account"}</strong>.
                   Perminister will confirm your access when {client.appName} opens.
                 </p>
-                <form action={approveConsumerAuthorizationAction} className="auth-form">
+                <form
+                  action="/actions/approveConsumerAuthorizationAction"
+                  method="post"
+                  className="auth-form"
+                >
                   <AuthorizationFormFields authorization={authorization} />
                   <button className="button button-primary form-submit" type="submit">
                     Continue to {client.appName}
                   </button>
                 </form>
-                <form action={cancelConsumerAuthorizationAction} className="auth-form">
+                <form
+                  action="/actions/cancelConsumerAuthorizationAction"
+                  method="post"
+                  className="auth-form"
+                >
                   <AuthorizationFormFields authorization={authorization} />
                   <button className="button button-secondary form-submit" type="submit">
                     Cancel

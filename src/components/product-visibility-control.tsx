@@ -1,6 +1,5 @@
 "use client";
 
-import { setOrganizationProductVisibilityAction } from "@/app/actions";
 import { useModalDialog } from "@/components/use-modal-dialog";
 
 export function ProductVisibilityControl({
@@ -38,7 +37,7 @@ export function ProductVisibilityControl({
           </small>
         ) : null}
       </div>
-      <form action={setOrganizationProductVisibilityAction}>
+      <form action="/actions/setOrganizationProductVisibilityAction" method="post">
         <input type="hidden" name="organizationId" value={organizationId} />
         <input type="hidden" name="productId" value={productId} />
         <input type="hidden" name="productRecordId" value={productRecordId} />
@@ -67,8 +66,9 @@ export function ProductVisibilityControl({
         <h2 id="product-privacy-dialog-title">Make this product private?</h2>
         <p id="product-privacy-dialog-description">
           The product will be removed from these organizations, and their members will lose access.
-          Pending invitations will be canceled. App clients, integrations, and API keys will be
-          revoked.
+          Pending invitations, integrations, and API keys in those organizations will be revoked.
+          The publisher&apos;s app clients remain configured for the product in its publisher
+          organization.
         </p>
         <ul className="product-privacy-organization-list">
           {adopterOrganizations.map((organization) => (
@@ -79,7 +79,7 @@ export function ProductVisibilityControl({
           <button className="button button-secondary" type="button" onClick={closeDialog}>
             Cancel
           </button>
-          <form action={setOrganizationProductVisibilityAction}>
+          <form action="/actions/setOrganizationProductVisibilityAction" method="post">
             <input type="hidden" name="organizationId" value={organizationId} />
             <input type="hidden" name="productId" value={productId} />
             <input type="hidden" name="productRecordId" value={productRecordId} />

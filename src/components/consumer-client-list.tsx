@@ -1,18 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { revokeConsumerClientAction } from "@/app/actions";
+import { useState, type FormEventHandler } from "react";
 import type { ConsumerClientSummary } from "@/lib/auth/service";
 
-type FormAction = (payload: FormData) => void;
-
 interface ConsumerClientListProps {
-  action: FormAction;
+  onRotateSubmit: FormEventHandler<HTMLFormElement>;
   clients: ConsumerClientSummary[];
   organizationId: string;
   productId: string;
   returnTo: string;
   pending: boolean;
+  readOnly?: boolean;
 }
 
 function sessionLifetimeLabel(milliseconds: number): string {
@@ -22,12 +20,13 @@ function sessionLifetimeLabel(milliseconds: number): string {
 }
 
 export function ConsumerClientList({
-  action,
+  onRotateSubmit,
   clients,
   organizationId,
   productId,
   returnTo,
   pending,
+  readOnly = false,
 }: ConsumerClientListProps) {
   const [rotatingClientId, setRotatingClientId] = useState<string | null>(null);
 
@@ -36,7 +35,11 @@ export function ConsumerClientList({
       <div className="dashboard-card-heading">
         <div>
           <h2>App clients</h2>
-          <p>Active credentials can call Perminister for this product.</p>
+          <p>
+            {readOnly
+              ? "These app clients are managed by the product publisher and shared across its organizations."
+              : "Active credentials can call Perminister for this product."}
+          </p>
         </div>
       </div>
       {clients.length ? (
@@ -74,7 +77,7 @@ export function ConsumerClientList({
                   </dd>
                 </div>
               </dl>
-              {client.status === "active" ? (
+              {!readOnly && client.status === "active" ? (
                 <div className="consumer-client-card-actions">
                   <div className="consumer-client-card-buttons">
                     <button
@@ -94,7 +97,7 @@ export function ConsumerClientList({
                     >
                       Rotate secret
                     </button>
-                    <form action={revokeConsumerClientAction}>
+                    <form action="/actions/revokeConsumerClientAction" method="post">
                       <input type="hidden" name="organizationId" value={organizationId} />
                       <input type="hidden" name="productId" value={productId} />
                       <input type="hidden" name="returnTo" value={returnTo} />
@@ -106,7 +109,9 @@ export function ConsumerClientList({
                   </div>
                   {rotatingClientId === client.clientId ? (
                     <form
-                      action={action}
+                      action="/actions/createOrRotateConsumerClientAction"
+                      method="post"
+                      onSubmit={onRotateSubmit}
                       className="auth-form management-form"
                       id={`rotate-secret-${client.clientId}`}
                     >
@@ -131,7 +136,11 @@ export function ConsumerClientList({
       ) : (
         <div className="dashboard-empty-card">
           <h3>No app clients yet</h3>
-          <p>Create a client to connect an application backend to Perminister.</p>
+          <p>
+            {readOnly
+              ? "The product publisher has not configured an app client yet."
+              : "Create a client to connect an application backend to Perminister."}
+          </p>
         </div>
       )}
     </section>
