@@ -6,6 +6,62 @@ export const NO_STORE_HEADERS = {
 const PUBLIC_ORIGIN_HOST_HEADER = "x-perminister-public-host";
 const PUBLIC_ORIGIN_PROTOCOL_HEADER = "x-perminister-public-proto";
 
+function getProxyPublicOrigin(request: Request): string | null {
+  const host = request.headers.get(PUBLIC_ORIGIN_HOST_HEADER);
+  const protocol = request.headers.get(PUBLIC_ORIGIN_PROTOCOL_HEADER);
+  if (!host || (protocol !== "http" && protocol !== "https")) return null;
+
+  try {
+    const origin = new URL(`${protocol}://${host}`);
+    if (
+      origin.host.toLowerCase() !== host.toLowerCase() ||
+      origin.pathname !== "/" ||
+      origin.search ||
+      origin.hash ||
+      origin.username ||
+      origin.password
+    ) {
+      return null;
+    }
+    return origin.origin;
+  } catch {
+    return null;
+  }
+}
+
+function publicRequestOrigin(request: Request): string {
+  const host = request.headers.get(PUBLIC_ORIGIN_HOST_HEADER) ?? request.headers.get("host");
+
+  for (const sourceHeader of [request.headers.get("origin"), request.headers.get("referer")]) {
+    if (!sourceHeader) continue;
+    try {
+      const source = new URL(sourceHeader);
+      if (
+        source.host === host &&
+        (source.protocol === "http:" || source.protocol === "https:") &&
+        !source.username &&
+        !source.password
+      ) {
+        return source.origin;
+      }
+    } catch {
+      // Fall back to the proxy-provided browser origin or this request's origin.
+    }
+  }
+
+  return getProxyPublicOrigin(request) ?? new URL(request.url).origin;
+}
+
+export function publicRedirectResponse(request: Request, path: string): Response {
+  return new Response(null, {
+    status: 303,
+    headers: {
+      ...NO_STORE_HEADERS,
+      Location: new URL(path, publicRequestOrigin(request)).toString(),
+    },
+  });
+}
+
 export function isSameOriginBrowserRequest(request: Request): boolean {
   const originHeader = request.headers.get("origin");
   const refererHeader = request.headers.get("referer");
