@@ -49,11 +49,17 @@ function isSameOriginRequest(request: Request): boolean {
 }
 
 function redirectResponse(request: Request, path: string): Response {
+  // The app may run behind a write proxy whose request.url points at its
+  // internal Railway origin. POST validates Origin with isSameOriginRequest
+  // before reaching this function, so it is the canonical browser origin for
+  // redirects back to the app.
+  const redirectBase = request.headers.get("origin") ?? request.url;
+
   return new Response(null, {
     status: 303,
     headers: {
       ...NO_STORE_HEADERS,
-      Location: new URL(path, request.url).toString(),
+      Location: new URL(path, redirectBase).toString(),
     },
   });
 }
