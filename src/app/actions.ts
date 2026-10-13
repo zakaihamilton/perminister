@@ -34,7 +34,6 @@ import {
   revokeConsumerClient,
   revokeSession,
   setSessionCookie,
-  signOutCurrentSession,
   updateAccountStatus,
   updateAccountProfile,
   updateGrantStatus,
@@ -304,11 +303,6 @@ export async function registerAction(formData: FormData): Promise<void> {
     redirect(`/login?notice=${notice}`);
   }
   redirect(`/dashboard?notice=${notice}`);
-}
-
-export async function signOutAction(): Promise<void> {
-  await signOutCurrentSession();
-  redirect("/");
 }
 
 export async function requestVerificationAction(formData: FormData): Promise<void> {

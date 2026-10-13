@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { signOutAction } from "@/app/actions";
 import { Brand } from "@/components/site-shell";
 import type { OrganizationSummary } from "@/lib/auth/service";
 import { DashboardBreadcrumbs } from "@/components/dashboard-breadcrumbs";
@@ -109,7 +108,7 @@ export function DashboardSidebar({
             {displayName ? <p className="sidebar-account-name">{displayName}</p> : null}
           </div>
         ) : null}
-        <form action={signOutAction}>
+        <form action="/logout/submit" method="post">
           <button className="button button-secondary sidebar-signout" type="submit">
             Sign out
           </button>

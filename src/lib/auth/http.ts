@@ -3,6 +3,39 @@ export const NO_STORE_HEADERS = {
   Pragma: "no-cache",
 };
 
+const PUBLIC_ORIGIN_HOST_HEADER = "x-perminister-public-host";
+const PUBLIC_ORIGIN_PROTOCOL_HEADER = "x-perminister-public-proto";
+
+export function isSameOriginBrowserRequest(request: Request): boolean {
+  const originHeader = request.headers.get("origin");
+  const refererHeader = request.headers.get("referer");
+  const isSameOriginFetch = request.headers.get("sec-fetch-site") === "same-origin";
+
+  // Fetch Metadata is set by the browser and cannot be supplied by page
+  // JavaScript. Use it when browser privacy settings or a local proxy omit or
+  // rewrite Origin and Referer.
+  if (isSameOriginFetch) return true;
+  if (!originHeader && !refererHeader) return false;
+
+  try {
+    const source = new URL(originHeader ?? refererHeader!);
+    const requestUrl = new URL(request.url);
+    const publicProtocol = request.headers.get(PUBLIC_ORIGIN_PROTOCOL_HEADER);
+    const host = request.headers.get(PUBLIC_ORIGIN_HOST_HEADER) ?? request.headers.get("host");
+    const protocol = publicProtocol ?? requestUrl.protocol.slice(0, -1);
+    return (
+      !!host &&
+      source.host === host &&
+      source.protocol === `${protocol}:` &&
+      (!originHeader || (source.pathname === "/" && !source.search && !source.hash)) &&
+      !source.username &&
+      !source.password
+    );
+  } catch {
+    return false;
+  }
+}
+
 export class RequestBodyTooLargeError extends Error {}
 
 export async function readBoundedJson(request: Request, maximumBytes = 8192): Promise<unknown> {

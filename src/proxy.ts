@@ -211,6 +211,7 @@ export const config = {
     "/forgot-password",
     "/login",
     "/login/submit",
+    "/logout/submit",
     "/register",
     "/reset-password",
     "/verify-email",
