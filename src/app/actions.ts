@@ -4,9 +4,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
-import { safeConsumerAuthorizationReturnTo } from "@/lib/auth/consumer-sso";
 import {
-  authenticate,
   acceptOrganizationInvitation,
   completeEmailAction,
   createApiKeyForSubject,
@@ -306,37 +304,6 @@ export async function registerAction(formData: FormData): Promise<void> {
     redirect(`/login?notice=${notice}`);
   }
   redirect(`/dashboard?notice=${notice}`);
-}
-
-export async function signInAction(formData: FormData): Promise<void> {
-  const invitationToken = firstValue(formData, "invitationToken");
-  const next = safeConsumerAuthorizationReturnTo(firstValue(formData, "next"));
-  const invitationQuery = invitationToken
-    ? `&invitationToken=${encodeURIComponent(invitationToken)}`
-    : "";
-  const nextQuery = next ? `&next=${encodeURIComponent(next)}` : "";
-  try {
-    const subject = await authenticate(
-      firstValue(formData, "email"),
-      firstValue(formData, "password"),
-    );
-    const session = await createSession(subject.subjectId);
-    await setSessionCookie(session.token);
-  } catch (error) {
-    const code =
-      error instanceof Error && error.message.startsWith("Too many sign-in attempts")
-        ? "throttled"
-        : error instanceof Error && error.message === "Email or password is incorrect."
-          ? "credentials"
-          : "unavailable";
-    redirect(`/login?error=${code}${invitationQuery}${nextQuery}`);
-  }
-  redirect(
-    next ??
-      (invitationToken
-        ? `/accept-invitation?token=${encodeURIComponent(invitationToken)}`
-        : "/dashboard"),
-  );
 }
 
 export async function signOutAction(): Promise<void> {

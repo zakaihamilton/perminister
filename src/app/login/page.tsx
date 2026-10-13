@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SiteFooter, SiteHeader } from "@/components/site-shell";
-import { signInAction } from "@/app/actions";
 import { getCurrentSession } from "@/lib/auth/service";
 import { safeConsumerAuthorizationReturnTo } from "@/lib/auth/consumer-sso";
 
@@ -72,7 +71,7 @@ export default async function LoginPage({
                 {noticeText[params.notice]}
               </p>
             ) : null}
-            <form action={signInAction} className="auth-form">
+            <form action="/api/auth/session" method="post" className="auth-form">
               {next ? <input type="hidden" name="next" value={next} /> : null}
               {invitationToken ? (
                 <input type="hidden" name="invitationToken" value={invitationToken} />
