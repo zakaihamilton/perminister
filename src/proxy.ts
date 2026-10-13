@@ -210,6 +210,7 @@ export const config = {
     "/dashboard/:path*",
     "/forgot-password",
     "/login",
+    "/login/submit",
     "/register",
     "/reset-password",
     "/verify-email",
