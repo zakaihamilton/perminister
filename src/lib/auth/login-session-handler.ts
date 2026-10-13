@@ -46,11 +46,57 @@ function isSameOriginRequest(request: Request): boolean {
   }
 }
 
+function getProxyPublicOrigin(request: Request): string | null {
+  const host = request.headers.get(PUBLIC_ORIGIN_HOST_HEADER);
+  const protocol = request.headers.get(PUBLIC_ORIGIN_PROTOCOL_HEADER);
+  if (!host || (protocol !== "http" && protocol !== "https")) return null;
+
+  try {
+    const origin = new URL(`${protocol}://${host}`);
+    if (
+      origin.host.toLowerCase() !== host.toLowerCase() ||
+      origin.pathname !== "/" ||
+      origin.search ||
+      origin.hash ||
+      origin.username ||
+      origin.password
+    ) {
+      return null;
+    }
+    return origin.origin;
+  } catch {
+    return null;
+  }
+}
+
+function redirectOrigin(request: Request): string {
+  const host =
+    request.headers.get(PUBLIC_ORIGIN_HOST_HEADER) ?? request.headers.get("host");
+
+  for (const sourceHeader of [request.headers.get("origin"), request.headers.get("referer")]) {
+    if (!sourceHeader) continue;
+    try {
+      const source = new URL(sourceHeader);
+      if (
+        source.host === host &&
+        (source.protocol === "http:" || source.protocol === "https:") &&
+        !source.username &&
+        !source.password
+      ) {
+        return source.origin;
+      }
+    } catch {
+      // Fall back to the proxy-provided browser origin or this request's origin.
+    }
+  }
+
+  return getProxyPublicOrigin(request) ?? new URL(request.url).origin;
+}
+
 function redirectResponse(request: Request, path: string): Response {
-  // The writer may receive an internal Railway request URL. Origin or Referer
-  // has already passed isSameOriginRequest, so it provides the browser origin.
-  const redirectBase =
-    request.headers.get("origin") ?? request.headers.get("referer") ?? request.url;
+  // A writer request's URL can be Railway's internal localhost origin. Prefer
+  // the browser source, then the public origin injected by Vercel's write proxy.
+  const redirectBase = redirectOrigin(request);
 
   return new Response(null, {
     status: 303,
