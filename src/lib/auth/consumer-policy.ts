@@ -7,50 +7,43 @@ const ORGANIZATION_ID_PATTERN =
 const RESOURCE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
 export interface ConsumerProductPolicy {
-  scopeKind: ConsumerScopeKind;
-  roles: Readonly<Record<string, readonly string[]>>;
   memberManagementAction: string;
-  accountManagementAction?: string;
-  platformAdminActions?: readonly string[];
+  accountManagementAction: string;
+  platformAdminActions: readonly string[];
 }
-
-const POLICIES: Readonly<Record<string, ConsumerProductPolicy>> = {
-  visitoring: {
-    scopeKind: "workspace",
-    memberManagementAction: "visitoring:members:manage",
-    roles: {
-      viewer: ["visitoring:workspace:read"],
-      admin: ["visitoring:workspace:read", "visitoring:members:manage"],
-    },
-  },
-  postparticle: {
-    scopeKind: "project",
-    memberManagementAction: "postparticle:members:manage",
-    accountManagementAction: "postparticle:accounts:manage",
-    roles: {
-      viewer: ["postparticle:project:read"],
-      editor: ["postparticle:project:read", "postparticle:project:write"],
-      admin: [
-        "postparticle:project:read",
-        "postparticle:project:write",
-        "postparticle:members:manage",
-      ],
-    },
-    platformAdminActions: [
-      "postparticle:project:read",
-      "postparticle:project:write",
-      "postparticle:members:manage",
-      "postparticle:accounts:manage",
-    ],
-  },
-};
 
 export function consumerProductPolicy(productId: string): ConsumerProductPolicy | null {
-  return POLICIES[productId.trim().toLowerCase()] ?? null;
+  const normalizedProductId = productId.trim().toLowerCase();
+  if (!normalizedProductId) return null;
+  return {
+    memberManagementAction: normalizedProductId + ":members:manage",
+    accountManagementAction: normalizedProductId + ":accounts:manage",
+    platformAdminActions: [
+      normalizedProductId + ":project:read",
+      normalizedProductId + ":project:write",
+      normalizedProductId + ":members:manage",
+      normalizedProductId + ":accounts:manage",
+    ],
+  };
 }
 
-export function consumerRoleActions(productId: string, role: string): readonly string[] | null {
-  return consumerProductPolicy(productId)?.roles[role] ?? null;
+export function consumerRoleActions(
+  productId: string,
+  role: string,
+  scopeKind: ConsumerScopeKind,
+): readonly string[] | null {
+  const normalizedProductId = productId.trim().toLowerCase();
+  if (!normalizedProductId) return null;
+  const resourceActions =
+    scopeKind === "workspace"
+      ? [normalizedProductId + ":workspace:read"]
+      : [normalizedProductId + ":project:read", normalizedProductId + ":project:write"];
+  if (role === "viewer") return [resourceActions[0]];
+  if (role === "editor" && scopeKind === "project") return resourceActions;
+  if (role === "admin") {
+    return [...resourceActions, normalizedProductId + ":members:manage"];
+  }
+  return null;
 }
 
 export function isOrganizationId(value: unknown): value is string {

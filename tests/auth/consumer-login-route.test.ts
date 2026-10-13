@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   listConsumerOrganizationsForSubject: vi.fn(),
   client: {
     clientId: "11111111-1111-4111-8111-111111111111",
-    productId: "visitoring",
+    productId: "workspaceapp",
     sessionLifetimeMs: 30 * 24 * 60 * 60 * 1000,
   },
 }));
@@ -53,12 +53,12 @@ describe("consumer login route", () => {
     mocks.listConsumerOrganizationsForSubject.mockResolvedValue([]);
   });
 
-  it("accepts an imported Visitoring password at its legacy maximum length", async () => {
+  it("accepts an imported WorkspaceApp password at its legacy maximum length", async () => {
     const password = "p".repeat(1024);
     const response = await POST(loginRequest(password));
 
     expect(response.status).toBe(200);
-    expect(mocks.authenticate).toHaveBeenCalledWith("person@example.com", password, "visitoring");
+    expect(mocks.authenticate).toHaveBeenCalledWith("person@example.com", password, "workspaceapp");
     expect(await response.json()).toMatchObject({
       authenticated: true,
       sessionToken: "opaque-session-token",

@@ -1,7 +1,7 @@
 import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
 import { consumerServiceError, requireConsumerJsonRequest } from "@/lib/auth/consumer-route";
 import { isOrganizationId } from "@/lib/auth/consumer-policy";
-import { revokeVisitoringWorkspaceGrants } from "@/lib/auth/service";
+import { revokeWorkspaceGrants } from "@/lib/auth/service";
 
 export const runtime = "nodejs";
 
@@ -13,20 +13,20 @@ export async function DELETE(request: Request, context: RouteContext) {
   const { body, ...auth } = parsed;
   const { workspaceId } = await context.params;
   if (
-    auth.client.productId !== "visitoring" ||
     !isOrganizationId(workspaceId) ||
     !isJsonObject(body) ||
     !isOrganizationId(body.organizationId)
   ) {
     return Response.json(
-      { error: "Provide a valid Visitoring organizationId and workspaceId." },
+      { error: "Provide a valid organizationId and workspaceId." },
       { status: 400, headers: NO_STORE_HEADERS },
     );
   }
 
   try {
-    await revokeVisitoringWorkspaceGrants(
+    await revokeWorkspaceGrants(
       auth.current.subject.subjectId,
+      auth.client.productId,
       body.organizationId.toLowerCase(),
       workspaceId.toLowerCase(),
     );

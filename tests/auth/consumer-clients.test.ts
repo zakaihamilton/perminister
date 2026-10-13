@@ -17,9 +17,9 @@ function clientRecord(status: "active" | "revoked" = "active") {
     kind: "consumer-client",
     schemaVersion: 1,
     consumerClientId: CLIENT_ID,
-    productId: "visitoring",
-    appName: "Visitoring",
-    appOrigin: "https://visitoring.example.com",
+    productId: "workspaceapp",
+    appName: "WorkspaceApp",
+    appOrigin: "https://workspaceapp.example.com",
     sessionLifetimeMs: 30 * 24 * 60 * 60 * 1000,
     selfRegistrationEnabled: false,
     verifier: {
@@ -49,7 +49,7 @@ describe("consumer client credentials", () => {
 
     await expect(getConsumerClient(CLIENT_ID)).resolves.toMatchObject({
       clientId: CLIENT_ID,
-      productId: "visitoring",
+      productId: "workspaceapp",
       sessionLifetimeMs: 30 * 24 * 60 * 60 * 1000,
       selfRegistrationEnabled: false,
     });
@@ -83,7 +83,7 @@ describe("consumer client credentials", () => {
   it("rejects malformed or unknown client IDs", async () => {
     const { getConsumerClient } = await import("../../src/lib/auth/consumer-clients");
 
-    await expect(getConsumerClient("visitoring")).resolves.toBeNull();
+    await expect(getConsumerClient("workspaceapp")).resolves.toBeNull();
     await expect(getConsumerClient("33333333-3333-4333-8333-333333333333")).resolves.toBeNull();
   });
 });

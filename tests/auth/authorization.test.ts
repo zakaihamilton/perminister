@@ -35,8 +35,8 @@ const CONSUMER_CLIENT_ID = "44444444-4444-4444-8444-444444444444";
 const ORG_MEMBERSHIP_ID = "66666666-6666-4666-8666-666666666666";
 const GRANT_ID = "77777777-7777-4777-8777-777777777777";
 const ORG_ADMIN_MEMBERSHIP_ID = "23232323-2323-4323-8323-232323232323";
-const VISITORING_PRODUCT_RECORD_ID = "24242424-2424-4424-8424-242424242424";
-const VISITORING_WORKSPACE_ID = "25252525-2525-4525-8525-252525252525";
+const WORKSPACE_APP_PRODUCT_RECORD_ID = "24242424-2424-4424-8424-242424242424";
+const WORKSPACE_APP_WORKSPACE_ID = "25252525-2525-4525-8525-252525252525";
 const INVITATION_ID = "88888888-8888-4888-8888-888888888888";
 const ROLE_PRODUCT_RECORD_ID = "99999999-9999-4999-8999-999999999999";
 const ROLE_TARGET_SUBJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -593,7 +593,7 @@ describe("bearer authorization", () => {
   });
 });
 
-describe("Visitoring workspace lifecycle grants", () => {
+describe("WorkspaceApp workspace lifecycle grants", () => {
   let store: MemoryStore;
   let service: typeof import("../../src/lib/auth/service");
 
@@ -605,12 +605,12 @@ describe("Visitoring workspace lifecycle grants", () => {
     store.seed({
       kind: "product",
       schemaVersion: 1,
-      productRecordId: VISITORING_PRODUCT_RECORD_ID as never,
+      productRecordId: WORKSPACE_APP_PRODUCT_RECORD_ID as never,
       organizationId: ORGANIZATION_ID as never,
-      productId: "visitoring",
-      name: "Visitoring",
+      productId: "workspaceapp",
+      name: "WorkspaceApp",
       description: "",
-      websiteUrl: "https://visitoring.example",
+      websiteUrl: "https://workspaceapp.example",
       iconUrl: "",
       createdBySubjectId: SUBJECT_ID as never,
       createdAt: now,
@@ -645,7 +645,7 @@ describe("Visitoring workspace lifecycle grants", () => {
       schemaVersion: 1,
       organizationMembershipId: ROLE_TARGET_MEMBERSHIP_ID as never,
       organizationId: ORGANIZATION_ID as never,
-      productId: "visitoring",
+      productId: "workspaceapp",
       subjectId: ROLE_TARGET_SUBJECT_ID as never,
       role: "member",
       status: "active",
@@ -658,35 +658,37 @@ describe("Visitoring workspace lifecycle grants", () => {
   });
 
   it("lets an organization admin bootstrap their own admin grant idempotently", async () => {
-    await service.bootstrapVisitoringWorkspaceAdmin(
+    await service.bootstrapWorkspaceAdmin(
       SUBJECT_ID as never,
+      "workspaceapp",
       ORGANIZATION_ID,
-      VISITORING_WORKSPACE_ID,
+      WORKSPACE_APP_WORKSPACE_ID,
     );
-    await service.bootstrapVisitoringWorkspaceAdmin(
+    await service.bootstrapWorkspaceAdmin(
       SUBJECT_ID as never,
+      "workspaceapp",
       ORGANIZATION_ID,
-      VISITORING_WORKSPACE_ID,
+      WORKSPACE_APP_WORKSPACE_ID,
     );
 
     const membership = await store.readOrganizationMembership(
       ORGANIZATION_ID,
       SUBJECT_ID as never,
-      "visitoring",
+      "workspaceapp",
     );
     expect(membership?.permissionGrants).toHaveLength(1);
     expect(membership?.permissionGrants?.[0]).toMatchObject({
       scope: {
         kind: "workspace",
         organizationId: ORGANIZATION_ID,
-        productId: "visitoring",
-        workspaceId: VISITORING_WORKSPACE_ID,
+        productId: "workspaceapp",
+        workspaceId: WORKSPACE_APP_WORKSPACE_ID,
       },
       accessRole: { name: "admin" },
       status: "active",
       grants: [
         {
-          actions: ["visitoring:workspace:read", "visitoring:members:manage"],
+          actions: ["workspaceapp:workspace:read", "workspaceapp:members:manage"],
         },
       ],
     });
@@ -699,53 +701,57 @@ describe("Visitoring workspace lifecycle grants", () => {
     store.seed({ ...membership, role: "member" });
 
     await expect(
-      service.bootstrapVisitoringWorkspaceAdmin(
+      service.bootstrapWorkspaceAdmin(
         SUBJECT_ID as never,
+        "workspaceapp",
         ORGANIZATION_ID,
-        VISITORING_WORKSPACE_ID,
+        WORKSPACE_APP_WORKSPACE_ID,
       ),
     ).rejects.toThrow("You do not have permission to manage this organization.");
     await expect(
-      store.readOrganizationMembership(ORGANIZATION_ID, SUBJECT_ID as never, "visitoring"),
+      store.readOrganizationMembership(ORGANIZATION_ID, SUBJECT_ID as never, "workspaceapp"),
     ).resolves.toBeNull();
   });
 
   it("revokes all workspace grants for organization admins and is safe to retry", async () => {
-    await service.bootstrapVisitoringWorkspaceAdmin(
+    await service.bootstrapWorkspaceAdmin(
       SUBJECT_ID as never,
+      "workspaceapp",
       ORGANIZATION_ID,
-      VISITORING_WORKSPACE_ID,
+      WORKSPACE_APP_WORKSPACE_ID,
     );
-    await service.createConsumerMember(SUBJECT_ID as never, "visitoring", {
+    await service.createConsumerMember(SUBJECT_ID as never, "workspaceapp", {
       organizationId: ORGANIZATION_ID,
-      productId: "visitoring",
+      productId: "workspaceapp",
       scopeKind: "workspace",
-      resourceId: VISITORING_WORKSPACE_ID,
+      resourceId: WORKSPACE_APP_WORKSPACE_ID,
       email: "member@example.com",
       role: "viewer",
     });
 
-    await service.revokeVisitoringWorkspaceGrants(
+    await service.revokeWorkspaceGrants(
       SUBJECT_ID as never,
+      "workspaceapp",
       ORGANIZATION_ID,
-      VISITORING_WORKSPACE_ID,
+      WORKSPACE_APP_WORKSPACE_ID,
     );
-    await service.revokeVisitoringWorkspaceGrants(
+    await service.revokeWorkspaceGrants(
       SUBJECT_ID as never,
+      "workspaceapp",
       ORGANIZATION_ID,
-      VISITORING_WORKSPACE_ID,
+      WORKSPACE_APP_WORKSPACE_ID,
     );
 
     for (const subjectId of [SUBJECT_ID, ROLE_TARGET_SUBJECT_ID]) {
       const membership = await store.readOrganizationMembership(
         ORGANIZATION_ID,
         subjectId as never,
-        "visitoring",
+        "workspaceapp",
       );
       expect(
         membership?.permissionGrants?.find(
           (grant) =>
-            grant.scope.kind === "workspace" && grant.scope.workspaceId === VISITORING_WORKSPACE_ID,
+            grant.scope.kind === "workspace" && grant.scope.workspaceId === WORKSPACE_APP_WORKSPACE_ID,
         )?.status,
       ).toBe("disabled");
     }
@@ -1620,7 +1626,7 @@ describe("consumer identity migration and management", () => {
     vi.stubEnv("PERMINISTER_ADMIN_EMAILS", "");
     store = new MemoryStore();
     seedAuthorizationData(store);
-    for (const [index, productId] of ["visitoring", "postparticle"].entries()) {
+    for (const [index, productId] of ["workspaceapp", "projectapp"].entries()) {
       store.seed({
         kind: "product",
         schemaVersion: 1,
@@ -1644,18 +1650,18 @@ describe("consumer identity migration and management", () => {
     vi.unstubAllEnvs();
   });
 
-  it("verifies and upgrades Visitoring Argon2id and PostParticle scrypt credentials", async () => {
+  it("verifies and upgrades WorkspaceApp Argon2id and ProjectApp scrypt credentials", async () => {
     const password = "Legacy password long enough 7!";
     const now = new Date().toISOString();
     const argonHash = await hashArgon2id(password);
-    const postParticleSalt = "0123456789abcdef0123456789abcdef";
-    const postParticleHash = `${postParticleSalt}:${scryptSync(password, postParticleSalt, 64).toString("hex")}`;
-    const visitoringId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
-    const postParticleId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    const projectAppSalt = "0123456789abcdef0123456789abcdef";
+    const projectAppHash = `${projectAppSalt}:${scryptSync(password, projectAppSalt, 64).toString("hex")}`;
+    const workspaceappId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const projectAppId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
     store.seed({
       kind: "subject",
       schemaVersion: 1,
-      subjectId: visitoringId as never,
+      subjectId: workspaceappId as never,
       status: "active",
       primaryEmail: "argon@example.com",
       emailVerifiedAt: null,
@@ -1673,18 +1679,18 @@ describe("consumer identity migration and management", () => {
     store.seed({
       kind: "subject",
       schemaVersion: 1,
-      subjectId: postParticleId as never,
+      subjectId: projectAppId as never,
       status: "active",
       primaryEmail: null,
       emailVerifiedAt: null,
       emailVerificationExempt: true,
       loginIdentifiers: [
-        { kind: "username", productId: "postparticle", value: "writer", normalizedValue: "writer" },
+        { kind: "username", productId: "projectapp", value: "writer", normalizedValue: "writer" },
       ],
       passwordCredential: {
         algorithm: "scrypt",
-        format: "postparticle-scrypt-v1",
-        encodedVerifier: postParticleHash,
+        format: "legacy-scrypt-salt-hex-v1",
+        encodedVerifier: projectAppHash,
         updatedAt: now,
       },
       authVersion: 1,
@@ -1693,72 +1699,94 @@ describe("consumer identity migration and management", () => {
     } as AuthRecord);
 
     await expect(
-      service.authenticate("argon@example.com", password, "visitoring"),
+      service.authenticate("argon@example.com", password, "workspaceapp"),
     ).resolves.toMatchObject({
-      subjectId: visitoringId,
+      subjectId: workspaceappId,
     });
-    await expect(service.authenticate("writer", password, "postparticle")).resolves.toMatchObject({
-      subjectId: postParticleId,
+    await expect(service.authenticate("writer", password, "projectapp")).resolves.toMatchObject({
+      subjectId: projectAppId,
     });
-    expect(store.records.get(store.key("subject", visitoringId))?.record).toMatchObject({
+    expect(store.records.get(store.key("subject", workspaceappId))?.record).toMatchObject({
       passwordCredential: { algorithm: "scrypt", format: "perminister-scrypt-v1" },
     });
-    expect(store.records.get(store.key("subject", postParticleId))?.record).toMatchObject({
+    expect(store.records.get(store.key("subject", projectAppId))?.record).toMatchObject({
       passwordCredential: { algorithm: "scrypt", format: "perminister-scrypt-v1" },
     });
 
     const session = await service.createConsumerSession(
-      postParticleId as never,
-      "postparticle",
-      "postparticle",
+      projectAppId as never,
+      "projectapp",
+      "projectapp",
       8 * 60 * 60 * 1000,
     );
     expect(Date.parse(session.session.expiresAt) - Date.parse(session.session.createdAt)).toBe(
       8 * 60 * 60 * 1000,
     );
     await expect(
-      service.getConsumerSessionFromToken(session.token, "postparticle"),
-    ).resolves.toMatchObject({ subject: { subjectId: postParticleId } });
+      service.getConsumerSessionFromToken(session.token, "projectapp"),
+    ).resolves.toMatchObject({ subject: { subjectId: projectAppId } });
   });
 
   it("reports duplicate-email credential conflicts, imports the selected identity, and is idempotent", async () => {
-    const argonHash = await hashArgon2id("Visitoring password 123!");
+    const argonHash = await hashArgon2id("WorkspaceApp password 123!");
     const salt = "abcdef0123456789abcdef0123456789";
-    const postParticleHash = `${salt}:${scryptSync("PostParticle password 123!", salt, 64).toString("hex")}`;
+    const projectAppHash = `${salt}:${scryptSync("ProjectApp password 123!", salt, 64).toString("hex")}`;
     const input = {
-      visitoring: {
-        organizationId: ORGANIZATION_ID,
-        users: [{ id: "visitor-user-1", email: "shared@example.com", passwordHash: argonHash }],
-        memberships: [
-          { userId: "visitor-user-1", workspaceId: "workspace-1", role: "admin" as const },
-        ],
-      },
-      postparticle: {
-        organizationId: ORGANIZATION_ID,
-        users: [
-          {
-            username: "sharedwriter",
-            email: "shared@example.com",
-            passwordHash: postParticleHash,
-            platformAdmin: true,
-          },
-        ],
-        memberships: [
-          { username: "sharedwriter", projectId: "project-1", role: "editor" as const },
-        ],
-      },
+      products: [
+        {
+          productId: "workspaceapp",
+          organizationId: ORGANIZATION_ID,
+          hashFormat: "argon2id-phc" as const,
+          users: [
+            {
+              accountId: "visitor-user-1",
+              email: "shared@example.com",
+              passwordHash: argonHash,
+            },
+          ],
+          memberships: [
+            {
+              accountId: "visitor-user-1",
+              scopeKind: "workspace" as const,
+              resourceId: "workspace-1",
+              role: "admin",
+            },
+          ],
+        },
+        {
+          productId: "projectapp",
+          organizationId: ORGANIZATION_ID,
+          hashFormat: "legacy-scrypt-salt-hex-v1" as const,
+          users: [
+            {
+              accountId: "sharedwriter",
+              username: "sharedwriter",
+              email: "shared@example.com",
+              passwordHash: projectAppHash,
+              platformAdmin: true,
+            },
+          ],
+          memberships: [
+            {
+              accountId: "sharedwriter",
+              scopeKind: "project" as const,
+              resourceId: "project-1",
+              role: "editor",
+            },
+          ],
+        },
+      ],
     };
 
     const dryRun = await service.importLegacyAuthData(
       input,
-      { visitoringProductId: "visitoring", postparticleProductId: "postparticle" },
       true,
     );
     expect(dryRun.applied).toBe(false);
     expect(dryRun.conflicts).toMatchObject([
       {
         identity: "email:shared@example.com",
-        candidates: ["visitoring:visitor-user-1", "postparticle:sharedwriter"],
+        candidates: ["workspaceapp:visitor-user-1", "projectapp:sharedwriter"],
       },
     ]);
     expect(store.writes).toHaveLength(0);
@@ -1766,9 +1794,8 @@ describe("consumer identity migration and management", () => {
     const resolved = await service.importLegacyAuthData(
       {
         ...input,
-        credentialSelections: { "email:shared@example.com": "visitoring:visitor-user-1" },
+        credentialSelections: { "email:shared@example.com": "workspaceapp:visitor-user-1" },
       },
-      { visitoringProductId: "visitoring", postparticleProductId: "postparticle" },
       false,
     );
     expect(resolved.applied).toBe(true);
@@ -1779,26 +1806,26 @@ describe("consumer identity migration and management", () => {
       emailVerificationExempt: true,
       primaryEmail: "shared@example.com",
       loginIdentifiers: [
-        expect.objectContaining({ productId: "postparticle", normalizedValue: "sharedwriter" }),
+        expect.objectContaining({ productId: "projectapp", normalizedValue: "sharedwriter" }),
       ],
       passwordCredential: { algorithm: "argon2id", format: "argon2id-phc" },
     });
     const importedSession = await service.createConsumerSession(
       subjectId as never,
-      "visitoring",
-      "visitoring",
+      "workspaceapp",
+      "workspaceapp",
       30 * 24 * 60 * 60 * 1000,
     );
     expect(
       Date.parse(importedSession.session.expiresAt) - Date.parse(importedSession.session.createdAt),
     ).toBe(30 * 24 * 60 * 60 * 1000);
 
-    const postparticleAccess = await service.listConsumerOrganizationsForSubject(
+    const projectappAccess = await service.listConsumerOrganizationsForSubject(
       subjectId as never,
-      "postparticle",
+      "projectapp",
     );
-    expect(postparticleAccess[0]).toMatchObject({ platformAdmin: true });
-    expect(postparticleAccess[0]?.resourceRoles).toEqual(
+    expect(projectappAccess[0]).toMatchObject({ platformAdmin: true });
+    expect(projectappAccess[0]?.resourceRoles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ role: "platform-admin" }),
         expect.objectContaining({ role: "editor" }),
@@ -1808,9 +1835,8 @@ describe("consumer identity migration and management", () => {
     const rerun = await service.importLegacyAuthData(
       {
         ...input,
-        credentialSelections: { "email:shared@example.com": "visitoring:visitor-user-1" },
+        credentialSelections: { "email:shared@example.com": "workspaceapp:visitor-user-1" },
       },
-      { visitoringProductId: "visitoring", postparticleProductId: "postparticle" },
       false,
     );
     expect(rerun.applied).toBe(true);
@@ -1818,142 +1844,182 @@ describe("consumer identity migration and management", () => {
   });
 
   it("rejects duplicate source account references even when their emails differ", async () => {
-    const passwordHash = await hashArgon2id("Visitoring password 123!");
+    const passwordHash = await hashArgon2id("WorkspaceApp password 123!");
     const report = await service.importLegacyAuthData(
       {
-        visitoring: {
+        products: [{
+          productId: "workspaceapp",
           organizationId: ORGANIZATION_ID,
+          hashFormat: "argon2id-phc",
           users: [
-            { id: "reused-source-id", email: "first@example.com", passwordHash },
-            { id: "reused-source-id", email: "second@example.com", passwordHash },
+            { accountId: "reused-source-id", email: "first@example.com", passwordHash },
+            { accountId: "reused-source-id", email: "second@example.com", passwordHash },
           ],
           memberships: [],
-        },
+        }],
       },
-      { visitoringProductId: "visitoring" },
       true,
     );
     expect(report.errors).toContain(
-      "Duplicate legacy account reference: visitoring:reused-source-id",
+      "Duplicate account reference: workspaceapp:reused-source-id",
     );
     expect(report.applied).toBe(false);
     expect(store.writes).toHaveLength(0);
   });
 
-  it("keeps PostParticle account disable and session revocation scoped to that product", async () => {
+  it("keeps ProjectApp account disable and session revocation scoped to that product", async () => {
     const password = "Shared legacy password 123!";
-    const visitoringHash = await hashArgon2id(password);
+    const workspaceappHash = await hashArgon2id(password);
     const salt = "0123456789abcdef0123456789abcdef";
-    const postParticleHash = `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
+    const projectAppHash = `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
     const imported = await service.importLegacyAuthData(
       {
-        visitoring: {
-          organizationId: ORGANIZATION_ID,
-          users: [
-            { id: "shared-person", email: "shared@example.com", passwordHash: visitoringHash },
-          ],
-          memberships: [{ userId: "shared-person", workspaceId: "workspace-1", role: "viewer" }],
-        },
-        postparticle: {
-          organizationId: ORGANIZATION_ID,
-          users: [
-            {
-              username: "writer",
-              email: "shared@example.com",
-              passwordHash: postParticleHash,
-              disabled: true,
-            },
-            {
-              username: "platformadmin",
-              email: "admin@example.com",
-              passwordHash: postParticleHash,
-              platformAdmin: true,
-            },
-          ],
-          memberships: [{ username: "writer", projectId: "project-1", role: "editor" }],
-        },
-        credentialSelections: { "email:shared@example.com": "visitoring:shared-person" },
+        products: [
+          {
+            productId: "workspaceapp",
+            organizationId: ORGANIZATION_ID,
+            hashFormat: "argon2id-phc",
+            users: [
+              {
+                accountId: "shared-person",
+                email: "shared@example.com",
+                passwordHash: workspaceappHash,
+              },
+            ],
+            memberships: [
+              {
+                accountId: "shared-person",
+                scopeKind: "workspace",
+                resourceId: "workspace-1",
+                role: "viewer",
+              },
+            ],
+          },
+          {
+            productId: "projectapp",
+            organizationId: ORGANIZATION_ID,
+            hashFormat: "legacy-scrypt-salt-hex-v1",
+            users: [
+              {
+                accountId: "writer",
+                username: "writer",
+                email: "shared@example.com",
+                passwordHash: projectAppHash,
+                disabled: true,
+              },
+              {
+                accountId: "platformadmin",
+                username: "platformadmin",
+                email: "admin@example.com",
+                passwordHash: projectAppHash,
+                platformAdmin: true,
+              },
+            ],
+            memberships: [
+              {
+                accountId: "writer",
+                scopeKind: "project",
+                resourceId: "project-1",
+                role: "editor",
+              },
+            ],
+          },
+        ],
+        credentialSelections: { "email:shared@example.com": "workspaceapp:shared-person" },
       },
-      { visitoringProductId: "visitoring", postparticleProductId: "postparticle" },
       false,
     );
     expect(imported.applied).toBe(true);
     const sharedId = await store.findSubjectIdByEmail("shared@example.com");
-    const adminId = await store.findSubjectIdByUsername("postparticle", "platformadmin");
+    const adminId = await store.findSubjectIdByUsername("projectapp", "platformadmin");
     expect(sharedId).toBeTruthy();
     expect(adminId).toBeTruthy();
     expect(store.records.get(store.key("subject", sharedId!))?.record).toMatchObject({
       status: "active",
-      consumerProductStates: [{ productId: "postparticle", status: "disabled", sessionVersion: 2 }],
+      consumerProductStates: [
+        { productId: "workspaceapp", status: "active", sessionVersion: 1 },
+        { productId: "projectapp", status: "disabled", sessionVersion: 2 },
+      ],
     });
 
-    const visitoringSession = await service.createConsumerSession(
+    const workspaceappSession = await service.createConsumerSession(
       sharedId as never,
-      "visitoring",
-      "visitoring",
+      "workspaceapp",
+      "workspaceapp",
       30 * 24 * 60 * 60 * 1000,
     );
     await expect(
-      service.authenticate("shared@example.com", password, "visitoring"),
+      service.authenticate("shared@example.com", password, "workspaceapp"),
     ).resolves.toMatchObject({
       subjectId: sharedId,
     });
-    await expect(service.authenticate("writer", password, "postparticle")).rejects.toThrow(
+    await expect(service.authenticate("writer", password, "projectapp")).rejects.toThrow(
       "Email or password is incorrect.",
     );
     await expect(
-      service.createConsumerSession(sharedId as never, "postparticle", "postparticle"),
+      service.createConsumerSession(sharedId as never, "projectapp", "projectapp"),
     ).rejects.toThrow("disabled for the application");
 
-    await service.updateConsumerAccount(adminId as never, "postparticle", sharedId!, {
+    await service.updateConsumerAccount(adminId as never, "projectapp", sharedId!, {
       organizationId: ORGANIZATION_ID,
-      productId: "postparticle",
+      productId: "projectapp",
       status: "active",
     });
-    const postParticleSession = await service.createConsumerSession(
+    const projectAppSession = await service.createConsumerSession(
       sharedId as never,
-      "postparticle",
-      "postparticle",
+      "projectapp",
+      "projectapp",
       8 * 60 * 60 * 1000,
     );
-    await service.updateConsumerAccount(adminId as never, "postparticle", sharedId!, {
+    await service.updateConsumerAccount(adminId as never, "projectapp", sharedId!, {
       organizationId: ORGANIZATION_ID,
-      productId: "postparticle",
+      productId: "projectapp",
       revokeSessions: true,
     });
     await expect(
-      service.getConsumerSessionFromToken(postParticleSession.token, "postparticle"),
+      service.getConsumerSessionFromToken(projectAppSession.token, "projectapp"),
     ).resolves.toBeNull();
     await expect(
-      service.getConsumerSessionFromToken(visitoringSession.token, "visitoring"),
+      service.getConsumerSessionFromToken(workspaceappSession.token, "workspaceapp"),
     ).resolves.toBeTruthy();
   });
 
-  it("keeps Visitoring members workspace-scoped and protects the last active administrator", async () => {
-    const visitorPasswordHash = await hashArgon2id("Visitoring password 123!");
+  it("keeps WorkspaceApp members workspace-scoped and protects the last active administrator", async () => {
+    const visitorPasswordHash = await hashArgon2id("WorkspaceApp password 123!");
     const imported = await service.importLegacyAuthData(
       {
-        visitoring: {
+        products: [{
+          productId: "workspaceapp",
           organizationId: ORGANIZATION_ID,
+          hashFormat: "argon2id-phc",
           users: [
             {
-              id: "workspace-admin",
+              accountId: "workspace-admin",
               email: "admin@example.com",
               passwordHash: visitorPasswordHash,
             },
             {
-              id: "workspace-viewer",
+              accountId: "workspace-viewer",
               email: "viewer@example.com",
               passwordHash: visitorPasswordHash,
             },
           ],
           memberships: [
-            { userId: "workspace-admin", workspaceId: "workspace-1", role: "admin" },
-            { userId: "workspace-viewer", workspaceId: "workspace-1", role: "viewer" },
+            {
+              accountId: "workspace-admin",
+              scopeKind: "workspace",
+              resourceId: "workspace-1",
+              role: "admin",
+            },
+            {
+              accountId: "workspace-viewer",
+              scopeKind: "workspace",
+              resourceId: "workspace-1",
+              role: "viewer",
+            },
           ],
-        },
+        }],
       },
-      { visitoringProductId: "visitoring" },
       false,
     );
     expect(imported.applied).toBe(true);
@@ -1964,20 +2030,20 @@ describe("consumer identity migration and management", () => {
 
     const viewerSession = await service.createConsumerSession(
       targetId as never,
-      "visitoring",
-      "visitoring",
+      "workspaceapp",
+      "workspaceapp",
     );
     await expect(
       service.authorizeApiKey(
         viewerSession.token,
         {
           organizationId: ORGANIZATION_ID,
-          productId: "visitoring",
+          productId: "workspaceapp",
           resourceKind: "workspace",
           resourceId: "workspace-1",
-          action: "visitoring:workspace:read",
+          action: "workspaceapp:workspace:read",
         },
-        "visitoring",
+        "workspaceapp",
       ),
     ).resolves.toMatchObject({ authorized: true });
     await expect(
@@ -1985,19 +2051,19 @@ describe("consumer identity migration and management", () => {
         viewerSession.token,
         {
           organizationId: ORGANIZATION_ID,
-          productId: "visitoring",
+          productId: "workspaceapp",
           resourceKind: "workspace",
           resourceId: "workspace-1",
-          action: "visitoring:members:manage",
+          action: "workspaceapp:members:manage",
         },
-        "visitoring",
+        "workspaceapp",
       ),
     ).resolves.toMatchObject({ authorized: false });
 
     const targetBefore = store.records.get(store.key("subject", targetId!))?.record;
-    const attached = await service.createConsumerMember(actorId as never, "visitoring", {
+    const attached = await service.createConsumerMember(actorId as never, "workspaceapp", {
       organizationId: ORGANIZATION_ID,
-      productId: "visitoring",
+      productId: "workspaceapp",
       scopeKind: "workspace",
       resourceId: "workspace-1",
       email: "viewer@example.com",
@@ -2008,34 +2074,34 @@ describe("consumer identity migration and management", () => {
     expect(attached.member.subjectId).toBe(targetId);
     expect(store.records.get(store.key("subject", targetId!))?.record).toEqual(targetBefore);
 
-    const members = await service.listConsumerMembers(actorId as never, "visitoring", {
+    const members = await service.listConsumerMembers(actorId as never, "workspaceapp", {
       organizationId: ORGANIZATION_ID,
-      productId: "visitoring",
+      productId: "workspaceapp",
       scopeKind: "workspace",
       resourceId: "workspace-1",
     });
     expect(members).toHaveLength(2);
     await expect(
-      service.listConsumerMembers(actorId as never, "visitoring", {
+      service.listConsumerMembers(actorId as never, "workspaceapp", {
         organizationId: ORGANIZATION_ID,
-        productId: "visitoring",
+        productId: "workspaceapp",
         scopeKind: "workspace",
         resourceId: "workspace-2",
       }),
     ).rejects.toThrow("permission");
     await expect(
-      service.updateConsumerMember(actorId as never, "visitoring", actorId!, {
+      service.updateConsumerMember(actorId as never, "workspaceapp", actorId!, {
         organizationId: ORGANIZATION_ID,
-        productId: "visitoring",
+        productId: "workspaceapp",
         scopeKind: "workspace",
         resourceId: "workspace-1",
         role: "viewer",
       }),
     ).rejects.toThrow("another administrator");
     await expect(
-      service.updateConsumerMember(actorId as never, "visitoring", targetId!, {
+      service.updateConsumerMember(actorId as never, "workspaceapp", targetId!, {
         organizationId: ORGANIZATION_ID,
-        productId: "visitoring",
+        productId: "workspaceapp",
         scopeKind: "workspace",
         resourceId: "workspace-1",
         role: "admin",
@@ -2043,57 +2109,74 @@ describe("consumer identity migration and management", () => {
     ).resolves.toBeUndefined();
   });
 
-  it("enforces PostParticle project roles and platform-admin account controls", async () => {
+  it("enforces ProjectApp project roles and platform-admin account controls", async () => {
     const salt = "0123456789abcdef0123456789abcdef";
-    const password = "PostParticle legacy password 123!";
+    const password = "ProjectApp legacy password 123!";
     const passwordHash = `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
     const imported = await service.importLegacyAuthData(
       {
-        postparticle: {
+        products: [{
+          productId: "projectapp",
           organizationId: ORGANIZATION_ID,
+          hashFormat: "legacy-scrypt-salt-hex-v1",
           users: [
             {
+              accountId: "platformadmin",
               username: "platformadmin",
               email: "platform@example.com",
               passwordHash,
               platformAdmin: true,
             },
-            { username: "projectadmin", email: "projectadmin@example.com", passwordHash },
-            { username: "writer", passwordHash },
+            {
+              accountId: "projectadmin",
+              username: "projectadmin",
+              email: "projectadmin@example.com",
+              passwordHash,
+            },
+            { accountId: "writer", username: "writer", passwordHash },
           ],
           memberships: [
-            { username: "projectadmin", projectId: "project-1", role: "admin" },
-            { username: "writer", projectId: "project-1", role: "editor" },
+            {
+              accountId: "projectadmin",
+              scopeKind: "project",
+              resourceId: "project-1",
+              role: "admin",
+            },
+            {
+              accountId: "writer",
+              scopeKind: "project",
+              resourceId: "project-1",
+              role: "editor",
+            },
           ],
-        },
+        }],
       },
-      { postparticleProductId: "postparticle" },
       false,
     );
     expect(imported.applied).toBe(true);
-    const platformAdminId = await store.findSubjectIdByUsername("postparticle", "platformadmin");
-    const projectAdminId = await store.findSubjectIdByUsername("postparticle", "projectadmin");
-    const writerId = await store.findSubjectIdByUsername("postparticle", "writer");
+    const platformAdminId = await store.findSubjectIdByUsername("projectapp", "platformadmin");
+    const projectAdminId = await store.findSubjectIdByUsername("projectapp", "projectadmin");
+    const writerId = await store.findSubjectIdByUsername("projectapp", "writer");
     expect(platformAdminId).toBeTruthy();
     expect(projectAdminId).toBeTruthy();
     expect(writerId).toBeTruthy();
 
     const editorSession = await service.createConsumerSession(
       writerId as never,
-      "postparticle",
-      "postparticle",
+      "projectapp",
+      "projectapp",
     );
     await expect(
       service.authorizeApiKey(
         editorSession.token,
         {
           organizationId: ORGANIZATION_ID,
-          productId: "postparticle",
+          productId: "projectapp",
           resourceKind: "project",
           resourceId: "project-1",
-          action: "postparticle:project:write",
+          action: "projectapp:project:write",
         },
-        "postparticle",
+        "projectapp",
       ),
     ).resolves.toMatchObject({ authorized: true });
     await expect(
@@ -2101,35 +2184,35 @@ describe("consumer identity migration and management", () => {
         editorSession.token,
         {
           organizationId: ORGANIZATION_ID,
-          productId: "postparticle",
+          productId: "projectapp",
           resourceKind: "project",
           resourceId: "project-1",
-          action: "postparticle:members:manage",
+          action: "projectapp:members:manage",
         },
-        "postparticle",
+        "projectapp",
       ),
     ).resolves.toMatchObject({ authorized: false });
     const platformSession = await service.createConsumerSession(
       platformAdminId as never,
-      "postparticle",
-      "postparticle",
+      "projectapp",
+      "projectapp",
     );
     await expect(
       service.authorizeApiKey(
         platformSession.token,
         {
           organizationId: ORGANIZATION_ID,
-          productId: "postparticle",
+          productId: "projectapp",
           resourceKind: "product",
-          action: "postparticle:accounts:manage",
+          action: "projectapp:accounts:manage",
         },
-        "postparticle",
+        "projectapp",
       ),
     ).resolves.toMatchObject({ authorized: true });
 
-    const listed = await service.listConsumerMembers(platformAdminId as never, "postparticle", {
+    const listed = await service.listConsumerMembers(platformAdminId as never, "projectapp", {
       organizationId: ORGANIZATION_ID,
-      productId: "postparticle",
+      productId: "projectapp",
       scopeKind: "project",
       resourceId: "project-1",
     });
@@ -2140,9 +2223,9 @@ describe("consumer identity migration and management", () => {
       ]),
     );
     await expect(
-      service.listConsumerMembers(projectAdminId as never, "postparticle", {
+      service.listConsumerMembers(projectAdminId as never, "projectapp", {
         organizationId: ORGANIZATION_ID,
-        productId: "postparticle",
+        productId: "projectapp",
         scopeKind: "project",
         resourceId: "project-2",
       }),
@@ -2150,27 +2233,27 @@ describe("consumer identity migration and management", () => {
     await expect(
       service.listConsumerAccounts(
         projectAdminId as never,
-        "postparticle",
+        "projectapp",
         ORGANIZATION_ID,
-        "postparticle",
+        "projectapp",
       ),
     ).rejects.toThrow("Platform administrator");
 
     const accounts = await service.listConsumerAccounts(
       platformAdminId as never,
-      "postparticle",
+      "projectapp",
       ORGANIZATION_ID,
-      "postparticle",
+      "projectapp",
     );
     expect(accounts).toHaveLength(3);
     const addedPlatformAdmin = await service.createConsumerAccount(
       platformAdminId as never,
-      "postparticle",
+      "projectapp",
       {
         organizationId: ORGANIZATION_ID,
-        productId: "postparticle",
+        productId: "projectapp",
         username: "additional-admin",
-        password: "Another PostParticle password 123!",
+        password: "Another ProjectApp password 123!",
         platformAdmin: true,
       },
     );
@@ -2180,31 +2263,31 @@ describe("consumer identity migration and management", () => {
     });
     await service.updateConsumerAccount(
       platformAdminId as never,
-      "postparticle",
+      "projectapp",
       addedPlatformAdmin.account.subjectId,
       {
         organizationId: ORGANIZATION_ID,
-        productId: "postparticle",
+        productId: "projectapp",
         platformAdmin: false,
       },
     );
     const updatedPlatformAdmins = await service.listConsumerAccounts(
       platformAdminId as never,
-      "postparticle",
+      "projectapp",
       ORGANIZATION_ID,
-      "postparticle",
+      "projectapp",
     );
     expect(
       updatedPlatformAdmins.find((account) => account.username === "additional-admin")
         ?.platformAdmin,
     ).toBe(false);
-    const created = await service.createConsumerMember(platformAdminId as never, "postparticle", {
+    const created = await service.createConsumerMember(platformAdminId as never, "projectapp", {
       organizationId: ORGANIZATION_ID,
-      productId: "postparticle",
+      productId: "projectapp",
       scopeKind: "project",
       resourceId: "project-2",
       username: "new-writer",
-      password: "New PostParticle password 123!",
+      password: "New ProjectApp password 123!",
       role: "viewer",
     });
     expect(created).toMatchObject({ created: true, member: { role: "viewer", active: true } });
@@ -2215,8 +2298,8 @@ describe("consumer identity migration and management", () => {
       kind: "consumer-client",
       schemaVersion: 1,
       consumerClientId: CONSUMER_CLIENT_ID as never,
-      productId: "postparticle",
-      appName: "PostParticle",
+      productId: "projectapp",
+      appName: "ProjectApp",
       appOrigin: null,
       sessionLifetimeMs: 8 * 60 * 60 * 1000,
       selfRegistrationEnabled: false,
@@ -2233,7 +2316,7 @@ describe("consumer identity migration and management", () => {
     const writerSession = await service.createConsumerSession(
       writerId as never,
       CONSUMER_CLIENT_ID,
-      "postparticle",
+      "projectapp",
       8 * 60 * 60 * 1000,
     );
     await expect(
@@ -2278,16 +2361,16 @@ describe("consumer identity migration and management", () => {
     const resetSession = await service.createConsumerSession(
       writerId as never,
       CONSUMER_CLIENT_ID,
-      "postparticle",
+      "projectapp",
       8 * 60 * 60 * 1000,
     );
-    await service.updateConsumerMember(platformAdminId as never, "postparticle", writerId!, {
+    await service.updateConsumerMember(platformAdminId as never, "projectapp", writerId!, {
       organizationId: ORGANIZATION_ID,
-      productId: "postparticle",
+      productId: "projectapp",
       scopeKind: "project",
       resourceId: "project-1",
       role: "viewer",
-      password: "Reset PostParticle password 456!",
+      password: "Reset ProjectApp password 456!",
     });
     await expect(
       service.getConsumerSessionFromToken(resetSession.token, CONSUMER_CLIENT_ID),
@@ -2296,12 +2379,12 @@ describe("consumer identity migration and management", () => {
     const secondSession = await service.createConsumerSession(
       writerId as never,
       CONSUMER_CLIENT_ID,
-      "postparticle",
+      "projectapp",
       8 * 60 * 60 * 1000,
     );
-    await service.updateConsumerAccount(platformAdminId as never, "postparticle", writerId!, {
+    await service.updateConsumerAccount(platformAdminId as never, "projectapp", writerId!, {
       organizationId: ORGANIZATION_ID,
-      productId: "postparticle",
+      productId: "projectapp",
       status: "disabled",
     });
     await expect(
