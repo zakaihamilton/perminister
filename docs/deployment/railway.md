@@ -51,10 +51,11 @@ Generate the proxy secret once and enter it in both services. For example, `open
 makes a suitable value. Never commit it.
 
 The Railway workflow updates `NEXT_DEPLOYMENT_ID` to the commit SHA before each deploy. Vercel uses
-`VERCEL_GIT_COMMIT_SHA` as its deployment ID. The `/api/ready` endpoint reports not-ready while the
-Vercel and Railway revisions differ, and the write proxy returns a refresh response for a stale
-page or a temporary error for an in-flight client request. This prevents writes from crossing
-deployment revisions during rollout. Keep both deployments on the same source commit before
+`VERCEL_GIT_COMMIT_SHA` as its deployment ID. The Vercel `/api/ready` endpoint verifies that Railway
+accepts the shared write-proxy secret and reports not-ready while either the secret or deployment
+revisions differ. The write proxy returns a refresh response for a stale page or a temporary error
+for an in-flight client request. This prevents writes from crossing deployment revisions during
+rollout. Keep both deployments on the same source commit and configure the same proxy secret before
 enabling production mutations.
 
 In Vercel Production, also set:

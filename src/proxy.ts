@@ -1,8 +1,11 @@
-import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { currentDeploymentId } from "@/lib/deployment";
+import {
+  getConfiguredWriteProxySecret,
+  matchesWriteProxySecret,
+  WRITE_PROXY_SECRET_HEADER,
+} from "@/lib/write-proxy-secret";
 
-const WRITE_PROXY_SECRET_HEADER = "x-perminister-write-proxy-secret";
 const PUBLIC_ORIGIN_HOST_HEADER = "x-perminister-public-host";
 const PUBLIC_ORIGIN_PROTOCOL_HEADER = "x-perminister-public-proto";
 const RELEASE_ID_HEADER = "x-perminister-release-id";
@@ -24,20 +27,6 @@ const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 
 function errorResponse(status: number, error: string, extraHeaders?: HeadersInit): Response {
   return Response.json({ error }, { status, headers: { ...NO_STORE_HEADERS, ...extraHeaders } });
-}
-
-function getConfiguredSecret(): string | null {
-  const secret = process.env.PERMINISTER_WRITE_PROXY_SECRET;
-  return secret && Buffer.byteLength(secret, "utf8") >= 32 ? secret : null;
-}
-
-function matchesSecret(received: string | null, expected: string): boolean {
-  if (!received) return false;
-  const receivedBytes = Buffer.from(received, "utf8");
-  const expectedBytes = Buffer.from(expected, "utf8");
-  return (
-    receivedBytes.length === expectedBytes.length && timingSafeEqual(receivedBytes, expectedBytes)
-  );
 }
 
 function isWriterRuntime(): boolean {
@@ -156,7 +145,7 @@ function writerRequest(request: NextRequest): Response {
       return errorResponse(404, "Not found.");
     }
 
-    if (request.nextUrl.pathname === "/api/ready" && !getConfiguredSecret()) {
+    if (request.nextUrl.pathname === "/api/ready" && !getConfiguredWriteProxySecret()) {
       return errorResponse(503, "The writer service is not configured.");
     }
 
@@ -167,9 +156,9 @@ function writerRequest(request: NextRequest): Response {
     return errorResponse(405, "Method not allowed.");
   }
 
-  const secret = getConfiguredSecret();
+  const secret = getConfiguredWriteProxySecret();
   if (!secret) return errorResponse(503, "The writer service is not configured.");
-  if (!matchesSecret(request.headers.get(WRITE_PROXY_SECRET_HEADER), secret)) {
+  if (!matchesWriteProxySecret(request.headers.get(WRITE_PROXY_SECRET_HEADER), secret)) {
     return errorResponse(403, "Forbidden.");
   }
 
@@ -198,7 +187,7 @@ async function proxyWrite(request: NextRequest): Promise<Response> {
     return errorResponse(503, "Mutations are only enabled in the production deployment.");
   }
 
-  const secret = getConfiguredSecret();
+  const secret = getConfiguredWriteProxySecret();
   const writerOrigin = getWriterOrigin(!hostedVercel && process.env.NODE_ENV !== "production");
   if (!secret || !writerOrigin) {
     return errorResponse(503, "The mutation proxy is not configured.");
