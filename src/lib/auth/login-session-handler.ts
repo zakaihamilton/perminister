@@ -15,6 +15,12 @@ function formValue(formData: FormData, name: string): string {
 function isSameOriginRequest(request: Request): boolean {
   const originHeader = request.headers.get("origin");
   const refererHeader = request.headers.get("referer");
+  const isSameOriginFetch = request.headers.get("sec-fetch-site") === "same-origin";
+
+  // Fetch Metadata is set by the browser and cannot be supplied by page
+  // JavaScript. Use it when browser privacy settings or a local proxy omit or
+  // rewrite Origin and Referer.
+  if (isSameOriginFetch) return true;
   if (!originHeader && !refererHeader) return false;
 
   try {
@@ -27,12 +33,10 @@ function isSameOriginRequest(request: Request): boolean {
     const host =
       request.headers.get(PUBLIC_ORIGIN_HOST_HEADER) ?? request.headers.get("host");
     const protocol = publicProtocol ?? requestUrl.protocol.slice(0, -1);
-    const isSameOriginFetch = request.headers.get("sec-fetch-site") === "same-origin";
-
     return (
       !!host &&
       source.host === host &&
-      (source.protocol === `${protocol}:` || (!publicProtocol && isSameOriginFetch)) &&
+      source.protocol === `${protocol}:` &&
       (!originHeader || (source.pathname === "/" && !source.search && !source.hash)) &&
       !source.username &&
       !source.password
