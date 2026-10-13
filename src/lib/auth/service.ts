@@ -3955,15 +3955,15 @@ export async function listConsumerClientsForProduct(
       organizationId,
       normalizedProductId,
     );
-    const manageableOrganizations = await consumerClientOrganizationsForPublisherUnlocked(
-      publisher,
-    );
+    const manageableOrganizations =
+      await consumerClientOrganizationsForPublisherUnlocked(publisher);
     return (await listRecordsWithRecovery("consumer-client"))
       .map((item) => item.record)
       .filter(
         (record) =>
           record.productId === normalizedProductId &&
-          !!record.organizationId && manageableOrganizations.has(record.organizationId),
+          !!record.organizationId &&
+          manageableOrganizations.has(record.organizationId),
       )
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
       .map(consumerClientSummary);
@@ -4051,9 +4051,8 @@ export async function rotateConsumerClient(
         organizationId,
         normalizedProductId,
       );
-      const manageableOrganizations = await consumerClientOrganizationsForPublisherUnlocked(
-        publisher,
-      );
+      const manageableOrganizations =
+        await consumerClientOrganizationsForPublisherUnlocked(publisher);
       if (
         !found ||
         found.record.productId !== normalizedProductId ||
@@ -4095,9 +4094,8 @@ export async function revokeConsumerClient(
         organizationId,
         normalizedProductId,
       );
-      const manageableOrganizations = await consumerClientOrganizationsForPublisherUnlocked(
-        publisher,
-      );
+      const manageableOrganizations =
+        await consumerClientOrganizationsForPublisherUnlocked(publisher);
       if (
         !found ||
         found.record.productId !== normalizedProductId ||
@@ -5135,23 +5133,26 @@ export async function listConsumerAccounts(
     );
     const policy = consumerProductPolicy(authenticatedProductId)!;
     const subjects = (await listRecordsWithRecovery("subject")).map((item) => item.record);
+    const organizationMemberships = await store().listOrganizationMemberships(organizationId);
+    const membershipsBySubject = new Map(
+      organizationMemberships
+        .filter((membership) => membership.productId === productId)
+        .map((membership) => [membership.subjectId, membership]),
+    );
     const result: ConsumerAccountView[] = [];
     for (const subject of subjects) {
       const username = usernameForProduct(subject, productId);
-      if (!username) continue;
-      const membership = await store().readOrganizationMembership(
-        organizationId,
-        subject.subjectId,
-        productId,
-      );
+      const membership = membershipsBySubject.get(subject.subjectId);
+      if (!username || !membership) continue;
       result.push({
         subjectId: subject.subjectId,
         email: subject.primaryEmail,
         username,
         status: consumerProductState(subject, productId).status,
-        platformAdmin:
-          !!membership &&
-          hasConsumerPlatformPermission(membership, policy.accountManagementAction ?? ""),
+        platformAdmin: hasConsumerPlatformPermission(
+          membership,
+          policy.accountManagementAction ?? "",
+        ),
       });
     }
     return result.sort((left, right) => left.username.localeCompare(right.username));
@@ -5275,7 +5276,12 @@ export async function updateConsumerAccount(
         input.productId,
       );
       const current = await loadSubjectUnlocked(subjectIdInput);
-      if (!current || !usernameForProduct(current, input.productId)) {
+      const organizationMembership = await store().readOrganizationMembership(
+        input.organizationId,
+        subjectIdInput as SubjectId,
+        input.productId,
+      );
+      if (!current || !usernameForProduct(current, input.productId) || !organizationMembership) {
         throw new Error("Account not found.");
       }
       const currentProductState = consumerProductState(current, input.productId);
@@ -6293,10 +6299,9 @@ export async function listOrganizationAudit(
     const cappedLimit = Math.min(100, Math.max(0, Math.floor(limit)));
     const events = await store().listOrganizationEvents(organizationId, undefined, cappedLimit);
     return organizationActivityEntries(
-      events.filter((event) => activityBelongsToOrganization(event, organizationId)).slice(
-        0,
-        cappedLimit,
-      ),
+      events
+        .filter((event) => activityBelongsToOrganization(event, organizationId))
+        .slice(0, cappedLimit),
     );
   });
 }
@@ -6330,10 +6335,9 @@ export async function getOrganizationActivityPageData(
       store()
         .listOrganizationEvents(organizationId, undefined, 100)
         .then((records) =>
-          records.filter((event) => activityBelongsToOrganization(event, organizationId)).slice(
-            0,
-            100,
-          ),
+          records
+            .filter((event) => activityBelongsToOrganization(event, organizationId))
+            .slice(0, 100),
         ),
     ]);
 

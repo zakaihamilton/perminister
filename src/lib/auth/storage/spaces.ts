@@ -830,9 +830,7 @@ export class SpacesAuthStore {
         candidatePointers.push(...dateGroups[nextDateGroup]!);
         nextDateGroup += 1;
       }
-      recentEvents.push(
-        ...(await this.readEventsFromPointerKeys(candidatePointers, includeEvent)),
-      );
+      recentEvents.push(...(await this.readEventsFromPointerKeys(candidatePointers, includeEvent)));
     }
 
     return this.sortEvents(recentEvents).slice(0, maxEvents);

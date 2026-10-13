@@ -256,22 +256,26 @@ organization:
 
 | Method  | Route                                             | Purpose                                                           |
 | ------- | ------------------------------------------------- | ----------------------------------------------------------------- |
-| `GET`   | `/api/auth/consumer/accounts?organizationId=<ID>` | List PostParticle accounts                                        |
+| `GET`   | `/api/auth/consumer/accounts?organizationId=<ID>` | List PostParticle accounts associated with that organization      |
 | `POST`  | `/api/auth/consumer/accounts`                     | Create/link a username and provision an account                   |
 | `PATCH` | `/api/auth/consumer/accounts/{subjectId}`         | Enable/disable an account, reset its password, or revoke sessions |
 
-Account creation accepts `organizationId`, `username`, `password`, optional `email`, and optional
-`platformAdmin`. Email may be omitted. If the email already identifies a central account, Perminister
-links the product username to that identity and retains its current password; the response has
-`created: false`. A platform admin can use `platformAdmin: true` to provision another platform admin.
+The account list and updates are limited to accounts associated with the supplied organization; an
+account belonging only to another organization is not returned or manageable. Account creation
+accepts `organizationId`, `username`, `password`, optional `email`, and optional `platformAdmin`.
+Email may be omitted. If the email already identifies a central account, Perminister links the
+product username to that identity and adds it to the requested organization while retaining its
+current password; the response has `created: false`. A platform admin can use `platformAdmin: true`
+to provision another platform admin.
 Account updates accept `organizationId` plus one or more of `status`, `password`,
 `revokeSessions: true`, and `platformAdmin` (`true` to grant or `false` to revoke platform-admin
-access). `status` applies to PostParticle, so disabling PostParticle access does not disable that
-person's shared identity in Visitoring. Disabling or enabling PostParticle access and `revokeSessions`
-invalidate PostParticle sessions. Passwords belong to the shared identity, so resetting one invalidates
-sessions in both apps. Application administrators cannot reset a password for an identity linked to
-another product; the account owner must use Perminister's password recovery or change flow. An
-administrator cannot change their own global account here.
+access). The account `status` applies to PostParticle across its organizations, so disabling it blocks
+that app account everywhere the product is installed; organization memberships and resource grants
+remain organization-specific. Disabling or enabling PostParticle access and `revokeSessions` invalidate
+PostParticle sessions. Passwords belong to the shared identity, so resetting one invalidates sessions
+in both apps. Application administrators cannot reset a password for an identity linked to another
+product; the account owner must use Perminister's password recovery or change flow. An administrator
+cannot change their own global account here.
 
 ## Legacy account import
 

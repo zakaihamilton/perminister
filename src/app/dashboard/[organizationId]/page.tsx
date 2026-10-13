@@ -78,9 +78,7 @@ export default async function OrganizationOverview(
           productCount={products.length}
           role={organization.membership.role}
         />
-        <div
-          className={`organization-overview-grid${managerOverview ? "" : " is-products-only"}`}
-        >
+        <div className={`organization-overview-grid${managerOverview ? "" : " is-products-only"}`}>
           <OrganizationProductsSection
             canManage={canManage}
             organizationId={organizationId}
