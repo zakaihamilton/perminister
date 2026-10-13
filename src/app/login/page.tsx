@@ -7,6 +7,7 @@ import { safeConsumerAuthorizationReturnTo } from "@/lib/auth/consumer-sso";
 const errorText: Record<string, string> = {
   credentials: "Email or password is incorrect.",
   throttled: "Too many sign-in attempts. Try again in 15 minutes.",
+  request: "Your sign-in request could not be verified. Reload the page and try again.",
   unavailable: "Sign-in is unavailable right now. Check the Spaces configuration and try again.",
   sso: "This product sign-in request is invalid or has expired. Return to the product and try again.",
 };
@@ -71,7 +72,7 @@ export default async function LoginPage({
                 {noticeText[params.notice]}
               </p>
             ) : null}
-            <form action="/api/auth/session" method="post" className="auth-form">
+            <form action="/login/submit" method="post" className="auth-form">
               {next ? <input type="hidden" name="next" value={next} /> : null}
               {invitationToken ? (
                 <input type="hidden" name="invitationToken" value={invitationToken} />
