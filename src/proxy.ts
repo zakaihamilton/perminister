@@ -2,6 +2,8 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 
 const WRITE_PROXY_SECRET_HEADER = "x-perminister-write-proxy-secret";
+const PUBLIC_ORIGIN_HOST_HEADER = "x-perminister-public-host";
+const PUBLIC_ORIGIN_PROTOCOL_HEADER = "x-perminister-public-proto";
 const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const HOP_BY_HOP_HEADERS = [
   "connection",
@@ -61,8 +63,11 @@ function forwardHeaders(request: NextRequest, secret: string): Headers {
   headers.delete("content-length");
   headers.delete("host");
   headers.set(WRITE_PROXY_SECRET_HEADER, secret);
-  headers.set("x-forwarded-host", request.nextUrl.host);
+  headers.set("x-forwarded-host", request.headers.get("host") ?? request.nextUrl.host);
   headers.set("x-forwarded-proto", request.nextUrl.protocol.replace(/:$/, ""));
+  // Preserve the browser-facing origin across the writer hop, where the host is rewritten.
+  headers.set(PUBLIC_ORIGIN_HOST_HEADER, request.headers.get("host") ?? request.nextUrl.host);
+  headers.set(PUBLIC_ORIGIN_PROTOCOL_HEADER, request.nextUrl.protocol.replace(/:$/, ""));
   return headers;
 }
 
