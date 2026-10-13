@@ -263,9 +263,7 @@ async function verifyPassword(
       return false;
     }
   }
-  if (
-    /^[a-f0-9]{32}:[a-f0-9]{128}$/i.test(credential.encodedVerifier)
-  ) {
+  if (/^[a-f0-9]{32}:[a-f0-9]{128}$/i.test(credential.encodedVerifier)) {
     const match = /^([a-f0-9]{32}):([a-f0-9]{128})$/i.exec(credential.encodedVerifier);
     if (!match) {
       await scrypt(password, Buffer.alloc(16, 4));
@@ -4391,10 +4389,7 @@ async function requireConsumerScopeManagerUnlocked(
   if (consumerProductState(actor, scope.productId).status !== "active") {
     throw new Error("This account is disabled for the application.");
   }
-  if (
-    !policy ||
-    !(await loadApprovedOrganizationUnlocked(scope.organizationId))
-  ) {
+  if (!policy || !(await loadApprovedOrganizationUnlocked(scope.organizationId))) {
     throw new Error("Resource not found.");
   }
   await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
@@ -5022,13 +5017,7 @@ export async function updateConsumerMember(
       }
       const nextRole = input.role ?? currentGrant.accessRole?.name ?? null;
       const nextStatus = input.status ?? currentGrant.status;
-      await protectLastWorkspaceAdminUnlocked(
-        subjectId,
-        scope,
-        currentGrant,
-        nextRole,
-        nextStatus,
-      );
+      await protectLastWorkspaceAdminUnlocked(subjectId, scope, currentGrant, nextRole, nextStatus);
       let nextGrant = currentGrant;
       if (input.status === "active" && productMembership.status !== "active") {
         await persistRecord(
@@ -5442,7 +5431,11 @@ async function upsertImportedRoleGrantUnlocked(
   await persistRecord(nextGrant, "legacy-import.membership", { kind: "system" });
 }
 
-function legacyIdentityKey(productId: string, email: string | null, username: string | null): string {
+function legacyIdentityKey(
+  productId: string,
+  email: string | null,
+  username: string | null,
+): string {
   if (email) return "email:" + email;
   return "username:" + productId + ":" + (username ?? "");
 }
@@ -5512,18 +5505,20 @@ export async function importLegacyAuthData(
       products.push(product);
 
       if (!(await loadApprovedOrganizationUnlocked(organizationId))) {
-        report.errors.push("Organization was not found or is not approved for product " + productId + ".");
+        report.errors.push(
+          "Organization was not found or is not approved for product " + productId + ".",
+        );
       } else if (!(await store().readProduct(organizationId, productId))) {
-        report.errors.push("Product was not found in its configured organization: " + productId + ".");
+        report.errors.push(
+          "Product was not found in its configured organization: " + productId + ".",
+        );
       }
 
       for (const account of product.users) {
         try {
           const accountId = account.accountId.trim();
           if (!accountId || accountId.length > 254) throw new Error("Invalid account ID.");
-          const username = account.username
-            ? normalizeProductUsername(account.username)
-            : null;
+          const username = account.username ? normalizeProductUsername(account.username) : null;
           const email = account.email
             ? canonicalEmail(account.email)
             : username?.includes("@")
@@ -5805,9 +5800,7 @@ export async function importLegacyAuthData(
 
     for (const membership of memberships) {
       if (!membership.role) continue;
-      const key = referenceToKey.get(
-        legacySourceRef(membership.productId, membership.accountId),
-      );
+      const key = referenceToKey.get(legacySourceRef(membership.productId, membership.accountId));
       const subject = key ? subjectByKey.get(key) : undefined;
       if (!subject) continue;
       const scope = consumerResourceScope(membership.productId, {

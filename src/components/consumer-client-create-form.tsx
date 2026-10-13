@@ -87,8 +87,8 @@ export function ConsumerClientCreateForm({
         </div>
         <p className="form-hint">
           Session lifetime can be 5 minutes to 90 days. New clients default to disabled public
-          registration. Enable registration for apps that support self-service sign-up. Use an
-          HTTPS app origin, or an HTTP localhost or 127.0.0.1 origin for local development.
+          registration. Enable registration for apps that support self-service sign-up. Use an HTTPS
+          app origin, or an HTTP localhost or 127.0.0.1 origin for local development.
         </p>
         <button className="button button-primary form-submit" disabled={pending} type="submit">
           {pending ? "Creating…" : "Create app client"}

@@ -751,7 +751,8 @@ describe("WorkspaceApp workspace lifecycle grants", () => {
       expect(
         membership?.permissionGrants?.find(
           (grant) =>
-            grant.scope.kind === "workspace" && grant.scope.workspaceId === WORKSPACE_APP_WORKSPACE_ID,
+            grant.scope.kind === "workspace" &&
+            grant.scope.workspaceId === WORKSPACE_APP_WORKSPACE_ID,
         )?.status,
       ).toBe("disabled");
     }
@@ -1778,10 +1779,7 @@ describe("consumer identity migration and management", () => {
       ],
     };
 
-    const dryRun = await service.importLegacyAuthData(
-      input,
-      true,
-    );
+    const dryRun = await service.importLegacyAuthData(input, true);
     expect(dryRun.applied).toBe(false);
     expect(dryRun.conflicts).toMatchObject([
       {
@@ -1847,22 +1845,22 @@ describe("consumer identity migration and management", () => {
     const passwordHash = await hashArgon2id("WorkspaceApp password 123!");
     const report = await service.importLegacyAuthData(
       {
-        products: [{
-          productId: "workspaceapp",
-          organizationId: ORGANIZATION_ID,
-          hashFormat: "argon2id-phc",
-          users: [
-            { accountId: "reused-source-id", email: "first@example.com", passwordHash },
-            { accountId: "reused-source-id", email: "second@example.com", passwordHash },
-          ],
-          memberships: [],
-        }],
+        products: [
+          {
+            productId: "workspaceapp",
+            organizationId: ORGANIZATION_ID,
+            hashFormat: "argon2id-phc",
+            users: [
+              { accountId: "reused-source-id", email: "first@example.com", passwordHash },
+              { accountId: "reused-source-id", email: "second@example.com", passwordHash },
+            ],
+            memberships: [],
+          },
+        ],
       },
       true,
     );
-    expect(report.errors).toContain(
-      "Duplicate account reference: workspaceapp:reused-source-id",
-    );
+    expect(report.errors).toContain("Duplicate account reference: workspaceapp:reused-source-id");
     expect(report.applied).toBe(false);
     expect(store.writes).toHaveLength(0);
   });
@@ -1988,37 +1986,39 @@ describe("consumer identity migration and management", () => {
     const visitorPasswordHash = await hashArgon2id("WorkspaceApp password 123!");
     const imported = await service.importLegacyAuthData(
       {
-        products: [{
-          productId: "workspaceapp",
-          organizationId: ORGANIZATION_ID,
-          hashFormat: "argon2id-phc",
-          users: [
-            {
-              accountId: "workspace-admin",
-              email: "admin@example.com",
-              passwordHash: visitorPasswordHash,
-            },
-            {
-              accountId: "workspace-viewer",
-              email: "viewer@example.com",
-              passwordHash: visitorPasswordHash,
-            },
-          ],
-          memberships: [
-            {
-              accountId: "workspace-admin",
-              scopeKind: "workspace",
-              resourceId: "workspace-1",
-              role: "admin",
-            },
-            {
-              accountId: "workspace-viewer",
-              scopeKind: "workspace",
-              resourceId: "workspace-1",
-              role: "viewer",
-            },
-          ],
-        }],
+        products: [
+          {
+            productId: "workspaceapp",
+            organizationId: ORGANIZATION_ID,
+            hashFormat: "argon2id-phc",
+            users: [
+              {
+                accountId: "workspace-admin",
+                email: "admin@example.com",
+                passwordHash: visitorPasswordHash,
+              },
+              {
+                accountId: "workspace-viewer",
+                email: "viewer@example.com",
+                passwordHash: visitorPasswordHash,
+              },
+            ],
+            memberships: [
+              {
+                accountId: "workspace-admin",
+                scopeKind: "workspace",
+                resourceId: "workspace-1",
+                role: "admin",
+              },
+              {
+                accountId: "workspace-viewer",
+                scopeKind: "workspace",
+                resourceId: "workspace-1",
+                role: "viewer",
+              },
+            ],
+          },
+        ],
       },
       false,
     );
@@ -2115,41 +2115,43 @@ describe("consumer identity migration and management", () => {
     const passwordHash = `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
     const imported = await service.importLegacyAuthData(
       {
-        products: [{
-          productId: "projectapp",
-          organizationId: ORGANIZATION_ID,
-          hashFormat: "legacy-scrypt-salt-hex-v1",
-          users: [
-            {
-              accountId: "platformadmin",
-              username: "platformadmin",
-              email: "platform@example.com",
-              passwordHash,
-              platformAdmin: true,
-            },
-            {
-              accountId: "projectadmin",
-              username: "projectadmin",
-              email: "projectadmin@example.com",
-              passwordHash,
-            },
-            { accountId: "writer", username: "writer", passwordHash },
-          ],
-          memberships: [
-            {
-              accountId: "projectadmin",
-              scopeKind: "project",
-              resourceId: "project-1",
-              role: "admin",
-            },
-            {
-              accountId: "writer",
-              scopeKind: "project",
-              resourceId: "project-1",
-              role: "editor",
-            },
-          ],
-        }],
+        products: [
+          {
+            productId: "projectapp",
+            organizationId: ORGANIZATION_ID,
+            hashFormat: "legacy-scrypt-salt-hex-v1",
+            users: [
+              {
+                accountId: "platformadmin",
+                username: "platformadmin",
+                email: "platform@example.com",
+                passwordHash,
+                platformAdmin: true,
+              },
+              {
+                accountId: "projectadmin",
+                username: "projectadmin",
+                email: "projectadmin@example.com",
+                passwordHash,
+              },
+              { accountId: "writer", username: "writer", passwordHash },
+            ],
+            memberships: [
+              {
+                accountId: "projectadmin",
+                scopeKind: "project",
+                resourceId: "project-1",
+                role: "admin",
+              },
+              {
+                accountId: "writer",
+                scopeKind: "project",
+                resourceId: "project-1",
+                role: "editor",
+              },
+            ],
+          },
+        ],
       },
       false,
     );
