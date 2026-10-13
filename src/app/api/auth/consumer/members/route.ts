@@ -49,7 +49,6 @@ export async function POST(request: Request) {
     !isJsonObject(body) ||
     !isConsumerResourceScope(body) ||
     !policy ||
-    body.scopeKind !== policy.scopeKind ||
     typeof body.role !== "string" ||
     body.role.length > 32 ||
     (body.email !== undefined && typeof body.email !== "string") ||

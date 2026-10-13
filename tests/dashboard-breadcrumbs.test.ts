@@ -7,7 +7,7 @@ import { buildDashboardBreadcrumbs } from "../src/lib/dashboard-breadcrumbs";
 const context = {
   organizationId: "org-123",
   organizationName: "Sentry8",
-  products: [{ productId: "visitoring", name: "Visitoring" }],
+  products: [{ productId: "workspaceapp", name: "WorkspaceApp" }],
 };
 
 describe("dashboard breadcrumbs", () => {
@@ -27,19 +27,19 @@ describe("dashboard breadcrumbs", () => {
       ],
     ],
     [
-      "/dashboard/org-123/products/visitoring",
+      "/dashboard/org-123/products/workspaceapp",
       [
         { label: "Sentry8", href: "/dashboard/org-123" },
         { label: "Products", href: "/dashboard/org-123/products" },
-        { label: "Visitoring" },
+        { label: "WorkspaceApp" },
       ],
     ],
     [
-      "/dashboard/org-123/products/visitoring/roles",
+      "/dashboard/org-123/products/workspaceapp/roles",
       [
         { label: "Sentry8", href: "/dashboard/org-123" },
         { label: "Products", href: "/dashboard/org-123/products" },
-        { label: "Visitoring", href: "/dashboard/org-123/products/visitoring" },
+        { label: "WorkspaceApp", href: "/dashboard/org-123/products/workspaceapp" },
         { label: "Permission sets" },
       ],
     ],
@@ -104,11 +104,11 @@ describe("dashboard breadcrumbs", () => {
       [{ label: "Sentry8", href: "/dashboard/org-123" }, { label: "Signed-in devices" }],
     ],
     [
-      "/dashboard/org-123/products/visitoring/clients",
+      "/dashboard/org-123/products/workspaceapp/clients",
       [
         { label: "Sentry8", href: "/dashboard/org-123" },
         { label: "Products", href: "/dashboard/org-123/products" },
-        { label: "Visitoring", href: "/dashboard/org-123/products/visitoring" },
+        { label: "WorkspaceApp", href: "/dashboard/org-123/products/workspaceapp" },
         { label: "App clients" },
       ],
     ],
@@ -127,18 +127,18 @@ describe("dashboard breadcrumbs", () => {
 
   it("renders linked ancestors without repeating the current page in the breadcrumb", () => {
     const items = buildDashboardBreadcrumbs(
-      "/dashboard/org-123/products/visitoring/roles",
+      "/dashboard/org-123/products/workspaceapp/roles",
       context,
     );
     const html = renderToStaticMarkup(createElement(BreadcrumbBar, { items }));
 
     expect(html).toContain('<nav aria-label="Breadcrumb"');
-    expect(html).toContain('href="/dashboard/org-123/products/visitoring"');
+    expect(html).toContain('href="/dashboard/org-123/products/workspaceapp"');
     expect(html).toContain('<h1 class="dashboard-page-title">Permission sets</h1>');
     expect(html).toContain('aria-hidden="true"');
     expect(html).not.toContain('aria-current="page"');
     expect(html.match(/Permission sets/g)).toHaveLength(1);
-    expect(html).not.toContain('<a href="/dashboard/org-123/products/visitoring/roles">');
+    expect(html).not.toContain('<a href="/dashboard/org-123/products/workspaceapp/roles">');
   });
 
   it("omits an empty breadcrumb when the current page has no ancestors", () => {

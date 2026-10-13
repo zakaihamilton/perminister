@@ -20,7 +20,6 @@ export async function PATCH(request: Request, context: RouteContext) {
     !isJsonObject(body) ||
     !isConsumerResourceScope(body) ||
     !policy ||
-    body.scopeKind !== policy.scopeKind ||
     (body.role !== undefined && typeof body.role !== "string") ||
     (body.status !== undefined && body.status !== "active" && body.status !== "disabled") ||
     (body.password !== undefined && typeof body.password !== "string") ||
@@ -50,12 +49,7 @@ export async function DELETE(request: Request, context: RouteContext) {
   if (parsed instanceof Response) return parsed;
   const { body, ...auth } = parsed;
   const policy = consumerProductPolicy(auth.client.productId);
-  if (
-    !isJsonObject(body) ||
-    !isConsumerResourceScope(body) ||
-    !policy ||
-    body.scopeKind !== policy.scopeKind
-  ) {
+  if (!isJsonObject(body) || !isConsumerResourceScope(body) || !policy) {
     return Response.json(
       { error: "Provide a valid resource scope." },
       { status: 400, headers: NO_STORE_HEADERS },

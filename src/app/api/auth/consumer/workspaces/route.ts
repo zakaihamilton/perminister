@@ -1,7 +1,7 @@
 import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
 import { consumerServiceError, requireConsumerJsonRequest } from "@/lib/auth/consumer-route";
 import { isOrganizationId } from "@/lib/auth/consumer-policy";
-import { bootstrapVisitoringWorkspaceAdmin } from "@/lib/auth/service";
+import { bootstrapWorkspaceAdmin } from "@/lib/auth/service";
 
 export const runtime = "nodejs";
 
@@ -10,20 +10,20 @@ export async function POST(request: Request) {
   if (parsed instanceof Response) return parsed;
   const { body, ...auth } = parsed;
   if (
-    auth.client.productId !== "visitoring" ||
     !isJsonObject(body) ||
     !isOrganizationId(body.organizationId) ||
     !isOrganizationId(body.workspaceId)
   ) {
     return Response.json(
-      { error: "Provide a valid Visitoring organizationId and workspaceId." },
+      { error: "Provide a valid organizationId and workspaceId." },
       { status: 400, headers: NO_STORE_HEADERS },
     );
   }
 
   try {
-    await bootstrapVisitoringWorkspaceAdmin(
+    await bootstrapWorkspaceAdmin(
       auth.current.subject.subjectId,
+      auth.client.productId,
       body.organizationId.toLowerCase(),
       body.workspaceId.toLowerCase(),
     );

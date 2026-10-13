@@ -15,7 +15,8 @@ clients. A product can have multiple clients for separate app deployments or env
 Perminister returns each client ID and secret once; copy them into the corresponding application
 backend’s environment. Rotating a secret immediately invalidates the previous one, and revoking a
 client stops its credentials from working. Set the exact canonical product origin to enable Sign in
-with Perminister. The SSO callback path is `/auth/perminister/callback`. The application backend
+with Perminister. HTTPS origins are required, with HTTP allowed for `localhost` and `127.0.0.1`
+development origins. The SSO callback path is `/auth/perminister/callback`. The application backend
 sends these headers when calling consumer endpoints:
 
 ```http
@@ -75,29 +76,16 @@ Secure, HttpOnly, SameSite cookie.
 Registration accepts `email` and `password`; the password must be 15–256 characters. Optional
 `firstName` and `lastName` fields may each contain up to 80 characters. The names are available in
 authenticated account responses (`null` when unset) and can also be updated from the Perminister
-profile page. Public self-registration is disabled by default for new clients. It stays disabled for
-Visitoring and PostParticle, whose accounts are provisioned by product administrators. For other
-products, an owner or admin can enable it in the client settings; otherwise `/register` returns
-`403`. When enabled, the endpoint returns `202` with `{"accepted":true}` for both new and existing
-email addresses. A new account does not gain organization access automatically; an invitation or
-organization manager must grant it. Invalid registration fields return `400`; a temporary
-registration service failure returns `503`.
+profile page. Public self-registration is disabled by default for all new clients. An owner or admin
+can enable it in client settings; otherwise `/register` returns `403`. When enabled, the endpoint
+returns `202` with `{"accepted":true}` for both new and existing email addresses. A new account does
+not gain organization access automatically; an invitation or organization manager must grant it.
+Invalid registration fields return `400`; a temporary registration service failure returns `503`.
 
 Login accepts `identifier` and `password`; `email` remains supported for existing clients. The
-identifier can be an email for any consumer, or a product-scoped username for PostParticle. Login
-accepts passwords up to 1,024 characters so existing Visitoring credentials remain usable; new,
-changed, and recovered passwords still use the 15–256 character policy. For example:
-
-```http
-POST /api/auth/consumer/login
-X-Perminister-Client-Id: <CLIENT_ID>
-X-Perminister-Client-Secret: <CLIENT_SECRET>
-Content-Type: application/json
-```
-
-```json
-{ "identifier": "person@example.com", "password": "<password>" }
-```
+identifier can be an email or, when configured for the product, a product-scoped username. Login
+accepts passwords up to 1,024 characters for imported legacy credentials; new, changed, and recovered
+passwords still use the 15–256 character policy. For example:
 
 A successful login returns a session token, stable subject ID, and the organization contexts
 associated with the account for this product. `account.email` and `account.username` are nullable;
@@ -139,9 +127,9 @@ failed attempts for an identifier within 15 minutes, login is locked for 15 minu
 `{"error":"too_many_attempts"}`. This login throttle is process-local, so product backends should
 also apply their own rate limits. Authentication service failures return `503`.
 
-Each app client stores its configured session lifetime (5 minutes through 90 days). Set Visitoring
-to 30 days and PostParticle to 8 hours when creating those clients. Keep the returned token in the
-app's Secure, HttpOnly, SameSite cookie.
+Each app client stores its configured session lifetime (5 minutes through 90 days). Choose a lifetime
+that fits the application's sign-in and security needs. Keep the returned token in the app's Secure,
+HttpOnly, SameSite cookie.
 
 Use `GET /api/auth/consumer/session` with the client headers and session bearer token to validate the
 session. A successful response contains `authenticated: true`, the same `account` and organization
@@ -196,67 +184,62 @@ Member management requests use the client ID and secret headers plus the acting 
 consumer session bearer token. The session must belong to that client and its configured product.
 Perminister checks the actor's active grant on the requested resource for every operation.
 
-Visitoring members use workspace scopes and `viewer` or `admin` roles. `viewer` grants
-`visitoring:workspace:read`; `admin` also grants `visitoring:members:manage`. PostParticle members use
-project scopes and `viewer`, `editor`, or `admin` roles. `viewer` grants
-`postparticle:project:read`; `editor` also grants `postparticle:project:write`; `admin` also grants
-`postparticle:members:manage`. A PostParticle platform admin has a product-scope grant for project
-read/write, member management, and `postparticle:accounts:manage` across that organization's projects.
-Visitoring prevents an administrator from removing or demoting themself and keeps at least one active
-administrator in each workspace.
+Members can be managed in workspace or project scopes. `viewer` grants the scope's read action;
+project scopes also support `editor` (read and write) and `admin` (read, write, and member
+management). Workspace `admin` grants read and member management. Actions use the product ID as a
+prefix, such as `<PRODUCT_ID>:workspace:read` or `<PRODUCT_ID>:members:manage`. A product
+administrator has a product-scope grant that includes account management.
 
 | Method   | Route                                                                                | Purpose                                                  |
 | -------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------- |
-| `GET`    | `/api/auth/consumer/members?organizationId=<ID>&scopeKind=workspace&resourceId=<ID>` | List Visitoring workspace members                        |
-| `GET`    | `/api/auth/consumer/members?organizationId=<ID>&scopeKind=project&resourceId=<ID>`   | List PostParticle project members                        |
+| `GET`    | `/api/auth/consumer/members?organizationId=<ID>&scopeKind=workspace&resourceId=<ID>` | List members in a workspace scope                        |
+| `GET`    | `/api/auth/consumer/members?organizationId=<ID>&scopeKind=project&resourceId=<ID>`   | List members in a project scope                          |
 | `POST`   | `/api/auth/consumer/members`                                                         | Provision an account if needed and grant a resource role |
 | `PATCH`  | `/api/auth/consumer/members/{subjectId}`                                             | Change the scoped role/status or reset its password      |
 | `DELETE` | `/api/auth/consumer/members/{subjectId}`                                             | Disable membership in the supplied scope                 |
 
-For `POST`, send `organizationId`, `scopeKind`, `resourceId`, `role`, and an `email` or `username`.
-Include `password` to provision a new account; the password must be 15–256 characters. An existing
-central account keeps its current password even if a password is included; the response's
+For `POST`, send `organizationId`, `scopeKind`, `resourceId`, `role`, and an `email` or
+`username`. Include `password` to provision a new account; the password must be 15–256 characters.
+An existing central account keeps its current password even if a password is included; the response's
 `accountCreated` is `false` and the request only adds or updates the scoped membership. This lets an
 app attach an existing shared identity without resetting its credentials. Administrator-provisioned
-accounts are exempt from email verification. A new PostParticle account or username must be created
-by a platform admin.
+accounts are exempt from email verification. A platform administrator must assign a new
+product-scoped username.
 
 `PATCH` and `DELETE` also require `organizationId`, `scopeKind`, and `resourceId`. `PATCH` accepts
 any non-empty combination of `role`, `status` (`active` or `disabled`), and `password`. Password
 resets invalidate all of the subject's sessions by advancing its authentication version. Scoped
 application administrators can reset passwords only when the identity is not linked to another
 product. For a shared identity, the account owner must use Perminister's password recovery or change
-flow. `DELETE` disables only the membership grant for that resource; it does not disable the account.
-Visitoring will reject a change that leaves a workspace without an active administrator. These routes
-return `401` for invalid client credentials or sessions, `403` for insufficient permissions or
-self-change restrictions, `404` for a missing resource/member, `409` for identity conflicts, and `400`
-for invalid fields.
+flow. A workspace must retain at least one active administrator. These routes return `401` for
+invalid client credentials or sessions, `403` for insufficient permissions or self-change
+restrictions, `404` for a missing resource/member, `409` for identity conflicts, and `400` for
+invalid fields.
 
-## Visitoring workspace lifecycle
+## Workspace lifecycle
 
-Visitoring can bootstrap or remove workspace access without first having a workspace-level member
-manager. These operations require a Visitoring consumer session whose subject is an organization
-owner or admin. The workspace ID is a UUID generated by Visitoring. Bootstrap grants the caller the
-Visitoring `admin` role on that workspace and is safe to retry. Revocation disables every Visitoring
-workspace grant for the supplied ID and is also safe to retry; it does not delete Visitoring's
-workspace or analytics data.
+A product can bootstrap or remove workspace access without first having a workspace-level member
+manager. These operations require a consumer session for the product whose subject is an organization
+owner or admin. The workspace ID is a UUID generated by the product. Bootstrap grants the caller the
+`admin` role on that workspace and is safe to retry. Revocation disables every grant for the supplied
+workspace ID and is also safe to retry; it does not delete the product's workspace or associated data.
 
 | Method   | Route                                         | Purpose                                      |
 | -------- | --------------------------------------------- | -------------------------------------------- |
 | `POST`   | `/api/auth/consumer/workspaces`               | Grant the caller admin access to a workspace |
-| `DELETE` | `/api/auth/consumer/workspaces/{workspaceId}` | Revoke all grants for a Visitoring workspace |
+| `DELETE` | `/api/auth/consumer/workspaces/{workspaceId}` | Revoke all grants for a workspace            |
 
 Send `organizationId` and, for `POST`, `workspaceId` in a JSON body. Send `organizationId` in the
-`DELETE` JSON body. Both identifiers must be UUIDs. Visitoring creates the local workspace record and
-deletes its local data separately from these Perminister operations.
+`DELETE` JSON body. Both identifiers must be UUIDs. The product creates and deletes its local
+workspace records separately from these Perminister operations.
 
-PostParticle platform admins also have product-wide account controls. These endpoints use the same
-client and session headers, and the actor needs `postparticle:accounts:manage` in the supplied
+Product administrators also have product-wide account controls. These endpoints use the same client
+and session headers, and the actor needs the product's account-management permission in the supplied
 organization:
 
 | Method  | Route                                             | Purpose                                                           |
 | ------- | ------------------------------------------------- | ----------------------------------------------------------------- |
-| `GET`   | `/api/auth/consumer/accounts?organizationId=<ID>` | List PostParticle accounts associated with that organization      |
+| `GET`   | `/api/auth/consumer/accounts?organizationId=<ID>` | List username-based accounts associated with that organization    |
 | `POST`  | `/api/auth/consumer/accounts`                     | Create/link a username and provision an account                   |
 | `PATCH` | `/api/auth/consumer/accounts/{subjectId}`         | Enable/disable an account, reset its password, or revoke sessions |
 
@@ -265,17 +248,18 @@ account belonging only to another organization is not returned or manageable. Ac
 accepts `organizationId`, `username`, `password`, optional `email`, and optional `platformAdmin`.
 Email may be omitted. If the email already identifies a central account, Perminister links the
 product username to that identity and adds it to the requested organization while retaining its
-current password; the response has `created: false`. A platform admin can use `platformAdmin: true`
-to provision another platform admin.
+current password; the response has `created: false`. A product administrator can use
+`platformAdmin: true` to provision another product administrator.
+
 Account updates accept `organizationId` plus one or more of `status`, `password`,
 `revokeSessions: true`, and `platformAdmin` (`true` to grant or `false` to revoke platform-admin
-access). The account `status` applies to PostParticle across its organizations, so disabling it blocks
-that app account everywhere the product is installed; organization memberships and resource grants
-remain organization-specific. Disabling or enabling PostParticle access and `revokeSessions` invalidate
-PostParticle sessions. Passwords belong to the shared identity, so resetting one invalidates sessions
-in both apps. Application administrators cannot reset a password for an identity linked to another
-product; the account owner must use Perminister's password recovery or change flow. An administrator
-cannot change their own global account here.
+access). The account `status` applies to that product across its organizations, so disabling it
+blocks that app account everywhere the product is installed; organization memberships and resource
+grants remain organization-specific. Disabling or enabling product access and `revokeSessions`
+invalidate sessions for that product. Passwords belong to the shared identity, so resetting one
+invalidates sessions in all linked apps. Application administrators cannot reset a password for an
+identity linked to another product; the account owner must use Perminister's password recovery or
+change flow. An administrator cannot change their own global account here.
 
 ## Legacy account import
 
@@ -291,48 +275,66 @@ Example dry-run request (replace the hash placeholders with the exact exported h
 ```json
 {
   "dryRun": true,
-  "visitoring": {
-    "organizationId": "<PERMINISTER_ORGANIZATION_UUID>",
-    "users": [
-      {
-        "id": "visitor-user-id",
-        "email": "person@example.com",
-        "passwordHash": "<argon2id-phc-hash>"
-      }
-    ],
-    "memberships": [{ "userId": "visitor-user-id", "workspaceId": "workspace-1", "role": "admin" }]
-  },
-  "postparticle": {
-    "organizationId": "<PERMINISTER_ORGANIZATION_UUID>",
-    "users": [
-      {
-        "username": "writer",
-        "email": "person@example.com",
-        "passwordHash": "<32-hex-salt>:<128-hex-hash>"
-      }
-    ],
-    "memberships": [{ "username": "writer", "projectId": "project-1", "role": "editor" }]
-  }
+  "products": [
+    {
+      "productId": "example-workspace",
+      "organizationId": "<PERMINISTER_ORGANIZATION_UUID>",
+      "hashFormat": "argon2id-phc",
+      "users": [
+        {
+          "accountId": "member-1",
+          "email": "person@example.com",
+          "passwordHash": "<argon2id-phc-hash>"
+        }
+      ],
+      "memberships": [
+        {
+          "accountId": "member-1",
+          "scopeKind": "workspace",
+          "resourceId": "workspace-1",
+          "role": "admin"
+        }
+      ]
+    },
+    {
+      "productId": "example-project",
+      "organizationId": "<PERMINISTER_ORGANIZATION_UUID>",
+      "hashFormat": "legacy-scrypt-salt-hex-v1",
+      "users": [
+        {
+          "accountId": "writer",
+          "username": "writer",
+          "email": "person@example.com",
+          "passwordHash": "<32-hex-salt>:<128-hex-hash>"
+        }
+      ],
+      "memberships": [
+        {
+          "accountId": "writer",
+          "scopeKind": "project",
+          "resourceId": "project-1",
+          "role": "editor"
+        }
+      ]
+    }
+  ]
 }
 ```
 
-Send `dryRun: true` first. Visitoring user records contain source `id`, `email`, and Argon2id PHC
-`passwordHash` values; workspace memberships contain `userId`, `workspaceId`, `role` (`admin` or
-`viewer`), and optional `active`. PostParticle user records contain `username`, optional `email`,
-legacy `passwordHash` in `salt:hex-scrypt` format, and optional `platformAdmin`/`disabled` flags
-(`disabled` applies to PostParticle only, even when the email is shared with Visitoring);
-project memberships contain `username`, `projectId`, and `role` (`admin`, `editor`, `viewer`, or
-`null`). The organization ID in each section must identify an approved Perminister organization
-that already has the corresponding configured product. App data itself is not imported.
+Send `dryRun: true` first. Each product entry has its own `productId`, approved organization,
+credential format, users, and memberships. User records contain `accountId`, optional `email`,
+optional product-scoped `username`, and `passwordHash`; the selected `hashFormat` must match
+the hashes. They can also include `platformAdmin` and `disabled`. Memberships contain
+`accountId`, `scopeKind` (`workspace` or `project`), `resourceId`, `role`, and optional
+`active`. The role must be supported for that scope. The organization ID must identify an approved
+Perminister organization that contains the configured product. App data itself is not imported.
 
-The response reports identity and membership counts, validation errors, and credential conflicts.
-Visitoring users with the same normalized email are merged and each workspace membership is attached
-to the shared identity. PostParticle accounts with a shared normalized email join the same identity;
-accounts without one remain separate and keep a product-scoped username. If hashes differ, no records
-are written until each conflict is resolved. The conflict report's candidate references can be sent
-back under `credentialSelections`, keyed by the reported identity (for example,
-`email:person@example.com`) and set to one candidate such as `visitoring:legacy-id` or
-`postparticle:writer`. A `perminister:<subjectId>` candidate is also offered when an existing
+Accounts with the same normalized email are merged and their memberships are attached to the shared
+identity. Accounts without a shared email remain separate and can use a product-scoped username. If
+hashes differ, no records are written until each conflict is resolved. The conflict report's candidate
+references can be sent back under `credentialSelections`, keyed by the reported identity (for
+example, `email:person@example.com`) and set to one candidate such as
+`<PRODUCT_ID>:<accountId>`. A `perminister:<subjectId>` candidate is also offered when an existing
 Perminister credential conflicts. The report never returns raw hashes.
 
 After resolving all conflicts, submit the same manifest with `dryRun: false`. Imported credentials

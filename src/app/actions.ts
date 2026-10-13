@@ -118,10 +118,9 @@ function publicActionError(error: unknown): string {
     "Only an active, unexpired API key can be rotated.",
     "Enter an application name up to 80 characters.",
     "Enter a valid app origin.",
-    "Use an HTTPS app origin without a path, query, or fragment.",
+    "Use an HTTPS app origin, or an HTTP localhost or 127.0.0.1 origin, without a path, query, or fragment.",
     "Session lifetime must be between 5 minutes and 90 days.",
     "Choose whether self-registration is enabled.",
-    "Public self-registration is disabled for this product.",
     "Choose an active application client for this product.",
     "Application client not found.",
     "Choose one of your own API keys to rotate.",
@@ -143,6 +142,19 @@ function publicActionError(error: unknown): string {
   if (safePrefixes.some((prefix) => error.message.startsWith(prefix))) return error.message;
   if (/^Resend rejected the message \(HTTP [0-9]{3}\)\./.test(error.message)) return error.message;
   return "Perminister could not complete that request. Check the Spaces and mail configuration, then try again.";
+}
+
+function revalidateTransferredProductPaths(transfer: {
+  affectedOrganizationIds: string[];
+  product: { productId: string };
+}): void {
+  revalidatePath("/dashboard/operations/shared-products");
+  for (const organizationId of transfer.affectedOrganizationIds) {
+    revalidatePath(`/dashboard/${encodeURIComponent(organizationId)}/products`);
+    revalidatePath(
+      `/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(transfer.product.productId)}`,
+    );
+  }
 }
 
 function firstValue(data: FormData, name: string): string {
@@ -593,13 +605,7 @@ export async function transferPublicProductAction(formData: FormData): Promise<v
     redirect(`/dashboard/operations/shared-products?error=product-transfer&reason=${message}`);
   }
 
-  revalidatePath("/dashboard/operations/shared-products");
-  for (const organizationId of transfer.affectedOrganizationIds) {
-    revalidatePath(`/dashboard/${encodeURIComponent(organizationId)}/products`);
-    revalidatePath(
-      `/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(transfer.product.productId)}`,
-    );
-  }
+  revalidateTransferredProductPaths(transfer);
   redirect("/dashboard/operations/shared-products?notice=product-transferred");
 }
 
@@ -626,13 +632,7 @@ export async function transferOwnedPublicProductAction(formData: FormData): Prom
     redirect(`${returnTo}?error=product-transfer&reason=${reason}`);
   }
 
-  revalidatePath("/dashboard/operations/shared-products");
-  for (const organizationId of transfer.affectedOrganizationIds) {
-    revalidatePath(`/dashboard/${encodeURIComponent(organizationId)}/products`);
-    revalidatePath(
-      `/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(transfer.product.productId)}`,
-    );
-  }
+  revalidateTransferredProductPaths(transfer);
   redirect(
     `/dashboard/${encodeURIComponent(transfer.destinationOrganizationId)}/products/${encodeURIComponent(transfer.product.productId)}?notice=product-transferred`,
   );

@@ -154,7 +154,7 @@ export interface ConsumerLoginIdentifier {
 }
 
 export interface LegacyIdentitySource {
-  source: "visitoring" | "postparticle";
+  source: string;
   accountId: string;
 }
 
@@ -168,7 +168,7 @@ export interface ConsumerProductState {
 export interface PasswordCredential {
   algorithm: PasswordHashAlgorithm;
   /** Identifies legacy encodings where an algorithm has more than one wire format. */
-  format?: "perminister-scrypt-v1" | "postparticle-scrypt-v1" | "argon2id-phc";
+  format?: "perminister-scrypt-v1" | "legacy-scrypt-salt-hex-v1" | "argon2id-phc";
   /** Encoded one-way verifier, including any salt and parameters required by the algorithm. */
   encodedVerifier: string;
   updatedAt: string;

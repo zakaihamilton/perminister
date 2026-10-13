@@ -9,12 +9,6 @@ interface ConsumerClientCreateFormProps {
   pending: boolean;
 }
 
-function defaultSessionLifetimeHours(productId: string): string {
-  if (productId === "visitoring") return "720";
-  if (productId === "postparticle") return "8";
-  return "12";
-}
-
 export function ConsumerClientCreateForm({
   onSubmit,
   organizationId,
@@ -24,7 +18,6 @@ export function ConsumerClientCreateForm({
   pending,
 }: ConsumerClientCreateFormProps) {
   const formId = useId();
-  const firstPartyProduct = ["visitoring", "postparticle"].includes(productId);
 
   return (
     <section className="dashboard-card">
@@ -77,36 +70,25 @@ export function ConsumerClientCreateForm({
               min="0.083333"
               max="2160"
               step="any"
-              defaultValue={defaultSessionLifetimeHours(productId)}
+              defaultValue="12"
             />
           </label>
           <label htmlFor={`${formId}-registration`}>
             Let people sign up themselves
-            {firstPartyProduct ? (
-              <>
-                <input type="hidden" name="selfRegistrationEnabled" value="false" />
-                <select id={`${formId}-registration`} disabled defaultValue="false">
-                  <option value="false">Disabled for this product</option>
-                </select>
-              </>
-            ) : (
-              <select
-                id={`${formId}-registration`}
-                name="selfRegistrationEnabled"
-                defaultValue="false"
-              >
-                <option value="false">Disabled</option>
-                <option value="true">Enabled</option>
-              </select>
-            )}
+            <select
+              id={`${formId}-registration`}
+              name="selfRegistrationEnabled"
+              defaultValue="false"
+            >
+              <option value="false">Disabled</option>
+              <option value="true">Enabled</option>
+            </select>
           </label>
         </div>
         <p className="form-hint">
           Session lifetime can be 5 minutes to 90 days. New clients default to disabled public
-          registration.
-          {firstPartyProduct
-            ? " Visitoring and PostParticle accounts are provisioned by product administrators."
-            : " You can enable registration for apps that support self-service sign-up."}
+          registration. Enable registration for apps that support self-service sign-up. Use an HTTPS
+          app origin, or an HTTP localhost or 127.0.0.1 origin for local development.
         </p>
         <button className="button button-primary form-submit" disabled={pending} type="submit">
           {pending ? "Creating…" : "Create app client"}

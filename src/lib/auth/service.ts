@@ -189,7 +189,7 @@ function scrypt(password: string, salt: Buffer): Promise<Buffer> {
   });
 }
 
-function postParticleScrypt(password: string, salt: string): Promise<Buffer> {
+function legacySaltedScrypt(password: string, salt: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     scryptCallback(
       password,
@@ -263,10 +263,7 @@ async function verifyPassword(
       return false;
     }
   }
-  if (
-    credential.format === "postparticle-scrypt-v1" ||
-    /^[a-f0-9]{32}:[a-f0-9]{128}$/i.test(credential.encodedVerifier)
-  ) {
+  if (/^[a-f0-9]{32}:[a-f0-9]{128}$/i.test(credential.encodedVerifier)) {
     const match = /^([a-f0-9]{32}):([a-f0-9]{128})$/i.exec(credential.encodedVerifier);
     if (!match) {
       await scrypt(password, Buffer.alloc(16, 4));
@@ -274,7 +271,7 @@ async function verifyPassword(
     }
     try {
       const expected = Buffer.from(match[2], "hex");
-      const actual = await postParticleScrypt(password, match[1]);
+      const actual = await legacySaltedScrypt(password, match[1]);
       return timingSafeEqual(expected, actual);
     } catch {
       return false;
@@ -1499,10 +1496,9 @@ async function organizationActivityEntries(
     (event) => activityAggregateRecord(event, productNames),
     ACTIVITY_READ_CONCURRENCY,
   );
-  const [aggregateRecords, subjects, servicePrincipals] = await Promise.all([
-    aggregateRecordsPromise,
+  const loadSubjects = (ids: Iterable<string>) =>
     mapWithConcurrency(
-      [...subjectIds].filter((subjectId) => !subjectRecords.has(subjectId)),
+      [...ids],
       async (subjectId) => {
         try {
           const subject = await loadRecord("subject", subjectId);
@@ -1512,7 +1508,10 @@ async function organizationActivityEntries(
         }
       },
       ACTIVITY_READ_CONCURRENCY,
-    ),
+    );
+  const [aggregateRecords, subjects, servicePrincipals] = await Promise.all([
+    aggregateRecordsPromise,
+    loadSubjects([...subjectIds].filter((subjectId) => !subjectRecords.has(subjectId))),
     mapWithConcurrency(
       [...servicePrincipalIds],
       async (servicePrincipalId) => {
@@ -1553,18 +1552,7 @@ async function organizationActivityEntries(
     (subjectId) => !subjectRecords.has(subjectId),
   );
   if (additionalSubjectIds.length > 0) {
-    const additionalSubjects = await mapWithConcurrency(
-      additionalSubjectIds,
-      async (subjectId) => {
-        try {
-          const subject = await loadRecord("subject", subjectId);
-          return { id: subjectId, record: subject?.record ?? null };
-        } catch {
-          return { id: subjectId, record: null };
-        }
-      },
-      ACTIVITY_READ_CONCURRENCY,
-    );
+    const additionalSubjects = await loadSubjects(additionalSubjectIds);
     for (const subject of additionalSubjects) {
       if (subject.record) subjectRecords.set(subject.id, subject.record);
     }
@@ -3863,6 +3851,28 @@ async function consumerClientOrganizationsForPublisherUnlocked(
   return organizationIds;
 }
 
+async function requireManagedConsumerClientUnlocked(
+  organizationId: string,
+  productId: string,
+  clientId: string,
+  requireActive: boolean,
+  errorMessage: string,
+): Promise<VersionedRecord<ConsumerClientRecord>> {
+  const found = await loadRecord("consumer-client", clientId);
+  const publisher = await consumerClientPublisherProductUnlocked(organizationId, productId);
+  const manageableOrganizations = await consumerClientOrganizationsForPublisherUnlocked(publisher);
+  if (
+    !found ||
+    found.record.productId !== productId ||
+    (requireActive && found.record.status !== "active") ||
+    !found.record.organizationId ||
+    !manageableOrganizations.has(found.record.organizationId)
+  ) {
+    throw new Error(errorMessage);
+  }
+  return found;
+}
+
 async function requirePublisherManagedConsumerClientProductUnlocked(
   organizationId: string,
   productId: string,
@@ -3888,20 +3898,20 @@ function validateConsumerClientOptions(productId: string, options: CreateConsume
     } catch {
       throw new Error("Enter a valid app origin.");
     }
-    const isSecure =
+    const isAllowedProtocol =
       parsed.protocol === "https:" ||
-      (process.env.NODE_ENV !== "production" &&
-        parsed.protocol === "http:" &&
-        ["localhost", "127.0.0.1"].includes(parsed.hostname));
+      (parsed.protocol === "http:" && ["localhost", "127.0.0.1"].includes(parsed.hostname));
     if (
-      !isSecure ||
+      !isAllowedProtocol ||
       parsed.username ||
       parsed.password ||
       parsed.pathname !== "/" ||
       parsed.search ||
       parsed.hash
     ) {
-      throw new Error("Use an HTTPS app origin without a path, query, or fragment.");
+      throw new Error(
+        "Use an HTTPS app origin, or an HTTP localhost or 127.0.0.1 origin, without a path, query, or fragment.",
+      );
     }
     appOrigin = parsed.origin;
   }
@@ -3914,9 +3924,6 @@ function validateConsumerClientOptions(productId: string, options: CreateConsume
   }
   if (typeof options.selfRegistrationEnabled !== "boolean") {
     throw new Error("Choose whether self-registration is enabled.");
-  }
-  if (["visitoring", "postparticle"].includes(productId) && options.selfRegistrationEnabled) {
-    throw new Error("Public self-registration is disabled for this product.");
   }
   return { appName, appOrigin };
 }
@@ -4046,22 +4053,13 @@ export async function rotateConsumerClient(
     organizationId,
     productId,
     async (actor, normalizedProductId) => {
-      const found = await loadRecord("consumer-client", clientId);
-      const publisher = await consumerClientPublisherProductUnlocked(
+      const found = await requireManagedConsumerClientUnlocked(
         organizationId,
         normalizedProductId,
+        clientId,
+        true,
+        "Choose an active application client for this product.",
       );
-      const manageableOrganizations =
-        await consumerClientOrganizationsForPublisherUnlocked(publisher);
-      if (
-        !found ||
-        found.record.productId !== normalizedProductId ||
-        found.record.status !== "active" ||
-        !found.record.organizationId ||
-        !manageableOrganizations.has(found.record.organizationId)
-      ) {
-        throw new Error("Choose an active application client for this product.");
-      }
       const secret = `pmc_${found.record.consumerClientId}_${randomBytes(32).toString("base64url")}`;
       const next: ConsumerClientRecord = {
         ...found.record,
@@ -4089,21 +4087,13 @@ export async function revokeConsumerClient(
     organizationId,
     productId,
     async (actor, normalizedProductId) => {
-      const found = await loadRecord("consumer-client", clientId);
-      const publisher = await consumerClientPublisherProductUnlocked(
+      const found = await requireManagedConsumerClientUnlocked(
         organizationId,
         normalizedProductId,
+        clientId,
+        false,
+        "Application client not found.",
       );
-      const manageableOrganizations =
-        await consumerClientOrganizationsForPublisherUnlocked(publisher);
-      if (
-        !found ||
-        found.record.productId !== normalizedProductId ||
-        !found.record.organizationId ||
-        !manageableOrganizations.has(found.record.organizationId)
-      ) {
-        throw new Error("Application client not found.");
-      }
       if (found.record.status === "revoked") return;
       const now = new Date().toISOString();
       await persistRecord(
@@ -4305,6 +4295,8 @@ export interface ConsumerMemberScopeInput {
   resourceId: string;
 }
 
+type ConsumerResourceScope = Extract<ResourceScope, { kind: "workspace" | "project" }>;
+
 export interface ConsumerScopedMemberView {
   subjectId: SubjectId;
   email: string | null;
@@ -4317,16 +4309,15 @@ export interface ConsumerScopedMemberView {
 function consumerResourceScope(
   authenticatedProductId: string,
   input: ConsumerMemberScopeInput,
-): ResourceScope {
+): ConsumerResourceScope {
   const normalizedProductId = validateProductId(authenticatedProductId);
   if (validateProductId(input.productId) !== normalizedProductId) {
     throw new Error("This application does not manage that product.");
   }
-  const policy = consumerProductPolicy(normalizedProductId);
-  if (!policy || policy.scopeKind !== input.scopeKind) {
+  if (!consumerProductPolicy(normalizedProductId)) {
     throw new Error("This application does not manage that resource type.");
   }
-  return validateScope(
+  const scope = validateScope(
     input.scopeKind === "workspace"
       ? {
           kind: "workspace",
@@ -4341,6 +4332,10 @@ function consumerResourceScope(
           projectId: input.resourceId,
         },
   );
+  if (scope.kind === "product") {
+    throw new Error("Choose a workspace or project.");
+  }
+  return scope;
 }
 
 function sameResourceScope(left: ResourceScope, right: ResourceScope): boolean {
@@ -4390,11 +4385,7 @@ async function requireConsumerScopeManagerUnlocked(
   if (consumerProductState(actor, scope.productId).status !== "active") {
     throw new Error("This account is disabled for the application.");
   }
-  if (
-    !policy ||
-    scope.kind !== policy.scopeKind ||
-    !(await loadApprovedOrganizationUnlocked(scope.organizationId))
-  ) {
+  if (!policy || !(await loadApprovedOrganizationUnlocked(scope.organizationId))) {
     throw new Error("Resource not found.");
   }
   await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
@@ -4615,11 +4606,11 @@ async function setConsumerMemberRoleUnlocked(
   actorId: SubjectId,
   authenticatedProductId: string,
   subjectId: SubjectId,
-  scope: ResourceScope,
+  scope: ConsumerResourceScope,
   role: string,
   existing?: MembershipRecord,
 ): Promise<MembershipRecord> {
-  const actions = consumerRoleActions(authenticatedProductId, role);
+  const actions = consumerRoleActions(authenticatedProductId, role, scope.kind);
   if (!actions) throw new Error("Choose a role supported by this application.");
   const membership = await store().readOrganizationMembership(
     scope.organizationId,
@@ -4663,24 +4654,25 @@ async function isConsumerPlatformAdminUnlocked(
   );
 }
 
-type VisitoringWorkspaceManagementContext = {
+type WorkspaceManagementContext = {
   organizationId: string;
   workspaceId: string;
-  productId: "visitoring";
+  productId: string;
   scope: ReturnType<typeof validateScope>;
 };
 
-async function withVisitoringWorkspaceManagement<T>(
+async function withWorkspaceManagement<T>(
   actorId: SubjectId,
+  productIdInput: string,
   organizationIdInput: string,
   workspaceIdInput: string,
-  operation: (context: VisitoringWorkspaceManagementContext) => Promise<T>,
+  operation: (context: WorkspaceManagementContext) => Promise<T>,
 ): Promise<T> {
+  const productId = validateProductId(productIdInput);
   const organizationId = organizationIdInput.trim().toLowerCase();
   const workspaceId = workspaceIdInput.trim().toLowerCase();
   assertOpaqueId(organizationId);
   assertOpaqueId(workspaceId);
-  const productId = "visitoring";
   const scope = validateScope({
     kind: "workspace",
     organizationId: organizationId as OrganizationId,
@@ -4697,13 +4689,15 @@ async function withVisitoringWorkspaceManagement<T>(
   );
 }
 
-export async function bootstrapVisitoringWorkspaceAdmin(
+export async function bootstrapWorkspaceAdmin(
   actorId: SubjectId,
+  productId: string,
   organizationIdInput: string,
   workspaceIdInput: string,
 ): Promise<void> {
-  await withVisitoringWorkspaceManagement(
+  await withWorkspaceManagement(
     actorId,
+    productId,
     organizationIdInput,
     workspaceIdInput,
     async ({ organizationId, productId, scope }) => {
@@ -4724,8 +4718,8 @@ export async function bootstrapVisitoringWorkspaceAdmin(
       const membership =
         existingMembership ??
         (await ensureConsumerProductMembershipUnlocked(actor, organizationId, productId));
-      const actions = consumerRoleActions(productId, "admin");
-      if (!actions) throw new Error("Visitoring workspace administration is unavailable.");
+      const actions = consumerRoleActions(productId, "admin", "workspace");
+      if (!actions) throw new Error("Workspace administration is unavailable.");
       const currentGrant = consumerMemberGrant(membership, scope);
       const grant = roleGrant(
         productId,
@@ -4743,13 +4737,15 @@ export async function bootstrapVisitoringWorkspaceAdmin(
   );
 }
 
-export async function revokeVisitoringWorkspaceGrants(
+export async function revokeWorkspaceGrants(
   actorId: SubjectId,
+  productId: string,
   organizationIdInput: string,
   workspaceIdInput: string,
 ): Promise<void> {
-  await withVisitoringWorkspaceManagement(
+  await withWorkspaceManagement(
     actorId,
+    productId,
     organizationIdInput,
     workspaceIdInput,
     async ({ organizationId, productId, scope }) => {
@@ -4833,8 +4829,7 @@ async function isConsumerIdentitySharedAcrossProductsUnlocked(
   );
 }
 
-async function protectLastVisitoringAdminUnlocked(
-  authenticatedProductId: string,
+async function protectLastWorkspaceAdminUnlocked(
   targetId: SubjectId,
   scope: ResourceScope,
   currentGrant: MembershipRecord,
@@ -4842,7 +4837,7 @@ async function protectLastVisitoringAdminUnlocked(
   nextStatus: "active" | "disabled",
 ): Promise<void> {
   if (
-    authenticatedProductId.toLowerCase() !== "visitoring" ||
+    scope.kind !== "workspace" ||
     currentGrant.status !== "active" ||
     currentGrant.accessRole?.name !== "admin" ||
     (nextRole === "admin" && nextStatus === "active")
@@ -4880,7 +4875,7 @@ export async function createConsumerMember(
   },
 ): Promise<{ member: ConsumerScopedMemberView; created: boolean }> {
   const scope = consumerResourceScope(authenticatedProductId, input);
-  if (!consumerRoleActions(authenticatedProductId, input.role)) {
+  if (!consumerRoleActions(authenticatedProductId, input.role, scope.kind)) {
     throw new Error("Choose a role supported by this application.");
   }
   const email = input.email === undefined ? null : canonicalEmail(input.email);
@@ -4906,8 +4901,8 @@ export async function createConsumerMember(
       );
       if (!subject) {
         if (!input.password) throw new Error("Provide an initial password for the new account.");
-        if (authenticatedProductId.toLowerCase() === "postparticle" && !platformAdmin) {
-          throw new Error("A platform administrator must create this account first.");
+        if (username && !platformAdmin) {
+          throw new Error("A platform administrator must assign the account username.");
         }
         subject = await createAdminProvisionedSubject(
           email,
@@ -4923,12 +4918,8 @@ export async function createConsumerMember(
       }
       if (username) {
         const alreadyLinked = usernameForProduct(subject, input.productId) === username;
-        if (
-          !alreadyLinked &&
-          !platformAdmin &&
-          authenticatedProductId.toLowerCase() === "postparticle"
-        ) {
-          throw new Error("A platform administrator must assign a new PostParticle username.");
+        if (!alreadyLinked && !platformAdmin) {
+          throw new Error("A platform administrator must assign a new username.");
         }
         subject = await ensureConsumerUsernameUnlocked(subject, input.productId, username);
       }
@@ -4975,7 +4966,10 @@ export async function updateConsumerMember(
   assertOpaqueId(subjectIdInput);
   const subjectId = subjectIdInput as SubjectId;
   const scope = consumerResourceScope(authenticatedProductId, input);
-  if (input.role !== undefined && !consumerRoleActions(authenticatedProductId, input.role)) {
+  if (
+    input.role !== undefined &&
+    !consumerRoleActions(authenticatedProductId, input.role, scope.kind)
+  ) {
     throw new Error("Choose a role supported by this application.");
   }
   if (input.status === undefined && input.role === undefined && input.password === undefined) {
@@ -4991,10 +4985,7 @@ export async function updateConsumerMember(
         scope.organizationId,
         scope.productId,
       );
-      if (
-        actorId === subjectId &&
-        (authenticatedProductId.toLowerCase() === "visitoring" || !platformAdmin)
-      ) {
+      if (actorId === subjectId && !platformAdmin) {
         throw new Error("Ask another administrator to change your account.");
       }
       const productMembership = await store().readOrganizationMembership(
@@ -5022,14 +5013,7 @@ export async function updateConsumerMember(
       }
       const nextRole = input.role ?? currentGrant.accessRole?.name ?? null;
       const nextStatus = input.status ?? currentGrant.status;
-      await protectLastVisitoringAdminUnlocked(
-        authenticatedProductId,
-        subjectId,
-        scope,
-        currentGrant,
-        nextRole,
-        nextStatus,
-      );
+      await protectLastWorkspaceAdminUnlocked(subjectId, scope, currentGrant, nextRole, nextStatus);
       let nextGrant = currentGrant;
       if (input.status === "active" && productMembership.status !== "active") {
         await persistRecord(
@@ -5149,10 +5133,7 @@ export async function listConsumerAccounts(
         email: subject.primaryEmail,
         username,
         status: consumerProductState(subject, productId).status,
-        platformAdmin: hasConsumerPlatformPermission(
-          membership,
-          policy.accountManagementAction ?? "",
-        ),
+        platformAdmin: hasConsumerPlatformPermission(membership, policy.accountManagementAction),
       });
     }
     return result.sort((left, right) => left.username.localeCompare(right.username));
@@ -5175,7 +5156,7 @@ export async function createConsumerAccount(
     throw new Error("This application does not manage that product.");
   }
   const policy = consumerProductPolicy(validateProductId(authenticatedProductId));
-  if (authenticatedProductId.toLowerCase() !== "postparticle" || !policy?.accountManagementAction) {
+  if (!policy?.accountManagementAction) {
     throw new Error("This application does not expose global account provisioning.");
   }
   const accountManagementAction = policy.accountManagementAction;
@@ -5340,32 +5321,29 @@ export async function updateConsumerAccount(
   );
 }
 
+export interface LegacyAuthImportProduct {
+  productId: string;
+  organizationId: string;
+  hashFormat: "argon2id-phc" | "legacy-scrypt-salt-hex-v1";
+  users: Array<{
+    accountId: string;
+    username?: string;
+    email?: string;
+    passwordHash: string;
+    platformAdmin?: boolean;
+    disabled?: boolean;
+  }>;
+  memberships: Array<{
+    accountId: string;
+    scopeKind: "workspace" | "project";
+    resourceId: string;
+    role: string | null;
+    active?: boolean;
+  }>;
+}
+
 export interface LegacyAuthImportInput {
-  visitoring?: {
-    organizationId: string;
-    users: Array<{ id: string; email: string; passwordHash: string }>;
-    memberships: Array<{
-      userId: string;
-      workspaceId: string;
-      role: "admin" | "viewer";
-      active?: boolean;
-    }>;
-  };
-  postparticle?: {
-    organizationId: string;
-    users: Array<{
-      username: string;
-      email?: string;
-      passwordHash: string;
-      platformAdmin?: boolean;
-      disabled?: boolean;
-    }>;
-    memberships: Array<{
-      username: string;
-      projectId: string;
-      role: "admin" | "editor" | "viewer" | null;
-    }>;
-  };
+  products: LegacyAuthImportProduct[];
   /** Map a normalized identity key to the legacy source reference whose password to retain. */
   credentialSelections?: Record<string, string>;
 }
@@ -5380,7 +5358,7 @@ export interface LegacyAuthImportReport {
 }
 
 interface LegacyIdentityCandidate {
-  source: "visitoring" | "postparticle";
+  source: string;
   accountId: string;
   sourceRef: string;
   email: string | null;
@@ -5391,12 +5369,12 @@ interface LegacyIdentityCandidate {
 }
 
 function importedCredential(
-  source: LegacyIdentityCandidate["source"],
+  format: LegacyAuthImportProduct["hashFormat"],
   encodedVerifier: string,
 ): PasswordCredential {
-  if (source === "visitoring") {
+  if (format === "argon2id-phc") {
     if (!/^\$argon2id\$v=\d+\$/.test(encodedVerifier)) {
-      throw new Error("Visitoring password hashes must use the Argon2id PHC format.");
+      throw new Error("Password hash does not match the configured Argon2id format.");
     }
     return {
       algorithm: "argon2id",
@@ -5406,11 +5384,11 @@ function importedCredential(
     };
   }
   if (!/^[a-f0-9]{32}:[a-f0-9]{128}$/i.test(encodedVerifier)) {
-    throw new Error("PostParticle password hashes must use the legacy salt:hex format.");
+    throw new Error("Password hash does not match the configured salted scrypt format.");
   }
   return {
     algorithm: "scrypt",
-    format: "postparticle-scrypt-v1",
+    format: "legacy-scrypt-salt-hex-v1",
     encodedVerifier,
     updatedAt: new Date().toISOString(),
   };
@@ -5449,26 +5427,24 @@ async function upsertImportedRoleGrantUnlocked(
   await persistRecord(nextGrant, "legacy-import.membership", { kind: "system" });
 }
 
-function legacyIdentityKey(email: string | null, username: string | null): string {
-  return email ? `email:${email}` : `postparticle:${username ?? ""}`;
+function legacyIdentityKey(
+  productId: string,
+  email: string | null,
+  username: string | null,
+): string {
+  if (email) return "email:" + email;
+  return "username:" + productId + ":" + (username ?? "");
 }
 
-function legacySourceRef(source: "visitoring" | "postparticle", accountId: string): string {
-  return `${source}:${accountId}`;
+function legacySourceRef(source: string, accountId: string): string {
+  return source + ":" + accountId;
 }
 
 export async function importLegacyAuthData(
   input: LegacyAuthImportInput,
-  products: { visitoringProductId?: string; postparticleProductId?: string },
   dryRun: boolean,
 ): Promise<LegacyAuthImportReport> {
   return authMutationQueue.run(async () => {
-    const visitoring = input.visitoring
-      ? { ...input.visitoring, organizationId: input.visitoring.organizationId.toLowerCase() }
-      : undefined;
-    const postparticle = input.postparticle
-      ? { ...input.postparticle, organizationId: input.postparticle.organizationId.toLowerCase() }
-      : undefined;
     const report: LegacyAuthImportReport = {
       dryRun,
       applied: false,
@@ -5477,131 +5453,134 @@ export async function importLegacyAuthData(
       conflicts: [],
       errors: [],
     };
+    if (input.products.length === 0) report.errors.push("Add at least one product to the import.");
     const groups = new Map<string, LegacyIdentityCandidate[]>();
-    const visitoringRefToKey = new Map<string, string>();
-    const postparticleRefToKey = new Map<string, string>();
+    const referenceToKey = new Map<string, string>();
     const seenSourceRefs = new Set<string>();
+    const products: Array<LegacyAuthImportProduct & { productId: string; organizationId: string }> =
+      [];
+    const memberships: Array<{
+      productId: string;
+      organizationId: string;
+      accountId: string;
+      scopeKind: "workspace" | "project";
+      resourceId: string;
+      role: string | null;
+      active?: boolean;
+    }> = [];
+
     const addCandidate = (candidate: LegacyIdentityCandidate) => {
-      const key = legacyIdentityKey(candidate.email, candidate.username);
+      const key = legacyIdentityKey(candidate.source, candidate.email, candidate.username);
       const group = groups.get(key) ?? [];
       if (seenSourceRefs.has(candidate.sourceRef)) {
-        report.errors.push(`Duplicate legacy account reference: ${candidate.sourceRef}`);
+        report.errors.push("Duplicate account reference: " + candidate.sourceRef);
         return;
       }
       seenSourceRefs.add(candidate.sourceRef);
       group.push(candidate);
       groups.set(key, group);
-      if (candidate.source === "visitoring") visitoringRefToKey.set(candidate.accountId, key);
-      else postparticleRefToKey.set(candidate.accountId, key);
+      referenceToKey.set(candidate.sourceRef, key);
     };
 
-    if (visitoring) {
-      if (!products.visitoringProductId) report.errors.push("Visitoring client is not configured.");
-      if (!(await loadApprovedOrganizationUnlocked(visitoring.organizationId))) {
-        report.errors.push("Visitoring organization was not found or is not approved.");
-      } else if (
-        products.visitoringProductId &&
-        !(await store().readProduct(visitoring.organizationId, products.visitoringProductId))
-      ) {
-        report.errors.push("Visitoring product was not found in the configured organization.");
+    const seenProducts = new Set<string>();
+    for (const inputProduct of input.products) {
+      let productId: string;
+      try {
+        productId = validateProductId(inputProduct.productId);
+      } catch (error) {
+        report.errors.push(error instanceof Error ? error.message : "Invalid product ID.");
+        continue;
       }
-      for (const account of visitoring.users) {
-        try {
-          const accountId = account.id.trim();
-          if (!accountId || accountId.length > 254)
-            throw new Error("Invalid Visitoring account ID.");
-          const email = canonicalEmail(account.email);
-          addCandidate({
-            source: "visitoring",
-            accountId,
-            sourceRef: legacySourceRef("visitoring", accountId),
-            email,
-            username: null,
-            credential: importedCredential("visitoring", account.passwordHash),
-            disabled: false,
-            platformAdmin: false,
-          });
-        } catch (error) {
-          report.errors.push(
-            error instanceof Error ? error.message : "Invalid Visitoring account.",
-          );
-        }
+      const organizationId = inputProduct.organizationId.trim().toLowerCase();
+      if (seenProducts.has(productId)) {
+        report.errors.push("Product appears more than once in the import: " + productId);
+        continue;
       }
-      for (const membership of visitoring.memberships) {
-        if (!visitoringRefToKey.has(membership.userId)) {
-          report.errors.push(
-            `Visitoring membership refers to an unknown account: ${membership.userId}`,
-          );
-        }
-        try {
-          if (products.visitoringProductId) {
-            consumerResourceScope("visitoring", {
-              organizationId: visitoring.organizationId,
-              productId: products.visitoringProductId,
-              scopeKind: "workspace",
-              resourceId: membership.workspaceId,
-            });
-          }
-        } catch {
-          report.errors.push(`Invalid Visitoring workspace ID: ${membership.workspaceId}`);
-        }
-      }
-    }
+      seenProducts.add(productId);
+      const product = { ...inputProduct, productId, organizationId };
+      products.push(product);
 
-    if (postparticle) {
-      if (!products.postparticleProductId)
-        report.errors.push("PostParticle client is not configured.");
-      if (!(await loadApprovedOrganizationUnlocked(postparticle.organizationId))) {
-        report.errors.push("PostParticle organization was not found or is not approved.");
-      } else if (
-        products.postparticleProductId &&
-        !(await store().readProduct(postparticle.organizationId, products.postparticleProductId))
-      ) {
-        report.errors.push("PostParticle product was not found in the configured organization.");
+      if (!(await loadApprovedOrganizationUnlocked(organizationId))) {
+        report.errors.push(
+          "Organization was not found or is not approved for product " + productId + ".",
+        );
+      } else if (!(await store().readProduct(organizationId, productId))) {
+        report.errors.push(
+          "Product was not found in its configured organization: " + productId + ".",
+        );
       }
-      for (const account of postparticle.users) {
+
+      for (const account of product.users) {
         try {
-          const username = normalizeProductUsername(account.username);
+          const accountId = account.accountId.trim();
+          if (!accountId || accountId.length > 254) throw new Error("Invalid account ID.");
+          const username = account.username ? normalizeProductUsername(account.username) : null;
           const email = account.email
             ? canonicalEmail(account.email)
-            : username.includes("@")
+            : username?.includes("@")
               ? canonicalEmail(username)
               : null;
+          if (!email && !username) throw new Error("Provide an email address or username.");
+          const sourceRef = legacySourceRef(productId, accountId);
           addCandidate({
-            source: "postparticle",
-            accountId: username,
-            sourceRef: legacySourceRef("postparticle", username),
+            source: productId,
+            accountId,
+            sourceRef,
             email,
             username,
-            credential: importedCredential("postparticle", account.passwordHash),
+            credential: importedCredential(product.hashFormat, account.passwordHash),
             disabled: !!account.disabled,
             platformAdmin: !!account.platformAdmin,
           });
         } catch (error) {
           report.errors.push(
-            error instanceof Error ? error.message : "Invalid PostParticle account.",
+            "Invalid account for product " +
+              productId +
+              ": " +
+              (error instanceof Error ? error.message : "account data is invalid."),
           );
         }
       }
-      for (const membership of postparticle.memberships) {
+
+      for (const membership of product.memberships) {
+        const accountId = membership.accountId.trim();
+        const sourceRef = legacySourceRef(productId, accountId);
+        if (!referenceToKey.has(sourceRef)) {
+          report.errors.push(
+            "Membership refers to an unknown account for product " + productId + ": " + accountId,
+          );
+        }
         try {
-          const username = normalizeProductUsername(membership.username);
-          if (!postparticleRefToKey.has(username)) {
-            report.errors.push(`PostParticle membership refers to an unknown account: ${username}`);
+          consumerResourceScope(productId, {
+            organizationId,
+            productId,
+            scopeKind: membership.scopeKind,
+            resourceId: membership.resourceId,
+          });
+          if (
+            membership.role !== null &&
+            !consumerRoleActions(productId, membership.role, membership.scopeKind)
+          ) {
+            throw new Error("Choose a role supported by this application.");
           }
-          if (membership.role !== null && !consumerRoleActions("postparticle", membership.role)) {
-            report.errors.push(`Invalid PostParticle role for ${username}.`);
-          }
-          if (products.postparticleProductId && membership.role !== null) {
-            consumerResourceScope("postparticle", {
-              organizationId: postparticle.organizationId,
-              productId: products.postparticleProductId,
-              scopeKind: "project",
-              resourceId: membership.projectId,
-            });
-          }
+          memberships.push({
+            productId,
+            organizationId,
+            accountId,
+            scopeKind: membership.scopeKind,
+            resourceId: membership.resourceId,
+            role: membership.role,
+            active: membership.active,
+          });
         } catch {
-          report.errors.push(`Invalid PostParticle membership for ${membership.username}.`);
+          report.errors.push(
+            "Invalid " +
+              membership.scopeKind +
+              " membership for product " +
+              productId +
+              ": " +
+              membership.resourceId,
+          );
         }
       }
     }
@@ -5619,21 +5598,19 @@ export async function importLegacyAuthData(
     for (const [key, candidates] of groups) {
       const email = candidates.find((candidate) => candidate.email)?.email ?? null;
       let subject = email ? await loadSubjectByEmailUnlocked(email) : null;
-      for (const candidate of candidates.filter(
-        (item) => item.username && products.postparticleProductId,
-      )) {
+      for (const candidate of candidates.filter((item) => item.username)) {
         const byUsername = await loadSubjectByUsernameUnlocked(
-          products.postparticleProductId!,
+          candidate.source,
           candidate.username!,
         );
         if (subject && byUsername && subject.subjectId !== byUsername.subjectId) {
-          report.errors.push(`Identity mapping conflict for ${key}.`);
+          report.errors.push("Identity mapping conflict for " + key + ".");
         } else if (byUsername) {
           subject = byUsername;
         }
       }
       if (subject?.primaryEmail && email && subject.primaryEmail.toLowerCase() !== email) {
-        report.errors.push(`Email conflict for ${key}.`);
+        report.errors.push("Email conflict for " + key + ".");
       }
       const candidateRefs = candidates.map((candidate) => candidate.sourceRef);
       const allSourcesAlreadyImported =
@@ -5650,13 +5627,13 @@ export async function importLegacyAuthData(
         }));
       if (subject?.passwordCredential && !allSourcesAlreadyImported) {
         credentialOptions.push({
-          sourceRef: `perminister:${subject.subjectId}`,
+          sourceRef: "perminister:" + subject.subjectId,
           credential: subject.passwordCredential,
         });
       }
       const distinct = new Map(
         credentialOptions.map((option) => [
-          `${option.credential.algorithm}:${option.credential.encodedVerifier}`,
+          option.credential.algorithm + ":" + option.credential.encodedVerifier,
           option,
         ]),
       );
@@ -5681,7 +5658,7 @@ export async function importLegacyAuthData(
         }
       }
       if (!selected) {
-        report.errors.push(`No usable password credential was found for ${key}.`);
+        report.errors.push("No usable password credential was found for " + key + ".");
         continue;
       }
       prepared.set(key, {
@@ -5694,54 +5671,42 @@ export async function importLegacyAuthData(
     }
 
     report.identities = groups.size;
-    report.memberships =
-      (input.visitoring?.memberships.length ?? 0) +
-      (input.postparticle?.memberships.filter((membership) => membership.role !== null).length ??
-        0);
+    report.memberships = memberships.length;
     if (dryRun || report.errors.length > 0 || report.conflicts.length > 0) return report;
 
     const subjectByKey = new Map<string, SubjectRecord>();
     for (const [key, item] of prepared) {
       const now = new Date().toISOString();
-      const sourceRefs = new Set(
-        item.subject?.legacySources?.map((source) =>
-          legacySourceRef(source.source, source.accountId),
-        ) ?? [],
-      );
-      for (const candidate of item.candidates) sourceRefs.add(candidate.sourceRef);
-      const legacySources: LegacyIdentitySource[] = [...sourceRefs].map((sourceRef) => {
-        const separator = sourceRef.indexOf(":");
-        return {
-          source: sourceRef.slice(0, separator) as LegacyIdentitySource["source"],
-          accountId: sourceRef.slice(separator + 1),
-        };
-      });
+      const sourceMap = new Map<string, LegacyIdentitySource>();
+      for (const source of item.subject?.legacySources ?? []) {
+        sourceMap.set(legacySourceRef(source.source, source.accountId), source);
+      }
+      for (const candidate of item.candidates) {
+        sourceMap.set(candidate.sourceRef, {
+          source: candidate.source,
+          accountId: candidate.accountId,
+        });
+      }
+      const legacySources = [...sourceMap.values()];
       const email =
         item.candidates.find((candidate) => candidate.email)?.email ??
         item.subject?.primaryEmail ??
         null;
-      const hasPostParticleAccount = item.candidates.some(
-        (candidate) => candidate.source === "postparticle",
-      );
-      const postParticleDisabled = item.candidates.some(
-        (candidate) => candidate.source === "postparticle" && candidate.disabled,
-      );
       let consumerProductStates = item.subject?.consumerProductStates ?? [];
-      if (hasPostParticleAccount && products.postparticleProductId) {
-        const previous = consumerProductStates.find(
-          (state) => state.productId === products.postparticleProductId,
+      for (const productId of new Set(item.candidates.map((candidate) => candidate.source))) {
+        const previous = consumerProductStates.find((state) => state.productId === productId);
+        const disabled = item.candidates.some(
+          (candidate) => candidate.source === productId && candidate.disabled,
         );
-        const status = postParticleDisabled ? "disabled" : "active";
+        const status = disabled ? "disabled" : "active";
         const productState: ConsumerProductState = {
-          productId: products.postparticleProductId,
+          productId,
           status,
           sessionVersion:
             (previous?.sessionVersion ?? 1) + ((previous?.status ?? "active") !== status ? 1 : 0),
         };
         consumerProductStates = [
-          ...consumerProductStates.filter(
-            (state) => state.productId !== products.postparticleProductId,
-          ),
+          ...consumerProductStates.filter((state) => state.productId !== productId),
           productState,
         ];
       }
@@ -5769,28 +5734,23 @@ export async function importLegacyAuthData(
       };
       const identifiers: ConsumerLoginIdentifier[] = [...(subject.loginIdentifiers ?? [])];
       for (const candidate of item.candidates) {
-        if (
-          candidate.source !== "postparticle" ||
-          !candidate.username ||
-          !products.postparticleProductId
-        )
-          continue;
+        if (!candidate.username) continue;
         const existing = identifiers.find(
           (identifier) =>
-            identifier.productId === products.postparticleProductId &&
+            identifier.productId === candidate.source &&
             identifier.normalizedValue === candidate.username,
         );
         if (existing) continue;
         const existingSubjectId = await store().findSubjectIdByUsername(
-          products.postparticleProductId,
+          candidate.source,
           candidate.username,
         );
         if (existingSubjectId && existingSubjectId !== subject.subjectId) {
-          throw new Error(`PostParticle username collision for ${candidate.username}.`);
+          throw new Error("Username collision for product " + candidate.source + ".");
         }
         identifiers.push({
           kind: "username",
-          productId: products.postparticleProductId,
+          productId: candidate.source,
           value: candidate.username,
           normalizedValue: candidate.username,
         });
@@ -5811,85 +5771,54 @@ export async function importLegacyAuthData(
       subjectByKey.set(key, subject);
     }
 
-    if (visitoring && products.visitoringProductId) {
-      for (const membership of visitoring.memberships) {
-        const key = visitoringRefToKey.get(membership.userId);
+    for (const product of products) {
+      const policy = consumerProductPolicy(product.productId);
+      for (const user of product.users) {
+        if (!user.platformAdmin) continue;
+        const accountId = user.accountId.trim();
+        const key = referenceToKey.get(legacySourceRef(product.productId, accountId));
         const subject = key ? subjectByKey.get(key) : undefined;
-        if (!subject || !consumerRoleActions("visitoring", membership.role)) continue;
-        const scope = consumerResourceScope("visitoring", {
-          organizationId: visitoring.organizationId,
-          productId: products.visitoringProductId,
-          scopeKind: "workspace",
-          resourceId: membership.workspaceId,
-        });
-        await ensureConsumerProductMembershipUnlocked(
-          subject,
-          scope.organizationId,
-          scope.productId,
-        );
+        if (!subject) continue;
+        const productScope: ResourceScope = {
+          kind: "product",
+          organizationId: product.organizationId as OrganizationId,
+          productId: product.productId,
+        };
         await upsertImportedRoleGrantUnlocked(
-          "visitoring",
+          product.productId,
           subject,
-          scope,
-          membership.role,
-          consumerRoleActions("visitoring", membership.role)!,
-          membership.active === false ? "disabled" : "active",
+          productScope,
+          "platform-admin",
+          policy?.platformAdminActions ?? [],
         );
       }
     }
 
-    if (postparticle && products.postparticleProductId) {
-      const policy = consumerProductPolicy("postparticle")!;
-      for (const user of postparticle.users) {
-        const username = normalizeProductUsername(user.username);
-        const key = postparticleRefToKey.get(username);
-        const subject = key ? subjectByKey.get(key) : undefined;
-        if (!subject) continue;
-        await ensureConsumerProductMembershipUnlocked(
-          subject,
-          postparticle.organizationId,
-          products.postparticleProductId,
-        );
-        if (user.platformAdmin) {
-          const productScope: ResourceScope = {
-            kind: "product",
-            organizationId: postparticle.organizationId as OrganizationId,
-            productId: products.postparticleProductId,
-          };
-          await upsertImportedRoleGrantUnlocked(
-            "postparticle",
-            subject,
-            productScope,
-            "platform-admin",
-            policy.platformAdminActions ?? [],
-          );
-        }
-      }
-      for (const membership of postparticle.memberships) {
-        if (!membership.role) continue;
-        const username = normalizeProductUsername(membership.username);
-        const key = postparticleRefToKey.get(username);
-        const subject = key ? subjectByKey.get(key) : undefined;
-        if (!subject) continue;
-        const scope = consumerResourceScope("postparticle", {
-          organizationId: postparticle.organizationId,
-          productId: products.postparticleProductId,
-          scopeKind: "project",
-          resourceId: membership.projectId,
-        });
-        await ensureConsumerProductMembershipUnlocked(
-          subject,
-          scope.organizationId,
-          scope.productId,
-        );
-        await upsertImportedRoleGrantUnlocked(
-          "postparticle",
-          subject,
-          scope,
-          membership.role,
-          consumerRoleActions("postparticle", membership.role)!,
-        );
-      }
+    for (const membership of memberships) {
+      if (!membership.role) continue;
+      const key = referenceToKey.get(legacySourceRef(membership.productId, membership.accountId));
+      const subject = key ? subjectByKey.get(key) : undefined;
+      if (!subject) continue;
+      const scope = consumerResourceScope(membership.productId, {
+        organizationId: membership.organizationId,
+        productId: membership.productId,
+        scopeKind: membership.scopeKind,
+        resourceId: membership.resourceId,
+      });
+      const actions = consumerRoleActions(
+        membership.productId,
+        membership.role,
+        membership.scopeKind,
+      );
+      if (!actions) continue;
+      await upsertImportedRoleGrantUnlocked(
+        membership.productId,
+        subject,
+        scope,
+        membership.role,
+        actions,
+        membership.active === false ? "disabled" : "active",
+      );
     }
     report.applied = true;
     return report;
@@ -6934,6 +6863,42 @@ export interface CreatedApiKey {
   rotationWarning: string | null;
 }
 
+async function createApiKeyWithRotationUnlocked(
+  owner: ApiKeyOwner,
+  scope: ResourceScope,
+  actions: readonly string[],
+  expiresAt: string | null,
+  previous: ApiKeyRecord | null,
+  actorSubjectId: SubjectId,
+  events: {
+    created: string;
+    rotatedCreated: string;
+    revokedPrevious: string;
+    rotationWarning: string;
+  },
+): Promise<CreatedApiKey> {
+  const { record, token } = createApiKeyDraft(owner, scope, actions, expiresAt, previous);
+  const actor = { kind: "subject" as const, subjectId: actorSubjectId };
+  await persistRecord(record, previous ? events.rotatedCreated : events.created, actor, {
+    keyClass: record.keyClass,
+    expiresAt: record.expiresAt,
+    changes: [{ field: "actions", before: [], after: [...record.actions] }],
+  });
+  let rotationWarning: string | null = null;
+  if (previous) {
+    try {
+      await persistRecord(
+        { ...previous, status: "revoked", revokedAt: new Date().toISOString() },
+        events.revokedPrevious,
+        actor,
+      );
+    } catch {
+      rotationWarning = events.rotationWarning;
+    }
+  }
+  return { record, token, rotationWarning };
+}
+
 export async function createServicePrincipal(
   actorId: SubjectId,
   organizationId: string,
@@ -7085,40 +7050,21 @@ export async function createApiKeyForServicePrincipal(
         "Choose one of this integration's API keys to rotate.",
       );
       await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
-      const { record, token } = createApiKeyDraft(
+      return createApiKeyWithRotationUnlocked(
         { kind: "service", servicePrincipalId: servicePrincipalId as ServicePrincipalId },
         scope,
         actions,
         options.expiresAt,
         previous,
-      );
-      await persistRecord(
-        record,
-        previous ? "api-key.service-rotated.created" : "api-key.service-created",
+        actor.subjectId,
         {
-          kind: "subject",
-          subjectId: actor.subjectId,
-        },
-        {
-          keyClass: record.keyClass,
-          expiresAt: record.expiresAt,
-          changes: [{ field: "actions", before: [], after: [...record.actions] }],
+          created: "api-key.service-created",
+          rotatedCreated: "api-key.service-rotated.created",
+          revokedPrevious: "api-key.service-rotated.revoked-previous",
+          rotationWarning:
+            "The new key was created, but the previous key could not be revoked. Revoke it from the integration key list.",
         },
       );
-      let rotationWarning: string | null = null;
-      if (previous) {
-        try {
-          await persistRecord(
-            { ...previous, status: "revoked", revokedAt: new Date().toISOString() },
-            "api-key.service-rotated.revoked-previous",
-            { kind: "subject", subjectId: actor.subjectId },
-          );
-        } catch {
-          rotationWarning =
-            "The new key was created, but the previous key could not be revoked. Revoke it from the integration key list.";
-        }
-      }
-      return { record, token, rotationWarning };
     }),
   );
 }
@@ -7222,40 +7168,21 @@ export async function createApiKeyForSubject(
         scope.organizationId,
         "Choose one of your own API keys to rotate.",
       );
-      const { record, token } = createApiKeyDraft(
+      return createApiKeyWithRotationUnlocked(
         { kind: "subject", subjectId },
         scope,
         actions,
         options.expiresAt,
         previous,
-      );
-      await persistRecord(
-        record,
-        previous ? "api-key.rotated.created" : "api-key.created",
+        subjectId,
         {
-          kind: "subject",
-          subjectId,
-        },
-        {
-          keyClass: record.keyClass,
-          expiresAt: record.expiresAt,
-          changes: [{ field: "actions", before: [], after: [...record.actions] }],
+          created: "api-key.created",
+          rotatedCreated: "api-key.rotated.created",
+          revokedPrevious: "api-key.rotated.revoked-previous",
+          rotationWarning:
+            "The new key was created, but the previous key could not be revoked. Revoke it from the key list.",
         },
       );
-      let rotationWarning: string | null = null;
-      if (previous) {
-        try {
-          await persistRecord(
-            { ...previous, status: "revoked", revokedAt: new Date().toISOString() },
-            "api-key.rotated.revoked-previous",
-            { kind: "subject", subjectId },
-          );
-        } catch {
-          rotationWarning =
-            "The new key was created, but the previous key could not be revoked. Revoke it from the key list.";
-        }
-      }
-      return { record, token, rotationWarning };
     }),
   );
 }
