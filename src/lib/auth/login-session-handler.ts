@@ -1,6 +1,7 @@
 import "server-only";
 
 import { safeConsumerAuthorizationReturnTo } from "@/lib/auth/consumer-sso";
+import { isSameOriginBrowserRequest } from "@/lib/auth/http";
 import { authenticate, createSession, setSessionCookie } from "@/lib/auth/service";
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
@@ -10,40 +11,6 @@ const PUBLIC_ORIGIN_PROTOCOL_HEADER = "x-perminister-public-proto";
 function formValue(formData: FormData, name: string): string {
   const value = formData.get(name);
   return typeof value === "string" ? value : "";
-}
-
-function isSameOriginRequest(request: Request): boolean {
-  const originHeader = request.headers.get("origin");
-  const refererHeader = request.headers.get("referer");
-  const isSameOriginFetch = request.headers.get("sec-fetch-site") === "same-origin";
-
-  // Fetch Metadata is set by the browser and cannot be supplied by page
-  // JavaScript. Use it when browser privacy settings or a local proxy omit or
-  // rewrite Origin and Referer.
-  if (isSameOriginFetch) return true;
-  if (!originHeader && !refererHeader) return false;
-
-  try {
-    // Browsers normally send Origin on POSTs. Use Referer as a same-origin
-    // fallback for clients that omit it, while still rejecting cross-origin
-    // submissions before reading the form body.
-    const source = new URL(originHeader ?? refererHeader!);
-    const requestUrl = new URL(request.url);
-    const publicProtocol = request.headers.get(PUBLIC_ORIGIN_PROTOCOL_HEADER);
-    const host =
-      request.headers.get(PUBLIC_ORIGIN_HOST_HEADER) ?? request.headers.get("host");
-    const protocol = publicProtocol ?? requestUrl.protocol.slice(0, -1);
-    return (
-      !!host &&
-      source.host === host &&
-      source.protocol === `${protocol}:` &&
-      (!originHeader || (source.pathname === "/" && !source.search && !source.hash)) &&
-      !source.username &&
-      !source.password
-    );
-  } catch {
-    return false;
-  }
 }
 
 function getProxyPublicOrigin(request: Request): string | null {
@@ -125,7 +92,7 @@ function invalidRequestResponse(): Response {
 }
 
 export async function handleLoginPost(request: Request): Promise<Response> {
-  if (!isSameOriginRequest(request)) {
+  if (!isSameOriginBrowserRequest(request)) {
     // A relative location returns the browser to this app without trusting a
     // possibly cross-origin Origin or Referer header.
     return invalidRequestResponse();
