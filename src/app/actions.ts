@@ -144,6 +144,19 @@ function publicActionError(error: unknown): string {
   return "Perminister could not complete that request. Check the Spaces and mail configuration, then try again.";
 }
 
+function revalidateTransferredProductPaths(transfer: {
+  affectedOrganizationIds: string[];
+  product: { productId: string };
+}): void {
+  revalidatePath("/dashboard/operations/shared-products");
+  for (const organizationId of transfer.affectedOrganizationIds) {
+    revalidatePath(`/dashboard/${encodeURIComponent(organizationId)}/products`);
+    revalidatePath(
+      `/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(transfer.product.productId)}`,
+    );
+  }
+}
+
 function firstValue(data: FormData, name: string): string {
   const value = data.get(name);
   return typeof value === "string" ? value : "";
@@ -592,13 +605,7 @@ export async function transferPublicProductAction(formData: FormData): Promise<v
     redirect(`/dashboard/operations/shared-products?error=product-transfer&reason=${message}`);
   }
 
-  revalidatePath("/dashboard/operations/shared-products");
-  for (const organizationId of transfer.affectedOrganizationIds) {
-    revalidatePath(`/dashboard/${encodeURIComponent(organizationId)}/products`);
-    revalidatePath(
-      `/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(transfer.product.productId)}`,
-    );
-  }
+  revalidateTransferredProductPaths(transfer);
   redirect("/dashboard/operations/shared-products?notice=product-transferred");
 }
 
@@ -625,13 +632,7 @@ export async function transferOwnedPublicProductAction(formData: FormData): Prom
     redirect(`${returnTo}?error=product-transfer&reason=${reason}`);
   }
 
-  revalidatePath("/dashboard/operations/shared-products");
-  for (const organizationId of transfer.affectedOrganizationIds) {
-    revalidatePath(`/dashboard/${encodeURIComponent(organizationId)}/products`);
-    revalidatePath(
-      `/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(transfer.product.productId)}`,
-    );
-  }
+  revalidateTransferredProductPaths(transfer);
   redirect(
     `/dashboard/${encodeURIComponent(transfer.destinationOrganizationId)}/products/${encodeURIComponent(transfer.product.productId)}?notice=product-transferred`,
   );
