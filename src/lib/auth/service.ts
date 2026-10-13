@@ -1148,6 +1148,7 @@ const ACTIVITY_SUMMARIES: Readonly<Record<string, string>> = {
   "consumer-client.created": "Created an application client",
   "consumer-client.secret-rotated": "Rotated an application client secret",
   "consumer-client.revoked": "Revoked an application client",
+  "consumer-client.publisher-transferred": "Transferred an application client to a new publisher",
   "consumer.member-role-updated": "Changed a member's application role",
   "credential.admin-reset": "Reset an account password",
   "credential.password-changed": "Changed an account password",
@@ -1452,6 +1453,16 @@ function activityDetails(event: AuthEvent): ActivityDetail[] {
     details.push({ label: ACTIVITY_CHANGE_LABELS[field], before, after });
   }
   return details;
+}
+
+function activityBelongsToOrganization(event: AuthEvent, organizationId: string): boolean {
+  const eventOrganizationId =
+    typeof event.payload.organizationId === "string"
+      ? event.payload.organizationId
+      : event.aggregate.kind === "organization"
+        ? event.aggregate.id
+        : null;
+  return eventOrganizationId === organizationId;
 }
 
 async function organizationActivityEntries(
@@ -3172,6 +3183,29 @@ async function transferPublicProduct(
           productName: source.name,
         },
       );
+      const sourceClients = (await listRecordsWithRecovery("consumer-client"))
+        .map((entry) => entry.record)
+        .filter(
+          (client) =>
+            client.organizationId === source.organizationId &&
+            client.productId === source.productId,
+        );
+      for (const client of sourceClients) {
+        await persistRecord(
+          {
+            ...client,
+            organizationId: destinationOrganizationId as OrganizationId,
+            updatedAt: new Date().toISOString(),
+          },
+          "consumer-client.publisher-transferred",
+          { kind: "subject", subjectId: actorId },
+          {
+            sourceOrganizationId: source.organizationId,
+            destinationOrganizationId,
+            productId: source.productId,
+          },
+        );
+      }
       await store().writeRecord(destinationProduct);
       invalidateOrganizationDashboardDataCache();
       await appendRecordActivityEvent(
@@ -3789,13 +3823,56 @@ function consumerClientSummary(record: ConsumerClientRecord): ConsumerClientSumm
   };
 }
 
-function consumerClientIsManageableInOrganization(
-  record: ConsumerClientRecord,
+async function consumerClientPublisherProductUnlocked(
   organizationId: string,
-): boolean {
-  // Older records did not store their managing organization. A product ID alone cannot prove
-  // which organization owns them when product IDs may be reused across organizations.
-  return record.organizationId === organizationId;
+  productId: string,
+): Promise<ProductRecord> {
+  const product = await store().readProduct(organizationId, productId);
+  if (!product) throw new Error("Product not found.");
+  const reference = product.sharedProductRef;
+  if (!reference) return product;
+
+  const publisher = await store().readProduct(
+    reference.sourceOrganizationId,
+    reference.sourceProductId,
+  );
+  if (
+    !publisher ||
+    publisher.sharedProductRef ||
+    publisher.productRecordId !== reference.sourceProductRecordId ||
+    publisher.productId !== productId ||
+    publisher.visibility !== "public"
+  ) {
+    throw new Error("The product publisher is unavailable.");
+  }
+  return publisher;
+}
+
+async function consumerClientOrganizationsForPublisherUnlocked(
+  publisher: ProductRecord,
+): Promise<Set<string>> {
+  const organizationIds = new Set<string>([publisher.organizationId]);
+  if (!isSharedProductSource(publisher)) return organizationIds;
+
+  const products = (await listRecordsWithRecovery("product")).map((entry) => entry.record);
+  for (const product of products) {
+    if (isActiveSharedInstallationForSource(product, publisher)) {
+      organizationIds.add(product.organizationId);
+    }
+  }
+  return organizationIds;
+}
+
+async function requirePublisherManagedConsumerClientProductUnlocked(
+  organizationId: string,
+  productId: string,
+): Promise<ProductRecord> {
+  const product = await store().readProduct(organizationId, productId);
+  if (!product) throw new Error("Product not found.");
+  if (product.sharedProductRef) {
+    throw new Error("App clients are managed by the product publisher.");
+  }
+  return product;
 }
 
 function validateConsumerClientOptions(productId: string, options: CreateConsumerClientOptions) {
@@ -3874,12 +3951,19 @@ export async function listConsumerClientsForProduct(
       "owner",
       "admin",
     ]);
+    const publisher = await consumerClientPublisherProductUnlocked(
+      organizationId,
+      normalizedProductId,
+    );
+    const manageableOrganizations =
+      await consumerClientOrganizationsForPublisherUnlocked(publisher);
     return (await listRecordsWithRecovery("consumer-client"))
       .map((item) => item.record)
       .filter(
         (record) =>
           record.productId === normalizedProductId &&
-          consumerClientIsManageableInOrganization(record, organizationId),
+          !!record.organizationId &&
+          manageableOrganizations.has(record.organizationId),
       )
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
       .map(consumerClientSummary);
@@ -3900,6 +3984,10 @@ async function withConsumerClientManager<Result>(
         "owner",
         "admin",
       ]);
+      await requirePublisherManagedConsumerClientProductUnlocked(
+        organizationId,
+        normalizedProductId,
+      );
       return operation(actor, normalizedProductId);
     }),
   );
@@ -3959,11 +4047,18 @@ export async function rotateConsumerClient(
     productId,
     async (actor, normalizedProductId) => {
       const found = await loadRecord("consumer-client", clientId);
+      const publisher = await consumerClientPublisherProductUnlocked(
+        organizationId,
+        normalizedProductId,
+      );
+      const manageableOrganizations =
+        await consumerClientOrganizationsForPublisherUnlocked(publisher);
       if (
         !found ||
         found.record.productId !== normalizedProductId ||
         found.record.status !== "active" ||
-        !consumerClientIsManageableInOrganization(found.record, organizationId)
+        !found.record.organizationId ||
+        !manageableOrganizations.has(found.record.organizationId)
       ) {
         throw new Error("Choose an active application client for this product.");
       }
@@ -3995,10 +4090,17 @@ export async function revokeConsumerClient(
     productId,
     async (actor, normalizedProductId) => {
       const found = await loadRecord("consumer-client", clientId);
+      const publisher = await consumerClientPublisherProductUnlocked(
+        organizationId,
+        normalizedProductId,
+      );
+      const manageableOrganizations =
+        await consumerClientOrganizationsForPublisherUnlocked(publisher);
       if (
         !found ||
         found.record.productId !== normalizedProductId ||
-        !consumerClientIsManageableInOrganization(found.record, organizationId)
+        !found.record.organizationId ||
+        !manageableOrganizations.has(found.record.organizationId)
       ) {
         throw new Error("Application client not found.");
       }
@@ -5031,23 +5133,26 @@ export async function listConsumerAccounts(
     );
     const policy = consumerProductPolicy(authenticatedProductId)!;
     const subjects = (await listRecordsWithRecovery("subject")).map((item) => item.record);
+    const organizationMemberships = await store().listOrganizationMemberships(organizationId);
+    const membershipsBySubject = new Map(
+      organizationMemberships
+        .filter((membership) => membership.productId === productId)
+        .map((membership) => [membership.subjectId, membership]),
+    );
     const result: ConsumerAccountView[] = [];
     for (const subject of subjects) {
       const username = usernameForProduct(subject, productId);
-      if (!username) continue;
-      const membership = await store().readOrganizationMembership(
-        organizationId,
-        subject.subjectId,
-        productId,
-      );
+      const membership = membershipsBySubject.get(subject.subjectId);
+      if (!username || !membership) continue;
       result.push({
         subjectId: subject.subjectId,
         email: subject.primaryEmail,
         username,
         status: consumerProductState(subject, productId).status,
-        platformAdmin:
-          !!membership &&
-          hasConsumerPlatformPermission(membership, policy.accountManagementAction ?? ""),
+        platformAdmin: hasConsumerPlatformPermission(
+          membership,
+          policy.accountManagementAction ?? "",
+        ),
       });
     }
     return result.sort((left, right) => left.username.localeCompare(right.username));
@@ -5171,7 +5276,12 @@ export async function updateConsumerAccount(
         input.productId,
       );
       const current = await loadSubjectUnlocked(subjectIdInput);
-      if (!current || !usernameForProduct(current, input.productId)) {
+      const organizationMembership = await store().readOrganizationMembership(
+        input.organizationId,
+        subjectIdInput as SubjectId,
+        input.productId,
+      );
+      if (!current || !usernameForProduct(current, input.productId) || !organizationMembership) {
         throw new Error("Account not found.");
       }
       const currentProductState = consumerProductState(current, input.productId);
@@ -6187,11 +6297,11 @@ export async function listOrganizationAudit(
   return authMutationQueue.read(async () => {
     await requireOrganizationRoleUnlocked(subjectId, organizationId, ["owner", "admin"]);
     const cappedLimit = Math.min(100, Math.max(0, Math.floor(limit)));
+    const events = await store().listOrganizationEvents(organizationId, undefined, cappedLimit);
     return organizationActivityEntries(
-      (await store().listOrganizationEvents(organizationId, undefined, cappedLimit)).slice(
-        0,
-        cappedLimit,
-      ),
+      events
+        .filter((event) => activityBelongsToOrganization(event, organizationId))
+        .slice(0, cappedLimit),
     );
   });
 }
@@ -6224,7 +6334,11 @@ export async function getOrganizationActivityPageData(
       getOrganizationDashboardData(subjectId, organizationId),
       store()
         .listOrganizationEvents(organizationId, undefined, 100)
-        .then((records) => records.slice(0, 100)),
+        .then((records) =>
+          records
+            .filter((event) => activityBelongsToOrganization(event, organizationId))
+            .slice(0, 100),
+        ),
     ]);
 
     const productNames = new Map(

@@ -1,9 +1,13 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
+import { currentDeploymentId } from "@/lib/deployment";
 
 const WRITE_PROXY_SECRET_HEADER = "x-perminister-write-proxy-secret";
 const PUBLIC_ORIGIN_HOST_HEADER = "x-perminister-public-host";
 const PUBLIC_ORIGIN_PROTOCOL_HEADER = "x-perminister-public-proto";
+const RELEASE_ID_HEADER = "x-perminister-release-id";
+const RELEASE_MISMATCH_HEADER = "x-perminister-release-mismatch";
+const ACTION_NOT_FOUND_HEADER = "x-nextjs-action-not-found";
 const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const HOP_BY_HOP_HEADERS = [
   "connection",
@@ -18,8 +22,8 @@ const HOP_BY_HOP_HEADERS = [
 const HEALTH_PATHS = new Set(["/api/health", "/api/ready"]);
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 
-function errorResponse(status: number, error: string): Response {
-  return Response.json({ error }, { status, headers: NO_STORE_HEADERS });
+function errorResponse(status: number, error: string, extraHeaders?: HeadersInit): Response {
+  return Response.json({ error }, { status, headers: { ...NO_STORE_HEADERS, ...extraHeaders } });
 }
 
 function getConfiguredSecret(): string | null {
@@ -41,6 +45,32 @@ function isWriterRuntime(): boolean {
     process.env.PERMINISTER_WRITER_MODE === "true" ||
     (process.env.NODE_ENV === "production" && process.env.VERCEL !== "1")
   );
+}
+
+function refreshTarget(request: NextRequest): URL {
+  const target = new URL(request.url);
+  target.searchParams.set("__perminister_action", "refresh");
+  return target;
+}
+
+function staleActionResponse(request: NextRequest): Response {
+  const target = refreshTarget(request);
+  const location = `${target.pathname}${target.search}`;
+  if (request.headers.has("next-action")) {
+    return new Response(null, {
+      status: 200,
+      headers: {
+        ...NO_STORE_HEADERS,
+        "Content-Type": "text/plain; charset=utf-8",
+        "x-action-redirect": `${location};replace`,
+      },
+    });
+  }
+
+  return new Response(null, {
+    status: 303,
+    headers: { ...NO_STORE_HEADERS, Location: target.toString() },
+  });
 }
 
 function isReadMethod(method: string): boolean {
@@ -68,6 +98,8 @@ function forwardHeaders(request: NextRequest, secret: string): Headers {
   // Preserve the browser-facing origin across the writer hop, where the host is rewritten.
   headers.set(PUBLIC_ORIGIN_HOST_HEADER, request.headers.get("host") ?? request.nextUrl.host);
   headers.set(PUBLIC_ORIGIN_PROTOCOL_HEADER, request.nextUrl.protocol.replace(/:$/, ""));
+  const releaseId = currentDeploymentId();
+  if (releaseId) headers.set(RELEASE_ID_HEADER, releaseId);
   return headers;
 }
 
@@ -141,6 +173,16 @@ function writerRequest(request: NextRequest): Response {
     return errorResponse(403, "Forbidden.");
   }
 
+  if (process.env.NODE_ENV === "production") {
+    const expectedReleaseId = request.headers.get(RELEASE_ID_HEADER);
+    const currentReleaseId = currentDeploymentId();
+    if (!expectedReleaseId || !currentReleaseId || expectedReleaseId !== currentReleaseId) {
+      return errorResponse(503, "The writer is on a different deployment.", {
+        [RELEASE_MISMATCH_HEADER]: "1",
+      });
+    }
+  }
+
   const headers = new Headers(request.headers);
   headers.delete(WRITE_PROXY_SECRET_HEADER);
   return NextResponse.next({ request: { headers } });
@@ -174,6 +216,26 @@ async function proxyWrite(request: NextRequest): Promise<Response> {
       redirect: "manual",
     });
 
+    if (upstream.headers.get(ACTION_NOT_FOUND_HEADER) === "1") {
+      console.warn("Server action deployment skew detected", {
+        path: request.nextUrl.pathname,
+        clientReleaseId: request.headers.get("x-deployment-id"),
+        currentReleaseId: currentDeploymentId(),
+      });
+      return staleActionResponse(request);
+    }
+
+    if (upstream.headers.get(RELEASE_MISMATCH_HEADER) === "1") {
+      console.warn("Mutation blocked while deployments are out of sync", {
+        path: request.nextUrl.pathname,
+        currentReleaseId: currentDeploymentId(),
+      });
+      if (request.headers.get("accept")?.includes("application/json")) {
+        return errorResponse(503, "Perminister is updating. Reload the page and try again.");
+      }
+      return staleActionResponse(request);
+    }
+
     return new Response(upstream.body, {
       status: upstream.status,
       statusText: upstream.statusText,
@@ -188,6 +250,21 @@ export async function proxy(request: NextRequest): Promise<Response> {
   const hostedVercel = process.env.VERCEL === "1" && process.env.VERCEL_ENV !== "development";
   if (hostedVercel) {
     if (isReadMethod(request.method)) return NextResponse.next();
+    const clientReleaseId = request.headers.get("x-deployment-id");
+    const currentReleaseId = currentDeploymentId();
+    if (
+      request.method === "POST" &&
+      clientReleaseId &&
+      currentReleaseId &&
+      clientReleaseId !== currentReleaseId
+    ) {
+      console.warn("Stale page submission refreshed", {
+        path: request.nextUrl.pathname,
+        clientReleaseId,
+        currentReleaseId,
+      });
+      return staleActionResponse(request);
+    }
     return proxyWrite(request);
   }
 
@@ -205,6 +282,7 @@ export async function proxy(request: NextRequest): Promise<Response> {
 export const config = {
   matcher: [
     "/api/:path*",
+    "/actions/:path*",
     "/oauth/authorize",
     "/accept-invitation",
     "/dashboard/:path*",

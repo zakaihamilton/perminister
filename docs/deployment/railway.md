@@ -19,7 +19,8 @@ The Railway project, production environment, and Perminister service must exist 
 workflow run.
 
 The project token is scoped to its Railway environment and is used only by the deploy step. The
-workflow installs Railway CLI `5.63.4` and uploads the checked-out commit with `railway up`.
+workflow installs Railway CLI `5.63.4`, sets `NEXT_DEPLOYMENT_ID` to the checked-out commit SHA,
+and uploads that commit with `railway up`.
 
 ## Railway service settings
 
@@ -35,21 +36,26 @@ workflow installs Railway CLI `5.63.4` and uploads the checked-out commit with `
 ## Vercel read and Railway write split
 
 Vercel serves `GET` and `HEAD` requests from its Next.js deployment, which reads auth records from
-Spaces. All other methods are proxied to Railway, including Server Action `POST` requests. The
-Railway service accepts writes only from requests carrying the shared internal secret and rejects
-other application routes when accessed directly.
+Spaces. Mutations use stable, same-origin `POST` routes such as `/login/submit`, `/logout/submit`,
+and `/actions/<action-name>`; Vercel proxies them to Railway. These form endpoints do not depend on
+build-specific Next.js Server Action IDs. The Railway service accepts writes only from requests
+carrying the shared internal secret and rejects other application routes when accessed directly.
 
 Configure these values in **both** Vercel Production and Railway:
 
-| Name                                 | Vercel Production                            | Railway                                      |
-| ------------------------------------ | -------------------------------------------- | -------------------------------------------- |
-| `PERMINISTER_WRITE_PROXY_SECRET`     | Same random value, at least 32 bytes         | Same random value, at least 32 bytes         |
-| `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | Same base64-encoded key at build and runtime | Same base64-encoded key at build and runtime |
+| Name                             | Vercel Production                    | Railway                              |
+| -------------------------------- | ------------------------------------ | ------------------------------------ |
+| `PERMINISTER_WRITE_PROXY_SECRET` | Same random value, at least 32 bytes | Same random value, at least 32 bytes |
 
-Generate each value once and enter it in both services. For example, `openssl rand -hex 32` makes
-the proxy secret and `openssl rand -base64 32` makes a valid Next.js encryption key. Never commit
-either value. Keep the Next.js key stable across deployments. Vercel and Railway must build the same
-source revision so Server Actions rendered by Vercel are present on the Railway writer.
+Generate the proxy secret once and enter it in both services. For example, `openssl rand -hex 32`
+makes a suitable value. Never commit it.
+
+The Railway workflow updates `NEXT_DEPLOYMENT_ID` to the commit SHA before each deploy. Vercel uses
+`VERCEL_GIT_COMMIT_SHA` as its deployment ID. The `/api/ready` endpoint reports not-ready while the
+Vercel and Railway revisions differ, and the write proxy returns a refresh response for a stale
+page or a temporary error for an in-flight client request. This prevents writes from crossing
+deployment revisions during rollout. Keep both deployments on the same source commit before
+enabling production mutations.
 
 In Vercel Production, also set:
 
@@ -73,12 +79,10 @@ Vercel process. Railway readiness returns `503` if its shared proxy secret is mi
 
 Local `npm run dev` works without proxy variables and handles mutations locally as before. To send
 local mutations to Railway, set `PERMINISTER_WRITE_PROXY_URL` and the shared
-`PERMINISTER_WRITE_PROXY_SECRET` in `.env.local`. The local Server Action build must use the same
-`NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` and source revision as Railway for its Server Action requests
-to be accepted. Local proxy URLs can use HTTPS Railway domains or an HTTP loopback address for a
-local writer; hosted Vercel deployments require HTTPS. If local reads use the production bucket,
-use a read-only Spaces key locally too. Without the proxy settings, point local development at a
-separate bucket with its own read/write key.
+`PERMINISTER_WRITE_PROXY_SECRET` in `.env.local`. Local proxy URLs can use HTTPS Railway domains or
+an HTTP loopback address for a local writer; hosted Vercel deployments require HTTPS. If local
+reads use the production bucket, use a read-only Spaces key locally too. Without the proxy
+settings, point local development at a separate bucket with its own read/write key.
 
 Perminister stores auth records in DigitalOcean Spaces, and its mutation queue is process-local.
 Only one Railway process may write to a given bucket. Vercel instances can scale for reads when

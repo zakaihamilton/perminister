@@ -1,5 +1,4 @@
 import Image from "next/image";
-import { createGrantAction, updateGrantStatusAction } from "@/app/actions";
 import { AccessGrantActionsFields } from "@/components/access-grant-actions-fields";
 import { AccessGrantScopeFields } from "@/components/access-grant-scope-fields";
 import { CustomDropdown } from "@/components/custom-dropdown";
@@ -45,7 +44,7 @@ export function ProductAccessGrantCard({
         <span className={`record-badge ${grant.status}`}>{grant.status}</span>
       </div>
       {canManage ? (
-        <form action={updateGrantStatusAction}>
+        <form action="/actions/updateGrantStatusAction" method="post">
           <input type="hidden" name="organizationId" value={organizationId} />
           <input type="hidden" name="productId" value={productId} />
           <input type="hidden" name="membershipId" value={grant.membershipId} />
@@ -126,7 +125,7 @@ export function AccessGrantCreationSection({
         </div>
       </div>
       {eligibleMembers.length ? (
-        <form action={createGrantAction} className="auth-form access-form">
+        <form action="/actions/createGrantAction" method="post" className="auth-form access-form">
           <input type="hidden" name="organizationId" value={organizationId} />
           <input type="hidden" name="productId" value={productId} />
           <div className="form-grid">

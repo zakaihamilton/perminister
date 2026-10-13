@@ -42,7 +42,10 @@ export function ProductPageNotices({
         <DashboardNotice message="Product availability updated." kind="success" />
       ) : null}
       {notice === "product-transferred" ? (
-        <DashboardNotice message="Publisher role transferred to this organization." kind="success" />
+        <DashboardNotice
+          message="Publisher role transferred to this organization."
+          kind="success"
+        />
       ) : null}
       {error === "product-visibility-invalid" ? (
         <DashboardNotice

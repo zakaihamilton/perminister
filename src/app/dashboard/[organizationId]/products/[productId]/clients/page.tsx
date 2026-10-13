@@ -17,6 +17,7 @@ export default async function ProductClientsPage({
     searchParams,
   ]);
   requireProductManagerRole(access.membership?.role, organizationId, productId);
+  const isSharedInstallation = Boolean(access.product.sharedProductRef);
 
   const clients = await listConsumerClientsForProduct(
     current.subject.subjectId,
@@ -28,10 +29,14 @@ export default async function ProductClientsPage({
   return (
     <>
       <DashboardHeading
-        description={`Connect ${access.product.name} to Perminister with app client credentials.`}
+        description={
+          isSharedInstallation
+            ? `${access.product.name} uses the publisher’s app client configuration across every organization using this public product.`
+            : `Connect ${access.product.name} to Perminister with app client credentials.`
+        }
       />
       <ProductNavigation
-        isSharedInstallation={Boolean(access.product.sharedProductRef)}
+        isSharedInstallation={isSharedInstallation}
         organizationId={organizationId}
         productId={productId}
         productName={access.product.name}
@@ -51,6 +56,7 @@ export default async function ProductClientsPage({
         productId={productId}
         productName={access.product.name}
         returnTo={returnTo}
+        readOnly={isSharedInstallation}
       />
     </>
   );

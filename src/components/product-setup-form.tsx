@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { lookupProductWebsiteAction, type ProductLookupState } from "@/app/actions";
+import { useEffect, useState, type FormEvent } from "react";
+import type { ProductLookupState } from "@/app/actions";
+import { submitStableAction } from "@/lib/action-client";
 import { productSlug } from "@/lib/product-slug";
 import {
   ProductDetailsReviewStep,
@@ -9,10 +10,8 @@ import {
 } from "@/components/product-setup-steps";
 
 export function ProductSetupForm({ organizationId }: { organizationId: string }) {
-  const [lookupState, lookupAction, pending] = useActionState<ProductLookupState, FormData>(
-    lookupProductWebsiteAction,
-    {},
-  );
+  const [lookupState, setLookupState] = useState<ProductLookupState>({});
+  const [pending, setPending] = useState(false);
   const [source, setSource] = useState("");
   const [manual, setManual] = useState(false);
   const [name, setName] = useState("");
@@ -21,6 +20,26 @@ export function ProductSetupForm({ organizationId }: { organizationId: string })
   const [description, setDescription] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [iconUrl, setIconUrl] = useState("");
+
+  async function handleLookupSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPending(true);
+    try {
+      setLookupState(
+        await submitStableAction<ProductLookupState>(
+          "lookupProductWebsiteAction",
+          new FormData(event.currentTarget),
+        ),
+      );
+    } catch (error) {
+      setLookupState({
+        error: error instanceof Error ? error.message : "Please try again.",
+        source,
+      });
+    } finally {
+      setPending(false);
+    }
+  }
 
   /* eslint-disable react-hooks/set-state-in-effect -- The server action returns a suggested editable draft. */
   useEffect(() => {
@@ -62,7 +81,7 @@ export function ProductSetupForm({ organizationId }: { organizationId: string })
   return (
     <div className="product-setup-flow">
       <ProductWebsiteLookupStep
-        lookupAction={lookupAction}
+        onLookupSubmit={handleLookupSubmit}
         lookupState={lookupState}
         onStartManualEntry={startManualEntry}
         onSourceChange={setSource}

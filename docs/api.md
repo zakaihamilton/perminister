@@ -6,14 +6,17 @@ The paths below are relative to the Perminister base URL provided by the platfor
 
 ## Client credentials
 
-Product owners and admins create an app client from the product’s **App clients** page. Each client
-is bound to that product and has its own session lifetime, optional app origin, and self-registration
-setting. Perminister returns the client ID and secret once; copy them into the
-application backend’s environment. Owners and admins can rotate or revoke credentials from the same
-page. Rotating a secret immediately invalidates the previous one, and revoking a client stops its
-credentials from working. Set the exact canonical product origin to enable Sign in with Perminister.
-The SSO callback path is `/auth/perminister/callback`. The application backend sends these headers when calling consumer
-endpoints:
+Product owners and admins create app clients from the product’s **App clients** page in its
+publishing organization. Each client is bound to that product and has its own session lifetime,
+optional app origin, and self-registration setting. For a public product, the publisher manages this
+configuration once and all organizations using the product share it. Product managers in those
+organizations can view client details, while only the publisher can create, rotate, or revoke
+clients. A product can have multiple clients for separate app deployments or environments.
+Perminister returns each client ID and secret once; copy them into the corresponding application
+backend’s environment. Rotating a secret immediately invalidates the previous one, and revoking a
+client stops its credentials from working. Set the exact canonical product origin to enable Sign in
+with Perminister. The SSO callback path is `/auth/perminister/callback`. The application backend
+sends these headers when calling consumer endpoints:
 
 ```http
 X-Perminister-Client-Id: <CLIENT_ID>
@@ -29,12 +32,13 @@ headers for authorization.
 
 Products are private to their organization when created. An organization owner or admin can make a
 product public from its details page. Owners and admins in other approved organizations can then add
-it from their **Products** page without recreating its product ID or configuration. Product details
-and access role templates come from the publishing organization and stay in sync; each organization
-keeps its own members, access grants, app clients, integrations, and API keys. A different product
-with the same ID blocks an install until that conflict is resolved. Making a shared product private
-removes its installations from other organizations and revokes their product-scoped access and
-credentials.
+it from their **Products** page without recreating its product ID or configuration. Product details,
+access role templates, and app client configuration come from the publishing organization and stay
+in sync; each organization keeps its own members, access grants, integrations, and API keys. A
+different product with the same ID blocks an install until that conflict is resolved. Making a
+shared product private removes its installations from other organizations and revokes their
+organization-specific access, pending invitations, integrations, and API keys. The publisher’s app
+clients remain with the product in the publisher organization.
 
 JSON request bodies must use `Content-Type: application/json`. Most are limited to 8 KiB; consumer
 member and account management requests allow 16 KiB, and the legacy import allows 25 MiB. Malformed
@@ -252,22 +256,26 @@ organization:
 
 | Method  | Route                                             | Purpose                                                           |
 | ------- | ------------------------------------------------- | ----------------------------------------------------------------- |
-| `GET`   | `/api/auth/consumer/accounts?organizationId=<ID>` | List PostParticle accounts                                        |
+| `GET`   | `/api/auth/consumer/accounts?organizationId=<ID>` | List PostParticle accounts associated with that organization      |
 | `POST`  | `/api/auth/consumer/accounts`                     | Create/link a username and provision an account                   |
 | `PATCH` | `/api/auth/consumer/accounts/{subjectId}`         | Enable/disable an account, reset its password, or revoke sessions |
 
-Account creation accepts `organizationId`, `username`, `password`, optional `email`, and optional
-`platformAdmin`. Email may be omitted. If the email already identifies a central account, Perminister
-links the product username to that identity and retains its current password; the response has
-`created: false`. A platform admin can use `platformAdmin: true` to provision another platform admin.
+The account list and updates are limited to accounts associated with the supplied organization; an
+account belonging only to another organization is not returned or manageable. Account creation
+accepts `organizationId`, `username`, `password`, optional `email`, and optional `platformAdmin`.
+Email may be omitted. If the email already identifies a central account, Perminister links the
+product username to that identity and adds it to the requested organization while retaining its
+current password; the response has `created: false`. A platform admin can use `platformAdmin: true`
+to provision another platform admin.
 Account updates accept `organizationId` plus one or more of `status`, `password`,
 `revokeSessions: true`, and `platformAdmin` (`true` to grant or `false` to revoke platform-admin
-access). `status` applies to PostParticle, so disabling PostParticle access does not disable that
-person's shared identity in Visitoring. Disabling or enabling PostParticle access and `revokeSessions`
-invalidate PostParticle sessions. Passwords belong to the shared identity, so resetting one invalidates
-sessions in both apps. Application administrators cannot reset a password for an identity linked to
-another product; the account owner must use Perminister's password recovery or change flow. An
-administrator cannot change their own global account here.
+access). The account `status` applies to PostParticle across its organizations, so disabling it blocks
+that app account everywhere the product is installed; organization memberships and resource grants
+remain organization-specific. Disabling or enabling PostParticle access and `revokeSessions` invalidate
+PostParticle sessions. Passwords belong to the shared identity, so resetting one invalidates sessions
+in both apps. Application administrators cannot reset a password for an identity linked to another
+product; the account owner must use Perminister's password recovery or change flow. An administrator
+cannot change their own global account here.
 
 ## Legacy account import
 

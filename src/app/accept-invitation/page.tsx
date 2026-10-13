@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { acceptOrganizationInvitationAction } from "@/app/actions";
 import { SiteFooter, SiteHeader } from "@/components/site-shell";
 import { getCurrentSession } from "@/lib/auth/service";
 
@@ -45,7 +44,11 @@ export default async function AcceptInvitationPage({
                   Signed in as <strong>{current.subject.primaryEmail}</strong>. The invitation can
                   only be accepted by the email address it was sent to.
                 </p>
-                <form action={acceptOrganizationInvitationAction} className="auth-form">
+                <form
+                  action="/actions/acceptOrganizationInvitationAction"
+                  method="post"
+                  className="auth-form"
+                >
                   <input type="hidden" name="token" value={token} />
                   <button className="button button-primary form-submit" type="submit">
                     Accept invitation

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { SiteFooter, SiteHeader } from "@/components/site-shell";
-import { verifyEmailAction } from "@/app/actions";
 
 export default async function VerifyEmailPage({
   searchParams,
@@ -23,7 +22,7 @@ export default async function VerifyEmailPage({
               </p>
             ) : null}
             {token ? (
-              <form action={verifyEmailAction} className="auth-form">
+              <form action="/actions/verifyEmailAction" method="post" className="auth-form">
                 <input type="hidden" name="token" value={token} />
                 <button className="button button-primary form-submit" type="submit">
                   Verify email

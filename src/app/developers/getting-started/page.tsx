@@ -14,11 +14,11 @@ export const metadata = withCanonical(
 const steps = [
   {
     title: "Set up the product in Perminister",
-    body: "Add the product to the organization that will use it. Keep its product ID stable; the app client is bound to that ID, while each organization's members and grants remain separate.",
+    body: "Set up the product in the organization that publishes the app. Keep its product ID stable; organizations that install the public product share its app client configuration while keeping their own members and grants.",
   },
   {
     title: "Connect the app backend",
-    body: "A product owner or admin creates an app client from the product’s App clients page and sets its exact canonical app origin. Copy the client ID and one-time secret into the app backend. The backend sends them in X-Perminister-Client-Id and X-Perminister-Client-Secret headers; never include the secret in browser code or logs.",
+    body: "A product owner or admin creates an app client from the publisher product’s App clients page and sets its exact canonical app origin. Reuse that client across organizations installing the public product. Copy the client ID and one-time secret into the app backend. The backend sends them in X-Perminister-Client-Id and X-Perminister-Client-Secret headers; never include the secret in browser code or logs.",
   },
   {
     title: "Keep the app's own session",

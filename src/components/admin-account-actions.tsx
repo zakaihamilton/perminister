@@ -1,7 +1,6 @@
 "use client";
 
 import { useId } from "react";
-import { deleteAccountAction, updateAccountStatusAction } from "@/app/actions";
 import { useModalDialog } from "@/components/use-modal-dialog";
 
 export function AdminAccountActions({
@@ -18,7 +17,7 @@ export function AdminAccountActions({
 
   return (
     <div className="admin-account-actions">
-      <form action={updateAccountStatusAction}>
+      <form action="/actions/updateAccountStatusAction" method="post">
         <input type="hidden" name="subjectId" value={subjectId} />
         <input type="hidden" name="status" value={status === "active" ? "disabled" : "active"} />
         <button className="button button-secondary" type="submit">
@@ -51,7 +50,7 @@ export function AdminAccountActions({
               <button className="button button-secondary" type="button" onClick={closeDialog}>
                 Cancel
               </button>
-              <form action={deleteAccountAction}>
+              <form action="/actions/deleteAccountAction" method="post">
                 <input type="hidden" name="subjectId" value={subjectId} />
                 <button className="button button-danger" type="submit">
                   Permanently delete account

@@ -1,4 +1,5 @@
 import { checkAuthStorageReadiness } from "@/lib/auth/service";
+import { currentDeploymentId } from "@/lib/deployment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,7 +9,52 @@ const noStoreHeaders = { "Cache-Control": "no-store" };
 export async function GET() {
   try {
     await checkAuthStorageReadiness();
-    return Response.json({ service: "perminister", status: "ready" }, { headers: noStoreHeaders });
+    const deploymentId = currentDeploymentId();
+    if (process.env.VERCEL === "1" && process.env.VERCEL_ENV === "production") {
+      const writerOrigin = process.env.PERMINISTER_WRITE_PROXY_URL;
+      if (!deploymentId || !writerOrigin) throw new Error("Release configuration is missing.");
+      const url = new URL(writerOrigin);
+      if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/") {
+        throw new Error("Writer origin is invalid.");
+      }
+      url.pathname = "/api/ready";
+      const writerResponse = await fetch(url, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(5_000),
+      });
+      const writer = (await writerResponse.json()) as {
+        deploymentId?: string | null;
+        status?: string;
+      };
+      if (!writerResponse.ok || writer.status !== "ready" || writer.deploymentId !== deploymentId) {
+        return Response.json(
+          {
+            service: "perminister",
+            status: "not-ready",
+            deploymentId,
+            writerDeploymentId: writer.deploymentId ?? null,
+          },
+          { status: 503, headers: noStoreHeaders },
+        );
+      }
+      return Response.json(
+        {
+          service: "perminister",
+          status: "ready",
+          deploymentId,
+          writerDeploymentId: writer.deploymentId,
+        },
+        { headers: noStoreHeaders },
+      );
+    }
+    return Response.json(
+      {
+        service: "perminister",
+        status: "ready",
+        ...(deploymentId ? { deploymentId } : {}),
+      },
+      { headers: noStoreHeaders },
+    );
   } catch {
     return Response.json(
       { service: "perminister", status: "not-ready" },

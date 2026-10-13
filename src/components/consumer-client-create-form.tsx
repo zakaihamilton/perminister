@@ -1,9 +1,7 @@
-import { useId } from "react";
-
-type FormAction = (payload: FormData) => void;
+import { useId, type FormEventHandler } from "react";
 
 interface ConsumerClientCreateFormProps {
-  action: FormAction;
+  onSubmit: FormEventHandler<HTMLFormElement>;
   organizationId: string;
   productId: string;
   productName: string;
@@ -18,7 +16,7 @@ function defaultSessionLifetimeHours(productId: string): string {
 }
 
 export function ConsumerClientCreateForm({
-  action,
+  onSubmit,
   organizationId,
   productId,
   productName,
@@ -38,7 +36,12 @@ export function ConsumerClientCreateForm({
           </p>
         </div>
       </div>
-      <form action={action} className="auth-form">
+      <form
+        action="/actions/createOrRotateConsumerClientAction"
+        method="post"
+        onSubmit={onSubmit}
+        className="auth-form"
+      >
         <input type="hidden" name="organizationId" value={organizationId} />
         <input type="hidden" name="productId" value={productId} />
         <input type="hidden" name="returnTo" value={returnTo} />

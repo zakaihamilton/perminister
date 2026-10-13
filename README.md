@@ -25,10 +25,10 @@ operator for a local environment file. Application integrators only need the
 ## Production storage topology
 
 Vercel serves reads directly from DigitalOcean Spaces with a read-only Spaces key. It sends every
-mutation, including Next.js Server Actions and API writes, through its Functions to the Railway
-writer. Railway is the only service with write-capable Spaces credentials. This keeps the
-process-local mutation queue and recovery throttles behind one writer; Spaces `PutObject` does not
-provide the conditional writes needed to coordinate independent writers.
+mutation through stable same-origin routes to the Railway writer. These requests do not use
+build-specific Next.js Server Action IDs. Railway is the only service with write-capable Spaces
+credentials. This keeps the process-local mutation queue and recovery throttles behind one writer;
+Spaces `PutObject` does not provide the conditional writes needed to coordinate independent writers.
 
 Configure the Railway service with one replica in one region and set its deployment overlap to zero.
 The [`deploy-railway.yml`](.github/workflows/deploy-railway.yml)

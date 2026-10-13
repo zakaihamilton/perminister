@@ -43,6 +43,12 @@ jobs:
           test -n "$RAILWAY_ENVIRONMENT_ID" || { echo "Missing GitHub variable RAILWAY_ENVIRONMENT_ID" >&2; exit 1; }
           test -n "$RAILWAY_SERVICE_ID" || { echo "Missing GitHub variable RAILWAY_SERVICE_ID" >&2; exit 1; }
 
+          railway variable set "NEXT_DEPLOYMENT_ID=$GITHUB_SHA" \
+            --project "$RAILWAY_PROJECT_ID" \
+            --environment "$RAILWAY_ENVIRONMENT_ID" \
+            --service "$RAILWAY_SERVICE_ID" \
+            --skip-deploys
+
           railway up \
             --project "$RAILWAY_PROJECT_ID" \
             --environment "$RAILWAY_ENVIRONMENT_ID" \

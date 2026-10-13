@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { revokeApiKeyAction } from "@/app/actions";
 import { DashboardNotice } from "@/components/dashboard-shell";
 import type { ApiKeyRecord } from "@/lib/auth/domain";
 
@@ -60,7 +59,7 @@ export function ApiKeyItem({
       </div>
       <div className="record-actions">
         {status === "active" ? (
-          <form action={revokeApiKeyAction}>
+          <form action="/actions/revokeApiKeyAction" method="post">
             <input type="hidden" name="apiKeyId" value={apiKey.apiKeyId} />
             <input type="hidden" name="returnTo" value={returnTo} />
             <button className="button button-secondary" type="submit">

@@ -70,6 +70,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
         <ProductOnboardingCard
           connectedClients={connectedClients}
           isSharedInstallation={isSharedInstallation}
+          isPublicPublisher={!isSharedInstallation && product.visibility === "public"}
           organizationId={organizationId}
           productId={productId}
         />

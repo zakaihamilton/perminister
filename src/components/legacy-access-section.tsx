@@ -1,5 +1,3 @@
-import { retireLegacyAccessAction } from "@/app/actions";
-
 export function LegacyAccessSection({ legacy }: { legacy: { grants: number; keys: number } }) {
   return (
     <section className="dashboard-card operations-migration">
@@ -19,7 +17,7 @@ export function LegacyAccessSection({ legacy }: { legacy: { grants: number; keys
         </span>
       </div>
       {legacy.grants || legacy.keys ? (
-        <form action={retireLegacyAccessAction}>
+        <form action="/actions/retireLegacyAccessAction" method="post">
           <button className="button button-primary" type="submit">
             Remove older access
           </button>

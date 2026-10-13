@@ -1,8 +1,3 @@
-import {
-  inviteProductMemberAction,
-  removeProductMemberAction,
-  updateProductMemberRoleAction,
-} from "@/app/actions";
 import { CustomDropdown } from "@/components/custom-dropdown";
 import { DashboardNotice } from "@/components/dashboard-shell";
 import { isMailDeliveryConfigured } from "@/lib/auth/mail";
@@ -63,7 +58,7 @@ function ProductMemberRow({
       <span className={`role-pill role-${membership.role}`}>{membership.role}</span>
       {isOwner ? (
         <div className="people-row-actions">
-          <form action={updateProductMemberRoleAction}>
+          <form action="/actions/updateProductMemberRoleAction" method="post">
             <input type="hidden" name="organizationId" value={organizationId} />
             <input type="hidden" name="productId" value={productId} />
             <input type="hidden" name="subjectId" value={membership.subjectId} />
@@ -86,7 +81,7 @@ function ProductMemberRow({
               Save role
             </button>
           </form>
-          <form action={removeProductMemberAction}>
+          <form action="/actions/removeProductMemberAction" method="post">
             <input type="hidden" name="organizationId" value={organizationId} />
             <input type="hidden" name="productId" value={productId} />
             <input type="hidden" name="subjectId" value={membership.subjectId} />
@@ -159,7 +154,11 @@ export function InviteProductMemberSection({
           <p>Invitations apply to this product only and expire after seven days.</p>
         </div>
       </div>
-      <form action={inviteProductMemberAction} className="auth-form invite-form">
+      <form
+        action="/actions/inviteProductMemberAction"
+        method="post"
+        className="auth-form invite-form"
+      >
         <input type="hidden" name="organizationId" value={organizationId} />
         <input type="hidden" name="productId" value={productId} />
         <label>

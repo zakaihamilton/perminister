@@ -1,4 +1,3 @@
-import { createOrganizationAction } from "@/app/actions";
 import { DashboardNotice } from "@/components/dashboard-shell";
 import { OrganizationRequestHistoryRecord } from "@/components/organization-request-history-record";
 import type { OrganizationRequestSummary } from "@/lib/auth/service";
@@ -85,7 +84,7 @@ export function OrganizationRequestSubmission({
   }
   return (
     <section className="dashboard-card new-organization-card">
-      <form action={createOrganizationAction} className="auth-form">
+      <form action="/actions/createOrganizationAction" method="post" className="auth-form">
         <input type="hidden" name="returnTo" value="/dashboard/new-organization" />
         <label>
           Organization name

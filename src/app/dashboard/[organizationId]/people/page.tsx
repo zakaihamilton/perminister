@@ -1,4 +1,3 @@
-import { revokeOrganizationInvitationAction } from "@/app/actions";
 import { PendingInvitations } from "@/components/pending-invitations";
 import { DashboardHeading } from "@/components/dashboard-shell";
 import {
@@ -41,11 +40,7 @@ export default async function PeoplePage(
 
       {owner ? <InviteOrganizationMemberSection organizationId={organizationId} /> : null}
 
-      <PendingInvitations
-        invitations={invitations}
-        organizationId={organizationId}
-        formAction={revokeOrganizationInvitationAction}
-      />
+      <PendingInvitations invitations={invitations} organizationId={organizationId} />
       <p className="role-help">
         Product owner and admin roles, invitations, and permissions are managed on that
         product&apos;s Members and Permissions pages.
