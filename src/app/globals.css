@@ -3410,18 +3410,52 @@ button:focus-visible {
   gap: 9px;
 }
 .access-grant-card {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+  gap: 8px 14px;
   border: 1px solid var(--line);
   border-radius: 9px;
   padding: 14px;
   background: white;
 }
+.access-grant-main {
+  display: grid;
+  grid-column: 1;
+  grid-row: 2;
+  gap: 7px;
+  min-width: 0;
+}
 .access-grant-main > div {
   display: grid;
   gap: 5px;
+}
+.access-grant-member-heading {
+  display: flex;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.access-grant-member-heading strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.access-grant-member-heading .record-badge {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+.access-grant-actions {
+  display: flex;
+  grid-column: 2;
+  grid-row: 2;
+  align-self: center;
+  justify-self: end;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .access-grant-main strong {
   color: #344158;
@@ -4272,8 +4306,24 @@ html[data-theme="dark"] .operations-section-link:hover {
     height: 27px;
   }
   .access-grant-card {
-    align-items: flex-start;
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .access-grant-member-heading {
+    grid-column: 1;
+  }
+  .access-grant-main {
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+  }
+  .access-grant-actions {
+    grid-column: 1;
+    grid-row: 3;
+    width: 100%;
+    justify-self: start;
+    align-self: start;
+    justify-content: flex-end;
   }
   .people-row {
     gap: 9px;
@@ -5042,6 +5092,10 @@ summary:focus-visible {
   border-width: 0 0 1px;
   border-radius: 0;
   padding: 14px 2px;
+}
+.access-grant-card {
+  padding-right: 12px;
+  padding-left: 12px;
 }
 .record-item {
   background: transparent;
@@ -7481,7 +7535,15 @@ html[data-theme="dark"] .home-closing-button:hover {
 }
 .access-explainer {
   display: grid;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(130px, 165px);
+  gap: 16px 20px;
+}
+.access-explainer-content {
+  display: grid;
+  min-width: 0;
+  gap: 20px;
+  grid-column: 1;
+  grid-row: 1;
 }
 .access-visual-overview {
   display: grid;
@@ -7499,6 +7561,11 @@ html[data-theme="dark"] .home-closing-button:hover {
   height: auto;
   justify-self: end;
 }
+.access-explainer > .access-visual-illustration {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+}
 .access-explainer .dashboard-card-heading {
   margin-bottom: 0;
 }
@@ -7511,6 +7578,9 @@ html[data-theme="dark"] .home-closing-button:hover {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 12px;
+}
+.access-explainer .access-scope-guide {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .access-grant-list {
   margin-top: 18px;
@@ -7536,6 +7606,7 @@ html[data-theme="dark"] .home-closing-button:hover {
   line-height: 1.55;
 }
 .access-explainer-note {
+  grid-column: 1 / -1;
   border-top: 1px solid var(--line);
   padding-top: 9px;
 }
@@ -7689,6 +7760,12 @@ html[data-theme="dark"] .home-closing-button:hover {
   margin-top: 0;
   padding-top: 12px;
 }
+.consumer-client-edit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
 .product-onboarding-card .dashboard-card-heading {
   margin-bottom: 16px;
 }
@@ -7776,22 +7853,9 @@ html[data-theme="dark"] .home-closing-button:hover {
   font-weight: 450;
   overflow-wrap: anywhere;
 }
-.access-role-details {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 450;
-}
-.access-role-details summary {
-  width: fit-content;
-  color: var(--blue-dark);
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.access-role-details > small {
+.access-role-action-names {
   display: block;
   max-width: 620px;
-  margin-top: 5px;
   overflow-wrap: anywhere;
   line-height: 1.5;
 }
@@ -7871,6 +7935,13 @@ html[data-theme="dark"] .access-role-actions code {
   .consumer-client-card-buttons .button {
     width: 100%;
   }
+  .consumer-client-edit-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+  .consumer-client-edit-actions .button {
+    width: 100%;
+  }
   .consumer-client-details-grid {
     grid-template-columns: 1fr;
   }
@@ -7889,7 +7960,26 @@ html[data-theme="dark"] .access-role-actions code {
     flex-direction: column;
   }
 }
-@media (max-width: 700px) {
+@media (max-width: 980px) {
+  .access-explainer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .access-explainer-content {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .access-explainer > .access-visual-illustration {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: center;
+  }
+  .access-explainer .access-scope-guide {
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  }
+  .access-explainer-note {
+    grid-column: 1;
+    grid-row: 3;
+  }
   .access-visual-overview {
     grid-template-columns: 1fr;
     gap: 8px;
@@ -7976,18 +8066,39 @@ html[data-theme="dark"] .access-role-actions code {
   gap: 13px;
 }
 .organization-overview-stat {
+  position: relative;
   min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
-  align-items: center;
-  gap: 5px 10px;
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 15px 17px;
+  padding: 0;
   background: linear-gradient(135deg, var(--surface) 45%, var(--surface-inset));
   box-shadow: 0 9px 26px rgba(34, 39, 48, 0.045);
   animation: overview-rise 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.organization-overview-stat.is-clickable {
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+.organization-overview-stat.is-clickable:hover,
+.organization-overview-stat.is-clickable:focus-within {
+  transform: translateY(-2px);
+  border-color: var(--blue);
+  box-shadow: 0 14px 32px rgba(34, 39, 48, 0.12);
+}
+.organization-overview-stat-link {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-height: 100%;
+  border-radius: inherit;
+  padding: 15px 17px;
+  color: inherit;
+  text-decoration: none;
+}
+.organization-overview-stat-link[href]:hover .organization-overview-stat-label {
+  color: var(--blue-dark);
 }
 .organization-overview-stat:nth-child(2) {
   animation-delay: 55ms;
@@ -7997,9 +8108,9 @@ html[data-theme="dark"] .access-role-actions code {
 }
 .organization-overview-stat-heading {
   min-width: 0;
-  grid-column: 1 / -1;
   display: flex;
   align-items: center;
+  padding-right: 24px;
   gap: 8px;
 }
 .organization-overview-stat-icon {
@@ -8039,11 +8150,15 @@ html[data-theme="dark"] .access-role-actions code {
 .organization-overview-info.tooltip-trigger {
   width: 17px;
   height: 17px;
-  margin-left: auto;
   font-size: 10px;
 }
+.organization-overview-stat > .tooltip-anchor {
+  position: absolute;
+  top: 21px;
+  right: 17px;
+  z-index: 1;
+}
 .organization-overview-stat-value {
-  grid-column: 1;
   color: var(--ink);
   font:
     700 clamp(22px, 2.4vw, 29px)/1.1 -apple-system,
@@ -8054,7 +8169,6 @@ html[data-theme="dark"] .access-role-actions code {
   overflow-wrap: anywhere;
 }
 .organization-overview-stat-caption {
-  grid-column: 1 / -1;
   color: var(--muted);
   font-size: 11px;
   line-height: 1.4;
@@ -8493,7 +8607,15 @@ html[data-theme="dark"] .organization-overview-stat-label {
     gap: 9px;
   }
   .organization-overview-stat {
+    min-height: 112px;
+  }
+  .organization-overview-stat-link {
+    min-height: 112px;
     padding: 13px;
+  }
+  .organization-overview-stat > .tooltip-anchor {
+    top: 18px;
+    right: 13px;
   }
   .organization-overview-grid > .dashboard-card {
     padding: 17px;
@@ -8599,10 +8721,13 @@ html[data-theme="dark"] .organization-overview-stat-label {
   .organization-overview-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .organization-overview-stat {
+  .organization-overview-stat-link {
     min-height: 112px;
-    gap: 3px 8px;
     padding: 12px;
+  }
+  .organization-overview-stat > .tooltip-anchor {
+    top: 16px;
+    right: 12px;
   }
   .organization-overview-stat-icon {
     width: 26px;

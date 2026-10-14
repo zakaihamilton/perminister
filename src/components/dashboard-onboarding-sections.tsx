@@ -1,7 +1,4 @@
-import Link from "next/link";
-import { OrganizationRequestHistoryRecord } from "@/components/organization-request-history-record";
 import { isMailDeliveryConfigured } from "@/lib/auth/mail";
-import type { OrganizationRequestSummary } from "@/lib/auth/service";
 
 export function DashboardOnboardingNotices({
   email,
@@ -62,24 +59,6 @@ export function DashboardOnboardingNotices({
   );
 }
 
-function PendingOrganizationCard({ request }: { request: OrganizationRequestSummary }) {
-  return (
-    <section className="onboarding-card">
-      <span className="onboarding-step">02</span>
-      <div>
-        <h2>Organization request pending</h2>
-        <p>
-          <strong>{request.organization.name}</strong> is waiting for approval by a platform
-          administrator. It will be available here after approval.
-        </p>
-        <span className="record-meta">
-          Submitted {new Date(request.organization.createdAt).toLocaleString()}
-        </span>
-      </div>
-    </section>
-  );
-}
-
 function EmailVerificationCard() {
   return (
     <section className="onboarding-card">
@@ -89,6 +68,7 @@ function EmailVerificationCard() {
         <p>We verify your email to protect organization ownership and invitations.</p>
         {isMailDeliveryConfigured() ? (
           <form action="/actions/requestVerificationAction" method="post">
+            <input type="hidden" name="returnTo" value="/dashboard/new-organization" />
             <button className="button button-primary" type="submit">
               Send verification link
             </button>
@@ -103,77 +83,7 @@ function EmailVerificationCard() {
   );
 }
 
-function OrganizationRequestCard() {
-  return (
-    <section className="onboarding-card">
-      <span className="onboarding-step">01</span>
-      <div>
-        <h2>Request an organization</h2>
-        <p>
-          You’ll become its Owner if approved. Products, invitations, and access stay unavailable
-          until then.
-        </p>
-        <form
-          action="/actions/createOrganizationAction"
-          method="post"
-          className="auth-form onboarding-form"
-        >
-          <label>
-            Organization name
-            <input name="name" required minLength={2} maxLength={80} placeholder="Acme Studio" />
-          </label>
-          <button className="button button-primary" type="submit">
-            Submit for approval
-          </button>
-        </form>
-      </div>
-    </section>
-  );
-}
-
-export function OrganizationSetupStep({
-  pendingRequest,
-  verified,
-}: {
-  pendingRequest: OrganizationRequestSummary | undefined;
-  verified: boolean;
-}) {
-  if (pendingRequest) return <PendingOrganizationCard request={pendingRequest} />;
+export function OrganizationSetupStep({ verified }: { verified: boolean }) {
   if (!verified) return <EmailVerificationCard />;
-  return <OrganizationRequestCard />;
-}
-
-export function RejectedOrganizationRequestHistory({
-  requests,
-}: {
-  requests: OrganizationRequestSummary[];
-}) {
-  const rejectedRequests = requests.filter((request) => request.status === "rejected");
-  if (!rejectedRequests.length) return null;
-
-  return (
-    <section className="dashboard-card organization-request-history">
-      <h2>Previous organization requests</h2>
-      <div className="record-list">
-        {rejectedRequests.map((request) => (
-          <OrganizationRequestHistoryRecord
-            key={request.organization.organizationId}
-            request={request}
-            statusLabel="Rejected"
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-export function PlatformOperationsLink({ pendingCount }: { pendingCount: number | null }) {
-  return (
-    <p className="onboarding-ops-link">
-      <Link href="/dashboard/operations">
-        Platform admin
-        {pendingCount ? ` (${pendingCount} pending organization requests)` : ""}
-      </Link>
-    </p>
-  );
+  return null;
 }

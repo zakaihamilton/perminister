@@ -38,8 +38,6 @@ export function OrganizationRequestHistory({
 }: {
   requests: OrganizationRequestSummary[];
 }) {
-  if (!requests.length) return null;
-
   return (
     <section className="dashboard-card organization-request-history">
       <div className="dashboard-card-heading">
@@ -48,14 +46,18 @@ export function OrganizationRequestHistory({
           <p>Organizations are added to your list after the request is approved.</p>
         </div>
       </div>
-      <div className="record-list">
-        {requests.map((request) => (
-          <OrganizationRequestHistoryRecord
-            key={request.organization.organizationId}
-            request={request}
-          />
-        ))}
-      </div>
+      {requests.length ? (
+        <div className="record-list">
+          {requests.map((request) => (
+            <OrganizationRequestHistoryRecord
+              key={request.organization.organizationId}
+              request={request}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="empty-list">No organization requests yet.</p>
+      )}
     </section>
   );
 }

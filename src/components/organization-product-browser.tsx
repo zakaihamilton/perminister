@@ -70,7 +70,7 @@ export function OrganizationProductBrowser({
                 src={product.iconUrl}
               />
               <span className="organization-product-badge">
-                {canManage ? "Managed" : "Access granted"}
+                {canManage ? "Can manage" : "Access granted"}
               </span>
             </span>
             <span className="organization-product-card-copy">

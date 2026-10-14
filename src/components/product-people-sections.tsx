@@ -1,5 +1,6 @@
 import { CustomDropdown } from "@/components/custom-dropdown";
 import { DashboardNotice } from "@/components/dashboard-shell";
+import { ProductMemberRemoveControl } from "@/components/product-member-remove-control";
 import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 import type { ProductMemberView } from "@/lib/auth/service";
 
@@ -81,14 +82,12 @@ function ProductMemberRow({
               Save role
             </button>
           </form>
-          <form action="/actions/removeProductMemberAction" method="post">
-            <input type="hidden" name="organizationId" value={organizationId} />
-            <input type="hidden" name="productId" value={productId} />
-            <input type="hidden" name="subjectId" value={membership.subjectId} />
-            <button className="button button-secondary" type="submit">
-              Remove member
-            </button>
-          </form>
+          <ProductMemberRemoveControl
+            organizationId={organizationId}
+            productId={productId}
+            subjectId={membership.subjectId}
+            memberLabel={email ?? "this member"}
+          />
         </div>
       ) : null}
     </article>

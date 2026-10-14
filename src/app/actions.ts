@@ -9,6 +9,7 @@ import {
   completeEmailAction,
   createApiKeyForSubject,
   createConsumerClient,
+  updateConsumerClient,
   createOrganization,
   createOrganizationInvitation,
   createOrganizationProduct,
@@ -18,6 +19,7 @@ import {
   createPermissionGrant,
   createSession,
   deleteAccountForAdministrator,
+  deletePermissionGrant,
   getCurrentSession,
   getOrganizationForSubject,
   isAdministrator,
@@ -102,6 +104,7 @@ function publicActionError(error: unknown): string {
     "This public product is no longer available.",
     "Shared product details are controlled by the publishing organization.",
     "Shared access roles are controlled by the publishing organization.",
+    "App clients are managed by the product publisher.",
     "Confirm making this product private to remove it and revoke access in other organizations.",
     "Choose public or private product visibility.",
     "Only a public publisher product can be transferred.",
@@ -414,6 +417,7 @@ export async function createApiKeyAction(
 export interface ConsumerClientActionState {
   clientId?: string;
   secret?: string;
+  updated?: boolean;
   error?: string;
 }
 
@@ -467,6 +471,32 @@ export async function createOrRotateConsumerClientAction(
     return credential;
   } catch (error) {
     return { error: publicActionError(error) };
+  }
+}
+
+export async function updateConsumerClientAction(
+  _previous: ConsumerClientActionState,
+  formData: FormData,
+): Promise<ConsumerClientActionState> {
+  const context = await consumerClientActionContext(formData);
+  if (!context) return { error: "Sign in again to manage application clients." };
+  const { current, organizationId, productId, returnTo, clientId } = context;
+  try {
+    const sessionLifetimeHours = Number(firstValue(formData, "sessionLifetimeHours"));
+    const registrationSetting = firstValue(formData, "selfRegistrationEnabled");
+    if (registrationSetting !== "true" && registrationSetting !== "false") {
+      return { clientId, error: "Choose whether self-registration is enabled." };
+    }
+    await updateConsumerClient(current.subject.subjectId, organizationId, productId, clientId, {
+      appName: firstValue(formData, "appName"),
+      appOrigin: firstValue(formData, "appOrigin"),
+      sessionLifetimeSeconds: Math.round(sessionLifetimeHours * 60 * 60),
+      selfRegistrationEnabled: registrationSetting === "true",
+    });
+    revalidatePath(returnTo);
+    return { clientId, updated: true };
+  } catch (error) {
+    return { clientId, error: publicActionError(error) };
   }
 }
 
@@ -1027,6 +1057,25 @@ export async function updateGrantStatusAction(formData: FormData): Promise<void>
     redirect(`${accessPath}?error=grant-failed`);
   }
   redirect(`${accessPath}?notice=grant-updated`);
+}
+
+export async function deletePermissionGrantAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  const productId = firstValue(formData, "productId");
+  const accessPath = `/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(
+    productId,
+  )}/access`;
+  try {
+    await deletePermissionGrant(
+      current.subject.subjectId,
+      firstValue(formData, "membershipId"),
+    );
+  } catch {
+    redirect(`${accessPath}?error=grant-delete-failed`);
+  }
+  redirect(`${accessPath}?notice=grant-deleted`);
 }
 
 export async function updateAccountStatusAction(formData: FormData): Promise<void> {

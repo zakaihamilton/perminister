@@ -1,15 +1,13 @@
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { ProductNavigation } from "@/components/product-navigation";
-import {
-  CreateProductAccessRoleForm,
-  ProductAccessRoleCatalog,
-} from "@/components/product-access-role-sections";
+import { ProductAccessRoleCatalog } from "@/components/product-access-role-sections";
 import {
   getProductPageContext,
   requireProductManagerRole,
   type ProductPageWithSearchParams,
 } from "@/lib/auth/product-page-context";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 export default async function ProductAccessRolesPage({
   params,
@@ -20,17 +18,18 @@ export default async function ProductAccessRolesPage({
     searchParams,
   ]);
   requireProductManagerRole(access.membership?.role, organizationId, productId);
+  if (access.product.sharedProductRef) notFound();
 
   const accessRoles = access.product.accessRoles ?? [];
-  const accessPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access`;
+  const rolesPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/roles`;
 
   return (
     <>
       <DashboardHeading
-        description="Create permission sets you can reuse for this product."
+        description="Manage reusable permission sets for this product."
         action={
-          <Link className="button button-secondary" href={accessPath}>
-            Assign permissions
+          <Link className="button button-primary" href={`${rolesPath}/new`}>
+            Create permission set
           </Link>
         }
       />
@@ -58,13 +57,7 @@ export default async function ProductAccessRolesPage({
         accessRoles={accessRoles}
         organizationId={organizationId}
         productId={productId}
-      >
-        <CreateProductAccessRoleForm
-          accessRoleCount={accessRoles.length}
-          organizationId={organizationId}
-          productId={productId}
-        />
-      </ProductAccessRoleCatalog>
+      />
     </>
   );
 }

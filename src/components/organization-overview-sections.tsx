@@ -4,6 +4,15 @@ import { OrganizationProductBrowser } from "@/components/organization-product-br
 import type { OrganizationActivityEntry } from "@/lib/auth/service";
 import type { OrganizationRole, ProductRecord } from "@/lib/auth/domain";
 
+type OrganizationOverviewMetric = {
+  label: string;
+  value: string;
+  caption: string;
+  help: string;
+  icon: "products" | "members" | "keys";
+  href?: string;
+};
+
 export function OrganizationCreateProductAction({
   canManage,
   hasProducts,
@@ -25,21 +34,24 @@ export function OrganizationCreateProductAction({
 export function OrganizationOverviewMetrics({
   activeApiKeyCount,
   memberCount,
+  organizationId,
   productCount,
   role,
 }: {
   activeApiKeyCount: number;
   memberCount: number | null;
+  organizationId: string;
   productCount: number;
   role: OrganizationRole;
 }) {
-  const metrics = [
+  const metrics: OrganizationOverviewMetric[] = [
     {
       label: "Products",
       value: productCount.toLocaleString(),
       caption: "available to you",
       help: "Products you can open in this organization.",
       icon: "products",
+      href: `/dashboard/${organizationId}/products`,
     },
     memberCount === null
       ? {
@@ -52,44 +64,65 @@ export function OrganizationOverviewMetrics({
       : {
           label: "Members",
           value: memberCount.toLocaleString(),
-          caption: "active organization members",
+          caption: `active organization member${memberCount === 1 ? "" : "s"}`,
           help: "Active organization memberships. Product-only memberships are not included.",
           icon: "members",
+          href: `/dashboard/${organizationId}/people`,
         },
     {
-      label: "Your keys",
+      label: "Keys",
       value: activeApiKeyCount.toLocaleString(),
       caption: "active in this organization",
       help: "Active, unexpired API keys created by your account for this organization.",
       icon: "keys",
+      href: `/dashboard/${organizationId}/api-keys`,
     },
-  ] as const;
+  ];
 
   return (
     <section aria-label="Organization summary" className="organization-overview-metrics">
       {metrics.map((metric) => (
-        <article className="organization-overview-stat" key={metric.label}>
-          <div className="organization-overview-stat-heading">
-            <span
-              className={`organization-overview-stat-icon is-${metric.icon}`}
-              aria-hidden="true"
-            >
-              {metric.icon === "products" ? <ProductsMetricIcon /> : null}
-              {metric.icon === "members" ? <MembersMetricIcon /> : null}
-              {metric.icon === "keys" ? <KeysMetricIcon /> : null}
-            </span>
-            <span className="organization-overview-stat-label">{metric.label}</span>
-            <Tooltip
-              content={metric.help}
-              label={`${metric.label} details`}
-              triggerProps={{ className: "tooltip-trigger organization-overview-info" }}
-            />
-          </div>
-          <strong className="organization-overview-stat-value">{metric.value}</strong>
-          <span className="organization-overview-stat-caption">{metric.caption}</span>
+        <article
+          className={`organization-overview-stat${metric.href ? " is-clickable" : ""}`}
+          key={metric.label}
+        >
+          {metric.href ? (
+            <Link className="organization-overview-stat-link" href={metric.href}>
+              <div className="organization-overview-stat-heading">
+                <MetricIcon icon={metric.icon} />
+                <span className="organization-overview-stat-label">{metric.label}</span>
+              </div>
+              <strong className="organization-overview-stat-value">{metric.value}</strong>
+              <span className="organization-overview-stat-caption">{metric.caption}</span>
+            </Link>
+          ) : (
+            <div className="organization-overview-stat-link">
+              <div className="organization-overview-stat-heading">
+                <MetricIcon icon={metric.icon} />
+                <span className="organization-overview-stat-label">{metric.label}</span>
+              </div>
+              <strong className="organization-overview-stat-value">{metric.value}</strong>
+              <span className="organization-overview-stat-caption">{metric.caption}</span>
+            </div>
+          )}
+          <Tooltip
+            content={metric.help}
+            label={`${metric.label} details`}
+            triggerProps={{ className: "tooltip-trigger organization-overview-info" }}
+          />
         </article>
       ))}
     </section>
+  );
+}
+
+function MetricIcon({ icon }: { icon: "products" | "members" | "keys" }) {
+  return (
+    <span className={`organization-overview-stat-icon is-${icon}`} aria-hidden="true">
+      {icon === "products" ? <ProductsMetricIcon /> : null}
+      {icon === "members" ? <MembersMetricIcon /> : null}
+      {icon === "keys" ? <KeysMetricIcon /> : null}
+    </span>
   );
 }
 

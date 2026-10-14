@@ -80,10 +80,17 @@ export function buildDashboardBreadcrumbs(
     segments[1] === context.organizationId ? context.organizationName : "Organization";
 
   if (segments[1] === "new-organization") {
-    return [
-      { label: context.organizationName, href: organizationRoot },
-      { label: "Request an organization" },
-    ];
+    const requestsHref = "/dashboard/new-organization";
+    return segments[2] === "new"
+      ? [
+          { label: context.organizationName, href: organizationRoot },
+          { label: "Organization requests", href: requestsHref },
+          { label: "Request an organization" },
+        ]
+      : [
+          { label: context.organizationName, href: organizationRoot },
+          { label: "Organization requests" },
+        ];
   }
 
   if (segments.length < 3) return [{ label: organizationName }];
@@ -93,6 +100,20 @@ export function buildDashboardBreadcrumbs(
     href: organizationRoot,
   };
   const section = segments[2];
+  if (section === "api-keys" && segments[3] === "new") {
+    return [
+      organizationCrumb,
+      { label: "API keys", href: `${organizationRoot}/api-keys` },
+      { label: "Create API key" },
+    ];
+  }
+  if (section === "people" && segments[3] === "invite") {
+    return [
+      organizationCrumb,
+      { label: "Members", href: `${organizationRoot}/people` },
+      { label: "Invite member" },
+    ];
+  }
   if (section === "products") {
     const productsHref = `${organizationRoot}/products`;
     if (segments.length === 3) {
@@ -113,6 +134,60 @@ export function buildDashboardBreadcrumbs(
     const productsCrumb = { label: "Products", href: productsHref };
     if (segments.length === 4) {
       return [organizationCrumb, productsCrumb, { label: productName }];
+    }
+    if (segments[4] === "clients" && segments[5] === "new") {
+      return [
+        organizationCrumb,
+        productsCrumb,
+        { label: productName, href: productHref },
+        { label: "App clients", href: `${productHref}/clients` },
+        { label: "Create app client" },
+      ];
+    }
+    if (segments[4] === "api-keys" && segments[5] === "new") {
+      return [
+        organizationCrumb,
+        productsCrumb,
+        { label: productName, href: productHref },
+        { label: "API keys", href: `${productHref}/api-keys` },
+        { label: "Create API key" },
+      ];
+    }
+    if (segments[4] === "roles" && segments[5] === "new") {
+      return [
+        organizationCrumb,
+        productsCrumb,
+        { label: productName, href: productHref },
+        { label: "Permission sets", href: `${productHref}/roles` },
+        { label: "Create permission set" },
+      ];
+    }
+    if (segments[4] === "people" && segments[5] === "invite") {
+      return [
+        organizationCrumb,
+        productsCrumb,
+        { label: productName, href: productHref },
+        { label: "Members", href: `${productHref}/people` },
+        { label: "Invite member" },
+      ];
+    }
+    if (segments[4] === "access" && segments[5] === "new") {
+      return [
+        organizationCrumb,
+        productsCrumb,
+        { label: productName, href: productHref },
+        { label: "Permissions", href: `${productHref}/access` },
+        { label: "Assign permissions" },
+      ];
+    }
+    if (segments[4] === "clients" && segments[6] === "edit") {
+      return [
+        organizationCrumb,
+        productsCrumb,
+        { label: productName, href: productHref },
+        { label: "App clients", href: `${productHref}/clients` },
+        { label: "Edit app client" },
+      ];
     }
     const page = productPages[segments[4]] ?? pageLabel(segments[4]);
     return [
