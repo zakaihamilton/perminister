@@ -84,12 +84,12 @@ export function buildDashboardBreadcrumbs(
     return segments[2] === "new"
       ? [
           { label: context.organizationName, href: organizationRoot },
-          { label: "Organization requests", href: requestsHref },
+          { label: "Your organization requests", href: requestsHref },
           { label: "Request an organization" },
         ]
       : [
           { label: context.organizationName, href: organizationRoot },
-          { label: "Organization requests" },
+          { label: "Your organization requests" },
         ];
   }
 
