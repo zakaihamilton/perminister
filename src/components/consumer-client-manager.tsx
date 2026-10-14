@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import type { ConsumerClientActionState } from "@/app/actions";
+import { CopyAppClientEnvironmentButton } from "@/components/copy-app-client-environment-button";
 import { submitStableAction } from "@/lib/action-client";
 import type { ConsumerClientSummary } from "@/lib/auth/service";
 import { ConsumerClientList } from "@/components/consumer-client-list";
@@ -49,10 +50,13 @@ export function ConsumerClientManager({
     <>
       {!readOnly && state.clientId && state.secret ? (
         <section className="one-time-secret" aria-live="polite">
-          <strong>Copy these app client details now. The secret will not be shown again.</strong>
-          <span>Client ID</span>
+          <div className="one-time-secret-heading">
+            <strong>Copy these app client details now. The secret will not be shown again.</strong>
+            <CopyAppClientEnvironmentButton clientId={state.clientId} secret={state.secret} />
+          </div>
+          <span>PERMINISTER_APP_CLIENT_ID</span>
           <code>{state.clientId}</code>
-          <span>Client secret</span>
+          <span>PERMINSITER_APP_CLIENT_SECRET</span>
           <code>{state.secret}</code>
           <p>Store both values in the application backend&apos;s environment.</p>
         </section>
