@@ -433,6 +433,11 @@ async function consumerClientActionContext(formData: FormData) {
   };
 }
 
+async function requiredConsumerClientActionContext(formData: FormData) {
+  const context = await consumerClientActionContext(formData);
+  return context ?? { error: "Sign in again to manage application clients." };
+}
+
 function consumerClientSettings(formData: FormData) {
   const sessionLifetimeHours = Number(firstValue(formData, "sessionLifetimeHours"));
   const registrationSetting = firstValue(formData, "selfRegistrationEnabled");
@@ -449,8 +454,8 @@ export async function createOrRotateConsumerClientAction(
   _previous: ConsumerClientActionState,
   formData: FormData,
 ): Promise<ConsumerClientActionState> {
-  const context = await consumerClientActionContext(formData);
-  if (!context) return { error: "Sign in again to manage application clients." };
+  const context = await requiredConsumerClientActionContext(formData);
+  if ("error" in context) return context;
   const { current, organizationId, productId, returnTo, clientId } = context;
   try {
     let credential: ConsumerClientCredential;
@@ -484,8 +489,8 @@ export async function updateConsumerClientAction(
   _previous: ConsumerClientActionState,
   formData: FormData,
 ): Promise<ConsumerClientActionState> {
-  const context = await consumerClientActionContext(formData);
-  if (!context) return { error: "Sign in again to manage application clients." };
+  const context = await requiredConsumerClientActionContext(formData);
+  if ("error" in context) return context;
   const { current, organizationId, productId, returnTo, clientId } = context;
   try {
     const settings = consumerClientSettings(formData);
