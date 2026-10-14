@@ -519,6 +519,45 @@ button:focus-visible {
   color: #28553c;
   background: #f1fbf4;
 }
+.one-time-secret-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.one-time-secret-heading > strong {
+  padding-top: 5px;
+}
+.copy-environment-button {
+  display: grid;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 0;
+  color: var(--success);
+  background: transparent;
+  cursor: pointer;
+}
+.copy-environment-button:hover,
+.copy-environment-button:focus-visible {
+  border-color: var(--success);
+  background: var(--surface);
+}
+.copy-environment-button svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.copy-environment-error {
+  color: var(--danger);
+  font-size: 12px;
+}
 .one-time-secret code {
   display: block;
   padding: 10px;
