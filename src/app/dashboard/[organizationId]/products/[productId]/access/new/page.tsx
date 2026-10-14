@@ -15,12 +15,9 @@ import { listProductMembers } from "@/lib/auth/service";
 export default async function NewProductPermissionPage({ params }: ProductPageParams) {
   const { current, organizationId, productId, access } = await getProductPageContext(params);
   const role = requireProductManagerRole(access.membership?.role, organizationId, productId);
-  const members = await listProductMembers(
-    current.subject.subjectId,
-    organizationId,
-    productId,
-    { includeDisabled: true },
-  );
+  const members = await listProductMembers(current.subject.subjectId, organizationId, productId, {
+    includeDisabled: true,
+  });
   const eligibleMembers = members.filter(
     (member) => member.emailVerified && member.membership.status === "active",
   );

@@ -1068,10 +1068,7 @@ export async function deletePermissionGrantAction(formData: FormData): Promise<v
     productId,
   )}/access`;
   try {
-    await deletePermissionGrant(
-      current.subject.subjectId,
-      firstValue(formData, "membershipId"),
-    );
+    await deletePermissionGrant(current.subject.subjectId, firstValue(formData, "membershipId"));
   } catch {
     redirect(`${accessPath}?error=grant-delete-failed`);
   }

@@ -4161,8 +4161,7 @@ export async function listProductMembers(
     const memberships = (await store().listOrganizationMemberships(organizationId))
       .filter(
         (record) =>
-          record.productId === productId &&
-          (options.includeDisabled || record.status === "active"),
+          record.productId === productId && (options.includeDisabled || record.status === "active"),
       )
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
     const result: ProductMemberView[] = [];
@@ -6826,12 +6825,10 @@ export async function deletePermissionGrant(
       ) {
         throw new Error("Permission grant not found.");
       }
-      const actorMembership = await requireProductRoleUnlocked(
-        actorId,
-        organizationId,
-        productId,
-        ["owner", "admin"],
-      );
+      const actorMembership = await requireProductRoleUnlocked(actorId, organizationId, productId, [
+        "owner",
+        "admin",
+      ]);
       if (current.record.status !== "disabled") {
         throw new Error("Only disabled permissions can be deleted.");
       }

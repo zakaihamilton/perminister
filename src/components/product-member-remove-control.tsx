@@ -39,8 +39,8 @@ export function ProductMemberRemoveControl({
       >
         <h2 id={`${dialogId}-title`}>Remove {memberLabel} from this product?</h2>
         <p id={`${dialogId}-description`}>
-          This disables their product membership and permission grants, and revokes their active
-          API keys for this product. You can invite them again later.
+          This disables their product membership and permission grants, and revokes their active API
+          keys for this product. You can invite them again later.
         </p>
         <div className="product-privacy-dialog-actions">
           <button className="button button-secondary" onClick={closeDialog} type="button">

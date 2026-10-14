@@ -26,9 +26,7 @@ export default async function ProductAccessPage({
         })
       : Promise.resolve([]),
   ]);
-  const memberBySubject = new Map(
-    members.map((member) => [member.membership.subjectId, member]),
-  );
+  const memberBySubject = new Map(members.map((member) => [member.membership.subjectId, member]));
   const emailBySubject = new Map(
     members.map((member) => [member.membership.subjectId, member.email]),
   );

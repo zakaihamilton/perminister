@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { BreadcrumbBar } from "@/components/dashboard-breadcrumbs";
 import { DashboardHeading, DashboardShell } from "@/components/dashboard-shell";
-import { NewOrganizationRequestNotices, OrganizationRequestSubmission } from "@/components/new-organization-sections";
+import {
+  NewOrganizationRequestNotices,
+  OrganizationRequestSubmission,
+} from "@/components/new-organization-sections";
 import { SiteFooter, SiteHeader } from "@/components/site-shell";
 import {
   countPendingOrganizationsForAdministrator,

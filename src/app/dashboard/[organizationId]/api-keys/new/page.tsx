@@ -25,9 +25,7 @@ export default async function NewOrganizationApiKeyPage({
   ]);
   const allowedProductIds = new Set(
     grants
-      .filter(
-        (grant) => grant.subjectId === current.subject.subjectId && grant.status === "active",
-      )
+      .filter((grant) => grant.subjectId === current.subject.subjectId && grant.status === "active")
       .map((grant) => grant.scope.productId),
   );
   const allowedProducts = products.filter((product) => allowedProductIds.has(product.productId));

@@ -1,10 +1,7 @@
 import Link from "next/link";
 import { DashboardHeading } from "@/components/dashboard-shell";
 import { InviteOrganizationMemberSection } from "@/components/organization-people-sections";
-import {
-  getOrganizationForSubject,
-  getCurrentSession,
-} from "@/lib/auth/service";
+import { getOrganizationForSubject, getCurrentSession } from "@/lib/auth/service";
 import { redirect } from "next/navigation";
 
 export default async function InviteOrganizationMemberPage({

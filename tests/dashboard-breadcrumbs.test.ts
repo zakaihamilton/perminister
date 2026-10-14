@@ -49,10 +49,7 @@ describe("dashboard breadcrumbs", () => {
     ],
     [
       "/dashboard/new-organization",
-      [
-        { label: "Sentry8", href: "/dashboard/org-123" },
-        { label: "Your organization requests" },
-      ],
+      [{ label: "Sentry8", href: "/dashboard/org-123" }, { label: "Your organization requests" }],
     ],
     [
       "/dashboard/new-organization/new",
