@@ -3893,10 +3893,11 @@ function validateConsumerClientOptions(productId: string, options: CreateConsume
     throw new Error("Enter an application name up to 80 characters.");
   }
   let appOrigin: string | null = null;
-  if (options.appOrigin.trim()) {
+  const enteredAppOrigin = options.appOrigin.trim();
+  if (enteredAppOrigin) {
     let parsed: URL;
     try {
-      parsed = new URL(options.appOrigin.trim());
+      parsed = new URL(enteredAppOrigin);
     } catch {
       throw new Error("Enter a valid app origin.");
     }
@@ -3912,10 +3913,17 @@ function validateConsumerClientOptions(productId: string, options: CreateConsume
       parsed.hash
     ) {
       throw new Error(
-        "Use an HTTPS app origin, or an HTTP localhost or 127.0.0.1 origin, without a path, query, or fragment.",
+        "Use an HTTPS app origin, or an HTTP localhost or 127.0.0.1 origin, without a path, query, or fragment. A portless http://localhost origin allows any localhost port.",
       );
     }
-    appOrigin = parsed.origin;
+    const rawAuthority = enteredAppOrigin.match(/^http:\/\/([^/?#\\]*)/i)?.[1];
+    const explicitPort = rawAuthority?.match(/:(\d+)$/)?.[1];
+    const explicitLocalhostPort80 =
+      parsed.protocol === "http:" &&
+      parsed.hostname === "localhost" &&
+      explicitPort !== undefined &&
+      Number(explicitPort) === 80;
+    appOrigin = explicitLocalhostPort80 ? "http://localhost:80" : parsed.origin;
   }
   if (
     !Number.isSafeInteger(options.sessionLifetimeSeconds) ||

@@ -14,10 +14,12 @@ organizations can view client details, while only the publisher can create, rota
 clients. A product can have multiple clients for separate app deployments or environments.
 Perminister returns each client ID and secret once; copy them into the corresponding application
 backend’s environment. Rotating a secret immediately invalidates the previous one, and revoking a
-client stops its credentials from working. Set the exact canonical product origin to enable Sign in
-with Perminister. HTTPS origins are required, with HTTP allowed for `localhost` and `127.0.0.1`
-development origins. The SSO callback path is `/auth/perminister/callback`. The application backend
-sends these headers when calling consumer endpoints:
+client stops its credentials from working. Set the product origin to enable Sign in with
+Perminister. HTTPS origins are required, with HTTP allowed for `localhost` and `127.0.0.1`
+development origins. A portless `http://localhost` app origin accepts callbacks from any localhost
+port; specifying a port restricts callbacks to that origin. Other origins match exactly. The SSO
+callback path is `/auth/perminister/callback`. The application backend sends these headers when
+calling consumer endpoints:
 
 ```http
 X-Perminister-Client-Id: <CLIENT_ID>
@@ -64,8 +66,9 @@ Consumer authentication endpoints are called by the application backend:
 ### Sign in with Perminister
 
 The product backend starts an authorization-code flow at `/oauth/authorize` with its client ID,
-exact callback URI, random `state`, and an S256 PKCE challenge. The callback URI must use the
-registered app origin and the fixed `/auth/perminister/callback` path. Perminister asks the signed-in
+callback URI, random `state`, and an S256 PKCE challenge. The callback URI must use the registered
+app origin and the fixed `/auth/perminister/callback` path, subject to the portless localhost rule
+above. Perminister asks the signed-in
 person to confirm, then redirects back with a short-lived code and the original state. The backend
 checks the state and exchanges the code at `POST /api/auth/consumer/token`, sending its app-client
 headers and a `grant_type` of `authorization_code`, the code, and its original PKCE verifier. Codes
