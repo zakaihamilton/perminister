@@ -18,7 +18,7 @@ const steps = [
   },
   {
     title: "Connect the app backend",
-    body: "A product owner or admin creates an app client from the publisher product’s App clients page and sets its exact canonical app origin. Reuse that client across organizations installing the public product. Copy the client ID and one-time secret into the app backend. The backend sends them in X-Perminister-Client-Id and X-Perminister-Client-Secret headers; never include the secret in browser code or logs.",
+    body: "A product owner or admin creates an app client from the publisher product’s App clients page and sets its app origin. Set http://localhost without a port to allow the app to run on any localhost port during development; add a port to restrict sign-in to that port. Other app origins must match exactly. Reuse that client across organizations installing the public product. Copy the client ID and one-time secret into the app backend. The backend sends them in X-Perminister-Client-Id and X-Perminister-Client-Secret headers; never include the secret in browser code or logs.",
   },
   {
     title: "Keep the app's own session",

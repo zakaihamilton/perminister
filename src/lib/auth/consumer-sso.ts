@@ -10,6 +10,22 @@ export type ConsumerAuthorizationRequest = {
   codeChallenge: string;
 };
 
+function matchesConsumerAppOrigin(callback: URL, appOrigin: string | null | undefined): boolean {
+  if (!appOrigin) return false;
+
+  // A portless localhost origin is useful for local apps that run on different dev ports.
+  if (appOrigin === "http://localhost") {
+    return callback.protocol === "http:" && callback.hostname === "localhost";
+  }
+
+  // URL.origin drops HTTP's default port, so preserve an explicit :80 configuration separately.
+  if (appOrigin === "http://localhost:80") {
+    return callback.origin === "http://localhost";
+  }
+
+  return callback.origin === appOrigin;
+}
+
 export function parseConsumerAuthorizationRequest(
   params: URLSearchParams,
   client?: ConsumerClientRecord | null,
@@ -39,9 +55,8 @@ export function parseConsumerAuthorizationRequest(
   }
   const origin = client?.appOrigin;
   if (
-    !origin ||
     client?.status !== "active" ||
-    callback.origin !== origin ||
+    !matchesConsumerAppOrigin(callback, origin) ||
     callback.pathname !== CONSUMER_SSO_CALLBACK_PATH ||
     callback.search ||
     callback.hash ||
