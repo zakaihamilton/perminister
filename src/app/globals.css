@@ -3193,6 +3193,9 @@ button:focus-visible {
   background: var(--surface);
   box-shadow: var(--shadow);
 }
+.product-privacy-dialog.api-key-rotation-dialog {
+  width: min(720px, calc(100% - 32px));
+}
 .product-privacy-dialog::backdrop {
   background: rgba(20, 23, 29, 0.55);
   backdrop-filter: blur(2px);
@@ -3595,20 +3598,6 @@ button:focus-visible {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.6;
-}
-.rotate-details {
-  border-top: 1px solid #edf0f4;
-  margin-top: 12px;
-  padding-top: 11px;
-}
-.rotate-details summary {
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  color: var(--blue-dark);
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
 }
 .profile-card .profile-name-form {
   border-bottom: 1px solid var(--line);
@@ -5077,7 +5066,6 @@ summary:focus-visible {
 .activity-item,
 .profile-details > div,
 .profile-links,
-.rotate-details,
 .admin-account-row,
 .audit-row {
   border-color: var(--line);
@@ -6557,8 +6545,7 @@ html[data-theme="dark"] .activity-item,
 html[data-theme="dark"] .step,
 html[data-theme="dark"] .scope-table th,
 html[data-theme="dark"] .scope-table td,
-html[data-theme="dark"] .product-source-tabs,
-html[data-theme="dark"] .rotate-details {
+html[data-theme="dark"] .product-source-tabs {
   border-color: var(--line);
 }
 html[data-theme="dark"] .product-source-tabs button[aria-selected="true"] {

@@ -58,14 +58,15 @@ export function AccessGrantActionsFields({ roles }: { roles: readonly ProductAcc
             Includes {selectedRole.actions.length} app permission
             {selectedRole.actions.length === 1 ? "" : "s"}.
           </small>
-          <details className="access-role-details">
-            <summary>Show action names</summary>
-            <div className="access-role-actions">
-              {selectedRole.actions.map((action) => (
-                <code key={action}>{action}</code>
-              ))}
-            </div>
-          </details>
+          <div
+            aria-label="Included app permission action names"
+            className="access-role-actions"
+            role="group"
+          >
+            {selectedRole.actions.map((action) => (
+              <code key={action}>{action}</code>
+            ))}
+          </div>
         </>
       ) : null}
       {customSelected ? (

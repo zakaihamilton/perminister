@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { ConfirmationActionControl } from "@/components/confirmation-action-control";
 import type { ProductAccessRole } from "@/lib/auth/access-roles";
 
 export function ProductAccessRoleCatalog({
@@ -38,19 +39,28 @@ export function ProductAccessRoleCatalog({
                   {accessRole.description || "No description"} · {accessRole.actions.length}{" "}
                   permission{accessRole.actions.length === 1 ? "" : "s"}
                 </span>
-                <details className="access-role-details">
-                  <summary>View action names</summary>
-                  <small>{accessRole.actions.join(", ")}</small>
-                </details>
+                <div
+                  aria-label={`${accessRole.name} action names`}
+                  className="access-role-actions"
+                  role="group"
+                >
+                  {accessRole.actions.map((action) => (
+                    <code key={action}>{action}</code>
+                  ))}
+                </div>
               </div>
-              <form action="/actions/removeProductAccessRoleAction" method="post">
-                <input type="hidden" name="organizationId" value={organizationId} />
-                <input type="hidden" name="productId" value={productId} />
-                <input type="hidden" name="accessRoleId" value={accessRole.id} />
-                <button className="button button-secondary" type="submit">
-                  Remove permission set
-                </button>
-              </form>
+              <ConfirmationActionControl
+                action="/actions/removeProductAccessRoleAction"
+                fields={[
+                  { name: "organizationId", value: organizationId },
+                  { name: "productId", value: productId },
+                  { name: "accessRoleId", value: accessRole.id },
+                ]}
+                triggerLabel="Remove permission set"
+                title={`Remove ${accessRole.name}?`}
+                description="This permission set will no longer be available for new assignments. Existing member permissions stay in place."
+                confirmLabel="Remove permission set"
+              />
             </article>
           ))}
         </div>

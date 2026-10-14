@@ -1,4 +1,5 @@
 import { CustomDropdown } from "@/components/custom-dropdown";
+import { ConfirmationActionControl } from "@/components/confirmation-action-control";
 import { DashboardNotice } from "@/components/dashboard-shell";
 import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 import type { OrganizationMemberView } from "@/lib/auth/service";
@@ -82,13 +83,17 @@ function OrganizationMemberRow({
             </button>
           </form>
           {member.membership.subjectId !== currentSubjectId ? (
-            <form action="/actions/removeOrganizationMemberAction" method="post">
-              <input type="hidden" name="organizationId" value={organizationId} />
-              <input type="hidden" name="membershipId" value={membershipId} />
-              <button className="button button-secondary" type="submit">
-                Remove member
-              </button>
-            </form>
+            <ConfirmationActionControl
+              action="/actions/removeOrganizationMemberAction"
+              fields={[
+                { name: "organizationId", value: organizationId },
+                { name: "membershipId", value: membershipId },
+              ]}
+              triggerLabel="Remove member"
+              title={`Remove ${member.email ?? "this member"} from the organization?`}
+              description="They will lose their organization membership and access through it. You can invite them again later."
+              confirmLabel="Remove member"
+            />
           ) : null}
         </div>
       ) : null}

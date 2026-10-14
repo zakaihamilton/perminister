@@ -1,4 +1,5 @@
 import type { OrganizationInvitationRecord } from "@/lib/auth/domain";
+import { ConfirmationActionControl } from "@/components/confirmation-action-control";
 
 type Invitation = Pick<
   OrganizationInvitationRecord,
@@ -31,24 +32,22 @@ export function PendingInvitations({
               {invitation.role} · expires {new Date(invitation.expiresAt).toLocaleDateString()}
             </small>
           </span>
-          {productId ? (
-            <form action="/actions/revokeProductInvitationAction" method="post">
-              <input type="hidden" name="organizationId" value={organizationId} />
-              <input type="hidden" name="productId" value={productId} />
-              <input type="hidden" name="invitationId" value={invitation.invitationId} />
-              <button className="button button-secondary" type="submit">
-                Cancel invitation
-              </button>
-            </form>
-          ) : (
-            <form action="/actions/revokeOrganizationInvitationAction" method="post">
-              <input type="hidden" name="organizationId" value={organizationId} />
-              <input type="hidden" name="invitationId" value={invitation.invitationId} />
-              <button className="button button-secondary" type="submit">
-                Cancel invitation
-              </button>
-            </form>
-          )}
+          <ConfirmationActionControl
+            action={
+              productId
+                ? "/actions/revokeProductInvitationAction"
+                : "/actions/revokeOrganizationInvitationAction"
+            }
+            fields={[
+              { name: "organizationId", value: organizationId },
+              ...(productId ? [{ name: "productId", value: productId }] : []),
+              { name: "invitationId", value: invitation.invitationId },
+            ]}
+            triggerLabel="Cancel invitation"
+            title={`Cancel the invitation for ${invitation.email}?`}
+            description="The invitation link will stop working. Send a new invitation if they still need access."
+            confirmLabel="Cancel invitation"
+          />
         </div>
       ))}
     </section>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import type { CreateApiKeyState } from "@/app/actions";
 import { submitStableAction } from "@/lib/action-client";
 import { ApiKeyFormFields, type ApiKeyFormDefaults } from "@/components/api-key-form-fields";
@@ -13,6 +14,8 @@ interface ApiKeyFormProps {
   products: ProductRecord[];
   returnTo: string;
   defaults?: ApiKeyFormDefaults;
+  onCancel?: () => void;
+  onSuccess?: () => void;
 }
 
 export function ApiKeyForm({
@@ -22,21 +25,25 @@ export function ApiKeyForm({
   products,
   returnTo,
   defaults,
+  onCancel,
+  onSuccess,
 }: ApiKeyFormProps) {
+  const router = useRouter();
   const [state, setState] = useState<CreateApiKeyState>({});
   const [pending, setPending] = useState(false);
   const formId = useId();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const formData = new FormData(event.currentTarget);
     setPending(true);
     try {
-      setState(
-        await submitStableAction<CreateApiKeyState>(
-          "createApiKeyAction",
-          new FormData(event.currentTarget),
-        ),
-      );
+      const result = await submitStableAction<CreateApiKeyState>("createApiKeyAction", formData);
+      setState(result);
+      if (result.token) {
+        onSuccess?.();
+        if (!onCancel) router.refresh();
+      }
     } catch (error) {
       setState({ error: error instanceof Error ? error.message : "Please try again." });
     } finally {
@@ -61,21 +68,56 @@ export function ApiKeyForm({
         Choose a product where your account already has these permissions. Choose a project or
         workspace scope to limit where the key can be used.
       </p>
-      <button className="button button-primary form-submit" disabled={pending} type="submit">
-        {pending ? "Saving…" : submitLabel}
-      </button>
-      {state.error ? (
-        <p className="form-error" role="alert">
-          {state.error}
-        </p>
-      ) : null}
-      {state.token ? (
-        <section className="one-time-secret" aria-live="polite">
-          <strong>Copy this key now. It will not be shown again.</strong>
-          <code>{state.token}</code>
-          {state.warning ? <p className="form-error">{state.warning}</p> : null}
-        </section>
-      ) : null}
+      {onCancel ? (
+        <>
+          {state.error ? (
+            <p className="form-error" role="alert">
+              {state.error}
+            </p>
+          ) : null}
+          {state.token ? (
+            <section className="one-time-secret" aria-live="polite">
+              <strong>Copy this key now. It will not be shown again.</strong>
+              <code>{state.token}</code>
+              {state.warning ? <p className="form-error">{state.warning}</p> : null}
+            </section>
+          ) : null}
+          <div className="product-privacy-dialog-actions">
+            {state.token ? (
+              <button className="button button-primary" onClick={onCancel} type="button">
+                Done
+              </button>
+            ) : (
+              <>
+                <button className="button button-secondary" onClick={onCancel} type="button">
+                  Cancel
+                </button>
+                <button className="button button-primary" disabled={pending} type="submit">
+                  {pending ? "Saving…" : submitLabel}
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <button className="button button-primary form-submit" disabled={pending} type="submit">
+            {pending ? "Saving…" : submitLabel}
+          </button>
+          {state.error ? (
+            <p className="form-error" role="alert">
+              {state.error}
+            </p>
+          ) : null}
+          {state.token ? (
+            <section className="one-time-secret" aria-live="polite">
+              <strong>Copy this key now. It will not be shown again.</strong>
+              <code>{state.token}</code>
+              {state.warning ? <p className="form-error">{state.warning}</p> : null}
+            </section>
+          ) : null}
+        </>
+      )}
     </form>
   );
 }
