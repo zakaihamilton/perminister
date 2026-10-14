@@ -40,10 +40,6 @@ export default async function ApiKeysPage({
   const allowedProducts = products.filter((product) => allowedProductIds.has(product.productId));
   const canCreate = !!current.subject.emailVerifiedAt && allowedProducts.length > 0;
   const returnTo = `/dashboard/${organizationId}/api-keys`;
-  const createHref =
-    allowedProducts.length === 1
-      ? `/dashboard/${organizationId}/products/${encodeURIComponent(allowedProducts[0].productId)}/api-keys`
-      : "#api-key-products";
 
   // This request-rendered page must compare key expiry against the current time.
   const now =
@@ -53,17 +49,13 @@ export default async function ApiKeysPage({
   return (
     <>
       <DashboardHeading
-        description="Review API keys for this organization. Open a product to create or manage its keys."
+        description="Review this organization’s API keys or create one for a product you can access."
         action={
           canCreate ? (
-            <Link className="button button-primary" href={createHref}>
+            <Link className="button button-primary" href={`${returnTo}/new`}>
               Create API key
             </Link>
-          ) : (
-            <button className="button button-primary" disabled type="button">
-              Create API key
-            </button>
-          )
+          ) : null
         }
       />
       <ApiKeyNotices
@@ -85,9 +77,6 @@ export default async function ApiKeysPage({
         hasProducts={products.length > 0}
         isEmailVerified={!!current.subject.emailVerifiedAt}
       />
-      <p className="role-help">
-        The full key appears once after creation. Copy it into your server’s secret store.
-      </p>
     </>
   );
 }

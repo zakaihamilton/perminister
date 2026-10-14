@@ -1,10 +1,21 @@
 "use client";
 
-import { useState, type FormEventHandler } from "react";
+import Link from "next/link";
+import { useId, useState, type FormEvent } from "react";
+import type { ConsumerClientActionState } from "@/app/actions";
 import type { ConsumerClientSummary } from "@/lib/auth/service";
+import { useModalDialog } from "@/components/use-modal-dialog";
+
+const createdDateFormatter = new Intl.DateTimeFormat("en", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
 
 interface ConsumerClientListProps {
-  onRotateSubmit: FormEventHandler<HTMLFormElement>;
+  onRotateSubmit: (event: FormEvent<HTMLFormElement>) => Promise<ConsumerClientActionState>;
+  onOpenConfirmation: () => void;
   clients: ConsumerClientSummary[];
   organizationId: string;
   productId: string;
@@ -15,12 +26,24 @@ interface ConsumerClientListProps {
 
 function sessionLifetimeLabel(milliseconds: number): string {
   const hours = milliseconds / (60 * 60 * 1000);
-  if (hours % 24 === 0) return `${hours / 24} days`;
-  return `${hours} hours`;
+  if (hours % 24 === 0) {
+    const days = hours / 24;
+    const dayLabel = days === 1 ? "day" : "days";
+    const hourLabel = hours === 1 ? "hour" : "hours";
+    return `${days} ${dayLabel} (${hours} ${hourLabel})`;
+  }
+  if (Number.isInteger(hours)) return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+  const minutes = milliseconds / (60 * 1000);
+  if (Number.isInteger(minutes) && minutes < 60) {
+    const roundedHours = Number(hours.toFixed(2));
+    return `${minutes} ${minutes === 1 ? "minute" : "minutes"} (${roundedHours} hours)`;
+  }
+  return `${Number(hours.toFixed(2))} hours`;
 }
 
 export function ConsumerClientList({
   onRotateSubmit,
+  onOpenConfirmation,
   clients,
   organizationId,
   productId,
@@ -28,13 +51,44 @@ export function ConsumerClientList({
   pending,
   readOnly = false,
 }: ConsumerClientListProps) {
-  const [rotatingClientId, setRotatingClientId] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<{
+    action: "rotate" | "revoke";
+    clientId: string;
+  } | null>(null);
+  const [rotationError, setRotationError] = useState<string | null>(null);
+  const { dialogRef, openDialog, closeDialog } = useModalDialog();
+  const dialogId = useId();
+  const selectedClient = clients.find((client) => client.clientId === confirmation?.clientId);
+
+  function requestConfirmation(action: "rotate" | "revoke", client: ConsumerClientSummary) {
+    onOpenConfirmation();
+    setRotationError(null);
+    setConfirmation({ action, clientId: client.clientId });
+    openDialog();
+  }
+
+  async function handleRotateConfirmation(event: FormEvent<HTMLFormElement>) {
+    const result = await onRotateSubmit(event);
+    if (result.secret) {
+      setConfirmation(null);
+      setRotationError(null);
+      closeDialog();
+    } else {
+      setRotationError(result.error ?? "Perminister could not complete that request.");
+    }
+  }
+
+  function dismissConfirmation() {
+    setConfirmation(null);
+    setRotationError(null);
+    closeDialog();
+  }
 
   return (
     <section className="dashboard-card">
       <div className="dashboard-card-heading">
         <div>
-          <h2>App clients</h2>
+          <h2>Configured clients</h2>
           <p>
             {readOnly
               ? "These app clients are managed by the product publisher and shared across its organizations."
@@ -73,61 +127,38 @@ export function ConsumerClientList({
                 <div>
                   <dt>Created</dt>
                   <dd>
-                    <time dateTime={client.createdAt}>{client.createdAt}</time>
+                    <time dateTime={client.createdAt}>
+                      {createdDateFormatter.format(new Date(client.createdAt))}
+                    </time>
                   </dd>
                 </div>
               </dl>
               {!readOnly && client.status === "active" ? (
                 <div className="consumer-client-card-actions">
                   <div className="consumer-client-card-buttons">
-                    <button
-                      aria-controls={
-                        rotatingClientId === client.clientId
-                          ? `rotate-secret-${client.clientId}`
-                          : undefined
-                      }
-                      aria-expanded={rotatingClientId === client.clientId}
+                    <Link
                       className="button button-secondary"
-                      onClick={() =>
-                        setRotatingClientId((current) =>
-                          current === client.clientId ? null : client.clientId,
-                        )
-                      }
+                      href={`${returnTo}/${encodeURIComponent(client.clientId)}/edit`}
+                    >
+                      Edit settings
+                    </Link>
+                    <button
+                      aria-haspopup="dialog"
+                      className="button button-secondary"
+                      onClick={() => requestConfirmation("rotate", client)}
                       type="button"
                     >
                       Rotate secret
                     </button>
-                    <form action="/actions/revokeConsumerClientAction" method="post">
-                      <input type="hidden" name="organizationId" value={organizationId} />
-                      <input type="hidden" name="productId" value={productId} />
-                      <input type="hidden" name="returnTo" value={returnTo} />
-                      <input type="hidden" name="clientId" value={client.clientId} />
-                      <button className="button button-secondary" type="submit">
-                        Revoke app client
-                      </button>
-                    </form>
-                  </div>
-                  {rotatingClientId === client.clientId ? (
-                    <form
-                      action="/actions/createOrRotateConsumerClientAction"
-                      method="post"
-                      onSubmit={onRotateSubmit}
-                      className="auth-form management-form"
-                      id={`rotate-secret-${client.clientId}`}
+                    <button
+                      aria-haspopup="dialog"
+                      className="button button-danger"
+                      onClick={() => requestConfirmation("revoke", client)}
+                      type="button"
                     >
-                      <input type="hidden" name="organizationId" value={organizationId} />
-                      <input type="hidden" name="productId" value={productId} />
-                      <input type="hidden" name="returnTo" value={returnTo} />
-                      <input type="hidden" name="clientId" value={client.clientId} />
-                      <p>
-                        This replaces the current secret immediately. Update the app backend with
-                        the new value before it makes another request.
-                      </p>
-                      <button className="button button-secondary" disabled={pending} type="submit">
-                        {pending ? "Rotating…" : "Replace secret"}
-                      </button>
-                    </form>
-                  ) : null}
+                      Revoke app client
+                    </button>
+                  </div>
                 </div>
               ) : null}
             </article>
@@ -143,6 +174,71 @@ export function ConsumerClientList({
           </p>
         </div>
       )}
+      <dialog
+        aria-describedby={`${dialogId}-description`}
+        aria-labelledby={`${dialogId}-title`}
+        className="product-privacy-dialog"
+        id={`${dialogId}-dialog`}
+        onCancel={(event) => {
+          event.preventDefault();
+          dismissConfirmation();
+        }}
+        ref={dialogRef}
+      >
+        {selectedClient && confirmation ? (
+          <>
+            <h2 id={`${dialogId}-title`}>
+              {confirmation.action === "rotate"
+                ? `Replace ${selectedClient.appName}’s secret?`
+                : `Revoke ${selectedClient.appName}?`}
+            </h2>
+            <p id={`${dialogId}-description`}>
+              {confirmation.action === "rotate"
+                ? "The current secret will stop working immediately. Update the app backend with the new secret before it makes another request. The new secret will only be shown once."
+                : "This app client will immediately lose access to Perminister. Its client ID and secret will stop working, and this action cannot be undone."}
+            </p>
+            {rotationError ? (
+              <p className="form-error" role="alert">
+                {rotationError}
+              </p>
+            ) : null}
+            <div className="product-privacy-dialog-actions">
+              <button
+                className="button button-secondary"
+                onClick={dismissConfirmation}
+                type="button"
+              >
+                Cancel
+              </button>
+              {confirmation.action === "rotate" ? (
+                <form
+                  action="/actions/createOrRotateConsumerClientAction"
+                  method="post"
+                  onSubmit={handleRotateConfirmation}
+                >
+                  <input type="hidden" name="organizationId" value={organizationId} />
+                  <input type="hidden" name="productId" value={productId} />
+                  <input type="hidden" name="returnTo" value={returnTo} />
+                  <input type="hidden" name="clientId" value={selectedClient.clientId} />
+                  <button className="button button-danger" disabled={pending} type="submit">
+                    {pending ? "Rotating…" : "Replace secret"}
+                  </button>
+                </form>
+              ) : (
+                <form action="/actions/revokeConsumerClientAction" method="post">
+                  <input type="hidden" name="organizationId" value={organizationId} />
+                  <input type="hidden" name="productId" value={productId} />
+                  <input type="hidden" name="returnTo" value={returnTo} />
+                  <input type="hidden" name="clientId" value={selectedClient.clientId} />
+                  <button className="button button-danger" type="submit">
+                    Revoke app client
+                  </button>
+                </form>
+              )}
+            </div>
+          </>
+        ) : null}
+      </dialog>
     </section>
   );
 }

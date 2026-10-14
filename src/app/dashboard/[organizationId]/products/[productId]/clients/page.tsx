@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { ConsumerClientManager } from "@/components/consumer-client-manager";
 import { ProductNavigation } from "@/components/product-navigation";
@@ -34,6 +35,13 @@ export default async function ProductClientsPage({
             ? `${access.product.name} uses the publisher’s app client configuration across every organization using this public product.`
             : `Connect ${access.product.name} to Perminister with app client credentials.`
         }
+        action={
+          isSharedInstallation ? null : (
+            <Link className="button button-primary" href={`${returnTo}/new`}>
+              Create app client
+            </Link>
+          )
+        }
       />
       <ProductNavigation
         isSharedInstallation={isSharedInstallation}
@@ -54,7 +62,6 @@ export default async function ProductClientsPage({
         clients={clients}
         organizationId={organizationId}
         productId={productId}
-        productName={access.product.name}
         returnTo={returnTo}
         readOnly={isSharedInstallation}
       />

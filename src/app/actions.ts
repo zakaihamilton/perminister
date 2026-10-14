@@ -9,6 +9,7 @@ import {
   completeEmailAction,
   createApiKeyForSubject,
   createConsumerClient,
+  updateConsumerClient,
   createOrganization,
   createOrganizationInvitation,
   createOrganizationProduct,
@@ -18,6 +19,7 @@ import {
   createPermissionGrant,
   createSession,
   deleteAccountForAdministrator,
+  deletePermissionGrant,
   getCurrentSession,
   getOrganizationForSubject,
   isAdministrator,
@@ -49,7 +51,6 @@ import {
   rotateConsumerClient,
 } from "@/lib/auth/service";
 import type { ProductVisibility, ResourceScope, SubjectId } from "@/lib/auth/domain";
-import type { ConsumerClientCredential } from "@/lib/auth/service";
 import {
   browserOriginFromHeaders,
   isMailDeliveryConfigured,
@@ -102,6 +103,7 @@ function publicActionError(error: unknown): string {
     "This public product is no longer available.",
     "Shared product details are controlled by the publishing organization.",
     "Shared access roles are controlled by the publishing organization.",
+    "App clients are managed by the product publisher.",
     "Confirm making this product private to remove it and revoke access in other organizations.",
     "Choose public or private product visibility.",
     "Only a public publisher product can be transferred.",
@@ -414,6 +416,7 @@ export async function createApiKeyAction(
 export interface ConsumerClientActionState {
   clientId?: string;
   secret?: string;
+  updated?: boolean;
   error?: string;
 }
 
@@ -429,45 +432,84 @@ async function consumerClientActionContext(formData: FormData) {
   };
 }
 
-export async function createOrRotateConsumerClientAction(
-  _previous: ConsumerClientActionState,
+function consumerClientSettings(formData: FormData) {
+  const sessionLifetimeHours = Number(firstValue(formData, "sessionLifetimeHours"));
+  const registrationSetting = firstValue(formData, "selfRegistrationEnabled");
+  if (registrationSetting !== "true" && registrationSetting !== "false") return null;
+  return {
+    appName: firstValue(formData, "appName"),
+    appOrigin: firstValue(formData, "appOrigin"),
+    sessionLifetimeSeconds: Math.round(sessionLifetimeHours * 60 * 60),
+    selfRegistrationEnabled: registrationSetting === "true",
+  };
+}
+
+async function manageConsumerClientAction(
   formData: FormData,
+  operation: "create-or-rotate" | "update",
 ): Promise<ConsumerClientActionState> {
   const context = await consumerClientActionContext(formData);
   if (!context) return { error: "Sign in again to manage application clients." };
   const { current, organizationId, productId, returnTo, clientId } = context;
+
   try {
-    let credential: ConsumerClientCredential;
+    if (operation === "update") {
+      const settings = consumerClientSettings(formData);
+      if (!settings) {
+        return { clientId, error: "Choose whether self-registration is enabled." };
+      }
+      await updateConsumerClient(
+        current.subject.subjectId,
+        organizationId,
+        productId,
+        clientId,
+        settings,
+      );
+      revalidatePath(returnTo);
+      return { clientId, updated: true };
+    }
+
     if (clientId) {
-      credential = await rotateConsumerClient(
+      const credential = await rotateConsumerClient(
         current.subject.subjectId,
         organizationId,
         productId,
         clientId,
       );
-    } else {
-      const sessionLifetimeHours = Number(firstValue(formData, "sessionLifetimeHours"));
-      const registrationSetting = firstValue(formData, "selfRegistrationEnabled");
-      if (registrationSetting !== "true" && registrationSetting !== "false") {
-        return { error: "Choose whether self-registration is enabled." };
-      }
-      credential = await createConsumerClient(
-        current.subject.subjectId,
-        organizationId,
-        productId,
-        {
-          appName: firstValue(formData, "appName"),
-          appOrigin: firstValue(formData, "appOrigin"),
-          sessionLifetimeSeconds: Math.round(sessionLifetimeHours * 60 * 60),
-          selfRegistrationEnabled: registrationSetting === "true",
-        },
-      );
+      revalidatePath(returnTo);
+      return credential;
     }
+
+    const settings = consumerClientSettings(formData);
+    if (!settings) return { error: "Choose whether self-registration is enabled." };
+    const credential = await createConsumerClient(
+      current.subject.subjectId,
+      organizationId,
+      productId,
+      settings,
+    );
     revalidatePath(returnTo);
     return credential;
   } catch (error) {
-    return { error: publicActionError(error) };
+    return {
+      ...(operation === "update" ? { clientId } : {}),
+      error: publicActionError(error),
+    };
   }
+}
+
+export async function createOrRotateConsumerClientAction(
+  _previous: ConsumerClientActionState,
+  formData: FormData,
+): Promise<ConsumerClientActionState> {
+  return manageConsumerClientAction(formData, "create-or-rotate");
+}
+
+export async function updateConsumerClientAction(
+  _previous: ConsumerClientActionState,
+  formData: FormData,
+): Promise<ConsumerClientActionState> {
+  return manageConsumerClientAction(formData, "update");
 }
 
 export async function revokeConsumerClientAction(formData: FormData): Promise<void> {
@@ -1027,6 +1069,22 @@ export async function updateGrantStatusAction(formData: FormData): Promise<void>
     redirect(`${accessPath}?error=grant-failed`);
   }
   redirect(`${accessPath}?notice=grant-updated`);
+}
+
+export async function deletePermissionGrantAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  const productId = firstValue(formData, "productId");
+  const accessPath = `/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(
+    productId,
+  )}/access`;
+  try {
+    await deletePermissionGrant(current.subject.subjectId, firstValue(formData, "membershipId"));
+  } catch {
+    redirect(`${accessPath}?error=grant-delete-failed`);
+  }
+  redirect(`${accessPath}?notice=grant-deleted`);
 }
 
 export async function updateAccountStatusAction(formData: FormData): Promise<void> {

@@ -1,8 +1,4 @@
-import {
-  AccessGrantCreationSection,
-  AccessGrantExplainer,
-  ProductAccessGrantCard,
-} from "@/components/product-access-sections";
+import { ProductAccessGrantCard } from "@/components/product-access-sections";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { ProductNavigation } from "@/components/product-navigation";
 import { listProductMembers, listProductPermissionGrants } from "@/lib/auth/service";
@@ -10,6 +6,7 @@ import {
   getProductPageContext,
   type ProductPageWithSearchParams,
 } from "@/lib/auth/product-page-context";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 export default async function ProductAccessPage({
@@ -24,25 +21,34 @@ export default async function ProductAccessPage({
   const [grants, members] = await Promise.all([
     listProductPermissionGrants(current.subject.subjectId, organizationId, productId),
     canManage
-      ? listProductMembers(current.subject.subjectId, organizationId, productId)
+      ? listProductMembers(current.subject.subjectId, organizationId, productId, {
+          includeDisabled: true,
+        })
       : Promise.resolve([]),
   ]);
+  const memberBySubject = new Map(members.map((member) => [member.membership.subjectId, member]));
   const emailBySubject = new Map(
     members.map((member) => [member.membership.subjectId, member.email]),
   );
   if (!canManage) emailBySubject.set(current.subject.subjectId, current.subject.primaryEmail);
-  const eligibleMembers = members.filter(
-    (member) => member.emailVerified && member.membership.status === "active",
-  );
-  const accessRoles = access.product.accessRoles ?? [];
 
   return (
     <>
       <DashboardHeading
         description={
           canManage
-            ? "Choose what product members can do and where those permissions apply."
+            ? "Review and manage what product members can do."
             : "Review the permissions you have and where they apply."
+        }
+        action={
+          canManage ? (
+            <Link
+              className="button button-primary"
+              href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/access/new`}
+            >
+              Assign permissions
+            </Link>
+          ) : null
         }
       />
       <ProductNavigation
@@ -58,14 +64,21 @@ export default async function ProductAccessPage({
       {query.notice === "grant-updated" ? (
         <DashboardNotice message="Permission updated." kind="success" />
       ) : null}
+      {query.notice === "grant-deleted" ? (
+        <DashboardNotice message="Disabled permission deleted." kind="success" />
+      ) : null}
       {query.error === "grant-failed" ? (
         <DashboardNotice
           message="Could not add that permission. Check the member and resource ID, and make sure the selected permission set is still available."
           kind="error"
         />
       ) : null}
-
-      <AccessGrantExplainer />
+      {query.error === "grant-delete-failed" ? (
+        <DashboardNotice
+          message="Could not delete that permission. Reload the page and try again."
+          kind="error"
+        />
+      ) : null}
 
       {grants.length ? (
         <div className="access-grant-list">
@@ -73,6 +86,7 @@ export default async function ProductAccessPage({
             <ProductAccessGrantCard
               key={grant.membershipId}
               grant={grant}
+              productMember={memberBySubject.get(grant.subjectId)}
               email={
                 emailBySubject.get(grant.subjectId) ??
                 (grant.subjectId === current.subject.subjectId
@@ -97,15 +111,6 @@ export default async function ProductAccessPage({
           </div>
         </section>
       )}
-
-      {canManage ? (
-        <AccessGrantCreationSection
-          eligibleMembers={eligibleMembers}
-          organizationId={organizationId}
-          productId={productId}
-          accessRoles={accessRoles}
-        />
-      ) : null}
     </>
   );
 }

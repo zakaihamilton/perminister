@@ -75,6 +75,7 @@ export default async function OrganizationOverview(
         <OrganizationOverviewMetrics
           activeApiKeyCount={activeApiKeyCount}
           memberCount={managerOverview?.[0] ?? null}
+          organizationId={organizationId}
           productCount={products.length}
           role={organization.membership.role}
         />

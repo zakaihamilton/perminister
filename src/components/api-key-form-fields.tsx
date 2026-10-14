@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { CustomDropdown } from "@/components/custom-dropdown";
 import { Tooltip } from "@/components/tooltip";
 import type { ProductRecord, ResourceScope } from "@/lib/auth/domain";
@@ -17,20 +20,25 @@ export function ApiKeyFormFields({
   formId: string;
   products: ProductRecord[];
 }) {
-  const scopeKind = defaults?.scope.kind ?? "product";
-  const resourceId =
+  const defaultScopeKind = defaults?.scope.kind ?? "product";
+  const defaultResourceId =
     defaults?.scope.kind === "project"
       ? defaults.scope.projectId
       : defaults?.scope.kind === "workspace"
         ? defaults.scope.workspaceId
         : "";
+  const [scopeKind, setScopeKind] = useState(defaultScopeKind);
+  const [resourceId, setResourceId] = useState(defaultResourceId);
 
   return (
     <div className="form-grid">
       <div className="form-field-with-tooltip">
         <div className="form-label-row">
           <label htmlFor={`${formId}-scope`}>Where can this key be used?</label>
-          <Tooltip content="Choose whether this key works across a product or only in one project or workspace." />
+          <Tooltip
+            content="Choose whether this key works across a product or only in one project or workspace."
+            label="More information about key scope"
+          />
         </div>
         <CustomDropdown
           aria-label="Where can this key be used?"
@@ -42,6 +50,11 @@ export function ApiKeyFormFields({
             { value: "project", label: "Project" },
             { value: "workspace", label: "Workspace" },
           ]}
+          onValueChange={(value) => {
+            if (value === "product" || value === "project" || value === "workspace") {
+              setScopeKind(value);
+            }
+          }}
         />
       </div>
       <label htmlFor={`${formId}-product`}>
@@ -59,26 +72,36 @@ export function ApiKeyFormFields({
           }))}
         />
       </label>
-      <div className="form-field-with-tooltip">
-        <div className="form-label-row">
-          <label htmlFor={`${formId}-resource-id`}>Project or workspace ID</label>
-          <Tooltip content="Enter the ID used by your product. Leave this blank to allow product-wide use." />
+      {scopeKind !== "product" ? (
+        <div className="form-field-with-tooltip">
+          <div className="form-label-row">
+            <label htmlFor={`${formId}-resource-id`}>
+              {scopeKind === "project" ? "Project ID" : "Workspace ID"}
+            </label>
+            <Tooltip
+              content={`Enter the ${scopeKind} ID used by your product.`}
+              label={`More information about the ${scopeKind} ID`}
+            />
+          </div>
+          <input
+            id={`${formId}-resource-id`}
+            name="resourceId"
+            required
+            maxLength={128}
+            pattern="[a-z0-9][a-z0-9._:-]*"
+            value={resourceId}
+            autoCapitalize="none"
+            onChange={(event) => setResourceId(event.currentTarget.value.toLowerCase())}
+          />
         </div>
-        <input
-          id={`${formId}-resource-id`}
-          name="resourceId"
-          maxLength={128}
-          defaultValue={resourceId}
-          autoCapitalize="none"
-          onChange={(event) => {
-            event.currentTarget.value = event.currentTarget.value.toLowerCase();
-          }}
-        />
-      </div>
+      ) : null}
       <div className="form-field-with-tooltip">
         <div className="form-label-row">
           <label htmlFor={`${formId}-actions`}>Actions this key can perform</label>
-          <Tooltip content="Enter the action names your product checks, separated by commas." />
+          <Tooltip
+            content="Enter the action names your product checks, separated by commas."
+            label="More information about allowed actions"
+          />
         </div>
         <input
           id={`${formId}-actions`}
@@ -92,7 +115,10 @@ export function ApiKeyFormFields({
       <div className="form-field-with-tooltip">
         <div className="form-label-row">
           <label htmlFor={`${formId}-expiration`}>Expiration</label>
-          <Tooltip content="An expired key cannot authorize requests. A key with no expiration stays active until it is revoked." />
+          <Tooltip
+            content="An expired key cannot authorize requests. A key with no expiration stays active until it is revoked."
+            label="More information about key expiration"
+          />
         </div>
         <CustomDropdown
           aria-label="Expiration"

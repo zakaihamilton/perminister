@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ApiKeyForm } from "@/components/api-key-form";
 import { ApiKeyItem } from "@/components/api-key-item";
 import type { ApiKeyRecord, ProductRecord, ResourceScope } from "@/lib/auth/domain";
 
@@ -28,8 +29,8 @@ export function OrganizationApiKeyRecords({
         <div>
           <h2>No API keys yet</h2>
           <p>
-            Open a product below to view its keys. You can create a key when you have permission to
-            use that product.
+            API keys you create for this organization will appear here. Create a key for a product
+            where your account has active access.
           </p>
         </div>
       </section>
@@ -58,6 +59,30 @@ export function OrganizationApiKeyRecords({
         );
       })}
     </div>
+  );
+}
+
+export function OrganizationApiKeyCreationSection({
+  canCreate,
+  organizationId,
+  products,
+  returnTo,
+}: {
+  canCreate: boolean;
+  organizationId: string;
+  products: ProductRecord[];
+  returnTo: string;
+}) {
+  if (!canCreate) return null;
+
+  return (
+    <section
+      aria-label="API key details"
+      className="dashboard-card create-api-key-card api-key-create-card"
+      id="create-api-key"
+    >
+      <ApiKeyForm organizationId={organizationId} products={products} returnTo={returnTo} />
+    </section>
   );
 }
 

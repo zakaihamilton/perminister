@@ -1,15 +1,12 @@
-import type { ReactNode } from "react";
 import Image from "next/image";
 import type { ProductAccessRole } from "@/lib/auth/access-roles";
 
 export function ProductAccessRoleCatalog({
   accessRoles,
-  children,
   organizationId,
   productId,
 }: {
   accessRoles: readonly ProductAccessRole[];
-  children: ReactNode;
   organizationId: string;
   productId: string;
 }) {
@@ -58,13 +55,12 @@ export function ProductAccessRoleCatalog({
           ))}
         </div>
       ) : (
-        <p className="form-hint">No permission sets yet. Add one below to reuse app permissions.</p>
+        <p className="form-hint">No permission sets yet. Create one to reuse app permissions.</p>
       )}
       <p className="access-role-catalog-note">
         Use the exact action names your app checks. Removing a permission set stops new assignments;
         existing permissions stay in place.
       </p>
-      {children}
     </section>
   );
 }
@@ -119,7 +115,7 @@ export function CreateProductAccessRoleForm({
         </small>
       </label>
       <button className="button button-primary" type="submit" disabled={accessRoleCount >= 32}>
-        Add permission set
+        Create permission set
       </button>
     </form>
   );

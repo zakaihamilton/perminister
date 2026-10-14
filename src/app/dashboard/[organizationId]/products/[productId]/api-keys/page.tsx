@@ -47,17 +47,11 @@ export default async function ProductApiKeysPage({
       <DashboardHeading
         description="Create and manage API keys that work with this product."
         action={
-          <div className="product-detail-actions">
-            {canCreate ? (
-              <Link className="button button-primary" href="#create-api-key">
-                Create API key
-              </Link>
-            ) : (
-              <button className="button button-primary" disabled type="button">
-                Create API key
-              </button>
-            )}
-          </div>
+          canCreate ? (
+            <Link className="button button-primary" href={`${returnTo}/new`}>
+              Create API key
+            </Link>
+          ) : null
         }
       />
       <ProductNavigation
@@ -81,18 +75,17 @@ export default async function ProductApiKeysPage({
         product={access.product}
         returnTo={returnTo}
       />
-      <ProductApiKeyCreationSection
-        canCreate={canCreate}
-        canManageAccess={canManageAccess}
-        isEmailVerified={!!current.subject.emailVerifiedAt}
-        organizationId={organizationId}
-        product={access.product}
-        productId={productId}
-        returnTo={returnTo}
-      />
-      <p className="role-help">
-        The full key appears once after creation. Copy it into your server’s secret store.
-      </p>
+      {!canCreate ? (
+        <ProductApiKeyCreationSection
+          canCreate={false}
+          canManageAccess={canManageAccess}
+          isEmailVerified={!!current.subject.emailVerifiedAt}
+          organizationId={organizationId}
+          product={access.product}
+          productId={productId}
+          returnTo={returnTo}
+        />
+      ) : null}
     </>
   );
 }

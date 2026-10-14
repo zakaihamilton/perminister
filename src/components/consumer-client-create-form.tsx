@@ -1,4 +1,5 @@
 import { useId, type FormEventHandler } from "react";
+import { CustomDropdown } from "@/components/custom-dropdown";
 
 interface ConsumerClientCreateFormProps {
   onSubmit: FormEventHandler<HTMLFormElement>;
@@ -20,15 +21,7 @@ export function ConsumerClientCreateForm({
   const formId = useId();
 
   return (
-    <section className="dashboard-card">
-      <div className="dashboard-card-heading">
-        <div>
-          <h2>Create app client</h2>
-          <p>
-            Connect an app backend to Perminister for {productName} sign-in and permission checks.
-          </p>
-        </div>
-      </div>
+    <section aria-label="App client details" className="dashboard-card">
       <form
         action="/actions/createOrRotateConsumerClientAction"
         method="post"
@@ -75,14 +68,17 @@ export function ConsumerClientCreateForm({
           </label>
           <label htmlFor={`${formId}-registration`}>
             Let people sign up themselves
-            <select
+            <CustomDropdown
+              aria-label="Let people sign up themselves"
               id={`${formId}-registration`}
               name="selfRegistrationEnabled"
+              required
               defaultValue="false"
-            >
-              <option value="false">Disabled</option>
-              <option value="true">Enabled</option>
-            </select>
+              options={[
+                { value: "false", label: "Disabled" },
+                { value: "true", label: "Enabled" },
+              ]}
+            />
           </label>
         </div>
         <p className="form-hint">

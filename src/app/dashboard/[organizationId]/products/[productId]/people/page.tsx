@@ -1,11 +1,8 @@
+import Link from "next/link";
 import { DashboardHeading } from "@/components/dashboard-shell";
 import { ProductNavigation } from "@/components/product-navigation";
 import { PendingInvitations } from "@/components/pending-invitations";
-import {
-  InviteProductMemberSection,
-  ProductPeopleNotices,
-  ProductPeopleSection,
-} from "@/components/product-people-sections";
+import { ProductPeopleNotices, ProductPeopleSection } from "@/components/product-people-sections";
 import { listProductInvitations, listProductMembers } from "@/lib/auth/service";
 import {
   getProductPageContext,
@@ -30,7 +27,17 @@ export default async function ProductPeoplePage({
   const isOwner = role === "owner";
   return (
     <>
-      <DashboardHeading description="Manage who can use this product and what they can do." />
+      <DashboardHeading
+        description="Manage who can use this product and what they can do."
+        action={
+          <Link
+            className="button button-primary"
+            href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/people/invite`}
+          >
+            Invite member
+          </Link>
+        }
+      />
       <ProductNavigation
         isSharedInstallation={Boolean(access.product.sharedProductRef)}
         organizationId={organizationId}
@@ -45,12 +52,6 @@ export default async function ProductPeoplePage({
         organizationId={organizationId}
         productId={productId}
       />
-      <InviteProductMemberSection
-        isOwner={isOwner}
-        organizationId={organizationId}
-        productId={productId}
-      />
-
       <PendingInvitations
         invitations={invitations}
         organizationId={organizationId}

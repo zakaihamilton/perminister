@@ -1143,6 +1143,7 @@ const ACTIVITY_SUMMARIES: Readonly<Record<string, string>> = {
   "api-key.service-rotated.created": "Created a replacement integration API key",
   "api-key.service-rotated.revoked-previous": "Revoked the previous integration API key",
   "consumer-client.created": "Created an application client",
+  "consumer-client.updated": "Updated application client settings",
   "consumer-client.secret-rotated": "Rotated an application client secret",
   "consumer-client.revoked": "Revoked an application client",
   "consumer-client.publisher-transferred": "Transferred an application client to a new publisher",
@@ -1170,6 +1171,7 @@ const ACTIVITY_SUMMARIES: Readonly<Record<string, string>> = {
   "permission.granted": "Granted permissions",
   "permission.revoked": "Revoked permissions",
   "permission.restored": "Restored permissions",
+  "permission.deleted": "Deleted a disabled permission",
   "product.access-role-created": "Created a product access role",
   "product.access-role-removed": "Removed a product access role",
   "product.created": "Created a product",
@@ -4041,6 +4043,44 @@ export async function createConsumerClient(
   );
 }
 
+export async function updateConsumerClient(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  clientId: string,
+  options: CreateConsumerClientOptions,
+): Promise<ConsumerClientSummary> {
+  assertOpaqueId(clientId);
+  return withConsumerClientManager(
+    actorId,
+    organizationId,
+    productId,
+    async (actor, normalizedProductId) => {
+      const validated = validateConsumerClientOptions(normalizedProductId, options);
+      const found = await requireManagedConsumerClientUnlocked(
+        organizationId,
+        normalizedProductId,
+        clientId,
+        true,
+        "Choose an active application client for this product.",
+      );
+      const next: ConsumerClientRecord = {
+        ...found.record,
+        appName: validated.appName,
+        appOrigin: validated.appOrigin,
+        sessionLifetimeMs: options.sessionLifetimeSeconds * 1000,
+        selfRegistrationEnabled: options.selfRegistrationEnabled,
+        updatedAt: new Date().toISOString(),
+      };
+      await persistRecord(next, "consumer-client.updated", {
+        kind: "subject",
+        subjectId: actor.subjectId,
+      });
+      return consumerClientSummary(next);
+    },
+  );
+}
+
 export async function rotateConsumerClient(
   actorId: SubjectId,
   organizationId: string,
@@ -4114,11 +4154,15 @@ export async function listProductMembers(
   actorId: SubjectId,
   organizationId: string,
   productId: string,
+  options: { includeDisabled?: boolean } = {},
 ): Promise<ProductMemberView[]> {
   return authMutationQueue.run(async () => {
     await requireProductRoleUnlocked(actorId, organizationId, productId, ["owner", "admin"]);
     const memberships = (await store().listOrganizationMemberships(organizationId))
-      .filter((record) => record.productId === productId && record.status === "active")
+      .filter(
+        (record) =>
+          record.productId === productId && (options.includeDisabled || record.status === "active"),
+      )
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
     const result: ProductMemberView[] = [];
     for (const membership of memberships) {
@@ -6757,6 +6801,59 @@ export async function updateGrantStatus(
         status === "disabled" ? "permission.revoked" : "permission.restored",
         { kind: "subject", subjectId: actorMembership.subjectId },
         { changes: [{ field: "status", before: current.record.status, after: status }] },
+      );
+    });
+  });
+}
+
+export async function deletePermissionGrant(
+  actorId: SubjectId,
+  membershipId: string,
+): Promise<void> {
+  assertOpaqueId(membershipId);
+  await authMutationQueue.run(async () => {
+    const initial = await loadRecord("membership", membershipId);
+    if (!initial) throw new Error("Permission grant not found.");
+    const { organizationId, productId } = initial.record.scope;
+
+    await withOrganizationMutationLock(organizationId, async () => {
+      const current = await loadRecord("membership", membershipId);
+      if (
+        !current ||
+        current.record.scope.organizationId !== organizationId ||
+        current.record.scope.productId !== productId
+      ) {
+        throw new Error("Permission grant not found.");
+      }
+      const actorMembership = await requireProductRoleUnlocked(actorId, organizationId, productId, [
+        "owner",
+        "admin",
+      ]);
+      if (current.record.status !== "disabled") {
+        throw new Error("Only disabled permissions can be deleted.");
+      }
+
+      const productMembership = await store().readOrganizationMembership(
+        organizationId,
+        current.record.subjectId,
+        productId,
+      );
+      const grants = productMembership?.permissionGrants ?? [];
+      if (!productMembership || !grants.some((grant) => grant.membershipId === membershipId)) {
+        throw new Error("Permission grant not found.");
+      }
+
+      await store().writeRecord({
+        ...productMembership,
+        permissionGrants: grants.filter((grant) => grant.membershipId !== membershipId),
+        updatedAt: new Date().toISOString(),
+      });
+      invalidateOrganizationDashboardDataCache();
+      await appendRecordActivityEvent(
+        current.record,
+        "permission.deleted",
+        { kind: "subject", subjectId: actorMembership.subjectId },
+        { changes: [{ field: "status", before: "disabled", after: "deleted" }] },
       );
     });
   });

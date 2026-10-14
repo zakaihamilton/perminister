@@ -1,7 +1,7 @@
+import Link from "next/link";
 import { PendingInvitations } from "@/components/pending-invitations";
 import { DashboardHeading } from "@/components/dashboard-shell";
 import {
-  InviteOrganizationMemberSection,
   OrganizationPeopleNotices,
   OrganizationPeopleSection,
 } from "@/components/organization-people-sections";
@@ -29,7 +29,19 @@ export default async function PeoplePage(
   const owner = organization.membership.role === "owner";
   return (
     <>
-      <DashboardHeading description="Organization owners and admins manage members and invitations. Each product has its own members and permissions." />
+      <DashboardHeading
+        description="Organization owners and admins manage members and invitations. Each product has its own members and permissions."
+        action={
+          owner ? (
+            <Link
+              className="button button-primary"
+              href={`/dashboard/${organizationId}/people/invite`}
+            >
+              Invite member
+            </Link>
+          ) : null
+        }
+      />
       <OrganizationPeopleNotices error={query.error} notice={query.notice} />
       <OrganizationPeopleSection
         currentSubjectId={current.subject.subjectId}
@@ -37,8 +49,6 @@ export default async function PeoplePage(
         organizationId={organizationId}
         owner={owner}
       />
-
-      {owner ? <InviteOrganizationMemberSection organizationId={organizationId} /> : null}
 
       <PendingInvitations invitations={invitations} organizationId={organizationId} />
       <p className="role-help">

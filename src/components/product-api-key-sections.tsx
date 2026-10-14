@@ -97,15 +97,10 @@ export function ProductApiKeyCreationSection({
   if (canCreate) {
     return (
       <section
+        aria-label="API key details"
         className="dashboard-card create-api-key-card api-key-create-card"
         id="create-api-key"
       >
-        <div className="dashboard-card-heading">
-          <div>
-            <h2>Create API key</h2>
-            <p>Choose what this key can do and where it can be used.</p>
-          </div>
-        </div>
         <ApiKeyForm organizationId={organizationId} products={[product]} returnTo={returnTo} />
       </section>
     );

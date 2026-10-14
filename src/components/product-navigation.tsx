@@ -48,7 +48,7 @@ export function ProductNavigation({
     <nav className="product-nav" aria-label={`${productName} pages`}>
       {items.map((item) => {
         const href = `${productRoot}/${item.path}`;
-        const isActive = pathname === href;
+        const isActive = pathname === href || pathname.startsWith(`${href}/`);
 
         return (
           <Link
