@@ -433,6 +433,18 @@ async function consumerClientActionContext(formData: FormData) {
   };
 }
 
+function consumerClientSettings(formData: FormData) {
+  const sessionLifetimeHours = Number(firstValue(formData, "sessionLifetimeHours"));
+  const registrationSetting = firstValue(formData, "selfRegistrationEnabled");
+  if (registrationSetting !== "true" && registrationSetting !== "false") return null;
+  return {
+    appName: firstValue(formData, "appName"),
+    appOrigin: firstValue(formData, "appOrigin"),
+    sessionLifetimeSeconds: Math.round(sessionLifetimeHours * 60 * 60),
+    selfRegistrationEnabled: registrationSetting === "true",
+  };
+}
+
 export async function createOrRotateConsumerClientAction(
   _previous: ConsumerClientActionState,
   formData: FormData,
@@ -450,21 +462,15 @@ export async function createOrRotateConsumerClientAction(
         clientId,
       );
     } else {
-      const sessionLifetimeHours = Number(firstValue(formData, "sessionLifetimeHours"));
-      const registrationSetting = firstValue(formData, "selfRegistrationEnabled");
-      if (registrationSetting !== "true" && registrationSetting !== "false") {
+      const settings = consumerClientSettings(formData);
+      if (!settings) {
         return { error: "Choose whether self-registration is enabled." };
       }
       credential = await createConsumerClient(
         current.subject.subjectId,
         organizationId,
         productId,
-        {
-          appName: firstValue(formData, "appName"),
-          appOrigin: firstValue(formData, "appOrigin"),
-          sessionLifetimeSeconds: Math.round(sessionLifetimeHours * 60 * 60),
-          selfRegistrationEnabled: registrationSetting === "true",
-        },
+        settings,
       );
     }
     revalidatePath(returnTo);
@@ -482,17 +488,17 @@ export async function updateConsumerClientAction(
   if (!context) return { error: "Sign in again to manage application clients." };
   const { current, organizationId, productId, returnTo, clientId } = context;
   try {
-    const sessionLifetimeHours = Number(firstValue(formData, "sessionLifetimeHours"));
-    const registrationSetting = firstValue(formData, "selfRegistrationEnabled");
-    if (registrationSetting !== "true" && registrationSetting !== "false") {
+    const settings = consumerClientSettings(formData);
+    if (!settings) {
       return { clientId, error: "Choose whether self-registration is enabled." };
     }
-    await updateConsumerClient(current.subject.subjectId, organizationId, productId, clientId, {
-      appName: firstValue(formData, "appName"),
-      appOrigin: firstValue(formData, "appOrigin"),
-      sessionLifetimeSeconds: Math.round(sessionLifetimeHours * 60 * 60),
-      selfRegistrationEnabled: registrationSetting === "true",
-    });
+    await updateConsumerClient(
+      current.subject.subjectId,
+      organizationId,
+      productId,
+      clientId,
+      settings,
+    );
     revalidatePath(returnTo);
     return { clientId, updated: true };
   } catch (error) {
