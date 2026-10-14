@@ -1,16 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-13T09:52:03.066Z",
+  "generatedAt": "2026-10-14T12:58:58.134Z",
   "entries": [
-    {
-      "fingerprint": "dd1c30f110f84099e56f21f0",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/actions.ts",
-      "line": 593
-    },
     {
       "fingerprint": "a0c99683e41b884510f183fc",
       "provider": "jscpd",
@@ -75,13 +66,76 @@
       "line": 23
     },
     {
-      "fingerprint": "62dfdcd453fb1e97f6270b77",
+      "fingerprint": "d457679db68bc555617f8f13",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
-      "file": "app/dashboard/[organizationId]/products/[productId]/api-keys/page.tsx",
-      "line": 60
+      "file": "app/dashboard/[organizationId]/products/[productId]/access/new/page.tsx",
+      "line": 33
+    },
+    {
+      "fingerprint": "d457679db68bc555617f8f13",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/dashboard/[organizationId]/products/[productId]/access/new/page.tsx",
+      "line": 33
+    },
+    {
+      "fingerprint": "d457679db68bc555617f8f13",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/dashboard/[organizationId]/products/[productId]/access/new/page.tsx",
+      "line": 33
+    },
+    {
+      "fingerprint": "02aaf3395d573db3ad2a7189",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/dashboard/[organizationId]/products/[productId]/api-keys/new/page.tsx",
+      "line": 39
+    },
+    {
+      "fingerprint": "fcfdb6531692ccd336890a40",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/dashboard/[organizationId]/products/[productId]/api-keys/new/page.tsx",
+      "line": 40
+    },
+    {
+      "fingerprint": "c4ee1a89b3696aebdc58c450",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/dashboard/[organizationId]/products/[productId]/clients/new/page.tsx",
+      "line": 12
+    },
+    {
+      "fingerprint": "d76364d1e5a1250aabfdc3d6",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/dashboard/new-organization/new/page.tsx",
+      "line": 18
+    },
+    {
+      "fingerprint": "368df3dcfd4ad6563b702500",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/dashboard/new-organization/new/page.tsx",
+      "line": 49
     },
     {
       "fingerprint": "b447cb4971b5fe4cf8c725ff",
@@ -120,58 +174,58 @@
       "line": 65
     },
     {
-      "fingerprint": "ddb9fe1e61d5ffaf6749f8d6",
+      "fingerprint": "edd0a4e23a055f696d91a1fc",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/globals.css",
-      "line": 5496
+      "line": 5550
     },
     {
-      "fingerprint": "c99f7e4347567a9137ec668c",
+      "fingerprint": "a501134db8e174a56f9d2be6",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/globals.css",
-      "line": 6469
+      "line": 6523
     },
     {
-      "fingerprint": "9de9c534c3b766c1c6e5baa4",
+      "fingerprint": "815076f42ee28b938bb39eec",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/globals.css",
-      "line": 6632
+      "line": 6686
     },
     {
-      "fingerprint": "c51ec93a651314206cf24d5f",
+      "fingerprint": "c10d30d2cadbce82552160f8",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/globals.css",
-      "line": 6666
+      "line": 6720
     },
     {
-      "fingerprint": "d0f2f4355ac8ba16cc478a59",
+      "fingerprint": "9ec22d496a285a0bec1d83cd",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/globals.css",
-      "line": 8462
+      "line": 8576
     },
     {
-      "fingerprint": "910be44ffd25674333fd26b5",
+      "fingerprint": "6e1f172bc4842b093cd042e7",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/globals.css",
-      "line": 8467
+      "line": 8581
     },
     {
       "fingerprint": "0e57a9020c7443b9a7c1896d",
@@ -192,13 +246,40 @@
       "line": 4
     },
     {
-      "fingerprint": "a7af05fe1e427c4d42e361e5",
+      "fingerprint": "98fc32587ddfea7165e0d57a",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "components/consumer-client-create-form.tsx",
+      "line": 28
+    },
+    {
+      "fingerprint": "0978f420474d46fa573356ba",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "components/consumer-client-creation-manager.tsx",
+      "line": 49
+    },
+    {
+      "fingerprint": "404303ffaaa4062ffc84bdd0",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "components/consumer-client-list.tsx",
-      "line": 100
+      "line": 218
+    },
+    {
+      "fingerprint": "8b95e5e91124e2b6a736b480",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "components/organization-overview-sections.tsx",
+      "line": 90
     },
     {
       "fingerprint": "f5c2bebebc89dc3747d7f48a",
@@ -208,6 +289,15 @@
       "scope": ".",
       "file": "components/organization-people-sections.tsx",
       "line": 114
+    },
+    {
+      "fingerprint": "fdb2151ffdf634772e433efd",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "components/permission-grant-delete-control.tsx",
+      "line": 35
     },
     {
       "fingerprint": "9b1abd5a046ebd2c59dd39ef",
@@ -226,33 +316,6 @@
       "scope": ".",
       "file": "lib/auth/mail.ts",
       "line": 163
-    },
-    {
-      "fingerprint": "91e40af9a9ee357292019c8c",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "lib/auth/service.ts",
-      "line": 1505
-    },
-    {
-      "fingerprint": "3e72e81aa507eefa388568d1",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "lib/auth/service.ts",
-      "line": 4044
-    },
-    {
-      "fingerprint": "d204161d35a0f04207b01c44",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "lib/auth/service.ts",
-      "line": 7100
     }
   ]
 }
