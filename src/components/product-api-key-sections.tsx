@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ApiKeyRotationControl } from "@/components/api-key-rotation-control";
 import { ApiKeyForm } from "@/components/api-key-form";
 import { ApiKeyItem } from "@/components/api-key-item";
 import type { ApiKeyRecord, ProductRecord, ResourceScope } from "@/lib/auth/domain";
@@ -48,29 +49,21 @@ export function ProductApiKeyRecords({
         return (
           <ApiKeyItem
             apiKey={key}
+            extraActions={
+              status === "active" && canCreate ? (
+                <ApiKeyRotationControl
+                  apiKey={key}
+                  organizationId={organizationId}
+                  product={product}
+                  returnTo={returnTo}
+                />
+              ) : undefined
+            }
             key={key.apiKeyId}
             returnTo={returnTo}
             scopeLabel={scopeText(key.scope)}
             status={status}
-          >
-            {status === "active" && canCreate ? (
-              <details className="rotate-details">
-                <summary>Rotate this key</summary>
-                <ApiKeyForm
-                  defaults={{
-                    scope: key.scope,
-                    actions: key.actions,
-                    expiresInDays: key.expiresAt ? "30" : "never",
-                  }}
-                  organizationId={organizationId}
-                  products={[product]}
-                  returnTo={returnTo}
-                  rotateFromApiKeyId={key.apiKeyId}
-                  submitLabel="Create replacement key"
-                />
-              </details>
-            ) : null}
-          </ApiKeyItem>
+          />
         );
       })}
     </div>

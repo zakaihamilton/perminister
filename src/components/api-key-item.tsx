@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { DashboardNotice } from "@/components/dashboard-shell";
+import { ConfirmationActionControl } from "@/components/confirmation-action-control";
 import type { ApiKeyRecord } from "@/lib/auth/domain";
 
 export function ApiKeyNotices({
@@ -32,14 +33,12 @@ export function ApiKeyItem({
   status,
   returnTo,
   extraActions,
-  children,
 }: {
   apiKey: ApiKeyRecord;
   scopeLabel: string;
   status: "active" | "revoked" | "expired";
   returnTo: string;
   extraActions?: ReactNode;
-  children?: ReactNode;
 }) {
   return (
     <article className="record-item" key={apiKey.apiKeyId}>
@@ -59,17 +58,20 @@ export function ApiKeyItem({
       </div>
       <div className="record-actions">
         {status === "active" ? (
-          <form action="/actions/revokeApiKeyAction" method="post">
-            <input type="hidden" name="apiKeyId" value={apiKey.apiKeyId} />
-            <input type="hidden" name="returnTo" value={returnTo} />
-            <button className="button button-secondary" type="submit">
-              Revoke API key
-            </button>
-          </form>
+          <ConfirmationActionControl
+            action="/actions/revokeApiKeyAction"
+            fields={[
+              { name: "apiKeyId", value: apiKey.apiKeyId },
+              { name: "returnTo", value: returnTo },
+            ]}
+            triggerLabel="Revoke API key"
+            title="Revoke this API key?"
+            description="This key will stop working immediately. Any app or script that uses it must be updated to use another key."
+            confirmLabel="Revoke API key"
+          />
         ) : null}
         {extraActions}
       </div>
-      {children}
     </article>
   );
 }

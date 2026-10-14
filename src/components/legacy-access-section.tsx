@@ -1,3 +1,5 @@
+import { ConfirmationActionControl } from "@/components/confirmation-action-control";
+
 export function LegacyAccessSection({ legacy }: { legacy: { grants: number; keys: number } }) {
   return (
     <section className="dashboard-card operations-migration">
@@ -17,11 +19,15 @@ export function LegacyAccessSection({ legacy }: { legacy: { grants: number; keys
         </span>
       </div>
       {legacy.grants || legacy.keys ? (
-        <form action="/actions/retireLegacyAccessAction" method="post">
-          <button className="button button-primary" type="submit">
-            Remove older access
-          </button>
-        </form>
+        <ConfirmationActionControl
+          action="/actions/retireLegacyAccessAction"
+          fields={[]}
+          triggerLabel="Remove older access"
+          triggerClassName="button button-primary"
+          title="Remove older access?"
+          description={`This will disable ${legacy.grants} legacy permission${legacy.grants === 1 ? "" : "s"} and revoke ${legacy.keys} legacy API key${legacy.keys === 1 ? "" : "s"}. Accounts, signed-in devices, and activity history will remain. You can safely run this again.`}
+          confirmLabel="Remove older access"
+        />
       ) : (
         <p className="form-hint">No active permissions or API keys outside organizations remain.</p>
       )}
