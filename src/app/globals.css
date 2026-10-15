@@ -8059,7 +8059,7 @@ html[data-theme="dark"] .access-role-actions code {
   width: fit-content;
   max-width: 100%;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 12px;
   margin: -5px 0 1px;
   padding: 4px 8px 4px 13px;
   background: var(--surface);
