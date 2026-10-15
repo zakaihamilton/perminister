@@ -34,7 +34,7 @@ jobs:
       - run: node scripts/check-stable-form-actions.mjs
       - run: pnpm run typecheck
       - run: pnpm run build
-      - run: pnpm run health -- --details
+      - run: pnpm run health --details
 
   secrets:
     runs-on: ubuntu-latest
