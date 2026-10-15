@@ -78,7 +78,7 @@ The proxy is enabled for Vercel Production; Preview deployments reject mutations
 remain available when the proxy is down; writes return `502` or `503` rather than falling back to a
 Vercel process. Railway readiness returns `503` if its shared proxy secret is missing.
 
-Local `npm run dev` works without proxy variables and handles mutations locally as before. To send
+Local `pnpm run dev` works without proxy variables and handles mutations locally as before. To send
 local mutations to Railway, set `PERMINISTER_WRITE_PROXY_URL` and the shared
 `PERMINISTER_WRITE_PROXY_SECRET` in `.env.local`. Local proxy URLs can use HTTPS Railway domains or
 an HTTP loopback address for a local writer; hosted Vercel deployments require HTTPS. If local

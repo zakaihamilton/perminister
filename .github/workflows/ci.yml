@@ -21,17 +21,20 @@ jobs:
       CHROME_PATH: /usr/bin/google-chrome
     steps:
       - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
       - uses: actions/setup-node@v4
         with:
           node-version: 24.22.0
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm test
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test
       - run: node scripts/check-stable-form-actions.mjs
-      - run: npm run typecheck
-      - run: npm run build
-      - run: npm run health -- --details
+      - run: pnpm run typecheck
+      - run: pnpm run build
+      - run: pnpm run health -- --details
 
   secrets:
     runs-on: ubuntu-latest
@@ -40,6 +43,9 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
       - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -49,12 +55,15 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
       - uses: actions/setup-node@v4
         with:
           node-version: 24.22.0
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install chromium
-      - run: npm run health:visual
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install chromium
+      - run: pnpm run health:visual
         env:
           RUN_VISUAL_REGRESSION: "1"

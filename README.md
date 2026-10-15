@@ -19,8 +19,8 @@ Running the Perminister service requires platform-provisioned server settings. C
 operator for a local environment file. Application integrators only need the
 [application integration API](docs/api.md); keep client credentials out of browser code and logs.
 
-    npm install
-    npm run dev
+    pnpm install
+    pnpm run dev
 
 ## Production storage topology
 
@@ -36,7 +36,7 @@ workflow uploads every push to `main` to the configured Railway production servi
 [`docs/deployment/railway.md`](docs/deployment/railway.md) for service settings, shared secrets, and
 the Vercel-to-Railway mutation proxy setup.
 
-Local `npm run dev` continues to use its configured local storage. Set
+Local `pnpm run dev` continues to use its configured local storage. Set
 `PERMINISTER_WRITE_PROXY_URL` and `PERMINISTER_WRITE_PROXY_SECRET` in `.env.local` to send local
 mutations through Railway too. Without those settings, use a separate development bucket so the
 local process does not write to the production bucket.
