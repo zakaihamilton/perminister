@@ -51,6 +51,7 @@
     "@types/node": "^24.19.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@typescript/native": "npm:typescript@^7.0.2",
     "dependency-cruiser": "^18.5.0",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.4.1",
@@ -66,7 +67,7 @@
     "size-limit": "^14.1.0",
     "stylelint": "^17.11.1",
     "stylelint-config-standard": "^40.0.0",
-    "typescript": "^6.0.3",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vite": "^8.3.3",
     "vitest": "^5.0.3"
   },
