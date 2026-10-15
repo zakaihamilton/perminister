@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-14T12:58:58.134Z",
+  "generatedAt": "2026-10-15T02:59:27.092Z",
   "entries": [
     {
       "fingerprint": "a0c99683e41b884510f183fc",
@@ -316,6 +316,105 @@
       "scope": ".",
       "file": "lib/auth/mail.ts",
       "line": 163
+    },
+    {
+      "fingerprint": "89cf3fcadfdd585ddc8b85a6",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/globals.css",
+      "line": 5577
+    },
+    {
+      "fingerprint": "1a4719ee53cf6eb3e1989486",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/globals.css",
+      "line": 6550
+    },
+    {
+      "fingerprint": "3e917b542f4fbebffb6491f4",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/globals.css",
+      "line": 6712
+    },
+    {
+      "fingerprint": "020f7474ba08c97256ed8d17",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/globals.css",
+      "line": 6746
+    },
+    {
+      "fingerprint": "45bb1b6cbf98d1d5adb56758",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/globals.css",
+      "line": 8602
+    },
+    {
+      "fingerprint": "46b5c4d1f7b89d882384b128",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/globals.css",
+      "line": 8607
+    },
+    {
+      "fingerprint": "17a501d24ef974f4c72ce3b5",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "components/api-key-form.tsx",
+      "line": 72
+    },
+    {
+      "fingerprint": "fe4c40598f296f8aafc74d9a",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "components/confirmation-action-control.tsx",
+      "line": 95
+    },
+    {
+      "fingerprint": "fe4c40598f296f8aafc74d9a",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "components/confirmation-action-control.tsx",
+      "line": 95
+    },
+    {
+      "fingerprint": "47fdb69cb5a279548ae2ac0d",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "components/consumer-client-creation-manager.tsx",
+      "line": 50
+    },
+    {
+      "fingerprint": "44a6e010b51765f46d6b90c1",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "components/organization-people-sections.tsx",
+      "line": 119
     }
   ]
 }
