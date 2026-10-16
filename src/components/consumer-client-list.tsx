@@ -1,17 +1,15 @@
 "use client";
 
-import Link from "next/link";
-import { useId, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import type { ConsumerClientActionState } from "@/app/actions";
-import type { ConsumerClientSummary } from "@/lib/auth/service";
+import { ConsumerClientCard } from "@/components/consumer-client-card";
+import { ConsumerClientConfirmationDialog } from "@/components/consumer-client-confirmation-dialog";
+import type {
+  ConsumerClientConfirmation,
+  ConsumerClientManagementAction,
+} from "@/components/consumer-client-list-types";
 import { useModalDialog } from "@/components/use-modal-dialog";
-
-const createdDateFormatter = new Intl.DateTimeFormat("en", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-  timeZone: "UTC",
-});
+import type { ConsumerClientSummary } from "@/lib/auth/service";
 
 interface ConsumerClientListProps {
   onRotateSubmit: (event: FormEvent<HTMLFormElement>) => Promise<ConsumerClientActionState>;
@@ -24,23 +22,6 @@ interface ConsumerClientListProps {
   readOnly?: boolean;
 }
 
-function sessionLifetimeLabel(milliseconds: number): string {
-  const hours = milliseconds / (60 * 60 * 1000);
-  if (hours % 24 === 0) {
-    const days = hours / 24;
-    const dayLabel = days === 1 ? "day" : "days";
-    const hourLabel = hours === 1 ? "hour" : "hours";
-    return `${days} ${dayLabel} (${hours} ${hourLabel})`;
-  }
-  if (Number.isInteger(hours)) return `${hours} ${hours === 1 ? "hour" : "hours"}`;
-  const minutes = milliseconds / (60 * 1000);
-  if (Number.isInteger(minutes) && minutes < 60) {
-    const roundedHours = Number(hours.toFixed(2));
-    return `${minutes} ${minutes === 1 ? "minute" : "minutes"} (${roundedHours} hours)`;
-  }
-  return `${Number(hours.toFixed(2))} hours`;
-}
-
 export function ConsumerClientList({
   onRotateSubmit,
   onOpenConfirmation,
@@ -51,16 +32,15 @@ export function ConsumerClientList({
   pending,
   readOnly = false,
 }: ConsumerClientListProps) {
-  const [confirmation, setConfirmation] = useState<{
-    action: "rotate" | "revoke";
-    clientId: string;
-  } | null>(null);
+  const [confirmation, setConfirmation] = useState<ConsumerClientConfirmation | null>(null);
   const [rotationError, setRotationError] = useState<string | null>(null);
   const { dialogRef, openDialog, closeDialog } = useModalDialog();
-  const dialogId = useId();
   const selectedClient = clients.find((client) => client.clientId === confirmation?.clientId);
 
-  function requestConfirmation(action: "rotate" | "revoke", client: ConsumerClientSummary) {
+  function requestConfirmation(
+    action: ConsumerClientManagementAction,
+    client: ConsumerClientSummary,
+  ) {
     onOpenConfirmation();
     setRotationError(null);
     setConfirmation({ action, clientId: client.clientId });
@@ -99,69 +79,13 @@ export function ConsumerClientList({
       {clients.length ? (
         <div className="record-list">
           {clients.map((client) => (
-            <article className="consumer-client-card" key={client.clientId}>
-              <div className="consumer-client-card-heading">
-                <div>
-                  <h3>{client.appName}</h3>
-                  <p>
-                    Client ID <code>{client.clientId}</code>
-                  </p>
-                </div>
-                <span className={`record-badge ${client.status}`}>
-                  {client.status === "active" ? "Active" : "Revoked"}
-                </span>
-              </div>
-              <dl className="consumer-client-details-grid">
-                <div>
-                  <dt>Allowed origin</dt>
-                  <dd>{client.appOrigin ?? "Not set"}</dd>
-                </div>
-                <div>
-                  <dt>Session lifetime</dt>
-                  <dd>{sessionLifetimeLabel(client.sessionLifetimeMs)}</dd>
-                </div>
-                <div>
-                  <dt>People can sign up</dt>
-                  <dd>{client.selfRegistrationEnabled ? "Enabled" : "Disabled"}</dd>
-                </div>
-                <div>
-                  <dt>Created</dt>
-                  <dd>
-                    <time dateTime={client.createdAt}>
-                      {createdDateFormatter.format(new Date(client.createdAt))}
-                    </time>
-                  </dd>
-                </div>
-              </dl>
-              {!readOnly && client.status === "active" ? (
-                <div className="consumer-client-card-actions">
-                  <div className="consumer-client-card-buttons">
-                    <Link
-                      className="button button-secondary"
-                      href={`${returnTo}/${encodeURIComponent(client.clientId)}/edit`}
-                    >
-                      Edit settings
-                    </Link>
-                    <button
-                      aria-haspopup="dialog"
-                      className="button button-secondary"
-                      onClick={() => requestConfirmation("rotate", client)}
-                      type="button"
-                    >
-                      Rotate secret
-                    </button>
-                    <button
-                      aria-haspopup="dialog"
-                      className="button button-danger"
-                      onClick={() => requestConfirmation("revoke", client)}
-                      type="button"
-                    >
-                      Revoke app client
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </article>
+            <ConsumerClientCard
+              client={client}
+              key={client.clientId}
+              onRequestConfirmation={requestConfirmation}
+              readOnly={readOnly}
+              returnTo={returnTo}
+            />
           ))}
         </div>
       ) : (
@@ -174,71 +98,18 @@ export function ConsumerClientList({
           </p>
         </div>
       )}
-      <dialog
-        aria-describedby={`${dialogId}-description`}
-        aria-labelledby={`${dialogId}-title`}
-        className="product-privacy-dialog"
-        id={`${dialogId}-dialog`}
-        onCancel={(event) => {
-          event.preventDefault();
-          dismissConfirmation();
-        }}
-        ref={dialogRef}
-      >
-        {selectedClient && confirmation ? (
-          <>
-            <h2 id={`${dialogId}-title`}>
-              {confirmation.action === "rotate"
-                ? `Replace ${selectedClient.appName}’s secret?`
-                : `Revoke ${selectedClient.appName}?`}
-            </h2>
-            <p id={`${dialogId}-description`}>
-              {confirmation.action === "rotate"
-                ? "The current secret will stop working immediately. Update the app backend with the new secret before it makes another request. The new secret will only be shown once."
-                : "This app client will immediately lose access to Perminister. Its client ID and secret will stop working, and this action cannot be undone."}
-            </p>
-            {rotationError ? (
-              <p className="form-error" role="alert">
-                {rotationError}
-              </p>
-            ) : null}
-            <div className="product-privacy-dialog-actions">
-              <button
-                className="button button-secondary"
-                onClick={dismissConfirmation}
-                type="button"
-              >
-                Cancel
-              </button>
-              {confirmation.action === "rotate" ? (
-                <form
-                  action="/actions/createOrRotateConsumerClientAction"
-                  method="post"
-                  onSubmit={handleRotateConfirmation}
-                >
-                  <input type="hidden" name="organizationId" value={organizationId} />
-                  <input type="hidden" name="productId" value={productId} />
-                  <input type="hidden" name="returnTo" value={returnTo} />
-                  <input type="hidden" name="clientId" value={selectedClient.clientId} />
-                  <button className="button button-danger" disabled={pending} type="submit">
-                    {pending ? "Rotating…" : "Replace secret"}
-                  </button>
-                </form>
-              ) : (
-                <form action="/actions/revokeConsumerClientAction" method="post">
-                  <input type="hidden" name="organizationId" value={organizationId} />
-                  <input type="hidden" name="productId" value={productId} />
-                  <input type="hidden" name="returnTo" value={returnTo} />
-                  <input type="hidden" name="clientId" value={selectedClient.clientId} />
-                  <button className="button button-danger" type="submit">
-                    Revoke app client
-                  </button>
-                </form>
-              )}
-            </div>
-          </>
-        ) : null}
-      </dialog>
+      <ConsumerClientConfirmationDialog
+        client={selectedClient}
+        confirmation={confirmation}
+        dialogRef={dialogRef}
+        onDismiss={dismissConfirmation}
+        onRotateSubmit={handleRotateConfirmation}
+        organizationId={organizationId}
+        pending={pending}
+        productId={productId}
+        returnTo={returnTo}
+        rotationError={rotationError}
+      />
     </section>
   );
 }
