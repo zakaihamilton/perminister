@@ -1,11 +1,11 @@
 import { CopyOrganizationIdButton } from "@/components/copy-organization-id-button";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
+import { OrganizationActivityPreview } from "@/components/organization-overview-activity";
+import { OrganizationOverviewMetrics } from "@/components/organization-overview-metrics";
 import {
   OrganizationCreateProductAction,
-  OrganizationActivityPreview,
-  OrganizationOverviewMetrics,
   OrganizationProductsSection,
-} from "@/components/organization-overview-sections";
+} from "@/components/organization-overview-products";
 import {
   countOrganizationMembersForSubject,
   getOrganizationForSubject,
