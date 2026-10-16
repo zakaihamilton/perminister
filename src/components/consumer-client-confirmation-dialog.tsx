@@ -66,20 +66,24 @@ export function ConsumerClientConfirmationDialog({
                 method="post"
                 onSubmit={onRotateSubmit}
               >
-                <input type="hidden" name="organizationId" value={organizationId} />
-                <input type="hidden" name="productId" value={productId} />
-                <input type="hidden" name="returnTo" value={returnTo} />
-                <input type="hidden" name="clientId" value={client.clientId} />
+                <ConsumerClientFormFields
+                  clientId={client.clientId}
+                  organizationId={organizationId}
+                  productId={productId}
+                  returnTo={returnTo}
+                />
                 <button className="button button-danger" disabled={pending} type="submit">
                   {pending ? "Rotating…" : "Replace secret"}
                 </button>
               </form>
             ) : (
               <form action="/actions/revokeConsumerClientAction" method="post">
-                <input type="hidden" name="organizationId" value={organizationId} />
-                <input type="hidden" name="productId" value={productId} />
-                <input type="hidden" name="returnTo" value={returnTo} />
-                <input type="hidden" name="clientId" value={client.clientId} />
+                <ConsumerClientFormFields
+                  clientId={client.clientId}
+                  organizationId={organizationId}
+                  productId={productId}
+                  returnTo={returnTo}
+                />
                 <button className="button button-danger" type="submit">
                   Revoke app client
                 </button>
@@ -89,5 +93,26 @@ export function ConsumerClientConfirmationDialog({
         </>
       ) : null}
     </dialog>
+  );
+}
+
+function ConsumerClientFormFields({
+  clientId,
+  organizationId,
+  productId,
+  returnTo,
+}: {
+  clientId: string;
+  organizationId: string;
+  productId: string;
+  returnTo: string;
+}) {
+  return (
+    <>
+      <input type="hidden" name="organizationId" value={organizationId} />
+      <input type="hidden" name="productId" value={productId} />
+      <input type="hidden" name="returnTo" value={returnTo} />
+      <input type="hidden" name="clientId" value={clientId} />
+    </>
   );
 }

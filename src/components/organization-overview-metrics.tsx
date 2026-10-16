@@ -68,21 +68,11 @@ export function OrganizationOverviewMetrics({
         >
           {metric.href ? (
             <Link className="organization-overview-stat-link" href={metric.href}>
-              <div className="organization-overview-stat-heading">
-                <MetricIcon icon={metric.icon} />
-                <span className="organization-overview-stat-label">{metric.label}</span>
-              </div>
-              <strong className="organization-overview-stat-value">{metric.value}</strong>
-              <span className="organization-overview-stat-caption">{metric.caption}</span>
+              <OrganizationOverviewMetricContent metric={metric} />
             </Link>
           ) : (
             <div className="organization-overview-stat-link">
-              <div className="organization-overview-stat-heading">
-                <MetricIcon icon={metric.icon} />
-                <span className="organization-overview-stat-label">{metric.label}</span>
-              </div>
-              <strong className="organization-overview-stat-value">{metric.value}</strong>
-              <span className="organization-overview-stat-caption">{metric.caption}</span>
+              <OrganizationOverviewMetricContent metric={metric} />
             </div>
           )}
           <Tooltip
@@ -93,6 +83,19 @@ export function OrganizationOverviewMetrics({
         </article>
       ))}
     </section>
+  );
+}
+
+function OrganizationOverviewMetricContent({ metric }: { metric: OrganizationOverviewMetric }) {
+  return (
+    <>
+      <div className="organization-overview-stat-heading">
+        <MetricIcon icon={metric.icon} />
+        <span className="organization-overview-stat-label">{metric.label}</span>
+      </div>
+      <strong className="organization-overview-stat-value">{metric.value}</strong>
+      <span className="organization-overview-stat-caption">{metric.caption}</span>
+    </>
   );
 }
 
