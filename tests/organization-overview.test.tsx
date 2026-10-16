@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   OrganizationCreateProductAction,
   OrganizationProductsSection,
-} from "@/components/organization-overview-sections";
+} from "@/components/organization-overview-products";
 import type { ProductRecord } from "@/lib/auth/domain";
 
 const organizationId = "org-123";
