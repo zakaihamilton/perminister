@@ -68,6 +68,15 @@ function emailLinkOrigin(options: EmailLinkOptions = {}): URL {
 }
 
 export function browserOriginFromHeaders(requestHeaders: Headers): string {
+  // Production email links must use the configured canonical domain, even if
+  // an admin opened the app through a Vercel deployment alias.
+  if (
+    process.env.NODE_ENV === "production" &&
+    (process.env.VERCEL !== "1" || process.env.VERCEL_ENV === "production")
+  ) {
+    return publicOrigin().origin;
+  }
+
   const value = requestHeaders.get("origin")?.trim();
   const requestOrigin = value ? parsePublicOrigin(value) : null;
   return (requestOrigin ?? publicOrigin()).origin;
