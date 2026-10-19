@@ -37,7 +37,26 @@ function isWriterRuntime(): boolean {
 }
 
 function refreshTarget(request: NextRequest): URL {
-  const target = new URL(request.url);
+  let target = new URL(request.url);
+  const referer = request.headers.get("referer");
+
+  if (referer) {
+    try {
+      const referringPage = new URL(referer);
+      if (
+        referringPage.origin === request.nextUrl.origin &&
+        !referringPage.pathname.startsWith("/actions/")
+      ) {
+        target = referringPage;
+      }
+    } catch {
+      // Fall back to the request URL when the browser omits a valid page URL.
+    }
+  }
+
+  if (target.pathname.startsWith("/actions/")) {
+    target = new URL("/dashboard", request.url);
+  }
   target.searchParams.set("__perminister_action", "refresh");
   return target;
 }

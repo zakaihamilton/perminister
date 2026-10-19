@@ -103,6 +103,29 @@ const actions: Record<string, StableAction> = {
 };
 
 const noStoreHeaders = { "Cache-Control": "no-store" };
+const refreshParam = "__perminister_action";
+
+function refreshDestination(request: Request): string {
+  const fallback = new URL("/dashboard", request.url);
+  fallback.searchParams.set(refreshParam, "refresh");
+
+  const referer = request.headers.get("referer");
+  if (!referer) return `${fallback.pathname}${fallback.search}`;
+
+  try {
+    const referringPage = new URL(referer);
+    if (
+      referringPage.origin !== new URL(request.url).origin ||
+      referringPage.pathname.startsWith("/actions/")
+    ) {
+      return `${fallback.pathname}${fallback.search}`;
+    }
+    referringPage.searchParams.set(refreshParam, "refresh");
+    return `${referringPage.pathname}${referringPage.search}`;
+  } catch {
+    return `${fallback.pathname}${fallback.search}`;
+  }
+}
 
 function redirectLocation(error: unknown): string | null {
   if (!(error instanceof Error) || !("digest" in error)) return null;
@@ -152,4 +175,13 @@ export async function POST(request: Request, context: { params: Promise<{ name: 
       { status: 500, headers: noStoreHeaders },
     );
   }
+}
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  if (url.searchParams.get(refreshParam) !== "refresh") {
+    return new Response(null, { status: 405, headers: noStoreHeaders });
+  }
+
+  return publicRedirectResponse(request, refreshDestination(request));
 }
