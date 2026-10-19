@@ -50,7 +50,11 @@ export default async function PeoplePage(
         owner={owner}
       />
 
-      <PendingInvitations invitations={invitations} organizationId={organizationId} />
+      <PendingInvitations
+        allowOrganizationResend={owner}
+        invitations={invitations}
+        organizationId={organizationId}
+      />
       <p className="role-help">
         Product owner and admin roles, invitations, and permissions are managed on that
         product&apos;s Members and Permissions pages.

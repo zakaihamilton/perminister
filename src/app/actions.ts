@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import {
   acceptOrganizationInvitation,
   completeEmailAction,
+  completeOrganizationInvitationResend,
   createApiKeyForSubject,
   createConsumerClient,
   updateConsumerClient,
@@ -29,6 +30,7 @@ import {
   issueRecoveryAction,
   registerAccount,
   removeOrganizationMember,
+  prepareOrganizationInvitationResend,
   revokeOrganizationInvitation,
   revokeProductInvitation,
   retireLegacyAccess,
@@ -762,21 +764,37 @@ export async function inviteOrganizationMemberAction(formData: FormData): Promis
     redirect(`/dashboard/${organizationId}/people?error=mail-unconfigured`);
   if (firstValue(formData, "role") !== "admin")
     redirect(`/dashboard/${organizationId}/people?error=invite-failed`);
+  let invitationId: string | null = null;
   try {
+    const origin = browserOriginFromHeaders(await headers());
     const result = await createOrganizationInvitation(
       current.subject.subjectId,
       organizationId,
       firstValue(formData, "email"),
       "admin",
     );
+    invitationId = result.invitation.invitationId;
     await sendOrganizationInvitationEmail(
       result.invitation.email,
       result.token,
       result.organizationName,
       result.invitation.role,
-      { origin: browserOriginFromHeaders(await headers()) },
+      { origin },
     );
   } catch (error) {
+    if (invitationId) {
+      try {
+        await revokeOrganizationInvitation(current.subject.subjectId, organizationId, invitationId);
+      } catch (cleanupError) {
+        console.error("Could not revoke an organization invitation after email failure", {
+          error:
+            cleanupError instanceof Error ? cleanupError.message.slice(0, 240) : "Unknown error",
+        });
+      }
+    }
+    console.error("Organization invitation email failed", {
+      error: error instanceof Error ? error.message.slice(0, 240) : "Unknown error",
+    });
     const message = publicActionError(error);
     const code =
       message === "Email delivery is not configured. No email was sent."
@@ -787,13 +805,81 @@ export async function inviteOrganizationMemberAction(formData: FormData): Promis
   redirect(`/dashboard/${organizationId}/people?notice=invite-sent`);
 }
 
+export async function resendOrganizationInvitationAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  const invitationId = firstValue(formData, "invitationId");
+  const peoplePath = `/dashboard/${encodeURIComponent(organizationId)}/people`;
+  if (!isMailDeliveryConfigured()) redirect(`${peoplePath}?error=mail-unconfigured`);
+
+  let resentInvitationId: string | null = null;
+  try {
+    const origin = browserOriginFromHeaders(await headers());
+    const result = await prepareOrganizationInvitationResend(
+      current.subject.subjectId,
+      organizationId,
+      invitationId,
+    );
+    resentInvitationId = result.invitation.invitationId;
+    await sendOrganizationInvitationEmail(
+      result.invitation.email,
+      result.token,
+      result.organizationName,
+      result.invitation.role,
+      { origin },
+    );
+  } catch (error) {
+    if (resentInvitationId) {
+      try {
+        await revokeOrganizationInvitation(
+          current.subject.subjectId,
+          organizationId,
+          resentInvitationId,
+        );
+      } catch (cleanupError) {
+        console.error("Could not revoke a resent organization invitation after email failure", {
+          error:
+            cleanupError instanceof Error ? cleanupError.message.slice(0, 240) : "Unknown error",
+        });
+      }
+    }
+    console.error("Organization invitation resend failed", {
+      error: error instanceof Error ? error.message.slice(0, 240) : "Unknown error",
+    });
+    const message = publicActionError(error);
+    const code =
+      message === "Email delivery is not configured. No email was sent."
+        ? "mail-unconfigured"
+        : "resend-failed";
+    redirect(`${peoplePath}?error=${code}`);
+  }
+
+  if (!resentInvitationId) redirect(`${peoplePath}?error=resend-failed`);
+  try {
+    await completeOrganizationInvitationResend(
+      current.subject.subjectId,
+      organizationId,
+      invitationId,
+      resentInvitationId,
+    );
+  } catch (error) {
+    console.error("Could not replace an older organization invitation after resend", {
+      error: error instanceof Error ? error.message.slice(0, 240) : "Unknown error",
+    });
+  }
+  redirect(`${peoplePath}?notice=invite-resent`);
+}
+
 export async function inviteProductMemberAction(formData: FormData): Promise<void> {
   const { current, organizationId, productId, productPath } =
     await productPeopleActionContext(formData);
   if (!isMailDeliveryConfigured()) redirect(`${productPath}?error=mail-unconfigured`);
   const role = firstValue(formData, "role");
   if (role !== "admin" && role !== "member") redirect(`${productPath}?error=invite-failed`);
+  let invitationId: string | null = null;
   try {
+    const origin = browserOriginFromHeaders(await headers());
     const result = await createProductInvitation(
       current.subject.subjectId,
       organizationId,
@@ -801,14 +887,33 @@ export async function inviteProductMemberAction(formData: FormData): Promise<voi
       firstValue(formData, "email"),
       role,
     );
+    invitationId = result.invitation.invitationId;
     await sendProductInvitationEmail(
       result.invitation.email,
       result.token,
       result.productName,
       result.invitation.role,
-      { origin: browserOriginFromHeaders(await headers()) },
+      { origin },
     );
   } catch (error) {
+    if (invitationId) {
+      try {
+        await revokeProductInvitation(
+          current.subject.subjectId,
+          organizationId,
+          productId,
+          invitationId,
+        );
+      } catch (cleanupError) {
+        console.error("Could not revoke a product invitation after email failure", {
+          error:
+            cleanupError instanceof Error ? cleanupError.message.slice(0, 240) : "Unknown error",
+        });
+      }
+    }
+    console.error("Product invitation email failed", {
+      error: error instanceof Error ? error.message.slice(0, 240) : "Unknown error",
+    });
     const message = publicActionError(error);
     const code =
       message === "Email delivery is not configured. No email was sent."

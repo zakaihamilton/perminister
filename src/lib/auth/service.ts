@@ -5980,6 +5980,114 @@ export async function createOrganizationInvitation(
   );
 }
 
+export async function prepareOrganizationInvitationResend(
+  actorId: SubjectId,
+  organizationId: string,
+  invitationId: string,
+): Promise<{ invitation: OrganizationInvitationRecord; token: string; organizationName: string }> {
+  assertOpaqueId(invitationId);
+  return authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      const actorMembership = await requireOrganizationRoleUnlocked(actorId, organizationId, [
+        "owner",
+      ]);
+      const current = await loadRecord("organization-invitation", invitationId);
+      if (
+        !current ||
+        current.record.organizationId !== organizationId ||
+        current.record.productId ||
+        current.record.consumedAt ||
+        current.record.revokedAt ||
+        Date.parse(current.record.expiresAt) <= Date.now()
+      ) {
+        throw new Error("Invitation not found.");
+      }
+
+      const organization = await loadRecord("organization", organizationId);
+      if (!organization) throw new Error("Organization not found.");
+      const target = await loadSubjectByEmailUnlocked(current.record.email);
+      if (target && (await organizationMembershipUnlocked(organizationId, target.subjectId))) {
+        throw new Error("This person is already a catalog manager.");
+      }
+
+      const { invitation, token } = createInvitationDraft(
+        actorMembership.subjectId,
+        organizationId,
+        current.record.email,
+        current.record.role,
+      );
+      await persistRecord(
+        invitation,
+        "organization.invitation-created",
+        { kind: "subject", subjectId: actorMembership.subjectId },
+        {
+          invitationRole: invitation.role,
+          invitationExpiresAt: invitation.expiresAt,
+          resendOfInvitationId: current.record.invitationId,
+        },
+      );
+      return { invitation, token, organizationName: organization.record.name };
+    }),
+  );
+}
+
+export async function completeOrganizationInvitationResend(
+  actorId: SubjectId,
+  organizationId: string,
+  invitationId: string,
+  resentInvitationId: string,
+): Promise<void> {
+  assertOpaqueId(invitationId);
+  assertOpaqueId(resentInvitationId);
+  await authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      const actorMembership = await requireOrganizationRoleUnlocked(actorId, organizationId, [
+        "owner",
+      ]);
+      const resent = await loadRecord("organization-invitation", resentInvitationId);
+      const previous = await loadRecord("organization-invitation", invitationId);
+      if (
+        !resent ||
+        resent.record.organizationId !== organizationId ||
+        resent.record.productId ||
+        resent.record.createdBySubjectId !== actorMembership.subjectId ||
+        resent.record.consumedAt ||
+        resent.record.revokedAt ||
+        Date.parse(resent.record.expiresAt) <= Date.now()
+      ) {
+        throw new Error("Invitation not found.");
+      }
+      if (
+        !previous ||
+        previous.record.organizationId !== organizationId ||
+        previous.record.productId ||
+        previous.record.email !== resent.record.email
+      ) {
+        throw new Error("Invitation not found.");
+      }
+
+      const invites = (await listRecordsWithRecovery("organization-invitation")).map(
+        (item) => item.record,
+      );
+      for (const previous of invites.filter(
+        (item) =>
+          item.organizationId === organizationId &&
+          !item.productId &&
+          item.email === resent.record.email &&
+          item.invitationId !== resentInvitationId &&
+          !item.consumedAt &&
+          !item.revokedAt,
+      )) {
+        await persistRecord(
+          { ...previous, revokedAt: new Date().toISOString() },
+          "organization.invitation-replaced",
+          { kind: "subject", subjectId: actorMembership.subjectId },
+        );
+      }
+    }),
+  );
+}
+
 export async function createProductInvitation(
   actorId: SubjectId,
   organizationId: string,

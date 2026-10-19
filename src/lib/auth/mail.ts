@@ -69,10 +69,8 @@ function emailLinkOrigin(options: EmailLinkOptions = {}): URL {
 
 export function browserOriginFromHeaders(requestHeaders: Headers): string {
   const value = requestHeaders.get("origin")?.trim();
-  if (!value || !parsePublicOrigin(value)) {
-    throw new Error("The browser origin is unavailable.");
-  }
-  return new URL(value).origin;
+  const requestOrigin = value ? parsePublicOrigin(value) : null;
+  return (requestOrigin ?? publicOrigin()).origin;
 }
 
 export function isMailDeliveryConfigured(): boolean {

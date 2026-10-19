@@ -25,6 +25,7 @@ import {
   revokeConsumerClientAction,
   revokeOrganizationInvitationAction,
   revokeProductInvitationAction,
+  resendOrganizationInvitationAction,
   revokeSessionAction,
   setOrganizationProductVisibilityAction,
   transferOwnedPublicProductAction,
@@ -84,6 +85,7 @@ const actions: Record<string, StableAction> = {
   revokeConsumerClientAction,
   revokeOrganizationInvitationAction,
   revokeProductInvitationAction,
+  resendOrganizationInvitationAction,
   revokeSessionAction,
   setOrganizationProductVisibilityAction,
   transferProductAction: (formData) =>

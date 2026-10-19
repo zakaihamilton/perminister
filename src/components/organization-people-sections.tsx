@@ -7,6 +7,7 @@ import type { OrganizationMemberView } from "@/lib/auth/service";
 const peopleErrorText: Record<string, string> = {
   "mail-unconfigured": "Invitations are unavailable until email delivery is set up.",
   "invite-failed": "The invitation could not be sent. Check the email address and try again.",
+  "resend-failed": "The invitation could not be resent. Reload the page and try again.",
   "member-update": "Only an owner can change roles, and the organization must keep an owner.",
   "member-remove": "The member could not be removed. The organization must keep an owner.",
   "invite-revoke": "The invitation could not be revoked.",
@@ -17,6 +18,9 @@ export function OrganizationPeopleNotices({ error, notice }: { error?: string; n
     <>
       {notice === "invite-sent" ? (
         <DashboardNotice message="Invitation sent by email." kind="success" />
+      ) : null}
+      {notice === "invite-resent" ? (
+        <DashboardNotice message="Invitation resent by email." kind="success" />
       ) : null}
       {notice === "member-updated" ? (
         <DashboardNotice message="Member role updated." kind="success" />

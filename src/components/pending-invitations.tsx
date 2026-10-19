@@ -9,10 +9,12 @@ export function PendingInvitations({
   invitations,
   organizationId,
   productId,
+  allowOrganizationResend = false,
 }: {
   invitations: readonly Invitation[];
   organizationId: string;
   productId?: string;
+  allowOrganizationResend?: boolean;
 }) {
   if (invitations.length === 0) return null;
 
@@ -32,6 +34,15 @@ export function PendingInvitations({
               {invitation.role} · expires {new Date(invitation.expiresAt).toLocaleDateString()}
             </small>
           </span>
+          {allowOrganizationResend && !productId ? (
+            <form action="/actions/resendOrganizationInvitationAction" method="post">
+              <input name="organizationId" type="hidden" value={organizationId} />
+              <input name="invitationId" type="hidden" value={invitation.invitationId} />
+              <button className="button button-secondary" type="submit">
+                Resend
+              </button>
+            </form>
+          ) : null}
           <ConfirmationActionControl
             action={
               productId
