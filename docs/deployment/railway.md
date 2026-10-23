@@ -71,9 +71,6 @@ Use a Spaces key with **Read** permission in Vercel and a key with **Read/Write/
 in Railway. DigitalOcean supports per-bucket limited-access keys; see
 [Managing Spaces access](https://docs.digitalocean.com/products/spaces/how-to/manage-access/).
 
-When using the legacy import API, set the same `PERMINISTER_LEGACY_IMPORT_SECRET` on Vercel and
-Railway so proxied import requests are authorized by the writer.
-
 The proxy is enabled for Vercel Production; Preview deployments reject mutations. Reads from Vercel
 remain available when the proxy is down; writes return `502` or `503` rather than falling back to a
 Vercel process. Railway readiness returns `503` if its shared proxy secret is missing.

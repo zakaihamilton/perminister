@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 const MAX_LOGIN_FAILURES = 8;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_LOCK_MS = 15 * 60 * 1000;
+const MAX_THROTTLE_BUCKETS = 10_000;
 
 interface FailureRecord {
   count: number;
@@ -25,11 +26,17 @@ function throttleKey(email: string): string {
 export class ProcessLocalLoginThrottle {
   private readonly failures = new Map<string, FailureRecord>();
 
-  constructor(private readonly now: () => number = Date.now) {}
+  constructor(
+    private readonly now: () => number = Date.now,
+    private readonly maxBuckets: number = MAX_THROTTLE_BUCKETS,
+  ) {}
 
   beginAttempt(email: string): LoginAttemptReservation {
     const key = throttleKey(email);
     const now = this.now();
+    if (!this.failures.has(key) && this.failures.size >= this.maxBuckets) {
+      this.evictForCapacity(now);
+    }
     const record = this.failures.get(key) ?? {
       count: 0,
       resetAt: 0,
@@ -93,11 +100,29 @@ export class ProcessLocalLoginThrottle {
   }
 
   private pruneExpired(now: number): void {
-    if (this.failures.size <= 5000) return;
+    if (this.failures.size <= Math.min(5000, this.maxBuckets)) return;
     for (const [key, record] of this.failures) {
       if (record.inFlight === 0 && record.resetAt <= now && record.lockedUntil <= now) {
         this.failures.delete(key);
       }
+    }
+  }
+
+  private evictForCapacity(now: number): void {
+    for (const [key, record] of this.failures) {
+      if (record.inFlight === 0 && record.resetAt <= now && record.lockedUntil <= now) {
+        this.failures.delete(key);
+      }
+    }
+    if (this.failures.size < this.maxBuckets) return;
+    for (const [key, record] of this.failures) {
+      if (record.inFlight === 0 && record.lockedUntil <= now) {
+        this.failures.delete(key);
+        if (this.failures.size < this.maxBuckets) return;
+      }
+    }
+    if (this.failures.size >= this.maxBuckets) {
+      throw new Error("Too many sign-in attempts. Try again later.");
     }
   }
 }

@@ -1728,216 +1728,121 @@ describe("consumer identity migration and management", () => {
     ).resolves.toMatchObject({ subject: { subjectId: projectAppId } });
   });
 
-  it("reports duplicate-email credential conflicts, imports the selected identity, and is idempotent", async () => {
-    const argonHash = await hashArgon2id("WorkspaceApp password 123!");
-    const salt = "abcdef0123456789abcdef0123456789";
-    const projectAppHash = `${salt}:${scryptSync("ProjectApp password 123!", salt, 64).toString("hex")}`;
-    const input = {
-      products: [
-        {
-          productId: "workspaceapp",
-          organizationId: ORGANIZATION_ID,
-          hashFormat: "argon2id-phc" as const,
-          users: [
-            {
-              accountId: "visitor-user-1",
-              email: "shared@example.com",
-              passwordHash: argonHash,
-            },
-          ],
-          memberships: [
-            {
-              accountId: "visitor-user-1",
-              scopeKind: "workspace" as const,
-              resourceId: "workspace-1",
-              role: "admin",
-            },
-          ],
-        },
-        {
-          productId: "projectapp",
-          organizationId: ORGANIZATION_ID,
-          hashFormat: "legacy-scrypt-salt-hex-v1" as const,
-          users: [
-            {
-              accountId: "sharedwriter",
-              username: "sharedwriter",
-              email: "shared@example.com",
-              passwordHash: projectAppHash,
-              platformAdmin: true,
-            },
-          ],
-          memberships: [
-            {
-              accountId: "sharedwriter",
-              scopeKind: "project" as const,
-              resourceId: "project-1",
-              role: "editor",
-            },
-          ],
-        },
-      ],
-    };
-
-    const dryRun = await service.importLegacyAuthData(input, true);
-    expect(dryRun.applied).toBe(false);
-    expect(dryRun.conflicts).toMatchObject([
-      {
-        identity: "email:shared@example.com",
-        candidates: ["workspaceapp:visitor-user-1", "projectapp:sharedwriter"],
-      },
-    ]);
-    expect(store.writes).toHaveLength(0);
-
-    const resolved = await service.importLegacyAuthData(
-      {
-        ...input,
-        credentialSelections: { "email:shared@example.com": "workspaceapp:visitor-user-1" },
-      },
-      false,
-    );
-    expect(resolved.applied).toBe(true);
-    const subjectId = await store.findSubjectIdByEmail("shared@example.com");
-    expect(subjectId).toBeTruthy();
-    const subject = store.records.get(store.key("subject", subjectId!))?.record;
-    expect(subject).toMatchObject({
-      emailVerificationExempt: true,
-      primaryEmail: "shared@example.com",
-      loginIdentifiers: [
-        expect.objectContaining({ productId: "projectapp", normalizedValue: "sharedwriter" }),
-      ],
-      passwordCredential: { algorithm: "argon2id", format: "argon2id-phc" },
-    });
-    const importedSession = await service.createConsumerSession(
-      subjectId as never,
-      "workspaceapp",
-      "workspaceapp",
-      30 * 24 * 60 * 60 * 1000,
-    );
-    expect(
-      Date.parse(importedSession.session.expiresAt) - Date.parse(importedSession.session.createdAt),
-    ).toBe(30 * 24 * 60 * 60 * 1000);
-
-    const projectappAccess = await service.listConsumerOrganizationsForSubject(
-      subjectId as never,
-      "projectapp",
-    );
-    expect(projectappAccess[0]).toMatchObject({ platformAdmin: true });
-    expect(projectappAccess[0]?.resourceRoles).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ role: "platform-admin" }),
-        expect.objectContaining({ role: "editor" }),
-      ]),
-    );
-    const grantCountBefore = (await store.listRecords("membership")).length;
-    const rerun = await service.importLegacyAuthData(
-      {
-        ...input,
-        credentialSelections: { "email:shared@example.com": "workspaceapp:visitor-user-1" },
-      },
-      false,
-    );
-    expect(rerun.applied).toBe(true);
-    expect((await store.listRecords("membership")).length).toBe(grantCountBefore);
-  });
-
-  it("rejects duplicate source account references even when their emails differ", async () => {
-    const passwordHash = await hashArgon2id("WorkspaceApp password 123!");
-    const report = await service.importLegacyAuthData(
-      {
-        products: [
-          {
-            productId: "workspaceapp",
-            organizationId: ORGANIZATION_ID,
-            hashFormat: "argon2id-phc",
-            users: [
-              { accountId: "reused-source-id", email: "first@example.com", passwordHash },
-              { accountId: "reused-source-id", email: "second@example.com", passwordHash },
-            ],
-            memberships: [],
-          },
-        ],
-      },
-      true,
-    );
-    expect(report.errors).toContain("Duplicate account reference: workspaceapp:reused-source-id");
-    expect(report.applied).toBe(false);
-    expect(store.writes).toHaveLength(0);
-  });
-
   it("keeps ProjectApp account disable and session revocation scoped to that product", async () => {
     const password = "Shared legacy password 123!";
-    const workspaceappHash = await hashArgon2id(password);
-    const salt = "0123456789abcdef0123456789abcdef";
-    const projectAppHash = `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
-    const imported = await service.importLegacyAuthData(
-      {
-        products: [
-          {
-            productId: "workspaceapp",
-            organizationId: ORGANIZATION_ID,
-            hashFormat: "argon2id-phc",
-            users: [
-              {
-                accountId: "shared-person",
-                email: "shared@example.com",
-                passwordHash: workspaceappHash,
-              },
-            ],
-            memberships: [
-              {
-                accountId: "shared-person",
-                scopeKind: "workspace",
-                resourceId: "workspace-1",
-                role: "viewer",
-              },
-            ],
-          },
-          {
-            productId: "projectapp",
-            organizationId: ORGANIZATION_ID,
-            hashFormat: "legacy-scrypt-salt-hex-v1",
-            users: [
-              {
-                accountId: "writer",
-                username: "writer",
-                email: "shared@example.com",
-                passwordHash: projectAppHash,
-                disabled: true,
-              },
-              {
-                accountId: "platformadmin",
-                username: "platformadmin",
-                email: "admin@example.com",
-                passwordHash: projectAppHash,
-                platformAdmin: true,
-              },
-            ],
-            memberships: [
-              {
-                accountId: "writer",
-                scopeKind: "project",
-                resourceId: "project-1",
-                role: "editor",
-              },
-            ],
-          },
-        ],
-        credentialSelections: { "email:shared@example.com": "workspaceapp:shared-person" },
-      },
-      false,
-    );
-    expect(imported.applied).toBe(true);
-    const sharedId = await store.findSubjectIdByEmail("shared@example.com");
-    const adminId = await store.findSubjectIdByUsername("projectapp", "platformadmin");
-    expect(sharedId).toBeTruthy();
-    expect(adminId).toBeTruthy();
-    expect(store.records.get(store.key("subject", sharedId!))?.record).toMatchObject({
+    const now = new Date().toISOString();
+    const adminId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+    store.seed({
+      kind: "subject",
+      schemaVersion: 1,
+      subjectId: adminId as never,
       status: "active",
-      consumerProductStates: [
-        { productId: "workspaceapp", status: "active", sessionVersion: 1 },
-        { productId: "projectapp", status: "disabled", sessionVersion: 2 },
+      primaryEmail: "admin@example.com",
+      emailVerifiedAt: now,
+      loginIdentifiers: [
+        {
+          kind: "username",
+          productId: "projectapp",
+          value: "platformadmin",
+          normalizedValue: "platformadmin",
+        },
       ],
+      passwordCredential: null,
+      authVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    store.seed({
+      kind: "organization-membership",
+      schemaVersion: 1,
+      organizationMembershipId: "ffffffff-ffff-4fff-8fff-ffffffffffff" as never,
+      organizationId: ORGANIZATION_ID as never,
+      productId: "projectapp",
+      subjectId: adminId as never,
+      role: "member",
+      status: "active",
+      permissionGrants: [
+        {
+          kind: "membership",
+          schemaVersion: 1,
+          membershipId: "12121212-1212-4121-8121-121212121212" as never,
+          subjectId: adminId as never,
+          scope: {
+            kind: "product",
+            organizationId: ORGANIZATION_ID as never,
+            productId: "projectapp",
+          },
+          grants: [
+            {
+              scope: {
+                kind: "product",
+                organizationId: ORGANIZATION_ID as never,
+                productId: "projectapp",
+              },
+              actions: [
+                "projectapp:accounts:manage",
+                "projectapp:members:manage",
+                "projectapp:project:read",
+                "projectapp:project:write",
+              ],
+            },
+          ],
+          accessRole: { id: "projectapp:product:platform-admin", name: "platform-admin" },
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    store.seed({
+      kind: "organization-membership",
+      schemaVersion: 1,
+      organizationMembershipId: "13131313-1313-4131-8131-131313131313" as never,
+      organizationId: ORGANIZATION_ID as never,
+      subjectId: SUBJECT_ID as never,
+      role: "owner",
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    const workspaceId = "11111111-2222-4333-8444-555555555555";
+    await service.bootstrapWorkspaceAdmin(
+      SUBJECT_ID as never,
+      "workspaceapp",
+      ORGANIZATION_ID,
+      workspaceId,
+    );
+    const provisionedWorkspace = await service.createConsumerMember(
+      SUBJECT_ID as never,
+      "workspaceapp",
+      {
+        organizationId: ORGANIZATION_ID,
+        productId: "workspaceapp",
+        scopeKind: "workspace",
+        resourceId: workspaceId,
+        email: "shared@example.com",
+        password,
+        role: "viewer",
+      },
+    );
+    const sharedId = provisionedWorkspace.member.subjectId;
+    await service.createConsumerAccount(adminId as never, "projectapp", {
+      organizationId: ORGANIZATION_ID,
+      productId: "projectapp",
+      username: "writer",
+      email: "shared@example.com",
+      password,
+    });
+    await service.updateConsumerAccount(adminId as never, "projectapp", sharedId, {
+      organizationId: ORGANIZATION_ID,
+      productId: "projectapp",
+      status: "disabled",
+    });
+    expect(store.records.get(store.key("subject", sharedId))?.record).toMatchObject({
+      status: "active",
+      consumerProductStates: [{ productId: "projectapp", status: "disabled", sessionVersion: 2 }],
     });
 
     const workspaceappSession = await service.createConsumerSession(
@@ -1983,50 +1888,48 @@ describe("consumer identity migration and management", () => {
   });
 
   it("keeps WorkspaceApp members workspace-scoped and protects the last active administrator", async () => {
-    const visitorPasswordHash = await hashArgon2id("WorkspaceApp password 123!");
-    const imported = await service.importLegacyAuthData(
-      {
-        products: [
-          {
-            productId: "workspaceapp",
-            organizationId: ORGANIZATION_ID,
-            hashFormat: "argon2id-phc",
-            users: [
-              {
-                accountId: "workspace-admin",
-                email: "admin@example.com",
-                passwordHash: visitorPasswordHash,
-              },
-              {
-                accountId: "workspace-viewer",
-                email: "viewer@example.com",
-                passwordHash: visitorPasswordHash,
-              },
-            ],
-            memberships: [
-              {
-                accountId: "workspace-admin",
-                scopeKind: "workspace",
-                resourceId: "workspace-1",
-                role: "admin",
-              },
-              {
-                accountId: "workspace-viewer",
-                scopeKind: "workspace",
-                resourceId: "workspace-1",
-                role: "viewer",
-              },
-            ],
-          },
-        ],
-      },
-      false,
+    const now = new Date().toISOString();
+    const actorId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+    store.seed({
+      kind: "subject",
+      schemaVersion: 1,
+      subjectId: actorId as never,
+      status: "active",
+      primaryEmail: "admin@example.com",
+      emailVerifiedAt: now,
+      passwordCredential: null,
+      authVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    store.seed({
+      kind: "organization-membership",
+      schemaVersion: 1,
+      organizationMembershipId: "13131313-1313-4131-8131-131313131313" as never,
+      organizationId: ORGANIZATION_ID as never,
+      subjectId: actorId as never,
+      role: "owner",
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    const workspaceId = "11111111-2222-4333-8444-555555555555";
+    await service.bootstrapWorkspaceAdmin(
+      actorId as never,
+      "workspaceapp",
+      ORGANIZATION_ID,
+      workspaceId,
     );
-    expect(imported.applied).toBe(true);
-    const actorId = await store.findSubjectIdByEmail("admin@example.com");
-    const targetId = await store.findSubjectIdByEmail("viewer@example.com");
-    expect(actorId).toBeTruthy();
-    expect(targetId).toBeTruthy();
+    const viewerProvisioned = await service.createConsumerMember(actorId as never, "workspaceapp", {
+      organizationId: ORGANIZATION_ID,
+      productId: "workspaceapp",
+      scopeKind: "workspace",
+      resourceId: workspaceId,
+      email: "viewer@example.com",
+      password: "WorkspaceApp password 123!",
+      role: "viewer",
+    });
+    const targetId = viewerProvisioned.member.subjectId;
 
     const viewerSession = await service.createConsumerSession(
       targetId as never,
@@ -2040,7 +1943,7 @@ describe("consumer identity migration and management", () => {
           organizationId: ORGANIZATION_ID,
           productId: "workspaceapp",
           resourceKind: "workspace",
-          resourceId: "workspace-1",
+          resourceId: workspaceId,
           action: "workspaceapp:workspace:read",
         },
         "workspaceapp",
@@ -2053,7 +1956,7 @@ describe("consumer identity migration and management", () => {
           organizationId: ORGANIZATION_ID,
           productId: "workspaceapp",
           resourceKind: "workspace",
-          resourceId: "workspace-1",
+          resourceId: workspaceId,
           action: "workspaceapp:members:manage",
         },
         "workspaceapp",
@@ -2065,7 +1968,7 @@ describe("consumer identity migration and management", () => {
       organizationId: ORGANIZATION_ID,
       productId: "workspaceapp",
       scopeKind: "workspace",
-      resourceId: "workspace-1",
+      resourceId: workspaceId,
       email: "viewer@example.com",
       password: "Ignored because the account already exists 7!",
       role: "viewer",
@@ -2078,7 +1981,7 @@ describe("consumer identity migration and management", () => {
       organizationId: ORGANIZATION_ID,
       productId: "workspaceapp",
       scopeKind: "workspace",
-      resourceId: "workspace-1",
+      resourceId: workspaceId,
     });
     expect(members).toHaveLength(2);
     await expect(
@@ -2094,7 +1997,7 @@ describe("consumer identity migration and management", () => {
         organizationId: ORGANIZATION_ID,
         productId: "workspaceapp",
         scopeKind: "workspace",
-        resourceId: "workspace-1",
+        resourceId: workspaceId,
         role: "viewer",
       }),
     ).rejects.toThrow("another administrator");
@@ -2103,65 +2006,109 @@ describe("consumer identity migration and management", () => {
         organizationId: ORGANIZATION_ID,
         productId: "workspaceapp",
         scopeKind: "workspace",
-        resourceId: "workspace-1",
+        resourceId: workspaceId,
         role: "admin",
       }),
     ).resolves.toBeUndefined();
   });
 
   it("enforces ProjectApp project roles and platform-admin account controls", async () => {
-    const salt = "0123456789abcdef0123456789abcdef";
     const password = "ProjectApp legacy password 123!";
-    const passwordHash = `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
-    const imported = await service.importLegacyAuthData(
-      {
-        products: [
-          {
+    const now = new Date().toISOString();
+    const platformAdminId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+    store.seed({
+      kind: "subject",
+      schemaVersion: 1,
+      subjectId: platformAdminId as never,
+      status: "active",
+      primaryEmail: "platform@example.com",
+      emailVerifiedAt: now,
+      loginIdentifiers: [
+        {
+          kind: "username",
+          productId: "projectapp",
+          value: "platformadmin",
+          normalizedValue: "platformadmin",
+        },
+      ],
+      passwordCredential: null,
+      authVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    store.seed({
+      kind: "organization-membership",
+      schemaVersion: 1,
+      organizationMembershipId: "ffffffff-ffff-4fff-8fff-ffffffffffff" as never,
+      organizationId: ORGANIZATION_ID as never,
+      productId: "projectapp",
+      subjectId: platformAdminId as never,
+      role: "member",
+      status: "active",
+      permissionGrants: [
+        {
+          kind: "membership",
+          schemaVersion: 1,
+          membershipId: "12121212-1212-4121-8121-121212121212" as never,
+          subjectId: platformAdminId as never,
+          scope: {
+            kind: "product",
+            organizationId: ORGANIZATION_ID as never,
             productId: "projectapp",
-            organizationId: ORGANIZATION_ID,
-            hashFormat: "legacy-scrypt-salt-hex-v1",
-            users: [
-              {
-                accountId: "platformadmin",
-                username: "platformadmin",
-                email: "platform@example.com",
-                passwordHash,
-                platformAdmin: true,
-              },
-              {
-                accountId: "projectadmin",
-                username: "projectadmin",
-                email: "projectadmin@example.com",
-                passwordHash,
-              },
-              { accountId: "writer", username: "writer", passwordHash },
-            ],
-            memberships: [
-              {
-                accountId: "projectadmin",
-                scopeKind: "project",
-                resourceId: "project-1",
-                role: "admin",
-              },
-              {
-                accountId: "writer",
-                scopeKind: "project",
-                resourceId: "project-1",
-                role: "editor",
-              },
-            ],
           },
-        ],
+          grants: [
+            {
+              scope: {
+                kind: "product",
+                organizationId: ORGANIZATION_ID as never,
+                productId: "projectapp",
+              },
+              actions: [
+                "projectapp:accounts:manage",
+                "projectapp:members:manage",
+                "projectapp:project:read",
+                "projectapp:project:write",
+              ],
+            },
+          ],
+          accessRole: { id: "projectapp:product:platform-admin", name: "platform-admin" },
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
+    const projectAdminCreated = await service.createConsumerMember(
+      platformAdminId as never,
+      "projectapp",
+      {
+        organizationId: ORGANIZATION_ID,
+        productId: "projectapp",
+        scopeKind: "project",
+        resourceId: "project-1",
+        username: "projectadmin",
+        email: "projectadmin@example.com",
+        password,
+        role: "admin",
       },
-      false,
     );
-    expect(imported.applied).toBe(true);
-    const platformAdminId = await store.findSubjectIdByUsername("projectapp", "platformadmin");
-    const projectAdminId = await store.findSubjectIdByUsername("projectapp", "projectadmin");
-    const writerId = await store.findSubjectIdByUsername("projectapp", "writer");
-    expect(platformAdminId).toBeTruthy();
-    expect(projectAdminId).toBeTruthy();
-    expect(writerId).toBeTruthy();
+    const writerCreated = await service.createConsumerMember(
+      platformAdminId as never,
+      "projectapp",
+      {
+        organizationId: ORGANIZATION_ID,
+        productId: "projectapp",
+        scopeKind: "project",
+        resourceId: "project-1",
+        username: "writer",
+        password,
+        role: "editor",
+      },
+    );
+    const projectAdminId = projectAdminCreated.member.subjectId;
+    const writerId = writerCreated.member.subjectId;
 
     const editorSession = await service.createConsumerSession(
       writerId as never,

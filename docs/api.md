@@ -44,7 +44,7 @@ organization-specific access, pending invitations, integrations, and API keys. T
 clients remain with the product in the publisher organization.
 
 JSON request bodies must use `Content-Type: application/json`. Most are limited to 8 KiB; consumer
-member and account management requests allow 16 KiB, and the legacy import allows 25 MiB. Malformed
+member and account management requests allow 16 KiB. Malformed
 JSON and most invalid fields return `400`; email-only verification and recovery requests keep a
 generic `202` response. Oversized bodies return `413`, and other content types return `415`.
 
@@ -263,89 +263,6 @@ invalidate sessions for that product. Passwords belong to the shared identity, s
 invalidates sessions in all linked apps. Application administrators cannot reset a password for an
 identity linked to another product; the account owner must use Perminister's password recovery or
 change flow. An administrator cannot change their own global account here.
-
-## Legacy account import
-
-The one-time import accepts an exported identity and membership manifest at
-`POST /api/auth/consumer/migrations/legacy`. Configure `PERMINISTER_LEGACY_IMPORT_SECRET` with a
-random secret of at least 32 characters and send it as `X-Perminister-Migration-Secret`. This route
-does not accept consumer client credentials or a user session. Keep the migration secret and input
-manifest server-side; the manifest contains password hashes. Create an active app client for each
-product being imported before starting the import.
-
-Example dry-run request (replace the hash placeholders with the exact exported hashes):
-
-```json
-{
-  "dryRun": true,
-  "products": [
-    {
-      "productId": "example-workspace",
-      "organizationId": "<PERMINISTER_ORGANIZATION_UUID>",
-      "hashFormat": "argon2id-phc",
-      "users": [
-        {
-          "accountId": "member-1",
-          "email": "person@example.com",
-          "passwordHash": "<argon2id-phc-hash>"
-        }
-      ],
-      "memberships": [
-        {
-          "accountId": "member-1",
-          "scopeKind": "workspace",
-          "resourceId": "workspace-1",
-          "role": "admin"
-        }
-      ]
-    },
-    {
-      "productId": "example-project",
-      "organizationId": "<PERMINISTER_ORGANIZATION_UUID>",
-      "hashFormat": "legacy-scrypt-salt-hex-v1",
-      "users": [
-        {
-          "accountId": "writer",
-          "username": "writer",
-          "email": "person@example.com",
-          "passwordHash": "<32-hex-salt>:<128-hex-hash>"
-        }
-      ],
-      "memberships": [
-        {
-          "accountId": "writer",
-          "scopeKind": "project",
-          "resourceId": "project-1",
-          "role": "editor"
-        }
-      ]
-    }
-  ]
-}
-```
-
-Send `dryRun: true` first. Each product entry has its own `productId`, approved organization,
-credential format, users, and memberships. User records contain `accountId`, optional `email`,
-optional product-scoped `username`, and `passwordHash`; the selected `hashFormat` must match
-the hashes. They can also include `platformAdmin` and `disabled`. Memberships contain
-`accountId`, `scopeKind` (`workspace` or `project`), `resourceId`, `role`, and optional
-`active`. The role must be supported for that scope. The organization ID must identify an approved
-Perminister organization that contains the configured product. App data itself is not imported.
-
-Accounts with the same normalized email are merged and their memberships are attached to the shared
-identity. Accounts without a shared email remain separate and can use a product-scoped username. If
-hashes differ, no records are written until each conflict is resolved. The conflict report's candidate
-references can be sent back under `credentialSelections`, keyed by the reported identity (for
-example, `email:person@example.com`) and set to one candidate such as
-`<PRODUCT_ID>:<accountId>`. A `perminister:<subjectId>` candidate is also offered when an existing
-Perminister credential conflicts. The report never returns raw hashes.
-
-After resolving all conflicts, submit the same manifest with `dryRun: false`. Imported credentials
-remain usable and are rehashed to Perminister's current password format after successful sign-in.
-Imported accounts bypass email verification. Repeating an identical import is idempotent. An invalid
-migration secret returns `401`; an unconfigured importer returns `503`; invalid manifests return
-`400`; unresolved credential conflicts return `409` on apply (dry runs return the conflict report
-with `200`). The v1 import and auth service assume one active Perminister process.
 
 ## Authorization
 

@@ -75,18 +75,25 @@ export async function consumeProductLookupRateLimit(
  * The email limit below still applies when a deployment does not provide a client IP.
  */
 export function passwordRecoveryRequesterKey(requestHeaders: Headers): string | null {
-  for (const name of ["cf-connecting-ip", "x-real-ip"]) {
-    const address = requestHeaders.get(name)?.trim();
+  for (const name of [
+    "x-perminister-client-ip",
+    "x-vercel-forwarded-for",
+    "cf-connecting-ip",
+    "x-real-ip",
+  ]) {
+    const raw = requestHeaders.get(name);
+    if (!raw) continue;
+    const address = raw.split(",")[0]?.trim();
     if (address && isIP(address)) return `ip:${address}`;
   }
 
   const forwarded = requestHeaders.get("x-forwarded-for");
   if (forwarded) {
-    const address = forwarded
+    const parts = forwarded
       .split(",")
       .map((part) => part.trim())
-      .find((part) => isIP(part));
-    if (address) return `ip:${address}`;
+      .filter((part) => isIP(part));
+    if (parts.length > 0) return `ip:${parts[parts.length - 1]}`;
   }
   return null;
 }
@@ -130,6 +137,12 @@ export function consumePasswordRecoveryRateLimit(
         localRecoveryWindows.delete(key);
       }
     }
+    for (const [key, bucket] of localRecoveryWindows) {
+      if (localRecoveryWindows.size + missingKeys.length <= MAX_RECOVERY_BUCKETS) break;
+      if (key.includes(":email:") && bucket.timestamps.length < RECOVERY_EMAIL_LIMIT) {
+        localRecoveryWindows.delete(key);
+      }
+    }
     if (
       localRecoveryWindows.size + keys.filter((key) => !localRecoveryWindows.has(key)).length >
       MAX_RECOVERY_BUCKETS
@@ -139,6 +152,7 @@ export function consumePasswordRecoveryRateLimit(
   }
 
   keys.forEach((key, index) => {
+    localRecoveryWindows.delete(key);
     localRecoveryWindows.set(key, { timestamps: [...activeAttempts[index], now] });
   });
   return true;

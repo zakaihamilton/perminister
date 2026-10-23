@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import { NextResponse, type NextRequest } from "next/server";
 import { currentDeploymentId } from "@/lib/deployment";
 import {
@@ -8,6 +9,7 @@ import {
 
 const PUBLIC_ORIGIN_HOST_HEADER = "x-perminister-public-host";
 const PUBLIC_ORIGIN_PROTOCOL_HEADER = "x-perminister-public-proto";
+const PROXY_CLIENT_IP_HEADER = "x-perminister-client-ip";
 const RELEASE_ID_HEADER = "x-perminister-release-id";
 const RELEASE_MISMATCH_HEADER = "x-perminister-release-mismatch";
 const ACTION_NOT_FOUND_HEADER = "x-nextjs-action-not-found";
@@ -21,6 +23,12 @@ const HOP_BY_HOP_HEADERS = [
   "trailer",
   "transfer-encoding",
   "upgrade",
+];
+const CLIENT_IP_HEADERS = [
+  "x-vercel-forwarded-for",
+  "cf-connecting-ip",
+  "x-real-ip",
+  "x-forwarded-for",
 ];
 const HEALTH_PATHS = new Set(["/api/health", "/api/ready"]);
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
@@ -95,9 +103,31 @@ function removeHopByHopHeaders(headers: Headers): void {
   }
 }
 
+function extractTrustedClientIp(headers: Headers): string | null {
+  for (const name of ["x-vercel-forwarded-for", "cf-connecting-ip", "x-real-ip"]) {
+    const raw = headers.get(name);
+    if (!raw) continue;
+    const candidate = raw.split(",")[0]?.trim();
+    if (candidate && isIP(candidate)) return candidate;
+  }
+  const forwarded = headers.get("x-forwarded-for");
+  if (forwarded) {
+    const parts = forwarded
+      .split(",")
+      .map((part) => part.trim())
+      .filter((part) => isIP(part));
+    if (parts.length > 0) return parts[parts.length - 1]!;
+  }
+  return null;
+}
+
 function forwardHeaders(request: NextRequest, secret: string): Headers {
   const headers = new Headers(request.headers);
+  const clientIp = extractTrustedClientIp(request.headers);
   removeHopByHopHeaders(headers);
+  for (const ipHeader of CLIENT_IP_HEADERS) headers.delete(ipHeader);
+  headers.delete(PROXY_CLIENT_IP_HEADER);
+  if (clientIp) headers.set(PROXY_CLIENT_IP_HEADER, clientIp);
   headers.delete("content-length");
   headers.delete("host");
   headers.set(WRITE_PROXY_SECRET_HEADER, secret);

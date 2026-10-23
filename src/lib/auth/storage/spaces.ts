@@ -88,6 +88,7 @@ export interface SpacesAuthStoreOptions {
   client: S3Client;
   bucket: string;
   identityIndexSecret: string;
+  readOnly?: boolean;
 }
 
 function assertNoPlaintextSecrets(value: unknown, path = "record"): void {
@@ -238,8 +239,9 @@ export class SpacesAuthStore {
   private readonly client: S3Client;
   private readonly bucket: string;
   private readonly identityIndexSecret: string;
+  private readonly readOnly: boolean;
 
-  constructor({ client, bucket, identityIndexSecret }: SpacesAuthStoreOptions) {
+  constructor({ client, bucket, identityIndexSecret, readOnly = false }: SpacesAuthStoreOptions) {
     if (!bucket.trim()) throw new Error("Spaces bucket is required");
     if (identityIndexSecret.length < 32) {
       throw new Error("Identity index secret must be at least 32 characters");
@@ -247,6 +249,7 @@ export class SpacesAuthStore {
     this.client = client;
     this.bucket = bucket;
     this.identityIndexSecret = identityIndexSecret;
+    this.readOnly = readOnly;
   }
 
   async checkReadiness(): Promise<void> {
@@ -901,7 +904,14 @@ export class SpacesAuthStore {
     }
   }
 
+  private assertWritable(): void {
+    if (this.readOnly) {
+      throw new Error("Spaces store is configured as read-only in this runtime");
+    }
+  }
+
   private async writeJson(key: string, value: unknown): Promise<void> {
+    this.assertWritable();
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.bucket,
@@ -915,6 +925,7 @@ export class SpacesAuthStore {
   }
 
   private async deleteSubjectLookupIndexes(subject: SubjectRecord): Promise<void> {
+    this.assertWritable();
     const keys = new Set<string>();
     if (subject.primaryEmail) {
       const digest = createHmac("sha256", this.identityIndexSecret)
@@ -972,6 +983,20 @@ function requiredEnvironmentValue(env: Environment, name: string): string {
   return value;
 }
 
+function isReadOnlySpacesRuntime(env: Environment, bucket: string): boolean {
+  if (env.VERCEL === "1" && env.VERCEL_ENV !== "development") return true;
+  if (env.PERMINISTER_WRITE_PROXY_URL?.trim()) return true;
+  const normalizedBucket = bucket.trim().toLowerCase();
+  const isProductionBucket =
+    normalizedBucket === "perminister" ||
+    normalizedBucket.endsWith("-prod") ||
+    normalizedBucket.endsWith("-production");
+  if (isProductionBucket && env.PERMINISTER_WRITER_MODE !== "true") {
+    return true;
+  }
+  return false;
+}
+
 export function createSpacesAuthStoreFromEnv(env: Environment = process.env): SpacesAuthStore {
   const endpoint = requiredEnvironmentValue(env, "PERMINISTER_SPACES_ENDPOINT");
   const region = requiredEnvironmentValue(env, "PERMINISTER_SPACES_REGION");
@@ -1005,5 +1030,6 @@ export function createSpacesAuthStoreFromEnv(env: Environment = process.env): Sp
     client,
     bucket,
     identityIndexSecret: requiredEnvironmentValue(env, "PERMINISTER_IDENTITY_INDEX_SECRET"),
+    readOnly: isReadOnlySpacesRuntime(env, bucket),
   });
 }

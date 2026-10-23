@@ -72,4 +72,18 @@ describe("process-local login throttling", () => {
     eighthAttempt.recordFailure();
     expect(() => throttle.beginAttempt("person@example.com")).toThrow(/Too many sign-in attempts/);
   });
+
+  it("caps failure buckets and evicts unlocked entries before active lockouts", () => {
+    const now = 10_000;
+    const throttle = new ProcessLocalLoginThrottle(() => now, 3);
+
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      throttle.beginAttempt("locked@example.com").recordFailure();
+    }
+    throttle.beginAttempt("unlocked-1@example.com").recordFailure();
+    throttle.beginAttempt("unlocked-2@example.com").recordFailure();
+    throttle.beginAttempt("unlocked-3@example.com").recordFailure();
+
+    expect(() => throttle.beginAttempt("locked@example.com")).toThrow(/Too many sign-in attempts/);
+  });
 });
