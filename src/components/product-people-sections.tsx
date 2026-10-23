@@ -1,6 +1,7 @@
 import { CustomDropdown } from "@/components/custom-dropdown";
 import { DashboardNotice } from "@/components/dashboard-shell";
 import { ProductMemberRemoveControl } from "@/components/product-member-remove-control";
+import { ClientFilteredList } from "@/components/client-filtered-list";
 import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 import type { ProductMemberView } from "@/lib/auth/service";
 
@@ -116,15 +117,26 @@ export function ProductPeopleSection({
         </div>
       </div>
       <div className="people-list">
-        {members.map((member) => (
-          <ProductMemberRow
-            key={member.membership.organizationMembershipId}
-            isOwner={isOwner}
-            member={member}
-            organizationId={organizationId}
-            productId={productId}
-          />
-        ))}
+        <ClientFilteredList
+          items={members}
+          placeholder="Filter members by name or email..."
+          ariaLabel="Filter product members"
+          emptyMessage="No product members match your filter."
+          filterFn={(member, q) => {
+            const email = member.email?.toLowerCase() ?? "";
+            const role = member.membership.role.toLowerCase();
+            return email.includes(q) || role.includes(q);
+          }}
+          renderItem={(member) => (
+            <ProductMemberRow
+              key={member.membership.organizationMembershipId}
+              isOwner={isOwner}
+              member={member}
+              organizationId={organizationId}
+              productId={productId}
+            />
+          )}
+        />
       </div>
     </section>
   );

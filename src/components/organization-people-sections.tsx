@@ -1,6 +1,7 @@
 import { CustomDropdown } from "@/components/custom-dropdown";
 import { ConfirmationActionControl } from "@/components/confirmation-action-control";
 import { DashboardNotice } from "@/components/dashboard-shell";
+import { ClientFilteredList } from "@/components/client-filtered-list";
 import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 import type { OrganizationMemberView } from "@/lib/auth/service";
 
@@ -127,15 +128,26 @@ export function OrganizationPeopleSection({
         </div>
       </div>
       <div className="people-list">
-        {members.map((member) => (
-          <OrganizationMemberRow
-            key={member.membership.organizationMembershipId}
-            currentSubjectId={currentSubjectId}
-            member={member}
-            organizationId={organizationId}
-            owner={owner}
-          />
-        ))}
+        <ClientFilteredList
+          items={members}
+          placeholder="Filter members by name or email..."
+          ariaLabel="Filter organization members"
+          emptyMessage="No members match your filter."
+          filterFn={(member, q) => {
+            const email = member.email?.toLowerCase() ?? "";
+            const role = member.membership.role.toLowerCase();
+            return email.includes(q) || role.includes(q);
+          }}
+          renderItem={(member) => (
+            <OrganizationMemberRow
+              key={member.membership.organizationMembershipId}
+              currentSubjectId={currentSubjectId}
+              member={member}
+              organizationId={organizationId}
+              owner={owner}
+            />
+          )}
+        />
       </div>
     </section>
   );

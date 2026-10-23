@@ -5,6 +5,7 @@ import { DashboardBreadcrumbs } from "@/components/dashboard-breadcrumbs";
 import { DashboardNavigation } from "@/components/dashboard-navigation";
 import { OrganizationSwitcher } from "@/components/organization-switcher";
 import { ThemeControl } from "@/components/theme-control";
+import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
 import type { DashboardBreadcrumbProduct } from "@/lib/dashboard-breadcrumbs";
 
 export function DashboardShell({
@@ -32,21 +33,28 @@ export function DashboardShell({
   lastName: string | null;
   children: ReactNode;
 }) {
+  const sidebarProps = {
+    organizations,
+    organizationId,
+    role,
+    isPlatformAdministrator,
+    pendingOrganizationRequestCount,
+    email,
+    firstName,
+    lastName,
+  };
+
   return (
     <div className="dashboard-layout">
-      <DashboardSidebar
-        organizations={organizations}
-        organizationId={organizationId}
-        role={role}
-        isPlatformAdministrator={isPlatformAdministrator}
-        pendingOrganizationRequestCount={pendingOrganizationRequestCount}
-        email={email}
-        firstName={firstName}
-        lastName={lastName}
-      />
+      <DashboardSidebar {...sidebarProps} />
       <main className="dashboard-main">
-        <div className="dashboard-mobile-brand">
-          <Brand />
+        <div className="dashboard-mobile-header">
+          <div className="dashboard-mobile-brand">
+            <Brand />
+          </div>
+          <MobileNavDrawer>
+            <DashboardSidebarContent {...sidebarProps} />
+          </MobileNavDrawer>
         </div>
         <div className="dashboard-main-inner">
           <DashboardBreadcrumbs
@@ -61,7 +69,7 @@ export function DashboardShell({
   );
 }
 
-export function DashboardSidebar({
+export function DashboardSidebarContent({
   organizations,
   organizationId,
   role,
@@ -85,7 +93,7 @@ export function DashboardSidebar({
     .join(" ");
 
   return (
-    <aside className="dashboard-sidebar">
+    <>
       <div className="dashboard-brand-row">
         <Brand />
       </div>
@@ -114,6 +122,23 @@ export function DashboardSidebar({
           </button>
         </form>
       </div>
+    </>
+  );
+}
+
+export function DashboardSidebar(props: {
+  organizations: OrganizationSummary[];
+  organizationId?: string;
+  role?: "owner" | "admin" | "member";
+  isPlatformAdministrator: boolean;
+  pendingOrganizationRequestCount: number | null;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+}) {
+  return (
+    <aside className="dashboard-sidebar">
+      <DashboardSidebarContent {...props} />
     </aside>
   );
 }
