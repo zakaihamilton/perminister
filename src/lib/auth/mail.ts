@@ -52,18 +52,19 @@ function parsePublicOrigin(value: string): URL | null {
 }
 
 function emailLinkOrigin(options: EmailLinkOptions = {}): URL {
-  const requestOrigin = options.origin?.trim();
-  if (requestOrigin) {
-    const origin = parsePublicOrigin(requestOrigin);
-    if (origin) return origin;
-  }
-
   const appOrigin = options.appOrigin?.trim();
   if (appOrigin) {
     const origin = parsePublicOrigin(appOrigin);
     if (!origin) throw new MailDeliveryUnavailableError();
     return origin;
   }
+
+  const requestOrigin = options.origin?.trim();
+  if (requestOrigin) {
+    const origin = parsePublicOrigin(requestOrigin);
+    if (origin) return origin;
+  }
+
   return publicOrigin();
 }
 

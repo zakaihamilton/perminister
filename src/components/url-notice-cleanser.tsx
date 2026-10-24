@@ -33,7 +33,11 @@ export function UrlNoticeCleanser() {
         }
       }
       if (changed) {
-        window.history.replaceState(window.history.state, "", url.pathname + (url.search ? url.search : "") + url.hash);
+        window.history.replaceState(
+          window.history.state,
+          "",
+          url.pathname + (url.search ? url.search : "") + url.hash,
+        );
       }
     }, 400);
 

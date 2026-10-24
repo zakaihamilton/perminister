@@ -3,11 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
-export function MobileNavDrawer({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function MobileNavDrawer({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
 
@@ -77,9 +73,7 @@ export function MobileNavDrawer({
               ✕
             </button>
           </div>
-          <div className="dashboard-drawer-content">
-            {children}
-          </div>
+          <div className="dashboard-drawer-content">{children}</div>
         </div>
       </div>
     </>

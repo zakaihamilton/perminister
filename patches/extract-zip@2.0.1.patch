@@ -1,0 +1,42 @@
+diff --git a/index.js b/index.js
+index 23384ea16bb848616886f356d8d69f94325535bf..bfde82199dd1336dddfb319a3e779d835fd46b4d 100644
+--- a/index.js
++++ b/index.js
+@@ -1,7 +1,6 @@
+ const debug = require('debug')('extract-zip')
+ // eslint-disable-next-line node/no-unsupported-features/node-builtins
+ const { createWriteStream, promises: fs } = require('fs')
+-const getStream = require('get-stream')
+ const path = require('path')
+ const { promisify } = require('util')
+ const stream = require('stream')
+@@ -108,6 +107,12 @@ class Extractor {
+ 
+     debug('extracting entry', { filename: entry.fileName, isDir: isDir, isSymlink: symlink })
+ 
++    // Archive symlinks can point outside the extraction root. Reject them rather than
++    // creating a link that a later archive entry could follow while writing a file.
++    if (symlink) {
++      throw new Error(`Refusing to extract symlink "${entry.fileName}"`)
++    }
++
+     const procMode = this.getExtractedMode(mode, isDir) & 0o777
+ 
+     // always ensure folders are created
+@@ -124,13 +129,9 @@ class Extractor {
+     debug('opening read stream', dest)
+     const readStream = await promisify(this.zipfile.openReadStream.bind(this.zipfile))(entry)
+ 
+-    if (symlink) {
+-      const link = await getStream(readStream)
+-      debug('creating symlink', link, dest)
+-      await fs.symlink(link, dest)
+-    } else {
+-      await pipeline(readStream, createWriteStream(dest, { mode: procMode }))
+-    }
++    // O_EXCL prevents duplicate archive entries from writing through an existing
++    // symlink or replacing a file already extracted at the same path.
++    await pipeline(readStream, createWriteStream(dest, { mode: procMode, flags: 'wx' }))
+   }
+ 
+   getExtractedMode (entryMode, isDir) {
