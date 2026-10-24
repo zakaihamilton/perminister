@@ -19,6 +19,16 @@ const securityHeaders = [
   },
 ];
 
+// The authorization form's 303 is checked against form-action by Chrome.
+// Allow only the registered PostParticle callback on that page.
+const consumerAuthorizationHeaders = [
+  {
+    key: "Content-Security-Policy",
+    value:
+      "frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://postparticle.vercel.app/auth/perminister/callback",
+  },
+];
+
 const nextConfig: NextConfig = {
   ...(deploymentId ? { deploymentId } : {}),
   headers() {
@@ -26,6 +36,10 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: securityHeaders,
+      },
+      {
+        source: "/oauth/authorize",
+        headers: consumerAuthorizationHeaders,
       },
     ];
   },
