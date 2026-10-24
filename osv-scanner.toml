@@ -10,13 +10,13 @@ reason = "Reviewed 2026-10-06: the affected braces release is a development-tool
 
 [[IgnoredVulns]]
 id = "GHSA-jmr9-qjv8-65gv"
-ignoreUntil = 2027-10-06
-reason = "Reviewed 2026-10-06: only present in the Lighthouse CI development-tool dependency tree; retain as a time-limited exception while upstream compatibility is checked."
+ignoreUntil = 2027-10-24
+reason = "extract-zip@2.0.1 is locally patched in patches/extract-zip@2.0.1.patch to reject archive symlinks and create files exclusively. Revisit when upstream publishes a fixed release."
 
 [[IgnoredVulns]]
 id = "GHSA-7pqw-9j4j-h8q3"
-ignoreUntil = 2027-10-06
-reason = "Reviewed 2026-10-06: only present in the Lighthouse CI development-tool dependency tree; retain as a time-limited exception while upstream compatibility is checked."
+ignoreUntil = 2027-10-24
+reason = "extract-zip@2.0.1 is locally patched in patches/extract-zip@2.0.1.patch to reject archive symlinks and create files exclusively. Revisit when upstream publishes a fixed release."
 
 [[IgnoredVulns]]
 id = "GHSA-238p-pmpm-9mq7"

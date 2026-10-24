@@ -59,7 +59,6 @@ export async function POST(request: Request) {
       const action = await issueEmailAction(subject.subjectId, "verify-email");
       if (action) {
         await sendVerificationEmail(action.email, action.token, {
-          origin: request.headers.get("origin"),
           appOrigin: client.appOrigin,
           appName: client.appName,
         });

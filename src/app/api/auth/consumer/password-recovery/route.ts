@@ -66,13 +66,11 @@ export async function POST(request: Request) {
   if (!consumePasswordRecoveryRateLimit(email, `client:${client.clientId}`, 300)) {
     return Response.json({ accepted: true }, { status: 202, headers: NO_STORE_HEADERS });
   }
-  const origin = request.headers.get("origin");
   after(async () => {
     try {
       const action = await issueRecoveryAction(email);
       if (action) {
         await sendRecoveryEmail(action.email, action.token, {
-          origin,
           appOrigin: client.appOrigin,
           appName: client.appName,
         });

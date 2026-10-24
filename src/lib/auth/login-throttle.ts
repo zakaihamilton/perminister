@@ -4,6 +4,13 @@ const MAX_LOGIN_FAILURES = 8;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_LOCK_MS = 15 * 60 * 1000;
 const MAX_THROTTLE_BUCKETS = 10_000;
+const LOGIN_REQUEST_WINDOW_MS = 15 * 60 * 1000;
+const MAX_LOGIN_REQUESTS_PER_WINDOW = 60;
+
+interface RequestRecord {
+  count: number;
+  resetAt: number;
+}
 
 interface FailureRecord {
   count: number;
@@ -128,3 +135,47 @@ export class ProcessLocalLoginThrottle {
 }
 
 export const processLocalLoginThrottle = new ProcessLocalLoginThrottle();
+
+/** Limits all login attempts from a recognized caller address in this process. */
+export class ProcessLocalLoginRequestThrottle {
+  private readonly requests = new Map<string, RequestRecord>();
+
+  constructor(
+    private readonly now: () => number = Date.now,
+    private readonly maxBuckets = MAX_THROTTLE_BUCKETS,
+  ) {}
+
+  consume(callerKey: string): boolean {
+    const key = throttleKey(callerKey);
+    const now = this.now();
+    let record = this.requests.get(key);
+
+    if (record && record.resetAt <= now) {
+      this.requests.delete(key);
+      record = undefined;
+    }
+
+    if (!record && this.requests.size >= this.maxBuckets) {
+      for (const [existingKey, existing] of this.requests) {
+        if (existing.resetAt <= now) this.requests.delete(existingKey);
+      }
+      if (this.requests.size >= this.maxBuckets) return false;
+    }
+
+    if (!record) {
+      record = { count: 0, resetAt: now + LOGIN_REQUEST_WINDOW_MS };
+    }
+    if (record.count >= MAX_LOGIN_REQUESTS_PER_WINDOW) return false;
+
+    record.count += 1;
+    this.requests.set(key, record);
+    if (this.requests.size > Math.min(5000, this.maxBuckets)) {
+      for (const [existingKey, existing] of this.requests) {
+        if (existing.resetAt <= now) this.requests.delete(existingKey);
+      }
+    }
+    return true;
+  }
+}
+
+export const processLocalLoginRequestThrottle = new ProcessLocalLoginRequestThrottle();
