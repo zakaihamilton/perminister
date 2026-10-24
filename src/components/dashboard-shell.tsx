@@ -45,6 +45,42 @@ export function DashboardShell({
   };
 
   return (
+    <DashboardLayoutFrame
+      sidebarProps={sidebarProps}
+      breadcrumbs={
+        <DashboardBreadcrumbs
+          organizationId={organizationId}
+          organizationName={organizationName}
+          products={products}
+        />
+      }
+    >
+      {children}
+    </DashboardLayoutFrame>
+  );
+}
+
+export type DashboardSidebarProps = {
+  organizations: OrganizationSummary[];
+  organizationId?: string;
+  role?: "owner" | "admin" | "member";
+  isPlatformAdministrator: boolean;
+  pendingOrganizationRequestCount: number | null;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+};
+
+export function DashboardLayoutFrame({
+  sidebarProps,
+  breadcrumbs,
+  children,
+}: {
+  sidebarProps: DashboardSidebarProps;
+  breadcrumbs: ReactNode;
+  children: ReactNode;
+}) {
+  return (
     <div className="dashboard-layout">
       <DashboardSidebar {...sidebarProps} />
       <main className="dashboard-main">
@@ -57,11 +93,7 @@ export function DashboardShell({
           </MobileNavDrawer>
         </div>
         <div className="dashboard-main-inner">
-          <DashboardBreadcrumbs
-            organizationId={organizationId}
-            organizationName={organizationName}
-            products={products}
-          />
+          {breadcrumbs}
           {children}
         </div>
       </main>
@@ -78,16 +110,7 @@ export function DashboardSidebarContent({
   email,
   firstName,
   lastName,
-}: {
-  organizations: OrganizationSummary[];
-  organizationId?: string;
-  role?: "owner" | "admin" | "member";
-  isPlatformAdministrator: boolean;
-  pendingOrganizationRequestCount: number | null;
-  email: string | null;
-  firstName: string | null;
-  lastName: string | null;
-}) {
+}: DashboardSidebarProps) {
   const displayName = [firstName?.trim(), lastName?.trim()]
     .filter((name): name is string => !!name)
     .join(" ");
@@ -126,16 +149,7 @@ export function DashboardSidebarContent({
   );
 }
 
-export function DashboardSidebar(props: {
-  organizations: OrganizationSummary[];
-  organizationId?: string;
-  role?: "owner" | "admin" | "member";
-  isPlatformAdministrator: boolean;
-  pendingOrganizationRequestCount: number | null;
-  email: string | null;
-  firstName: string | null;
-  lastName: string | null;
-}) {
+export function DashboardSidebar(props: DashboardSidebarProps) {
   return (
     <aside className="dashboard-sidebar">
       <DashboardSidebarContent {...props} />

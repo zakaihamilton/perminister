@@ -1,7 +1,6 @@
 import { CustomDropdown } from "@/components/custom-dropdown";
 import { DashboardNotice } from "@/components/dashboard-shell";
-import { ProductMemberRemoveControl } from "@/components/product-member-remove-control";
-import { ClientFilteredList } from "@/components/client-filtered-list";
+import { ProductPeopleMemberList } from "@/components/people-member-lists";
 import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 import type { ProductMemberView } from "@/lib/auth/service";
 
@@ -35,66 +34,6 @@ export function ProductPeopleNotices({ error, notice }: { error?: string; notice
   );
 }
 
-function ProductMemberRow({
-  isOwner,
-  member,
-  organizationId,
-  productId,
-}: {
-  isOwner: boolean;
-  member: ProductMemberView;
-  organizationId: string;
-  productId: string;
-}) {
-  const { membership, email, emailVerified } = member;
-
-  return (
-    <article className="people-row">
-      <div className="people-avatar" aria-hidden="true">
-        {(email ?? "?").slice(0, 1).toUpperCase()}
-      </div>
-      <div className="people-identity">
-        <strong>{email ?? "Account unavailable"}</strong>
-        <small>{emailVerified ? "Verified email" : "Email not verified"}</small>
-      </div>
-      <span className={`role-pill role-${membership.role}`}>{membership.role}</span>
-      {isOwner ? (
-        <div className="people-row-actions">
-          <form action="/actions/updateProductMemberRoleAction" method="post">
-            <input type="hidden" name="organizationId" value={organizationId} />
-            <input type="hidden" name="productId" value={productId} />
-            <input type="hidden" name="subjectId" value={membership.subjectId} />
-            <label className="visually-hidden" htmlFor={`product-role-${membership.subjectId}`}>
-              Product role for {email}
-            </label>
-            <CustomDropdown
-              aria-label={`Product role for ${email}`}
-              id={`product-role-${membership.subjectId}`}
-              name="role"
-              defaultValue={membership.role}
-              className="people-role-dropdown"
-              options={[
-                { value: "owner", label: "Owner" },
-                { value: "admin", label: "Admin" },
-                { value: "member", label: "Member" },
-              ]}
-            />
-            <button className="button button-secondary" type="submit">
-              Save role
-            </button>
-          </form>
-          <ProductMemberRemoveControl
-            organizationId={organizationId}
-            productId={productId}
-            subjectId={membership.subjectId}
-            memberLabel={email ?? "this member"}
-          />
-        </div>
-      ) : null}
-    </article>
-  );
-}
-
 export function ProductPeopleSection({
   isOwner,
   members,
@@ -107,38 +46,12 @@ export function ProductPeopleSection({
   productId: string;
 }) {
   return (
-    <section className="dashboard-card people-card">
-      <div className="dashboard-card-heading">
-        <div>
-          <h2>Product members</h2>
-          <p>
-            {members.length} active {members.length === 1 ? "member" : "members"}
-          </p>
-        </div>
-      </div>
-      <div className="people-list">
-        <ClientFilteredList
-          items={members}
-          placeholder="Filter members by name or email..."
-          ariaLabel="Filter product members"
-          emptyMessage="No product members match your filter."
-          filterFn={(member, q) => {
-            const email = member.email?.toLowerCase() ?? "";
-            const role = member.membership.role.toLowerCase();
-            return email.includes(q) || role.includes(q);
-          }}
-          renderItem={(member) => (
-            <ProductMemberRow
-              key={member.membership.organizationMembershipId}
-              isOwner={isOwner}
-              member={member}
-              organizationId={organizationId}
-              productId={productId}
-            />
-          )}
-        />
-      </div>
-    </section>
+    <ProductPeopleMemberList
+      isOwner={isOwner}
+      members={members}
+      organizationId={organizationId}
+      productId={productId}
+    />
   );
 }
 

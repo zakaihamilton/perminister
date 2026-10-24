@@ -2,44 +2,19 @@ import "server-only";
 
 import { safeConsumerAuthorizationReturnTo } from "@/lib/auth/consumer-sso";
 import { passwordRecoveryRequesterKey } from "@/lib/auth/coordination";
-import { isSameOriginBrowserRequest, publicRedirectResponse } from "@/lib/auth/http";
+import {
+  isSameOriginBrowserRequest,
+  publicRedirectResponse,
+  readBoundedRequestBody,
+} from "@/lib/auth/http";
 import { processLocalLoginRequestThrottle } from "@/lib/auth/login-throttle";
 import { authenticate, createSession, setSessionCookie } from "@/lib/auth/service";
 
 const MAX_LOGIN_FORM_BYTES = 8 * 1024;
 const MAX_LOGIN_PASSWORD_LENGTH = 256;
 
-class RequestBodyTooLargeError extends Error {}
-
 async function boundedLoginFormData(request: Request): Promise<FormData> {
-  const contentLength = Number(request.headers.get("content-length") ?? 0);
-  if (contentLength > MAX_LOGIN_FORM_BYTES) throw new RequestBodyTooLargeError();
-
-  const reader = request.body?.getReader();
-  if (!reader) throw new Error("Request body is empty.");
-  const chunks: Uint8Array[] = [];
-  let byteLength = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      byteLength += value.byteLength;
-      if (byteLength > MAX_LOGIN_FORM_BYTES) {
-        await reader.cancel();
-        throw new RequestBodyTooLargeError();
-      }
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-
-  const bytes = new Uint8Array(byteLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
+  const bytes = await readBoundedRequestBody(request, MAX_LOGIN_FORM_BYTES);
   const headers = new Headers(request.headers);
   headers.delete("content-length");
   headers.delete("transfer-encoding");

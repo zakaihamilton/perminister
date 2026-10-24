@@ -1,5 +1,6 @@
 import { isIP } from "node:net";
 import { NextResponse, type NextRequest } from "next/server";
+import { lastValidForwardedIp } from "@/lib/client-ip";
 import { currentDeploymentId } from "@/lib/deployment";
 import { parseConsumerAuthorizationRequest } from "@/lib/auth/consumer-sso";
 import { getConsumerClientRecord } from "@/lib/auth/service";
@@ -129,15 +130,7 @@ function extractTrustedClientIp(headers: Headers): string | null {
     const candidate = raw.split(",")[0]?.trim();
     if (candidate && isIP(candidate)) return candidate;
   }
-  const forwarded = headers.get("x-forwarded-for");
-  if (forwarded) {
-    const parts = forwarded
-      .split(",")
-      .map((part) => part.trim())
-      .filter((part) => isIP(part));
-    if (parts.length > 0) return parts[parts.length - 1]!;
-  }
-  return null;
+  return lastValidForwardedIp(headers.get("x-forwarded-for"));
 }
 
 function forwardHeaders(request: NextRequest, secret: string): Headers {

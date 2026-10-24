@@ -94,7 +94,10 @@ export function isSameOriginBrowserRequest(request: Request): boolean {
 
 export class RequestBodyTooLargeError extends Error {}
 
-export async function readBoundedJson(request: Request, maximumBytes = 8192): Promise<unknown> {
+export async function readBoundedRequestBody(
+  request: Request,
+  maximumBytes: number,
+): Promise<Uint8Array<ArrayBuffer>> {
   const contentLength = Number(request.headers.get("content-length") ?? 0);
   if (contentLength > maximumBytes) throw new RequestBodyTooLargeError();
   const reader = request.body?.getReader();
@@ -121,6 +124,11 @@ export async function readBoundedJson(request: Request, maximumBytes = 8192): Pr
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
+  return bytes;
+}
+
+export async function readBoundedJson(request: Request, maximumBytes = 8192): Promise<unknown> {
+  const bytes = await readBoundedRequestBody(request, maximumBytes);
   return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
 }
 

@@ -8820,21 +8820,6 @@ html[data-theme="dark"] .organization-overview-stat-label {
     padding: 11px 0;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .organization-overview-stat,
-  .organization-overview-grid > .dashboard-card,
-  .organization-product-card,
-  .organization-activity-item {
-    animation: none !important;
-  }
-  .organization-overview-page *,
-  .organization-overview-page *::before,
-  .organization-overview-page *::after {
-    scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
 /* ==========================================================================
    Mobile Nav Drawer & Filter Controls
    ========================================================================== */
@@ -9032,11 +9017,21 @@ html[data-theme="dark"] .dashboard-mobile-menu-trigger:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dashboard-mobile-drawer {
-    transition: none !important;
-  }
+  .organization-overview-stat,
+  .organization-overview-grid > .dashboard-card,
+  .organization-product-card,
+  .organization-activity-item,
   .dashboard-drawer-backdrop {
     animation: none !important;
+  }
+  .organization-overview-page *,
+  .organization-overview-page *::before,
+  .organization-overview-page *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+  .dashboard-mobile-drawer {
+    transition: none !important;
   }
 }
 
