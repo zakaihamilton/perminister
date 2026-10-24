@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
+import { lastValidForwardedIp } from "@/lib/client-ip";
 import { assertOpaqueId } from "./domain";
 
 const LOOKUP_WINDOW_MS = 60 * 1000;
@@ -87,14 +88,8 @@ export function passwordRecoveryRequesterKey(requestHeaders: Headers): string | 
     if (address && isIP(address)) return `ip:${address}`;
   }
 
-  const forwarded = requestHeaders.get("x-forwarded-for");
-  if (forwarded) {
-    const parts = forwarded
-      .split(",")
-      .map((part) => part.trim())
-      .filter((part) => isIP(part));
-    if (parts.length > 0) return `ip:${parts[parts.length - 1]}`;
-  }
+  const forwardedAddress = lastValidForwardedIp(requestHeaders.get("x-forwarded-for"));
+  if (forwardedAddress) return `ip:${forwardedAddress}`;
   return null;
 }
 

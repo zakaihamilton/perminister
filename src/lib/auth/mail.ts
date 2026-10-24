@@ -127,81 +127,88 @@ function escapeHtml(value: string): string {
   );
 }
 
-export async function sendVerificationEmail(
+type AccountEmailAction = "verification" | "recovery";
+
+async function sendAccountActionEmail(
+  action: AccountEmailAction,
   email: string,
   token: string,
-  options: EmailLinkOptions = {},
+  options: EmailLinkOptions,
 ): Promise<void> {
   const origin = emailLinkOrigin(options);
   const appName = options.appName ?? "Perminister";
-  const safeAppName = escapeHtml(appName);
-  const link = new URL(options.appOrigin ? "/auth/verify-email" : "/verify-email", origin);
+  const isVerification = action === "verification";
+  const link = new URL(
+    options.appOrigin
+      ? isVerification
+        ? "/auth/verify-email"
+        : "/auth/reset-password"
+      : isVerification
+        ? "/verify-email"
+        : "/reset-password",
+    origin,
+  );
   link.searchParams.set("token", token);
   const safeLink = link.toString();
+  const message = isVerification
+    ? `Confirm your ${appName} account`
+    : `Reset your ${appName} password`;
   await sendWithResend({
     to: email,
-    subject: `Verify your ${appName} account`,
-    text: `Confirm your ${appName} account within 30 minutes: ${safeLink}`,
-    html: `<p>Confirm your ${safeAppName} account within 30 minutes:</p><p><a href="${safeLink}">Verify email</a></p>`,
+    subject: isVerification ? `Verify your ${appName} account` : `Reset your ${appName} password`,
+    text: `${message} within 30 minutes: ${safeLink}`,
+    html: `<p>${escapeHtml(message)} within 30 minutes:</p><p><a href="${escapeHtml(safeLink)}">${isVerification ? "Verify email" : "Reset password"}</a></p>`,
   });
 }
 
-export async function sendRecoveryEmail(
-  email: string,
-  token: string,
-  options: EmailLinkOptions = {},
-): Promise<void> {
-  const origin = emailLinkOrigin(options);
-  const appName = options.appName ?? "Perminister";
-  const safeAppName = escapeHtml(appName);
-  const link = new URL(options.appOrigin ? "/auth/reset-password" : "/reset-password", origin);
-  link.searchParams.set("token", token);
-  const safeLink = link.toString();
-  await sendWithResend({
-    to: email,
-    subject: `Reset your ${appName} password`,
-    text: `Reset your ${appName} password within 30 minutes: ${safeLink}`,
-    html: `<p>Reset your ${safeAppName} password within 30 minutes:</p><p><a href="${safeLink}">Reset password</a></p>`,
-  });
+function accountActionEmailSender(action: AccountEmailAction) {
+  return (email: string, token: string, options: EmailLinkOptions = {}) =>
+    sendAccountActionEmail(action, email, token, options);
 }
 
-export async function sendOrganizationInvitationEmail(
-  email: string,
-  token: string,
-  organizationName: string,
-  role: "admin" | "member",
-  options: Pick<EmailLinkOptions, "origin"> = {},
-): Promise<void> {
-  const origin = emailLinkOrigin(options);
-  const link = new URL("/accept-invitation", origin);
-  link.searchParams.set("token", token);
-  const safeLink = link.toString();
-  const safeName = escapeHtml(organizationName);
-  await sendWithResend({
-    to: email,
-    subject: `Invitation to join ${organizationName} on Perminister`,
-    text: `You have been invited to join ${organizationName} as an organization ${role}. Accept the invitation within 7 days: ${safeLink}`,
-    html: `<p>You have been invited to join <strong>${safeName}</strong> as an organization ${role}.</p><p><a href="${safeLink}">Accept invitation</a></p><p>This invitation expires in 7 days.</p>`,
-  });
+export const sendVerificationEmail = accountActionEmailSender("verification");
+export const sendRecoveryEmail = accountActionEmailSender("recovery");
+
+type InvitationKind = "organization" | "product";
+type InvitationEmailOptions = Pick<EmailLinkOptions, "origin">;
+
+function invitationEmailSender(kind: InvitationKind) {
+  return async (
+    email: string,
+    token: string,
+    resourceName: string,
+    role: "admin" | "member",
+    options: InvitationEmailOptions = {},
+  ): Promise<void> => {
+    const origin = emailLinkOrigin(options);
+    const link = new URL("/accept-invitation", origin);
+    link.searchParams.set("token", token);
+    const url = link.toString();
+    const safeLink = escapeHtml(url);
+    const safeName = escapeHtml(resourceName);
+    const roleLabel =
+      kind === "organization"
+        ? `an organization ${role}`
+        : `a Product ${role === "admin" ? "Admin" : "Member"}`;
+    const description =
+      kind === "organization"
+        ? `You have been invited to join <strong>${safeName}</strong> as ${roleLabel}.`
+        : `You have been invited to join the <strong>${safeName}</strong> product as ${roleLabel}.`;
+    const textDescription =
+      kind === "organization"
+        ? `You have been invited to join ${resourceName} as ${roleLabel}.`
+        : `You have been invited to join the ${resourceName} product as ${roleLabel}. This invitation applies to this product only.`;
+    const scopeNote =
+      kind === "product" ? "<p>This invitation applies to this product only.</p>" : "";
+
+    await sendWithResend({
+      to: email,
+      subject: `Invitation to join ${resourceName} on Perminister`,
+      text: `${textDescription} Accept the invitation within 7 days: ${url}`,
+      html: `<p>${description}</p>${scopeNote}<p><a href="${safeLink}">Accept invitation</a></p><p>This invitation expires in 7 days.</p>`,
+    });
+  };
 }
 
-export async function sendProductInvitationEmail(
-  email: string,
-  token: string,
-  productName: string,
-  role: "admin" | "member",
-  options: Pick<EmailLinkOptions, "origin"> = {},
-): Promise<void> {
-  const origin = emailLinkOrigin(options);
-  const link = new URL("/accept-invitation", origin);
-  link.searchParams.set("token", token);
-  const safeLink = link.toString();
-  const safeName = escapeHtml(productName);
-  const productRole = role === "admin" ? "Product Admin" : "Product Member";
-  await sendWithResend({
-    to: email,
-    subject: `Invitation to join ${productName} on Perminister`,
-    text: `You have been invited to join the ${productName} product as a ${productRole}. This invitation applies to this product only. Accept the invitation within 7 days: ${safeLink}`,
-    html: `<p>You have been invited to join the <strong>${safeName}</strong> product as a ${productRole}.</p><p>This invitation applies to this product only.</p><p><a href="${safeLink}">Accept invitation</a></p><p>This invitation expires in 7 days.</p>`,
-  });
-}
+export const sendOrganizationInvitationEmail = invitationEmailSender("organization");
+export const sendProductInvitationEmail = invitationEmailSender("product");
