@@ -80,11 +80,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    await sendVerificationIfNeeded(
-      body.email,
-      client.appOrigin,
-      client.appName,
-    );
+    await sendVerificationIfNeeded(body.email, client.appOrigin, client.appName);
   } catch {
     // Keep the response identical for new and existing addresses.
   }
