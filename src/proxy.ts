@@ -1,6 +1,8 @@
 import { isIP } from "node:net";
 import { NextResponse, type NextRequest } from "next/server";
 import { currentDeploymentId } from "@/lib/deployment";
+import { parseConsumerAuthorizationRequest } from "@/lib/auth/consumer-sso";
+import { getConsumerClientRecord } from "@/lib/auth/service";
 import {
   getConfiguredWriteProxySecret,
   matchesWriteProxySecret,
@@ -32,6 +34,8 @@ const CLIENT_IP_HEADERS = [
 ];
 const HEALTH_PATHS = new Set(["/api/health", "/api/ready"]);
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
+const CONTENT_SECURITY_POLICY_HEADER = "Content-Security-Policy";
+const BASE_CONTENT_SECURITY_POLICY = "frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 
 function errorResponse(status: number, error: string, extraHeaders?: HeadersInit): Response {
   return Response.json({ error }, { status, headers: { ...NO_STORE_HEADERS, ...extraHeaders } });
@@ -91,6 +95,21 @@ function staleActionResponse(request: NextRequest): Response {
 
 function isReadMethod(method: string): boolean {
   return method === "GET" || method === "HEAD";
+}
+
+async function consumerAuthorizationPolicy(request: NextRequest): Promise<string | null> {
+  if (request.nextUrl.pathname !== "/oauth/authorize" || request.method !== "GET") {
+    return null;
+  }
+
+  const params = request.nextUrl.searchParams;
+  const clientId = params.get("client_id") ?? "";
+  const client = await getConsumerClientRecord(clientId).catch(() => null);
+  const authorization = parseConsumerAuthorizationRequest(params, client);
+  if (!authorization) return null;
+
+  const callback = new URL(authorization.redirectUri);
+  return `${BASE_CONTENT_SECURITY_POLICY} ${callback.origin}${callback.pathname}`;
 }
 
 function removeHopByHopHeaders(headers: Headers): void {
@@ -285,6 +304,15 @@ async function proxyWrite(request: NextRequest): Promise<Response> {
 }
 
 export async function proxy(request: NextRequest): Promise<Response> {
+  if (request.nextUrl.pathname === "/oauth/authorize" && request.method === "GET") {
+    const response = NextResponse.next();
+    const contentSecurityPolicy = await consumerAuthorizationPolicy(request);
+    if (contentSecurityPolicy) {
+      response.headers.set(CONTENT_SECURITY_POLICY_HEADER, contentSecurityPolicy);
+    }
+    return response;
+  }
+
   const hostedVercel = process.env.VERCEL === "1" && process.env.VERCEL_ENV !== "development";
   if (hostedVercel) {
     if (isReadMethod(request.method)) return NextResponse.next();
