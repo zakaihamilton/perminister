@@ -1,5 +1,5 @@
-import { PageLoading } from "@/components/page-loading";
+import { SitePageSkeleton } from "@/components/site-page-skeleton";
 
 export default function Loading() {
-  return <PageLoading />;
+  return <SitePageSkeleton variant="marketing" />;
 }

@@ -81,6 +81,13 @@ export interface ProductAccessSummary {
   catalogRole: OrganizationRole | null;
 }
 
+const listMembershipsForSubjectDuringRender = cache((subjectId: SubjectId) =>
+  store().listMembershipsForSubject(subjectId),
+);
+const listProductsForOrganizationDuringRender = cache((organizationId: string) =>
+  store().listProducts(organizationId),
+);
+
 async function listOrganizationRequestsForSubjectUnlocked(
   subjectId: SubjectId,
 ): Promise<OrganizationRequestSummary[]> {
@@ -363,7 +370,7 @@ export const getOrganizationForSubject = cache(async function getOrganizationFor
     ]);
     const productMembership = catalogManager
       ? null
-      : ((await store().listMembershipsForSubject(subjectId)).find(
+      : ((await listMembershipsForSubjectDuringRender(subjectId)).find(
           (entry) =>
             entry.organizationId === organizationId &&
             !!entry.productId &&
@@ -410,7 +417,7 @@ export const listOrganizationMembers = cache(async function listOrganizationMemb
 ): Promise<OrganizationMemberView[]> {
   return authMutationQueue.read(async () => {
     await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
-    const memberships = (await store().listOrganizationMemberships(organizationId))
+    const memberships = (await store().listOrganizationMemberships(organizationId, null))
       .filter((record) => !record.productId && record.status === "active")
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
     return mapWithConcurrency(memberships, async (membership) => {
@@ -431,7 +438,7 @@ export const countOrganizationMembersForSubject = cache(
   ): Promise<number> {
     return authMutationQueue.read(async () => {
       await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
-      const memberships = await store().listOrganizationMemberships(organizationId);
+      const memberships = await store().listOrganizationMemberships(organizationId, null);
       return memberships.filter(
         (membership) => !membership.productId && membership.status === "active",
       ).length;
@@ -1005,7 +1012,10 @@ export async function installPublicProduct(
       if (existing && !existing.sharedProductRef?.detachedAt) {
         const installed = await store().readProduct(organizationId, source.productId);
         if (installed) {
-          const memberships = await store().listOrganizationMemberships(organizationId);
+          const memberships = await store().listOrganizationMemberships(
+            organizationId,
+            source.productId,
+          );
           const hasProductManager = memberships.some(
             (membership) =>
               membership.productId === source.productId &&
@@ -1568,7 +1578,7 @@ async function revokeDetachedProductDataUnlocked(
   productId: string,
 ): Promise<void> {
   const now = new Date().toISOString();
-  const members = await store().listOrganizationMemberships(organizationId);
+  const members = await store().listOrganizationMemberships(organizationId, productId);
   for (const membership of members) {
     if (membership.productId !== productId) continue;
     const hasActiveGrant = (membership.permissionGrants ?? []).some(
@@ -1858,8 +1868,8 @@ export const listProductsForOrganization = cache(async function listProductsForO
     ]);
     if (!organization) throw new Error("Organization not found.");
     const [memberRows, products] = await Promise.all([
-      catalogManager ? Promise.resolve([]) : store().listMembershipsForSubject(subjectId),
-      store().listProducts(organizationId),
+      catalogManager ? Promise.resolve([]) : listMembershipsForSubjectDuringRender(subjectId),
+      listProductsForOrganizationDuringRender(organizationId),
     ]);
     const allowedProducts = new Set(
       memberRows
@@ -1926,8 +1936,8 @@ export const getOrganizationDashboardData = cache(async function getOrganization
       await Promise.all([
         loadRecord("organization", organizationId),
         store().readOrganizationMembership(organizationId, subjectId),
-        store().listMembershipsForSubject(subjectId),
-        store().listProducts(organizationId),
+        listMembershipsForSubjectDuringRender(subjectId),
+        listProductsForOrganizationDuringRender(organizationId),
       ]);
     const organization = organizationRecord?.record;
     if (!organization || organizationApprovalStatus(organization) !== "approved") {

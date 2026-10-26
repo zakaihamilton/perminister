@@ -1,5 +1,10 @@
-import { authorizeApiKey, type AuthorizationRequest } from "@/lib/auth/service";
+import {
+  authorizeApiKey,
+  getSessionFromToken,
+  type AuthorizationRequest,
+} from "@/lib/auth/service";
 import { authenticateConsumerClient } from "@/lib/auth/consumer-clients";
+import { withRequestPerformance } from "@/lib/auth/performance";
 
 export const runtime = "nodejs";
 
@@ -60,7 +65,15 @@ function isAuthorizationRequest(value: unknown): value is AuthorizationRequest {
   );
 }
 
-export async function POST(request: Request) {
+export function POST(request: Request): Promise<Response> {
+  return withRequestPerformance(
+    "POST /api/authorize",
+    () => authorizePost(request),
+    (response) => response.status,
+  );
+}
+
+async function authorizePost(request: Request): Promise<Response> {
   if (
     request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json"
   ) {
@@ -114,11 +127,36 @@ export async function POST(request: Request) {
   };
   try {
     const isApiKey = /^pmk_[0-9a-f-]{36}_/i.test(match[1]);
-    const client = isApiKey ? null : await authenticateConsumerClient(request);
-    if (!isApiKey && (!client || client.productId !== normalizedBody.productId)) {
+    if (isApiKey) {
+      const result = await authorizeApiKey(match[1], normalizedBody);
+      return Response.json(
+        result.authorized
+          ? {
+              authorized: true,
+              ...(result.subjectId ? { subjectId: result.subjectId } : {}),
+              ...(result.servicePrincipalId
+                ? { servicePrincipalId: result.servicePrincipalId }
+                : {}),
+            }
+          : { authorized: false },
+        { status: result.authorized ? 200 : 403, headers: noStoreHeaders },
+      );
+    }
+
+    const [client, session] = await Promise.all([
+      authenticateConsumerClient(request),
+      getSessionFromToken(match[1]),
+    ]);
+    if (
+      !client ||
+      !session ||
+      client.productId !== normalizedBody.productId ||
+      session.session.applicationClientId !== client.clientId ||
+      session.session.productId !== client.productId
+    ) {
       return Response.json({ authorized: false }, { status: 403, headers: noStoreHeaders });
     }
-    const result = await authorizeApiKey(match[1], normalizedBody, client?.clientId);
+    const result = await authorizeApiKey(match[1], normalizedBody, client.clientId, session);
     return Response.json(
       result.authorized
         ? {

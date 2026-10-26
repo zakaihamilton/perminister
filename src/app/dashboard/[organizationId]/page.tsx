@@ -8,10 +8,9 @@ import {
 } from "@/components/organization-overview-products";
 import {
   countOrganizationMembersForSubject,
-  getOrganizationForSubject,
+  getOrganizationDashboardData,
   listApiKeysForSubject,
   listOrganizationAudit,
-  listProductsForOrganization,
 } from "@/lib/auth/service";
 import {
   getOrganizationDashboardRequestContext,
@@ -22,11 +21,11 @@ export default async function OrganizationOverview(
   props: OrganizationDashboardPageProps<{ notice?: string }>,
 ) {
   const { current, organizationId, query } = await getOrganizationDashboardRequestContext(props);
-  const [organization, products, apiKeys] = await Promise.all([
-    getOrganizationForSubject(current.subject.subjectId, organizationId),
-    listProductsForOrganization(current.subject.subjectId, organizationId),
+  const [dashboardData, apiKeys] = await Promise.all([
+    getOrganizationDashboardData(current.subject.subjectId, organizationId),
     listApiKeysForSubject(current.subject.subjectId),
   ]);
+  const { organization, products } = dashboardData;
   const canManage =
     organization.membership.role === "owner" || organization.membership.role === "admin";
   const managerOverview = canManage

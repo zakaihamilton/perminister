@@ -13,6 +13,8 @@ export function DashboardShell({
   organizationName,
   products = [],
   organizations,
+  sidebarOrganizationSwitcher,
+  breadcrumbs,
   role,
   isPlatformAdministrator,
   pendingOrganizationRequestCount,
@@ -25,6 +27,8 @@ export function DashboardShell({
   organizationName: string;
   products?: DashboardBreadcrumbProduct[];
   organizations: OrganizationSummary[];
+  sidebarOrganizationSwitcher?: ReactNode;
+  breadcrumbs?: ReactNode;
   role: "owner" | "admin" | "member";
   isPlatformAdministrator: boolean;
   pendingOrganizationRequestCount: number | null;
@@ -36,6 +40,7 @@ export function DashboardShell({
   const sidebarProps = {
     organizations,
     organizationId,
+    organizationSwitcher: sidebarOrganizationSwitcher,
     role,
     isPlatformAdministrator,
     pendingOrganizationRequestCount,
@@ -48,11 +53,13 @@ export function DashboardShell({
     <DashboardLayoutFrame
       sidebarProps={sidebarProps}
       breadcrumbs={
-        <DashboardBreadcrumbs
-          organizationId={organizationId}
-          organizationName={organizationName}
-          products={products}
-        />
+        breadcrumbs ?? (
+          <DashboardBreadcrumbs
+            organizationId={organizationId}
+            organizationName={organizationName}
+            products={products}
+          />
+        )
       }
     >
       {children}
@@ -69,6 +76,7 @@ export type DashboardSidebarProps = {
   email: string | null;
   firstName: string | null;
   lastName: string | null;
+  organizationSwitcher?: ReactNode;
 };
 
 export function DashboardLayoutFrame({
@@ -110,6 +118,7 @@ export function DashboardSidebarContent({
   email,
   firstName,
   lastName,
+  organizationSwitcher,
 }: DashboardSidebarProps) {
   const displayName = [firstName?.trim(), lastName?.trim()]
     .filter((name): name is string => !!name)
@@ -120,7 +129,9 @@ export function DashboardSidebarContent({
       <div className="dashboard-brand-row">
         <Brand />
       </div>
-      {organizationId ? (
+      {organizationSwitcher !== undefined ? (
+        organizationSwitcher
+      ) : organizationId && organizations.length > 0 ? (
         <OrganizationSwitcher organizations={organizations} organizationId={organizationId} />
       ) : null}
       <DashboardNavigation

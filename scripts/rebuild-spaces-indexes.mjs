@@ -8,6 +8,7 @@ import {
 
 const ROOT = "";
 const ROOT_PREFIX = ROOT ? `${ROOT}/` : "";
+const ORGANIZATION_MEMBERSHIP_INDEX_MANIFEST = `${ROOT_PREFIX}indexes/by-organization-membership/manifest.json`;
 const apply = process.argv.includes("--apply");
 
 function required(name) {
@@ -164,6 +165,11 @@ async function main() {
           `${ROOT_PREFIX}indexes/by-subject/${record.subjectId}/products/${record.organizationId}/${productPart}.json`,
           { key },
         );
+        add(
+          indexes,
+          `${ROOT_PREFIX}indexes/by-organization-membership/${record.organizationId}/${productPart}/${record.subjectId}.json`,
+          { key },
+        );
         for (const grant of record.permissionGrants ?? []) {
           if (!uuid(grant.membershipId))
             throw new Error(`Malformed permission grant embedded at ${key}`);
@@ -271,7 +277,8 @@ async function main() {
       {
         mode: apply ? "apply" : "dry-run",
         canonicalObjectsScanned: scanned,
-        indexesToWrite: indexes.size,
+        indexesToWrite: indexes.size + 1,
+        organizationMembershipIndexVersion: 1,
       },
       null,
       2,
@@ -301,7 +308,17 @@ async function main() {
       ),
     );
   }
-  console.log(`Rebuilt ${indexes.size} lookup and activity indexes.`);
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: ORGANIZATION_MEMBERSHIP_INDEX_MANIFEST,
+      Body: JSON.stringify({ version: 1, rebuiltAt: new Date().toISOString() }),
+      ContentType: "application/json",
+      ACL: "private",
+      CacheControl: "no-store",
+    }),
+  );
+  console.log(`Rebuilt ${indexes.size + 1} lookup and activity indexes.`);
 }
 
 main().catch((error) => {

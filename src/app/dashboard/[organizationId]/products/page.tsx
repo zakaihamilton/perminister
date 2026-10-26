@@ -6,9 +6,8 @@ import {
   PublicProductCatalog,
 } from "@/components/organization-product-sections";
 import {
-  getOrganizationForSubject,
+  getOrganizationDashboardData,
   listPublicProductsForOrganization,
-  listProductsForOrganization,
 } from "@/lib/auth/service";
 import {
   getOrganizationDashboardRequestContext,
@@ -19,10 +18,11 @@ export default async function ProductsPage(
   props: OrganizationDashboardPageProps<{ error?: string; notice?: string }>,
 ) {
   const { current, organizationId, query } = await getOrganizationDashboardRequestContext(props);
-  const [organization, products] = await Promise.all([
-    getOrganizationForSubject(current.subject.subjectId, organizationId),
-    listProductsForOrganization(current.subject.subjectId, organizationId),
-  ]);
+  const dashboardData = await getOrganizationDashboardData(
+    current.subject.subjectId,
+    organizationId,
+  );
+  const { organization, products } = dashboardData;
   const canManage =
     organization.catalogManager &&
     (organization.membership.role === "owner" || organization.membership.role === "admin");
