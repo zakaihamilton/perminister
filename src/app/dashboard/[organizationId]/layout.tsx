@@ -102,12 +102,11 @@ async function OrganizationSwitcherFromDashboard({
   dashboardData: OrganizationDashboardDataPromise;
   organizationId: string;
 }) {
-  try {
-    const { organizations } = await dashboardData;
-    return <OrganizationSwitcher organizations={organizations} organizationId={organizationId} />;
-  } catch {
-    return null;
-  }
+  const data = await dashboardData.catch(() => null);
+  if (!data) return null;
+  return (
+    <OrganizationSwitcher organizations={data.organizations} organizationId={organizationId} />
+  );
 }
 
 async function BreadcrumbsFromDashboard({
