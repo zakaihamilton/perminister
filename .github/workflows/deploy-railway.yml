@@ -41,6 +41,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: 24.22.1
+          package-manager-cache: false
 
       - name: Install Railway CLI
         run: npm install --global @railway/cli@5.63.4
