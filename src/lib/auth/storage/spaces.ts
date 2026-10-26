@@ -201,6 +201,36 @@ function isAuthRecord(value: unknown, kind: AuthRecordKind, id?: string): value 
   return true;
 }
 
+function isRecordListCandidate(kind: AuthRecordKind, key: string): boolean {
+  if (!key.endsWith(".json") || key.includes("/activity/") || key.includes("/indexes/")) {
+    return false;
+  }
+
+  const relativeKey =
+    OBJECT_PREFIX && key.startsWith(OBJECT_PREFIX) ? key.slice(OBJECT_PREFIX.length) : key;
+
+  switch (kind) {
+    case "organization":
+      return /^orgs\/[^/]+\/organization\.json$/.test(relativeKey);
+    case "organization-membership":
+      return /^orgs\/[^/]+\/(?:catalog-managers\/[^/]+|products\/[^/]+\/members\/[^/]+)\.json$/.test(
+        relativeKey,
+      );
+    case "product":
+      return /^orgs\/[^/]+\/products\/[^/]+\/product\.json$/.test(relativeKey);
+    case "organization-invitation":
+      return /^(?:invitations\/[^/]+\.json|orgs\/[^/]+\/products\/[^/]+\/invitations\/[^/]+\.json)$/.test(
+        relativeKey,
+      );
+    case "membership":
+      return /^orgs\/[^/]+\/products\/[^/]+\/members\/[^/]+(?:\/grants\/[^/]+)?\.json$/.test(
+        relativeKey,
+      );
+    default:
+      return true;
+  }
+}
+
 function lowercaseScopeIdentifiers(value: unknown): unknown {
   if (typeof value !== "object" || value === null) return value;
   const scope = value as Record<string, unknown>;
@@ -489,16 +519,8 @@ export class SpacesAuthStore {
   }
 
   async readProduct(organizationId: string, productId: string): Promise<ProductRecord | null> {
-    assertOpaqueId(organizationId);
-    const key = `${OBJECT_PREFIX}orgs/${organizationId}/products/${safeSegment(productId)}/product.json`;
-    const raw = await this.readJson<unknown>(key);
-    if (raw === null) return null;
-    const record = this.unwrapRecord(raw);
-    if (!isAuthRecord(record, "product")) throw new Error(`Malformed product at ${key}`);
-    const product = record as ProductRecord;
-    if (product.organizationId !== organizationId || product.productId !== productId) {
-      throw new Error(`Product identity does not match its S3 object at ${key}`);
-    }
+    const product = await this.readStoredProduct(organizationId, productId);
+    if (!product) return null;
     const sharedProductRef = product.sharedProductRef;
     if (!sharedProductRef) return product;
     if (sharedProductRef.detachedAt) return null;
@@ -528,6 +550,26 @@ export class SpacesAuthStore {
     };
   }
 
+  async listProductsByProductId(productId: string): Promise<ProductRecord[]> {
+    const normalizedProductId = safeSegment(productId);
+    const organizationRoot = `${OBJECT_PREFIX}orgs/`;
+    const organizationIds = (await this.listCommonPrefixes(organizationRoot)).flatMap((prefix) => {
+      if (!prefix.startsWith(organizationRoot) || !prefix.endsWith("/")) return [];
+      const organizationId = prefix.slice(organizationRoot.length, -1);
+      if (!organizationId || organizationId.includes("/")) return [];
+      try {
+        assertOpaqueId(organizationId);
+      } catch {
+        return [];
+      }
+      return [organizationId];
+    });
+    const products = await mapWithConcurrency(organizationIds, (organizationId) =>
+      this.readStoredProduct(organizationId, normalizedProductId),
+    );
+    return products.filter((product): product is ProductRecord => product !== null);
+  }
+
   async listProducts(organizationId: string): Promise<ProductRecord[]> {
     assertOpaqueId(organizationId);
     const prefix = `${OBJECT_PREFIX}orgs/${organizationId}/products/`;
@@ -543,6 +585,23 @@ export class SpacesAuthStore {
       return local.sharedProductRef ? this.readProduct(organizationId, local.productId) : local;
     });
     return products.filter((product): product is ProductRecord => product !== null);
+  }
+
+  private async readStoredProduct(
+    organizationId: string,
+    productId: string,
+  ): Promise<ProductRecord | null> {
+    assertOpaqueId(organizationId);
+    const key = `${OBJECT_PREFIX}orgs/${organizationId}/products/${safeSegment(productId)}/product.json`;
+    const raw = await this.readJson<unknown>(key);
+    if (raw === null) return null;
+    const record = this.unwrapRecord(raw);
+    if (!isAuthRecord(record, "product")) throw new Error(`Malformed product at ${key}`);
+    const product = record as ProductRecord;
+    if (product.organizationId !== organizationId || product.productId !== productId) {
+      throw new Error(`Product identity does not match its S3 object at ${key}`);
+    }
+    return product;
   }
 
   async findSubjectIdByEmail(email: string): Promise<SubjectId | null> {
@@ -798,19 +857,20 @@ export class SpacesAuthStore {
       "email-action": [`${OBJECT_PREFIX}email-actions/`],
     };
     const keys = (await Promise.all(prefixes[kind].map((prefix) => this.listKeys(prefix)))).flat();
-    const records = await mapWithConcurrency([...new Set(keys)], async (key) => {
-      if (!key.endsWith(".json") || key.includes("/activity/") || key.includes("/indexes/"))
-        return [];
-      const value = await this.readJson<unknown>(key);
-      if (value === null) return [];
-      const record = this.unwrapRecord(value);
-      if (kind === "membership" && isAuthRecord(record, "organization-membership")) {
-        return ((record as OrganizationMembershipRecord).permissionGrants ?? []).map((grant) =>
-          this.wrapRecord(grant as AuthRecordFor<Kind>),
-        );
-      }
-      return isAuthRecord(record, kind) ? [this.wrapRecord(record as AuthRecordFor<Kind>)] : [];
-    });
+    const records = await mapWithConcurrency(
+      [...new Set(keys)].filter((key) => isRecordListCandidate(kind, key)),
+      async (key) => {
+        const value = await this.readJson<unknown>(key);
+        if (value === null) return [];
+        const record = this.unwrapRecord(value);
+        if (kind === "membership" && isAuthRecord(record, "organization-membership")) {
+          return ((record as OrganizationMembershipRecord).permissionGrants ?? []).map((grant) =>
+            this.wrapRecord(grant as AuthRecordFor<Kind>),
+          );
+        }
+        return isAuthRecord(record, kind) ? [this.wrapRecord(record as AuthRecordFor<Kind>)] : [];
+      },
+    );
     return records.flat();
   }
 
@@ -1044,7 +1104,19 @@ export class SpacesAuthStore {
   }
 
   private async listKeys(prefix: string): Promise<string[]> {
+    return (await this.listObjects(prefix)).keys;
+  }
+
+  private async listCommonPrefixes(prefix: string): Promise<string[]> {
+    return (await this.listObjects(prefix, "/")).commonPrefixes;
+  }
+
+  private async listObjects(
+    prefix: string,
+    delimiter?: string,
+  ): Promise<{ keys: string[]; commonPrefixes: string[] }> {
     const keys: string[] = [];
+    const prefixes: string[] = [];
     const seenTokens = new Set<string>();
     let continuationToken: string | undefined;
     do {
@@ -1055,6 +1127,7 @@ export class SpacesAuthStore {
           new ListObjectsV2Command({
             Bucket: this.bucket,
             Prefix: prefix,
+            ...(delimiter ? { Delimiter: delimiter } : {}),
             ContinuationToken: continuationToken,
             MaxKeys: 1000,
           }),
@@ -1063,13 +1136,16 @@ export class SpacesAuthStore {
         recordAuthStorageOperation("list", performance.now() - startedAt);
       }
       keys.push(...(page.Contents ?? []).flatMap((item) => (item.Key ? [item.Key] : [])));
+      prefixes.push(
+        ...(page.CommonPrefixes ?? []).flatMap(({ Prefix }) => (Prefix ? [Prefix] : [])),
+      );
       if (!page.IsTruncated) break;
       const nextToken = page.NextContinuationToken;
       if (!nextToken || seenTokens.has(nextToken)) throw new Error("S3 listing did not advance");
       seenTokens.add(nextToken);
       continuationToken = nextToken;
     } while (true);
-    return keys;
+    return { keys, commonPrefixes: prefixes };
   }
 }
 

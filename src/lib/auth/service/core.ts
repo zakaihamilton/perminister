@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash, randomBytes, timingSafeEqual, scrypt as scryptCallback } from "node:crypto";
 import { verify as verifyArgon2id } from "@node-rs/argon2";
+import { cache } from "react";
 import { authMutationQueue } from "../mutation-queue";
 import { mapWithConcurrency } from "../concurrency";
 import {
@@ -50,6 +51,10 @@ export function store() {
   storeSingleton ??= createSpacesAuthStoreFromEnv();
   return storeSingleton;
 }
+
+export const listProductsByProductIdDuringRender = cache((productId: string) =>
+  store().listProductsByProductId(validateProductId(productId)),
+);
 
 export async function checkAuthStorageReadiness(): Promise<void> {
   await store().checkReadiness();

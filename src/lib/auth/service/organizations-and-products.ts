@@ -33,6 +33,7 @@ import {
   getCachedOrganizationDashboardData,
   invalidateOrganizationDashboardDataCache,
   listRecordsWithRecovery,
+  listProductsByProductIdDuringRender,
   mapMembershipsToSubjectContact,
   loadApprovedOrganizationUnlocked,
   loadRecord,
@@ -700,12 +701,15 @@ export function isSharedProductSource(product: ProductRecord): boolean {
   return !product.sharedProductRef && product.visibility === "public";
 }
 
-async function hasAnotherPublicPublisherUnlocked(product: ProductRecord): Promise<boolean> {
-  return (await listRecordsWithRecovery("product")).some(
+function hasAnotherPublicPublisher(
+  product: ProductRecord,
+  products: readonly ProductRecord[],
+): boolean {
+  return products.some(
     (entry) =>
-      entry.record.organizationId !== product.organizationId &&
-      entry.record.productId === product.productId &&
-      isSharedProductSource(entry.record),
+      entry.organizationId !== product.organizationId &&
+      entry.productId === product.productId &&
+      isSharedProductSource(entry),
   );
 }
 
@@ -1066,11 +1070,11 @@ export async function installPublicProduct(
   });
 }
 
-async function sharedInstallationsForSourceUnlocked(
+function sharedInstallationsForSource(
   source: ProductRecord,
-): Promise<ProductRecord[]> {
-  return (await listRecordsWithRecovery("product"))
-    .map((entry) => entry.record)
+  products: readonly ProductRecord[],
+): ProductRecord[] {
+  return products
     .filter((product) => product.organizationId !== source.organizationId)
     .filter((product) => refersToSharedProduct(product, source));
 }
@@ -1078,21 +1082,24 @@ async function sharedInstallationsForSourceUnlocked(
 async function organizationNamesForInstallationsUnlocked(
   installations: readonly ProductRecord[],
 ): Promise<Array<{ organizationId: string; name: string }>> {
-  const organizations = (await listRecordsWithRecovery("organization")).map(
-    (entry) => entry.record,
+  const activeInstallations = installations.filter(
+    (installation) => !installation.sharedProductRef?.detachedAt,
+  );
+  const organizationIds = [...new Set(activeInstallations.map((item) => item.organizationId))];
+  const organizations = await Promise.all(
+    organizationIds.map(async (organizationId) => {
+      const found = await loadRecord("organization", organizationId);
+      return found ? ([organizationId, found.record] as const) : null;
+    }),
   );
   const byId = new Map(
-    organizations.map((organization) => [organization.organizationId, organization]),
+    organizations.filter((entry): entry is NonNullable<typeof entry> => entry !== null),
   );
-  return installations
-    .filter((installation) => !installation.sharedProductRef?.detachedAt)
-    .map((installation) => {
-      const organization = byId.get(installation.organizationId);
-      return {
-        organizationId: installation.organizationId,
-        name: organization?.name ?? "Unknown organization",
-      };
-    })
+  return activeInstallations
+    .map((installation) => ({
+      organizationId: installation.organizationId,
+      name: byId.get(installation.organizationId)?.name ?? "Unknown organization",
+    }))
     .sort((left, right) => left.name.localeCompare(right.name));
 }
 
@@ -1108,9 +1115,10 @@ export async function getProductShareInfo(
     if (!found || found.record.organizationId !== organizationId || found.record.sharedProductRef) {
       throw new Error("Product not found.");
     }
-    if (await hasAnotherPublicPublisherUnlocked(found.record)) return null;
+    const products = await listProductsByProductIdDuringRender(found.record.productId);
+    if (hasAnotherPublicPublisher(found.record, products)) return null;
 
-    const installations = await sharedInstallationsForSourceUnlocked(found.record);
+    const installations = sharedInstallationsForSource(found.record, products);
     return {
       visibility: found.record.visibility === "public" ? "public" : "private",
       adopterOrganizations: await organizationNamesForInstallationsUnlocked(installations),
@@ -1200,13 +1208,10 @@ export async function getOwnedPublicProductTransferOptions(
       return { destinations: [] };
     }
 
-    const [productRows, organizationRows, memberships] = await Promise.all([
-      listRecordsWithRecovery("product"),
-      listRecordsWithRecovery("organization"),
+    const [products, memberships] = await Promise.all([
+      listProductsByProductIdDuringRender(found.record.productId),
       store().listMembershipsForSubject(actorId),
     ]);
-    const products = productRows.map((entry) => entry.record);
-    const organizations = organizationRows.map((entry) => entry.record);
     const ownedOrganizationIds = new Set(
       memberships
         .filter(
@@ -1215,11 +1220,16 @@ export async function getOwnedPublicProductTransferOptions(
         )
         .map((membership) => membership.organizationId),
     );
-    const ownedOrganizations = organizations.filter(
-      (organization) =>
-        ownedOrganizationIds.has(organization.organizationId) &&
-        organization.organizationId !== sourceOrganizationId,
-    );
+    const ownedOrganizations = (
+      await Promise.all(
+        [...ownedOrganizationIds]
+          .filter((organizationId) => organizationId !== sourceOrganizationId)
+          .map(async (organizationId) => {
+            const organization = await loadRecord("organization", organizationId);
+            return organization?.record ?? null;
+          }),
+      )
+    ).filter((organization): organization is OrganizationRecord => organization !== null);
     const potentialTransferTargets = products.filter((candidate) =>
       isPotentialProductTransferTarget(candidate, found.record),
     );
@@ -1706,7 +1716,8 @@ export async function setOrganizationProductVisibility(
     ) {
       throw new Error("Product not found.");
     }
-    const initialInstallations = await sharedInstallationsForSourceUnlocked(initial.record);
+    const initialProducts = await store().listProductsByProductId(initial.record.productId);
+    const initialInstallations = sharedInstallationsForSource(initial.record, initialProducts);
     const lockIds = [organizationId, ...initialInstallations.map((entry) => entry.organizationId)];
     return withOrganizationMutationLocks(lockIds, async () => {
       const actor = await requireOrganizationRoleUnlocked(actorId, organizationId, [
@@ -1721,10 +1732,11 @@ export async function setOrganizationProductVisibility(
       ) {
         throw new Error("Product not found.");
       }
-      if (visibility === "public" && (await hasAnotherPublicPublisherUnlocked(current.record))) {
+      const currentProducts = await store().listProductsByProductId(current.record.productId);
+      if (visibility === "public" && hasAnotherPublicPublisher(current.record, currentProducts)) {
         throw new Error("Another organization already publishes a product with this product ID.");
       }
-      const installations = await sharedInstallationsForSourceUnlocked(current.record);
+      const installations = sharedInstallationsForSource(current.record, currentProducts);
       const activeInstallations = installations.filter(
         (installation) => !installation.sharedProductRef?.detachedAt,
       );
@@ -2037,7 +2049,7 @@ export async function getProductForOrganization(
   organizationId: string,
   productId: string,
 ): Promise<ProductRecord> {
-  return authMutationQueue.run(async () => {
+  return authMutationQueue.read(async () => {
     return getProductAccessUnlocked(subjectId, organizationId, productId).then(
       ({ product }) => product,
     );
@@ -2073,7 +2085,7 @@ export async function getProductAccessForSubject(
   organizationId: string,
   productId: string,
 ): Promise<ProductAccessSummary> {
-  return authMutationQueue.run(() =>
+  return authMutationQueue.read(() =>
     getProductAccessUnlocked(subjectId, organizationId, productId),
   );
 }

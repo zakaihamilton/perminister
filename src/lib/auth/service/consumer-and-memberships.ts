@@ -35,6 +35,7 @@ import {
   hashHex,
   invalidateOrganizationDashboardDataCache,
   isEmailVerifiedOrExempt,
+  listProductsByProductIdDuringRender,
   listRecordsWithRecovery,
   mapMembershipsToSubjectContact,
   loadApprovedOrganizationUnlocked,
@@ -131,12 +132,13 @@ async function consumerClientPublisherProductUnlocked(
 
 async function consumerClientOrganizationsForPublisherUnlocked(
   publisher: ProductRecord,
+  products?: readonly ProductRecord[],
 ): Promise<Set<string>> {
   const organizationIds = new Set<string>([publisher.organizationId]);
   if (!isSharedProductSource(publisher)) return organizationIds;
 
-  const products = (await listRecordsWithRecovery("product")).map((entry) => entry.record);
-  for (const product of products) {
+  const productRecords = products ?? (await store().listProductsByProductId(publisher.productId));
+  for (const product of productRecords) {
     if (isActiveSharedInstallationForSource(product, publisher)) {
       organizationIds.add(product.organizationId);
     }
@@ -254,8 +256,13 @@ export async function listConsumerClientsForProduct(
       organizationId,
       normalizedProductId,
     );
-    const manageableOrganizations =
-      await consumerClientOrganizationsForPublisherUnlocked(publisher);
+    const products = isSharedProductSource(publisher)
+      ? await listProductsByProductIdDuringRender(publisher.productId)
+      : undefined;
+    const manageableOrganizations = await consumerClientOrganizationsForPublisherUnlocked(
+      publisher,
+      products,
+    );
     return (await listRecordsWithRecovery("consumer-client"))
       .map((item) => item.record)
       .filter(
