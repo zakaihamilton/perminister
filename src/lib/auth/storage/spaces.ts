@@ -1104,35 +1104,18 @@ export class SpacesAuthStore {
   }
 
   private async listKeys(prefix: string): Promise<string[]> {
-    const keys: string[] = [];
-    const seenTokens = new Set<string>();
-    let continuationToken: string | undefined;
-    do {
-      const startedAt = performance.now();
-      let page: ListObjectsV2CommandOutput;
-      try {
-        page = await this.client.send(
-          new ListObjectsV2Command({
-            Bucket: this.bucket,
-            Prefix: prefix,
-            ContinuationToken: continuationToken,
-            MaxKeys: 1000,
-          }),
-        );
-      } finally {
-        recordAuthStorageOperation("list", performance.now() - startedAt);
-      }
-      keys.push(...(page.Contents ?? []).flatMap((item) => (item.Key ? [item.Key] : [])));
-      if (!page.IsTruncated) break;
-      const nextToken = page.NextContinuationToken;
-      if (!nextToken || seenTokens.has(nextToken)) throw new Error("S3 listing did not advance");
-      seenTokens.add(nextToken);
-      continuationToken = nextToken;
-    } while (true);
-    return keys;
+    return (await this.listObjects(prefix)).keys;
   }
 
   private async listCommonPrefixes(prefix: string): Promise<string[]> {
+    return (await this.listObjects(prefix, "/")).commonPrefixes;
+  }
+
+  private async listObjects(
+    prefix: string,
+    delimiter?: string,
+  ): Promise<{ keys: string[]; commonPrefixes: string[] }> {
+    const keys: string[] = [];
     const prefixes: string[] = [];
     const seenTokens = new Set<string>();
     let continuationToken: string | undefined;
@@ -1144,7 +1127,7 @@ export class SpacesAuthStore {
           new ListObjectsV2Command({
             Bucket: this.bucket,
             Prefix: prefix,
-            Delimiter: "/",
+            ...(delimiter ? { Delimiter: delimiter } : {}),
             ContinuationToken: continuationToken,
             MaxKeys: 1000,
           }),
@@ -1152,6 +1135,7 @@ export class SpacesAuthStore {
       } finally {
         recordAuthStorageOperation("list", performance.now() - startedAt);
       }
+      keys.push(...(page.Contents ?? []).flatMap((item) => (item.Key ? [item.Key] : [])));
       prefixes.push(
         ...(page.CommonPrefixes ?? []).flatMap(({ Prefix }) => (Prefix ? [Prefix] : [])),
       );
@@ -1161,7 +1145,7 @@ export class SpacesAuthStore {
       seenTokens.add(nextToken);
       continuationToken = nextToken;
     } while (true);
-    return prefixes;
+    return { keys, commonPrefixes: prefixes };
   }
 }
 
