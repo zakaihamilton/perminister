@@ -34,3 +34,14 @@ export async function getProductPageContext(params: Promise<ProductPageRoutePara
   if (!access) notFound();
   return { current, organizationId, productId, access };
 }
+
+export async function getProductManagementPageContext(params: Promise<ProductPageRouteParams>) {
+  const context = await getProductPageContext(params);
+  const role = requireProductManagerRole(
+    context.access.membership?.role,
+    context.organizationId,
+    context.productId,
+  );
+  if (context.access.product.sharedProductRef) notFound();
+  return { ...context, role };
+}

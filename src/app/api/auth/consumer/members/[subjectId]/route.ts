@@ -1,6 +1,6 @@
 import { withApiRoutePerformance } from "@/lib/auth/performance";
-import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
-import { consumerServiceError, requireConsumerJsonRequest } from "@/lib/auth/consumer-route";
+import { NO_STORE_HEADERS } from "@/lib/auth/http";
+import { consumerServiceError, requireConsumerJsonObjectRequest } from "@/lib/auth/consumer-route";
 import {
   consumerMemberScopeInput,
   consumerProductPolicy,
@@ -15,12 +15,15 @@ type RouteContext = { params: Promise<{ subjectId: string }> };
 export const PATCH = withApiRoutePerformance(
   "PATCH /api/auth/consumer/members/[subjectId]",
   async function PATCH(request: Request, context: RouteContext) {
-    const parsed = await requireConsumerJsonRequest(request, 16 * 1024);
+    const parsed = await requireConsumerJsonObjectRequest(
+      request,
+      16 * 1024,
+      "Provide a valid resource scope and role, status, or password change.",
+    );
     if (parsed instanceof Response) return parsed;
     const { body, ...auth } = parsed;
     const policy = consumerProductPolicy(auth.client.productId);
     if (
-      !isJsonObject(body) ||
       !isConsumerResourceScope(body) ||
       !policy ||
       (body.role !== undefined && typeof body.role !== "string") ||
@@ -51,11 +54,15 @@ export const PATCH = withApiRoutePerformance(
 export const DELETE = withApiRoutePerformance(
   "DELETE /api/auth/consumer/members/[subjectId]",
   async function DELETE(request: Request, context: RouteContext) {
-    const parsed = await requireConsumerJsonRequest(request, 16 * 1024);
+    const parsed = await requireConsumerJsonObjectRequest(
+      request,
+      16 * 1024,
+      "Provide a valid resource scope.",
+    );
     if (parsed instanceof Response) return parsed;
     const { body, ...auth } = parsed;
     const policy = consumerProductPolicy(auth.client.productId);
-    if (!isJsonObject(body) || !isConsumerResourceScope(body) || !policy) {
+    if (!isConsumerResourceScope(body) || !policy) {
       return Response.json(
         { error: "Provide a valid resource scope." },
         { status: 400, headers: NO_STORE_HEADERS },

@@ -4,7 +4,7 @@ import {
   AccessGrantExplainer,
 } from "@/components/product-access-sections";
 import { DashboardHeading } from "@/components/dashboard-shell";
-import { ProductNavigation } from "@/components/product-navigation";
+import { ProductPageNavigation } from "@/components/product-navigation";
 import {
   getProductPageContext,
   requireProductManagerRole,
@@ -14,7 +14,7 @@ import { listProductMembers } from "@/lib/auth/service";
 
 export default async function NewProductPermissionPage({ params }: ProductPageParams) {
   const { current, organizationId, productId, access } = await getProductPageContext(params);
-  const role = requireProductManagerRole(access.membership?.role, organizationId, productId);
+  requireProductManagerRole(access.membership?.role, organizationId, productId);
   const members = await listProductMembers(current.subject.subjectId, organizationId, productId, {
     includeDisabled: true,
   });
@@ -33,12 +33,10 @@ export default async function NewProductPermissionPage({ params }: ProductPagePa
           </Link>
         }
       />
-      <ProductNavigation
-        isSharedInstallation={Boolean(access.product.sharedProductRef)}
+      <ProductPageNavigation
+        access={access}
         organizationId={organizationId}
         productId={productId}
-        productName={access.product.name}
-        role={role}
       />
       <AccessGrantExplainer />
       <AccessGrantCreationSection

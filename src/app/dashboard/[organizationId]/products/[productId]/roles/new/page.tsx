@@ -1,18 +1,14 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { DashboardHeading } from "@/components/dashboard-shell";
-import { ProductNavigation } from "@/components/product-navigation";
+import { ProductPageNavigation } from "@/components/product-navigation";
 import { CreateProductAccessRoleForm } from "@/components/product-access-role-sections";
 import {
-  getProductPageContext,
-  requireProductManagerRole,
+  getProductManagementPageContext,
   type ProductPageParams,
 } from "@/lib/auth/product-page-context";
 
 export default async function NewProductAccessRolePage({ params }: ProductPageParams) {
-  const { organizationId, productId, access } = await getProductPageContext(params);
-  const role = requireProductManagerRole(access.membership?.role, organizationId, productId);
-  if (access.product.sharedProductRef) notFound();
+  const { organizationId, productId, access } = await getProductManagementPageContext(params);
   const rolesPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/roles`;
 
   return (
@@ -25,12 +21,10 @@ export default async function NewProductAccessRolePage({ params }: ProductPagePa
           </Link>
         }
       />
-      <ProductNavigation
-        isSharedInstallation={Boolean(access.product.sharedProductRef)}
+      <ProductPageNavigation
+        access={access}
         organizationId={organizationId}
         productId={productId}
-        productName={access.product.name}
-        role={role}
       />
       <section className="dashboard-card access-role-catalog-card">
         <div className="dashboard-card-heading">

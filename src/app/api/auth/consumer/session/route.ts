@@ -9,32 +9,44 @@ import {
 
 export const runtime = "nodejs";
 
+type ConsumerSessionContext = {
+  token: string | null;
+  client: NonNullable<Awaited<ReturnType<typeof authenticateConsumerClient>>>;
+  current: Awaited<ReturnType<typeof getSessionFromToken>>;
+};
+
+async function getConsumerSessionContext(
+  request: Request,
+): Promise<ConsumerSessionContext | Response> {
+  const token = bearerToken(request);
+  let client: Awaited<ReturnType<typeof authenticateConsumerClient>>;
+  let current: Awaited<ReturnType<typeof getSessionFromToken>>;
+  try {
+    [client, current] = await Promise.all([
+      authenticateConsumerClient(request),
+      token ? getSessionFromToken(token) : Promise.resolve(null),
+    ]);
+  } catch {
+    return Response.json(
+      { error: "Session service is temporarily unavailable." },
+      { status: 503, headers: NO_STORE_HEADERS },
+    );
+  }
+  if (!client) {
+    return Response.json(
+      { error: "Invalid application credentials." },
+      { status: 401, headers: NO_STORE_HEADERS },
+    );
+  }
+  return { token, client, current };
+}
+
 export const GET = withApiRoutePerformance(
   "GET /api/auth/consumer/session",
   async function GET(request: Request) {
-    const token = bearerToken(request);
-    let client: Awaited<ReturnType<typeof authenticateConsumerClient>>;
-    let current: Awaited<ReturnType<typeof getSessionFromToken>>;
-    try {
-      [client, current] = await Promise.all([
-        authenticateConsumerClient(request),
-        token ? getSessionFromToken(token) : Promise.resolve(null),
-      ]);
-    } catch {
-      return Response.json(
-        { error: "Session service is temporarily unavailable." },
-        { status: 503, headers: NO_STORE_HEADERS },
-      );
-    }
-    if (!client) {
-      return Response.json(
-        { error: "Invalid application credentials." },
-        {
-          status: 401,
-          headers: NO_STORE_HEADERS,
-        },
-      );
-    }
+    const context = await getConsumerSessionContext(request);
+    if (context instanceof Response) return context;
+    const { token, client, current } = context;
     if (!token) {
       return Response.json({ authenticated: false }, { status: 401, headers: NO_STORE_HEADERS });
     }
@@ -85,29 +97,9 @@ export const GET = withApiRoutePerformance(
 export const DELETE = withApiRoutePerformance(
   "DELETE /api/auth/consumer/session",
   async function DELETE(request: Request) {
-    const token = bearerToken(request);
-    let client: Awaited<ReturnType<typeof authenticateConsumerClient>>;
-    let current: Awaited<ReturnType<typeof getSessionFromToken>>;
-    try {
-      [client, current] = await Promise.all([
-        authenticateConsumerClient(request),
-        token ? getSessionFromToken(token) : Promise.resolve(null),
-      ]);
-    } catch {
-      return Response.json(
-        { error: "Session service is temporarily unavailable." },
-        { status: 503, headers: NO_STORE_HEADERS },
-      );
-    }
-    if (!client) {
-      return Response.json(
-        { error: "Invalid application credentials." },
-        {
-          status: 401,
-          headers: NO_STORE_HEADERS,
-        },
-      );
-    }
+    const context = await getConsumerSessionContext(request);
+    if (context instanceof Response) return context;
+    const { client, current } = context;
     if (
       current &&
       current.session.applicationClientId === client.clientId &&

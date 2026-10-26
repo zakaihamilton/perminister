@@ -1,18 +1,14 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { ConsumerClientCreationManager } from "@/components/consumer-client-creation-manager";
 import { DashboardHeading } from "@/components/dashboard-shell";
-import { ProductNavigation } from "@/components/product-navigation";
+import { ProductPageNavigation } from "@/components/product-navigation";
 import {
-  getProductPageContext,
-  requireProductManagerRole,
+  getProductManagementPageContext,
   type ProductPageParams,
 } from "@/lib/auth/product-page-context";
 
 export default async function NewConsumerClientPage({ params }: ProductPageParams) {
-  const { organizationId, productId, access } = await getProductPageContext(params);
-  const role = requireProductManagerRole(access.membership?.role, organizationId, productId);
-  if (access.product.sharedProductRef) notFound();
+  const { organizationId, productId, access } = await getProductManagementPageContext(params);
 
   const clientsPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/clients`;
   const createPath = `${clientsPath}/new`;
@@ -27,12 +23,10 @@ export default async function NewConsumerClientPage({ params }: ProductPageParam
           </Link>
         }
       />
-      <ProductNavigation
-        isSharedInstallation={false}
+      <ProductPageNavigation
+        access={access}
         organizationId={organizationId}
         productId={productId}
-        productName={access.product.name}
-        role={role}
       />
       <ConsumerClientCreationManager
         organizationId={organizationId}

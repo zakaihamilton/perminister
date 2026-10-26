@@ -7,10 +7,10 @@ import {
   InvalidAuthActionError,
   issueRecoveryAction,
 } from "@/lib/auth/service";
-import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
+import { NO_STORE_HEADERS } from "@/lib/auth/http";
 import {
   invalidConsumerEmailResponse,
-  requireConsumerClientJsonBody,
+  requireConsumerClientJsonObjectBody,
 } from "@/lib/auth/consumer-route";
 
 export const runtime = "nodejs";
@@ -18,18 +18,13 @@ export const runtime = "nodejs";
 export const POST = withApiRoutePerformance(
   "POST /api/auth/consumer/password-recovery",
   async function POST(request: Request) {
-    const parsed = await requireConsumerClientJsonBody(request, 8 * 1024);
+    const parsed = await requireConsumerClientJsonObjectBody(
+      request,
+      8 * 1024,
+      "Provide an email address or recovery token and new password.",
+    );
     if (parsed instanceof Response) return parsed;
     const { body, client } = parsed;
-    if (!isJsonObject(body)) {
-      return Response.json(
-        { error: "Provide an email address or recovery token and new password." },
-        {
-          status: 400,
-          headers: NO_STORE_HEADERS,
-        },
-      );
-    }
     if (typeof body.token === "string" && typeof body.password === "string") {
       if (body.password.length < 15 || body.password.length > 256) {
         return Response.json(

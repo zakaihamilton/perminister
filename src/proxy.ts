@@ -1,7 +1,7 @@
 import { isIP } from "node:net";
 import { NextResponse, type NextRequest } from "next/server";
 import { lastValidForwardedIp } from "@/lib/client-ip";
-import { currentDeploymentId } from "@/lib/deployment";
+import { currentDeploymentId, currentWriterRevision } from "@/lib/deployment";
 import { parseConsumerAuthorizationRequest } from "@/lib/auth/consumer-sso";
 import { getConsumerClientRecord } from "@/lib/auth/service";
 import {
@@ -148,7 +148,7 @@ function forwardHeaders(request: NextRequest, secret: string): Headers {
   // Preserve the browser-facing origin across the writer hop, where the host is rewritten.
   headers.set(PUBLIC_ORIGIN_HOST_HEADER, request.headers.get("host") ?? request.nextUrl.host);
   headers.set(PUBLIC_ORIGIN_PROTOCOL_HEADER, request.nextUrl.protocol.replace(/:$/, ""));
-  const releaseId = currentDeploymentId();
+  const releaseId = currentWriterRevision();
   if (releaseId) headers.set(RELEASE_ID_HEADER, releaseId);
   return headers;
 }
@@ -225,7 +225,7 @@ function writerRequest(request: NextRequest): Response {
 
   if (process.env.NODE_ENV === "production") {
     const expectedReleaseId = request.headers.get(RELEASE_ID_HEADER);
-    const currentReleaseId = currentDeploymentId();
+    const currentReleaseId = currentWriterRevision();
     if (!expectedReleaseId || !currentReleaseId || expectedReleaseId !== currentReleaseId) {
       return errorResponse(503, "The writer is on a different deployment.", {
         [RELEASE_MISMATCH_HEADER]: "1",
@@ -278,7 +278,7 @@ async function proxyWrite(request: NextRequest): Promise<Response> {
     if (upstream.headers.get(RELEASE_MISMATCH_HEADER) === "1") {
       console.warn("Mutation blocked while deployments are out of sync", {
         path: request.nextUrl.pathname,
-        currentReleaseId: currentDeploymentId(),
+        currentReleaseId: currentWriterRevision(),
       });
       if (request.headers.get("accept")?.includes("application/json")) {
         return errorResponse(503, "Perminister is updating. Reload the page and try again.");

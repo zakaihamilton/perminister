@@ -7,6 +7,7 @@ import type { ConsumerClientActionState } from "@/app/actions";
 import { CustomDropdown } from "@/components/custom-dropdown";
 import type { ConsumerClientSummary } from "@/lib/auth/service";
 import { submitStableAction } from "@/lib/action-client";
+import { ConsumerClientFormContextFields } from "@/components/consumer-client-form-context-fields";
 
 export function ConsumerClientSettingsForm({
   client,
@@ -62,9 +63,11 @@ export function ConsumerClientSettingsForm({
         onSubmit={handleSubmit}
         className="auth-form"
       >
-        <input type="hidden" name="organizationId" value={organizationId} />
-        <input type="hidden" name="productId" value={productId} />
-        <input type="hidden" name="returnTo" value={returnTo} />
+        <ConsumerClientFormContextFields
+          organizationId={organizationId}
+          productId={productId}
+          returnTo={returnTo}
+        />
         <input type="hidden" name="clientId" value={client.clientId} />
         <div className="form-grid">
           <label htmlFor="app-client-name">

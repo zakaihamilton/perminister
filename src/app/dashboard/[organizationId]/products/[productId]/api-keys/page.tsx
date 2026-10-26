@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { ApiKeyNotices } from "@/components/api-key-item";
+import { ProductApiKeyPageNavigation } from "@/components/api-key-item";
 import { DashboardHeading } from "@/components/dashboard-shell";
 import {
   ProductApiKeyCreationSection,
   ProductApiKeyRecords,
 } from "@/components/product-api-key-sections";
-import { ProductNavigation } from "@/components/product-navigation";
 import {
   getProductPageContext,
   type ProductPageWithSearchParams,
@@ -54,14 +53,10 @@ export default async function ProductApiKeysPage({
           ) : null
         }
       />
-      <ProductNavigation
-        isSharedInstallation={Boolean(access.product.sharedProductRef)}
+      <ProductApiKeyPageNavigation
+        access={access}
         organizationId={organizationId}
         productId={productId}
-        productName={access.product.name}
-        role={access.membership?.role}
-      />
-      <ApiKeyNotices
         notice={query.notice}
         error={query.error}
         isEmailVerified={!!current.subject.emailVerifiedAt}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { SiteFooter, SiteHeader } from "@/components/site-shell";
+import { AuthPageFeedback } from "@/components/auth-page-feedback";
+import { AuthPageFrame } from "@/components/auth-page-frame";
 import { getCurrentSession } from "@/lib/auth/service";
 import { safeConsumerAuthorizationReturnTo } from "@/lib/auth/consumer-sso";
 
@@ -46,74 +47,64 @@ export default async function LoginPage({
     );
   const invitationToken = params.invitationToken ?? "";
   return (
-    <>
-      <SiteHeader active="none" authenticated={false} />
-      <main className="page-shell auth-page-shell">
-        <div className="container auth-page">
-          <header className="auth-heading login-heading">
-            <p className="eyebrow">Account access</p>
-            <h1>Sign in to Perminister</h1>
-            <p>Use your central identity to manage permissions and API keys.</p>
-          </header>
-          <section className="auth-card" aria-labelledby="login-title">
-            <h2 id="login-title">Sign in</h2>
-            {invitationToken ? (
-              <p className="form-success" role="status">
-                Sign in with the email address that received your invitation.
-              </p>
-            ) : null}
-            {params.error && errorText[params.error] ? (
-              <p className="form-error" role="alert">
-                {errorText[params.error]}
-              </p>
-            ) : null}
-            {params.notice && noticeText[params.notice] ? (
-              <p className="form-success" role="status">
-                {noticeText[params.notice]}
-              </p>
-            ) : null}
-            <form action="/login/submit" method="post" className="auth-form">
-              {next ? <input type="hidden" name="next" value={next} /> : null}
-              {invitationToken ? (
-                <input type="hidden" name="invitationToken" value={invitationToken} />
-              ) : null}
-              <label>
-                Email address
-                <input name="email" type="email" autoComplete="username" maxLength={254} required />
-              </label>
-              <label>
-                Password
-                <input
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  maxLength={256}
-                  required
-                />
-              </label>
-              <button className="button button-primary form-submit" type="submit">
-                Sign in
-              </button>
-            </form>
-            <div className="auth-links">
-              <Link href="/forgot-password">Forgot password?</Link>
-              <span>
-                New here?{" "}
-                <Link
-                  href={
-                    invitationToken
-                      ? `/register?invitationToken=${encodeURIComponent(invitationToken)}`
-                      : "/register"
-                  }
-                >
-                  Create an account
-                </Link>
-              </span>
-            </div>
-          </section>
+    <AuthPageFrame authenticated={false}>
+      <header className="auth-heading login-heading">
+        <p className="eyebrow">Account access</p>
+        <h1>Sign in to Perminister</h1>
+        <p>Use your central identity to manage permissions and API keys.</p>
+      </header>
+      <section className="auth-card" aria-labelledby="login-title">
+        <h2 id="login-title">Sign in</h2>
+        <AuthPageFeedback
+          error={params.error}
+          errorText={errorText}
+          notice={params.notice}
+          noticeText={noticeText}
+          invitationMessage={
+            invitationToken
+              ? "Sign in with the email address that received your invitation."
+              : undefined
+          }
+        />
+        <form action="/login/submit" method="post" className="auth-form">
+          {next ? <input type="hidden" name="next" value={next} /> : null}
+          {invitationToken ? (
+            <input type="hidden" name="invitationToken" value={invitationToken} />
+          ) : null}
+          <label>
+            Email address
+            <input name="email" type="email" autoComplete="username" maxLength={254} required />
+          </label>
+          <label>
+            Password
+            <input
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              maxLength={256}
+              required
+            />
+          </label>
+          <button className="button button-primary form-submit" type="submit">
+            Sign in
+          </button>
+        </form>
+        <div className="auth-links">
+          <Link href="/forgot-password">Forgot password?</Link>
+          <span>
+            New here?{" "}
+            <Link
+              href={
+                invitationToken
+                  ? `/register?invitationToken=${encodeURIComponent(invitationToken)}`
+                  : "/register"
+              }
+            >
+              Create an account
+            </Link>
+          </span>
         </div>
-      </main>
-      <SiteFooter />
-    </>
+      </section>
+    </AuthPageFrame>
   );
 }

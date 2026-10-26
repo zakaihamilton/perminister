@@ -6,10 +6,10 @@ import {
   InvalidAuthActionError,
   issueEmailAction,
 } from "@/lib/auth/service";
-import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
+import { NO_STORE_HEADERS } from "@/lib/auth/http";
 import {
   invalidConsumerEmailResponse,
-  requireConsumerClientJsonBody,
+  requireConsumerClientJsonObjectBody,
 } from "@/lib/auth/consumer-route";
 
 export const runtime = "nodejs";
@@ -17,18 +17,13 @@ export const runtime = "nodejs";
 export const POST = withApiRoutePerformance(
   "POST /api/auth/consumer/email-verification",
   async function POST(request: Request) {
-    const parsed = await requireConsumerClientJsonBody(request, 8 * 1024);
+    const parsed = await requireConsumerClientJsonObjectBody(
+      request,
+      8 * 1024,
+      "Provide an email address or verification token.",
+    );
     if (parsed instanceof Response) return parsed;
     const { body, client } = parsed;
-    if (!isJsonObject(body)) {
-      return Response.json(
-        { error: "Provide an email address or verification token." },
-        {
-          status: 400,
-          headers: NO_STORE_HEADERS,
-        },
-      );
-    }
 
     if (typeof body.token === "string") {
       try {

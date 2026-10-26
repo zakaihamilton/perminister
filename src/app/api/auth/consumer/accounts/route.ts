@@ -1,10 +1,10 @@
 import { withApiRoutePerformance } from "@/lib/auth/performance";
-import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
+import { NO_STORE_HEADERS } from "@/lib/auth/http";
 import {
   requireConsumerRequestContext,
   consumerServiceError,
   organizationIdFromRequest,
-  requireConsumerJsonRequest,
+  requireConsumerJsonObjectRequest,
 } from "@/lib/auth/consumer-route";
 import { isOrganizationId } from "@/lib/auth/consumer-policy";
 import { createConsumerAccount, listConsumerAccounts } from "@/lib/auth/service";
@@ -35,11 +35,14 @@ export const GET = withApiRoutePerformance(
 export const POST = withApiRoutePerformance(
   "POST /api/auth/consumer/accounts",
   async function POST(request: Request) {
-    const parsed = await requireConsumerJsonRequest(request, 16 * 1024);
+    const parsed = await requireConsumerJsonObjectRequest(
+      request,
+      16 * 1024,
+      "Provide organizationId, username, password, and an optional email.",
+    );
     if (parsed instanceof Response) return parsed;
     const { body, ...auth } = parsed;
     if (
-      !isJsonObject(body) ||
       !isOrganizationId(body.organizationId) ||
       typeof body.username !== "string" ||
       typeof body.password !== "string" ||

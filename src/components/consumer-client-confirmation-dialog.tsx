@@ -1,6 +1,7 @@
 import { useId, type FormEventHandler, type RefObject } from "react";
 import type { ConsumerClientSummary } from "@/lib/auth/service";
 import type { ConsumerClientConfirmation } from "@/components/consumer-client-list-types";
+import { ConsumerClientFormContextFields } from "@/components/consumer-client-form-context-fields";
 
 export function ConsumerClientConfirmationDialog({
   client,
@@ -66,7 +67,7 @@ export function ConsumerClientConfirmationDialog({
                 method="post"
                 onSubmit={onRotateSubmit}
               >
-                <ConsumerClientFormFields
+                <ConsumerClientFormContextFields
                   clientId={client.clientId}
                   organizationId={organizationId}
                   productId={productId}
@@ -78,7 +79,7 @@ export function ConsumerClientConfirmationDialog({
               </form>
             ) : (
               <form action="/actions/revokeConsumerClientAction" method="post">
-                <ConsumerClientFormFields
+                <ConsumerClientFormContextFields
                   clientId={client.clientId}
                   organizationId={organizationId}
                   productId={productId}
@@ -93,26 +94,5 @@ export function ConsumerClientConfirmationDialog({
         </>
       ) : null}
     </dialog>
-  );
-}
-
-function ConsumerClientFormFields({
-  clientId,
-  organizationId,
-  productId,
-  returnTo,
-}: {
-  clientId: string;
-  organizationId: string;
-  productId: string;
-  returnTo: string;
-}) {
-  return (
-    <>
-      <input type="hidden" name="organizationId" value={organizationId} />
-      <input type="hidden" name="productId" value={productId} />
-      <input type="hidden" name="returnTo" value={returnTo} />
-      <input type="hidden" name="clientId" value={clientId} />
-    </>
   );
 }

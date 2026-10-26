@@ -33,6 +33,7 @@ import {
   getCachedOrganizationDashboardData,
   invalidateOrganizationDashboardDataCache,
   listRecordsWithRecovery,
+  mapMembershipsToSubjectContact,
   loadApprovedOrganizationUnlocked,
   loadRecord,
   loadSubjectUnlocked,
@@ -420,14 +421,7 @@ export const listOrganizationMembers = cache(async function listOrganizationMemb
     const memberships = (await store().listOrganizationMemberships(organizationId, null))
       .filter((record) => !record.productId && record.status === "active")
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-    return mapWithConcurrency(memberships, async (membership) => {
-      const subject = await loadSubjectUnlocked(membership.subjectId);
-      return {
-        membership,
-        email: subject?.primaryEmail ?? null,
-        emailVerified: !!subject?.emailVerifiedAt,
-      };
-    });
+    return mapMembershipsToSubjectContact(memberships);
   });
 });
 

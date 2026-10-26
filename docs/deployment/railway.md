@@ -1,7 +1,9 @@
 # Railway deployment
 
-The `Deploy to Railway` GitHub Actions workflow deploys each push to `main` to the selected Railway
-service. It also supports manual runs from the Actions tab.
+The `Deploy to Railway` GitHub Actions workflow deploys changes to the writer, its API, shared
+backend code, or runtime dependencies from `main` to the selected Railway service. Dashboard and
+other presentation-only changes do not trigger a Railway build. It also supports manual runs from
+the Actions tab.
 
 ## One-time GitHub setup
 
@@ -20,12 +22,15 @@ workflow run.
 
 The project token is scoped to its Railway environment and is used only by the deploy step. The
 workflow installs Railway CLI `5.63.4`, sets `NEXT_DEPLOYMENT_ID` to the checked-out commit SHA,
-and uploads that commit with `railway up`.
+and uploads that commit with `railway up`. Its path filter mirrors the writer inputs hashed by
+`next.config.ts`; update both when adding a new writer entry point or changing the writer build.
 
 ## Railway service settings
 
-- Let this workflow be the service's only automatic deploy source; disable Railway's native GitHub
-  autodeploy for the same service to avoid deploying each push twice.
+- Let this workflow be the service's only automatic deploy source. Set Railway Watch Paths to a
+  reserved path that is absent from this repository, such as `/.railway-cli-only/**`, so Railway's
+  GitHub source does not create a second deployment for each push. This workflow path-filters
+  writer changes and deploys them with `railway up`.
 - Set the service to one replica in one region.
 - Set the deployment overlap to `0` so an old writer cannot overlap the new writer during deploys.
 - Set `PERMINISTER_WRITER_MODE=true`.
@@ -51,12 +56,14 @@ Generate the proxy secret once and enter it in both services. For example, `open
 makes a suitable value. Never commit it.
 
 The Railway workflow updates `NEXT_DEPLOYMENT_ID` to the commit SHA before each deploy. Vercel uses
-`VERCEL_GIT_COMMIT_SHA` as its deployment ID. The Vercel `/api/ready` endpoint verifies that Railway
-accepts the shared write-proxy secret and reports not-ready while either the secret or deployment
-revisions differ. The write proxy returns a refresh response for a stale page or a temporary error
-for an in-flight client request. This prevents writes from crossing deployment revisions during
-rollout. Keep both deployments on the same source commit and configure the same proxy secret before
-enabling production mutations.
+`VERCEL_GIT_COMMIT_SHA` as its deployment ID. Separately, `next.config.ts` computes a writer revision
+from the API routes, mutation handlers, shared `src/lib` code, proxy, and runtime dependency files.
+Vercel and Railway can therefore run different dashboard commits while agreeing on the writer code
+they share. The Vercel `/api/ready` endpoint verifies that Railway accepts the shared write-proxy
+secret and reports not-ready while either the secret or writer revisions differ. The write proxy
+returns a refresh response for a stale page or a temporary error while the writer is deploying.
+This prevents writes from crossing writer revisions during rollout. Keep both services on the same
+writer revision and configure the same proxy secret before enabling production mutations.
 
 In Vercel Production, also set:
 

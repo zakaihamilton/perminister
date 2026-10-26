@@ -36,6 +36,7 @@ import {
   invalidateOrganizationDashboardDataCache,
   isEmailVerifiedOrExempt,
   listRecordsWithRecovery,
+  mapMembershipsToSubjectContact,
   loadApprovedOrganizationUnlocked,
   loadRecord,
   loadSubjectByEmailUnlocked,
@@ -453,14 +454,7 @@ export async function listProductMembers(
           record.productId === productId && (options.includeDisabled || record.status === "active"),
       )
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-    return mapWithConcurrency(memberships, async (membership) => {
-      const subject = await loadSubjectUnlocked(membership.subjectId);
-      return {
-        membership,
-        email: subject?.primaryEmail ?? null,
-        emailVerified: !!subject?.emailVerifiedAt,
-      };
-    });
+    return mapMembershipsToSubjectContact(memberships);
   });
 }
 

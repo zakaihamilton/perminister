@@ -4,7 +4,7 @@ import {
   ProductOnboardingCard,
   ProductPageNotices,
 } from "@/components/product-detail-sections";
-import { ProductNavigation } from "@/components/product-navigation";
+import { ProductPageNavigation } from "@/components/product-navigation";
 import {
   getProductPageContext,
   type ProductPageWithSearchParams,
@@ -53,12 +53,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
           product.description || "Manage this product, its members, and their permissions."
         }
       />
-      <ProductNavigation
-        isSharedInstallation={isSharedInstallation}
+      <ProductPageNavigation
+        access={productAccess}
         organizationId={organizationId}
         productId={productId}
-        productName={product.name}
-        role={productRole}
       />
       <ProductPageNotices
         error={query.error}
