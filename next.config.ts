@@ -70,12 +70,6 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  experimental: {
-    serverActions: {
-      // Permit old open tabs to reach the stale-action refresh handler during rollout.
-      allowedOrigins: ["perminister.com", "www.perminister.com"],
-    },
-  },
 };
 
 export default nextConfig;

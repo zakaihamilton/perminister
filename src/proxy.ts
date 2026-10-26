@@ -143,6 +143,7 @@ function forwardHeaders(request: NextRequest, secret: string): Headers {
   headers.delete("content-length");
   headers.delete("host");
   headers.set(WRITE_PROXY_SECRET_HEADER, secret);
+  // Next's default same-origin check for stale Server Action posts uses this public host.
   headers.set("x-forwarded-host", request.headers.get("host") ?? request.nextUrl.host);
   headers.set("x-forwarded-proto", request.nextUrl.protocol.replace(/:$/, ""));
   // Preserve the browser-facing origin across the writer hop, where the host is rewritten.
