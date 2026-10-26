@@ -278,7 +278,8 @@ export async function decideOrganizationRequest(
 export interface ConsumerOrganizationAccess {
   organizationId: OrganizationId;
   organizationName: string;
-  organizationRole: OrganizationRole;
+  /** Present for the selected organization; omitted on lightweight switcher entries. */
+  organizationRole?: OrganizationRole;
   productId: string;
   permissions: PermissionGrant[];
   resourceRoles: Array<{
@@ -292,8 +293,11 @@ export interface ConsumerOrganizationAccess {
 export async function listConsumerOrganizationsForSubject(
   subjectId: SubjectId,
   productId: string,
+  selectedOrganizationId?: string,
 ): Promise<ConsumerOrganizationAccess[]> {
   const normalizedProductId = validateProductId(productId);
+  const selectedId = selectedOrganizationId?.toLowerCase();
+  if (selectedId) assertOpaqueId(selectedId);
   return authMutationQueue.read(async () => {
     const organizationMemberships = await store().listMembershipsForSubject(subjectId);
     const activeMemberships = new Map<string, OrganizationMembershipRecord>();
@@ -327,21 +331,29 @@ export async function listConsumerOrganizationsForSubject(
       OrganizationMembershipRecord,
       ConsumerOrganizationAccess | null
     >([...activeMemberships.values()], async (membership) => {
+      const detailedAccess =
+        !selectedId ||
+        !activeMemberships.has(selectedId) ||
+        membership.organizationId === selectedId;
       const [productResult, organizationResult] = await Promise.allSettled([
-        store().readProduct(membership.organizationId, normalizedProductId),
+        detailedAccess
+          ? store().readProduct(membership.organizationId, normalizedProductId)
+          : Promise.resolve(null),
         loadRecord("organization", membership.organizationId),
       ]);
       if (productResult.status === "rejected") throw productResult.reason;
-      if (!productResult.value) return null;
+      if (detailedAccess && !productResult.value) return null;
       if (organizationResult.status === "rejected") throw organizationResult.reason;
       const organization = organizationResult.value;
       if (!organization) return null;
-      const scopedMemberships = grantsByOrganization.get(membership.organizationId) ?? [];
+      const scopedMemberships = detailedAccess
+        ? (grantsByOrganization.get(membership.organizationId) ?? [])
+        : [];
       const permissions = scopedMemberships.flatMap((grant) => grant.grants);
       return {
         organizationId: membership.organizationId,
         organizationName: organization.record.name,
-        organizationRole: membership.role,
+        ...(detailedAccess ? { organizationRole: membership.role } : {}),
         productId: normalizedProductId,
         permissions,
         resourceRoles: scopedMemberships.map((grant) => ({
@@ -349,9 +361,12 @@ export async function listConsumerOrganizationsForSubject(
           role: grant.accessRole?.name ?? null,
           actions: grant.grants.flatMap((permission) => [...permission.actions]),
         })),
-        platformAdmin: scopedMemberships.some(
-          (grant) => grant.scope.kind === "product" && grant.accessRole?.name === "platform-admin",
-        ),
+        platformAdmin:
+          detailedAccess &&
+          scopedMemberships.some(
+            (grant) =>
+              grant.scope.kind === "product" && grant.accessRole?.name === "platform-admin",
+          ),
       };
     });
     return results

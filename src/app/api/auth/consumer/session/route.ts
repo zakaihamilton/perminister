@@ -58,10 +58,24 @@ export const GET = withApiRoutePerformance(
       ) {
         return Response.json({ authenticated: false }, { status: 401, headers: NO_STORE_HEADERS });
       }
-      const organizations = await listConsumerOrganizationsForSubject(
+      const selectedOrganizationId =
+        new URL(request.url).searchParams.get("organization_id") ?? undefined;
+      let organizations = await listConsumerOrganizationsForSubject(
         current.subject.subjectId,
         client.productId,
+        selectedOrganizationId,
       );
+      if (
+        selectedOrganizationId &&
+        !organizations.some(
+          (organization) => organization.organizationId === selectedOrganizationId.toLowerCase(),
+        )
+      ) {
+        organizations = await listConsumerOrganizationsForSubject(
+          current.subject.subjectId,
+          client.productId,
+        );
+      }
       return Response.json(
         {
           authenticated: true,
