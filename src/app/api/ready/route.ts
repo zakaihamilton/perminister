@@ -1,6 +1,6 @@
 import { withApiRoutePerformance } from "@/lib/auth/performance";
 import { checkAuthStorageReadiness } from "@/lib/auth/service";
-import { currentDeploymentId } from "@/lib/deployment";
+import { currentDeploymentId, currentWriterRevision } from "@/lib/deployment";
 import {
   getConfiguredWriteProxySecret,
   matchesWriteProxySecret,
@@ -16,10 +16,11 @@ export const GET = withApiRoutePerformance("GET /api/ready", async function GET(
   try {
     await checkAuthStorageReadiness();
     const deploymentId = currentDeploymentId();
+    const writerRevision = currentWriterRevision();
     if (process.env.VERCEL === "1" && process.env.VERCEL_ENV === "production") {
       const writerOrigin = process.env.PERMINISTER_WRITE_PROXY_URL;
       const writeProxySecret = getConfiguredWriteProxySecret();
-      if (!deploymentId || !writerOrigin || !writeProxySecret) {
+      if (!deploymentId || !writerRevision || !writerOrigin || !writeProxySecret) {
         throw new Error("Release configuration is missing.");
       }
       const url = new URL(writerOrigin);
@@ -43,11 +44,13 @@ export const GET = withApiRoutePerformance("GET /api/ready", async function GET(
         deploymentId?: string | null;
         proxySecretAccepted?: boolean;
         status?: string;
+        writerRevision?: string | null;
       };
+      const reportedWriterRevision = writer.writerRevision ?? writer.deploymentId;
       if (
         !writerResponse.ok ||
         writer.status !== "ready" ||
-        writer.deploymentId !== deploymentId ||
+        reportedWriterRevision !== writerRevision ||
         writer.proxySecretAccepted !== true
       ) {
         return Response.json(
@@ -56,6 +59,8 @@ export const GET = withApiRoutePerformance("GET /api/ready", async function GET(
             status: "not-ready",
             deploymentId,
             writerDeploymentId: writer.deploymentId ?? null,
+            writerRevision,
+            writerReportedRevision: reportedWriterRevision ?? null,
           },
           { status: 503, headers: noStoreHeaders },
         );
@@ -66,6 +71,7 @@ export const GET = withApiRoutePerformance("GET /api/ready", async function GET(
           status: "ready",
           deploymentId,
           writerDeploymentId: writer.deploymentId,
+          writerRevision,
         },
         { headers: noStoreHeaders },
       );
@@ -83,6 +89,7 @@ export const GET = withApiRoutePerformance("GET /api/ready", async function GET(
             }
           : {}),
         ...(deploymentId ? { deploymentId } : {}),
+        ...(writerRevision ? { writerRevision } : {}),
       },
       { headers: noStoreHeaders },
     );
