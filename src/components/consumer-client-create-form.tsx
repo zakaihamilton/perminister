@@ -1,5 +1,6 @@
 import { useId, type FormEventHandler } from "react";
 import { CustomDropdown } from "@/components/custom-dropdown";
+import { ConsumerClientFormContextFields } from "@/components/consumer-client-form-context-fields";
 
 interface ConsumerClientCreateFormProps {
   onSubmit: FormEventHandler<HTMLFormElement>;
@@ -28,9 +29,11 @@ export function ConsumerClientCreateForm({
         onSubmit={onSubmit}
         className="auth-form"
       >
-        <input type="hidden" name="organizationId" value={organizationId} />
-        <input type="hidden" name="productId" value={productId} />
-        <input type="hidden" name="returnTo" value={returnTo} />
+        <ConsumerClientFormContextFields
+          organizationId={organizationId}
+          productId={productId}
+          returnTo={returnTo}
+        />
         <div className="form-grid">
           <label htmlFor={`${formId}-name`}>
             App name

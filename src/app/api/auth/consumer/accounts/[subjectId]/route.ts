@@ -1,6 +1,6 @@
 import { withApiRoutePerformance } from "@/lib/auth/performance";
-import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
-import { consumerServiceError, requireConsumerJsonRequest } from "@/lib/auth/consumer-route";
+import { NO_STORE_HEADERS } from "@/lib/auth/http";
+import { consumerServiceError, requireConsumerJsonObjectRequest } from "@/lib/auth/consumer-route";
 import { isOrganizationId } from "@/lib/auth/consumer-policy";
 import { updateConsumerAccount } from "@/lib/auth/service";
 
@@ -11,11 +11,14 @@ type RouteContext = { params: Promise<{ subjectId: string }> };
 export const PATCH = withApiRoutePerformance(
   "PATCH /api/auth/consumer/accounts/[subjectId]",
   async function PATCH(request: Request, context: RouteContext) {
-    const parsed = await requireConsumerJsonRequest(request, 16 * 1024);
+    const parsed = await requireConsumerJsonObjectRequest(
+      request,
+      16 * 1024,
+      "Provide organizationId and a status, password, platform role, or session revocation change.",
+    );
     if (parsed instanceof Response) return parsed;
     const { body, ...auth } = parsed;
     if (
-      !isJsonObject(body) ||
       !isOrganizationId(body.organizationId) ||
       (body.status !== undefined && body.status !== "active" && body.status !== "disabled") ||
       (body.password !== undefined && typeof body.password !== "string") ||

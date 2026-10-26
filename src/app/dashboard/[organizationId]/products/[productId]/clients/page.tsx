@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { ConsumerClientManager } from "@/components/consumer-client-manager";
-import { ProductNavigation } from "@/components/product-navigation";
+import { ProductPageNavigation } from "@/components/product-navigation";
 import {
   getProductPageContext,
   requireProductManagerRole,
@@ -43,12 +43,10 @@ export default async function ProductClientsPage({
           )
         }
       />
-      <ProductNavigation
-        isSharedInstallation={isSharedInstallation}
+      <ProductPageNavigation
+        access={access}
         organizationId={organizationId}
         productId={productId}
-        productName={access.product.name}
-        role={access.membership?.role}
       />
       {query.notice === "client-revoked" ? (
         <DashboardNotice

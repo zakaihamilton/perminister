@@ -1,6 +1,6 @@
 import { ProductAccessGrantCard } from "@/components/product-access-sections";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
-import { ProductNavigation } from "@/components/product-navigation";
+import { ProductPageNavigation } from "@/components/product-navigation";
 import { listProductMembers, listProductPermissionGrants } from "@/lib/auth/service";
 import {
   getProductPageContext,
@@ -51,12 +51,10 @@ export default async function ProductAccessPage({
           ) : null
         }
       />
-      <ProductNavigation
-        isSharedInstallation={Boolean(access.product.sharedProductRef)}
+      <ProductPageNavigation
+        access={access}
         organizationId={organizationId}
         productId={productId}
-        productName={access.product.name}
-        role={role}
       />
       {query.notice === "grant-created" ? (
         <DashboardNotice message="Permission added." kind="success" />

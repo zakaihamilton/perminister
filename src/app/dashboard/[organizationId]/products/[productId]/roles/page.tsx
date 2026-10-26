@@ -1,5 +1,5 @@
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
-import { ProductNavigation } from "@/components/product-navigation";
+import { ProductPageNavigation } from "@/components/product-navigation";
 import { ProductAccessRoleCatalog } from "@/components/product-access-role-sections";
 import {
   getProductPageContext,
@@ -33,12 +33,10 @@ export default async function ProductAccessRolesPage({
           </Link>
         }
       />
-      <ProductNavigation
-        isSharedInstallation={Boolean(access.product.sharedProductRef)}
+      <ProductPageNavigation
+        access={access}
         organizationId={organizationId}
         productId={productId}
-        productName={access.product.name}
-        role={access.membership?.role}
       />
       {query.notice === "access-role-created" ? (
         <DashboardNotice message="Permission set created." kind="success" />

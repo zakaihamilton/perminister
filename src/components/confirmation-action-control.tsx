@@ -1,7 +1,6 @@
 "use client";
 
-import { useId } from "react";
-import { useModalDialog } from "@/components/use-modal-dialog";
+import { ConfirmationDialog } from "@/components/confirmation-dialog";
 
 interface ConfirmationActionControlProps {
   action:
@@ -28,8 +27,6 @@ export function ConfirmationActionControl({
   confirmLabel,
   triggerClassName = "button button-secondary",
 }: ConfirmationActionControlProps) {
-  const { dialogRef, openDialog, closeDialog } = useModalDialog();
-  const dialogId = useId();
   const formContents = (
     <>
       {fields.map((field) => (
@@ -84,34 +81,13 @@ export function ConfirmationActionControl({
   })();
 
   return (
-    <>
-      <button
-        aria-haspopup="dialog"
-        className={triggerClassName}
-        onClick={openDialog}
-        type="button"
-      >
-        {triggerLabel}
-      </button>
-      <dialog
-        aria-describedby={`${dialogId}-description`}
-        aria-labelledby={`${dialogId}-title`}
-        className="product-privacy-dialog"
-        onCancel={(event) => {
-          event.preventDefault();
-          closeDialog();
-        }}
-        ref={dialogRef}
-      >
-        <h2 id={`${dialogId}-title`}>{title}</h2>
-        <p id={`${dialogId}-description`}>{description}</p>
-        <div className="product-privacy-dialog-actions">
-          <button className="button button-secondary" onClick={closeDialog} type="button">
-            Cancel
-          </button>
-          {confirmationForm}
-        </div>
-      </dialog>
-    </>
+    <ConfirmationDialog
+      triggerClassName={triggerClassName}
+      triggerLabel={triggerLabel}
+      title={title}
+      description={description}
+    >
+      {confirmationForm}
+    </ConfirmationDialog>
   );
 }

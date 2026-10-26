@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { ConsumerClientSettingsForm } from "@/components/consumer-client-settings-form";
 import { DashboardHeading } from "@/components/dashboard-shell";
-import { ProductNavigation } from "@/components/product-navigation";
+import { ProductPageNavigation } from "@/components/product-navigation";
 import { getProductPageContext, requireProductManagerRole } from "@/lib/auth/product-page-context";
 import { listConsumerClientsForProduct } from "@/lib/auth/service";
 
@@ -14,7 +14,7 @@ export default async function ConsumerClientEditPage({ params }: ConsumerClientE
     getProductPageContext(params),
     params,
   ]);
-  const role = requireProductManagerRole(access.membership?.role, organizationId, productId);
+  requireProductManagerRole(access.membership?.role, organizationId, productId);
   if (access.product.sharedProductRef) notFound();
 
   const clients = await listConsumerClientsForProduct(
@@ -33,12 +33,10 @@ export default async function ConsumerClientEditPage({ params }: ConsumerClientE
   return (
     <>
       <DashboardHeading description={`Update settings for ${client.appName}.`} />
-      <ProductNavigation
-        isSharedInstallation={false}
+      <ProductPageNavigation
+        access={access}
         organizationId={organizationId}
         productId={productId}
-        productName={access.product.name}
-        role={role}
       />
       <ConsumerClientSettingsForm
         client={client}

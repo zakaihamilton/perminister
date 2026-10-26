@@ -4,6 +4,7 @@ import { authenticateConsumerClient, type ConsumerClient } from "./consumer-clie
 import { isOrganizationId } from "./consumer-policy";
 import {
   bearerToken,
+  isJsonObject,
   isJsonRequest,
   NO_STORE_HEADERS,
   readBoundedJson,
@@ -87,6 +88,26 @@ export async function requireConsumerJsonRequest(
   return { ...context, body };
 }
 
+async function requireJsonObjectBody<T extends { body: unknown }>(
+  parsedRequest: Promise<T | Response>,
+  invalidBodyMessage: string,
+): Promise<(Omit<T, "body"> & { body: Record<string, unknown> }) | Response> {
+  const parsed = await parsedRequest;
+  if (parsed instanceof Response) return parsed;
+  if (!isJsonObject(parsed.body)) {
+    return Response.json({ error: invalidBodyMessage }, { status: 400, headers: NO_STORE_HEADERS });
+  }
+  return { ...parsed, body: parsed.body };
+}
+
+export function requireConsumerJsonObjectRequest(
+  request: Request,
+  maxBytes: number,
+  invalidBodyMessage: string,
+): Promise<(ConsumerRequestContext & { body: Record<string, unknown> }) | Response> {
+  return requireJsonObjectBody(requireConsumerJsonRequest(request, maxBytes), invalidBodyMessage);
+}
+
 export async function requireConsumerClient(request: Request): Promise<ConsumerClient | Response> {
   let client: ConsumerClient | null;
   try {
@@ -113,6 +134,17 @@ export async function requireConsumerClientJsonBody(
   const body = await readConsumerJsonBody(request, maxBytes);
   if (body instanceof Response) return body;
   return { client, body };
+}
+
+export function requireConsumerClientJsonObjectBody(
+  request: Request,
+  maxBytes: number,
+  invalidBodyMessage: string,
+): Promise<{ client: ConsumerClient; body: Record<string, unknown> } | Response> {
+  return requireJsonObjectBody(
+    requireConsumerClientJsonBody(request, maxBytes),
+    invalidBodyMessage,
+  );
 }
 
 export function consumerIntegrationError(

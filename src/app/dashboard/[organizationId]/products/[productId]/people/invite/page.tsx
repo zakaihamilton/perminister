@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { DashboardHeading } from "@/components/dashboard-shell";
-import { ProductNavigation } from "@/components/product-navigation";
+import { ProductPageNavigation } from "@/components/product-navigation";
 import { InviteProductMemberSection } from "@/components/product-people-sections";
 import {
   getProductPageContext,
@@ -23,12 +23,10 @@ export default async function InviteProductMemberPage({ params }: ProductPagePar
           </Link>
         }
       />
-      <ProductNavigation
-        isSharedInstallation={Boolean(access.product.sharedProductRef)}
+      <ProductPageNavigation
+        access={access}
         organizationId={organizationId}
         productId={productId}
-        productName={access.product.name}
-        role={role}
       />
       <InviteProductMemberSection
         isOwner={role === "owner"}

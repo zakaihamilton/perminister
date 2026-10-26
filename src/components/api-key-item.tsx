@@ -2,6 +2,35 @@ import type { ReactNode } from "react";
 import { DashboardNotice } from "@/components/dashboard-shell";
 import { ConfirmationActionControl } from "@/components/confirmation-action-control";
 import type { ApiKeyRecord } from "@/lib/auth/domain";
+import { ProductPageNavigation } from "@/components/product-navigation";
+import type { ProductAccessSummary } from "@/lib/auth/service";
+
+export function ProductApiKeyPageNavigation({
+  access,
+  organizationId,
+  productId,
+  notice,
+  error,
+  isEmailVerified,
+}: {
+  access: Pick<ProductAccessSummary, "product" | "membership">;
+  organizationId: string;
+  productId: string;
+  notice?: string;
+  error?: string;
+  isEmailVerified: boolean;
+}) {
+  return (
+    <>
+      <ProductPageNavigation
+        access={access}
+        organizationId={organizationId}
+        productId={productId}
+      />
+      <ApiKeyNotices error={error} isEmailVerified={isEmailVerified} notice={notice} />
+    </>
+  );
+}
 
 export function ApiKeyNotices({
   notice,

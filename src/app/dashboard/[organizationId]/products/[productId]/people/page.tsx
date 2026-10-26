@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { DashboardHeading } from "@/components/dashboard-shell";
-import { ProductNavigation } from "@/components/product-navigation";
+import { ProductPageNavigation } from "@/components/product-navigation";
 import { PendingInvitations } from "@/components/pending-invitations";
 import { ProductPeopleNotices, ProductPeopleSection } from "@/components/product-people-sections";
 import { listProductInvitations, listProductMembers } from "@/lib/auth/service";
@@ -38,12 +38,10 @@ export default async function ProductPeoplePage({
           </Link>
         }
       />
-      <ProductNavigation
-        isSharedInstallation={Boolean(access.product.sharedProductRef)}
+      <ProductPageNavigation
+        access={access}
         organizationId={organizationId}
         productId={productId}
-        productName={access.product.name}
-        role={role}
       />
       <ProductPeopleNotices error={query.error} notice={query.notice} />
       <ProductPeopleSection

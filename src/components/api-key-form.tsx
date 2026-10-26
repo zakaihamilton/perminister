@@ -18,6 +18,25 @@ interface ApiKeyFormProps {
   onSuccess?: () => void;
 }
 
+function ApiKeyFormResult({ state }: { state: CreateApiKeyState }) {
+  return (
+    <>
+      {state.error ? (
+        <p className="form-error" role="alert">
+          {state.error}
+        </p>
+      ) : null}
+      {state.token ? (
+        <section className="one-time-secret" aria-live="polite">
+          <strong>Copy this key now. It will not be shown again.</strong>
+          <code>{state.token}</code>
+          {state.warning ? <p className="form-error">{state.warning}</p> : null}
+        </section>
+      ) : null}
+    </>
+  );
+}
+
 export function ApiKeyForm({
   rotateFromApiKeyId,
   submitLabel = "Create API key",
@@ -70,18 +89,7 @@ export function ApiKeyForm({
       </p>
       {onCancel ? (
         <>
-          {state.error ? (
-            <p className="form-error" role="alert">
-              {state.error}
-            </p>
-          ) : null}
-          {state.token ? (
-            <section className="one-time-secret" aria-live="polite">
-              <strong>Copy this key now. It will not be shown again.</strong>
-              <code>{state.token}</code>
-              {state.warning ? <p className="form-error">{state.warning}</p> : null}
-            </section>
-          ) : null}
+          <ApiKeyFormResult state={state} />
           <div className="product-privacy-dialog-actions">
             {state.token ? (
               <button className="button button-primary" onClick={onCancel} type="button">
@@ -104,18 +112,7 @@ export function ApiKeyForm({
           <button className="button button-primary form-submit" disabled={pending} type="submit">
             {pending ? "Saving…" : submitLabel}
           </button>
-          {state.error ? (
-            <p className="form-error" role="alert">
-              {state.error}
-            </p>
-          ) : null}
-          {state.token ? (
-            <section className="one-time-secret" aria-live="polite">
-              <strong>Copy this key now. It will not be shown again.</strong>
-              <code>{state.token}</code>
-              {state.warning ? <p className="form-error">{state.warning}</p> : null}
-            </section>
-          ) : null}
+          <ApiKeyFormResult state={state} />
         </>
       )}
     </form>

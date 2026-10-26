@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { OrganizationRole } from "@/lib/auth/domain";
+import type { ProductAccessSummary } from "@/lib/auth/service";
 
 type ProductNavigationItem = {
   label: string;
@@ -62,5 +63,25 @@ export function ProductNavigation({
         );
       })}
     </nav>
+  );
+}
+
+export function ProductPageNavigation({
+  access,
+  organizationId,
+  productId,
+}: {
+  access: Pick<ProductAccessSummary, "product" | "membership">;
+  organizationId: string;
+  productId: string;
+}) {
+  return (
+    <ProductNavigation
+      isSharedInstallation={Boolean(access.product.sharedProductRef)}
+      organizationId={organizationId}
+      productId={productId}
+      productName={access.product.name}
+      role={access.membership?.role}
+    />
   );
 }

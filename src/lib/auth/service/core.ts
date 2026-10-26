@@ -3,6 +3,7 @@ import "server-only";
 import { createHash, randomBytes, timingSafeEqual, scrypt as scryptCallback } from "node:crypto";
 import { verify as verifyArgon2id } from "@node-rs/argon2";
 import { authMutationQueue } from "../mutation-queue";
+import { mapWithConcurrency } from "../concurrency";
 import {
   assertOpaqueId,
   authRecordId,
@@ -470,6 +471,17 @@ export async function rehashAfterLogin(
 export async function loadSubjectUnlocked(subjectId: string): Promise<SubjectRecord | null> {
   const value = await loadRecord("subject", subjectId);
   return value && !value.record.deletedAt ? value.record : null;
+}
+
+export function mapMembershipsToSubjectContact<T extends { subjectId: string }>(memberships: T[]) {
+  return mapWithConcurrency(memberships, async (membership) => {
+    const subject = await loadSubjectUnlocked(membership.subjectId);
+    return {
+      membership,
+      email: subject?.primaryEmail ?? null,
+      emailVerified: !!subject?.emailVerifiedAt,
+    };
+  });
 }
 
 export function configuredAdministrators(): Set<string> {
