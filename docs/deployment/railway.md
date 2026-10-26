@@ -27,6 +27,10 @@ and uploads that commit with `railway up`. Its path filter mirrors the writer in
 
 ## Railway service settings
 
+- Set the service variable `RAILPACK_NODE_VERSION=24.22.1` to match CI and the minimum in
+  `package.json`. Set the build command to `pnpm run build` and the start command to `pnpm run start`
+  to keep Railway on the repository's pinned package manager and avoid npm warnings for pnpm-only
+  config.
 - Let this workflow be the service's only automatic deploy source. Set Railway Watch Paths to a
   reserved path that is absent from this repository, such as `/.railway-cli-only/**`, so Railway's
   GitHub source does not create a second deployment for each push. Before `railway up`, this
