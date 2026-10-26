@@ -29,8 +29,10 @@ and uploads that commit with `railway up`. Its path filter mirrors the writer in
 
 - Let this workflow be the service's only automatic deploy source. Set Railway Watch Paths to a
   reserved path that is absent from this repository, such as `/.railway-cli-only/**`, so Railway's
-  GitHub source does not create a second deployment for each push. This workflow path-filters
-  writer changes and deploys them with `railway up`.
+  GitHub source does not create a second deployment for each push. Before `railway up`, this
+  workflow writes a per-run marker under that path in its temporary checkout. Railway sees that
+  marker in the CLI upload and deploys the writer, while the marker never enters Git history. This
+  workflow path-filters writer changes so dashboard-only edits do not deploy the writer.
 - Set the service to one replica in one region.
 - Set the deployment overlap to `0` so an old writer cannot overlap the new writer during deploys.
 - Set `PERMINISTER_WRITER_MODE=true`.
