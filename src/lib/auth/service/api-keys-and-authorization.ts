@@ -545,6 +545,7 @@ export async function authorizeApiKey(
   token: string,
   input: AuthorizationRequest,
   applicationClientId?: string,
+  preloadedSession?: Awaited<ReturnType<typeof getSessionFromToken>>,
 ): Promise<{
   authorized: boolean;
   subjectId?: SubjectId;
@@ -554,7 +555,8 @@ export async function authorizeApiKey(
   const scope = requestScope(input);
   const action = validateActions([input.action])[0];
   if (!keyId) {
-    const currentSession = await getSessionFromToken(token);
+    const currentSession =
+      preloadedSession !== undefined ? preloadedSession : await getSessionFromToken(token);
     if (
       !currentSession ||
       !currentSession.session.applicationClientId ||
@@ -565,15 +567,15 @@ export async function authorizeApiKey(
       return { authorized: false };
     }
     return authMutationQueue.run(async () => {
-      if (!(await loadApprovedOrganizationUnlocked(scope.organizationId))) {
-        return { authorized: false };
-      }
-      const productMembership = await store().readOrganizationMembership(
-        scope.organizationId,
-        currentSession.subject.subjectId,
-        scope.productId,
-      );
-      if (!productMembership || productMembership.status !== "active") {
+      const [organization, productMembership] = await Promise.all([
+        loadApprovedOrganizationUnlocked(scope.organizationId),
+        store().readOrganizationMembership(
+          scope.organizationId,
+          currentSession.subject.subjectId,
+          scope.productId,
+        ),
+      ]);
+      if (!organization || !productMembership || productMembership.status !== "active") {
         return { authorized: false };
       }
       await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
@@ -595,7 +597,10 @@ export async function authorizeApiKey(
   )
     return { authorized: false };
   if (key.owner.kind === "service") {
-    const principal = await loadRecord("service-principal", key.owner.servicePrincipalId);
+    const [principal] = await Promise.all([
+      loadRecord("service-principal", key.owner.servicePrincipalId),
+      requireOrganizationProductUnlocked(scope.organizationId, scope.productId),
+    ]);
     if (
       !principal ||
       principal.record.status !== "active" ||
@@ -604,27 +609,23 @@ export async function authorizeApiKey(
     ) {
       return { authorized: false };
     }
-    await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
     return {
       authorized: true,
       servicePrincipalId: principal.record.servicePrincipalId,
     };
   }
-  const subject = await loadRecord("subject", key.owner.subjectId);
+  const [subject, organization, productMembership] = await Promise.all([
+    loadRecord("subject", key.owner.subjectId),
+    loadApprovedOrganizationUnlocked(scope.organizationId),
+    store().readOrganizationMembership(scope.organizationId, key.owner.subjectId, scope.productId),
+  ]);
   if (!subject || subject.record.status !== "active" || !isEmailVerifiedOrExempt(subject.record)) {
     return { authorized: false };
   }
   if (consumerProductState(subject.record, scope.productId).status !== "active") {
     return { authorized: false };
   }
-  if (!(await loadApprovedOrganizationUnlocked(scope.organizationId))) {
-    return { authorized: false };
-  }
-  const productMembership = await store().readOrganizationMembership(
-    scope.organizationId,
-    subject.record.subjectId,
-    scope.productId,
-  );
+  if (!organization) return { authorized: false };
   if (!productMembership || productMembership.status !== "active") return { authorized: false };
   const authorized = productMembershipHasPermission(productMembership, scope, action);
   return authorized

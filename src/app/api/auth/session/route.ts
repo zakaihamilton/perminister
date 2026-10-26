@@ -1,13 +1,17 @@
+import { withApiRoutePerformance } from "@/lib/auth/performance";
 import { getCurrentSession } from "@/lib/auth/service";
 import { handleLoginPost } from "@/lib/auth/login-session-handler";
 
 export const runtime = "nodejs";
 
-export async function POST(request: Request): Promise<Response> {
-  return handleLoginPost(request);
-}
+export const POST = withApiRoutePerformance(
+  "POST /api/auth/session",
+  async function POST(request: Request): Promise<Response> {
+    return handleLoginPost(request);
+  },
+);
 
-export async function GET() {
+export const GET = withApiRoutePerformance("GET /api/auth/session", async function GET() {
   try {
     const current = await getCurrentSession();
     if (!current) {
@@ -40,4 +44,4 @@ export async function GET() {
       { status: 503, headers: { "Cache-Control": "no-store" } },
     );
   }
-}
+});

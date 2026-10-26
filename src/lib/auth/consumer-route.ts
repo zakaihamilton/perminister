@@ -9,7 +9,7 @@ import {
   readBoundedJson,
   RequestBodyTooLargeError,
 } from "./http";
-import { getConsumerSessionFromToken, type AuthenticatedSession } from "./service";
+import { getSessionFromToken, type AuthenticatedSession } from "./service";
 
 export interface ConsumerRequestContext {
   client: ConsumerClient;
@@ -45,11 +45,20 @@ export async function consumerRequestContext(
   request: Request,
 ): Promise<ConsumerRequestContext | Response | null> {
   try {
-    const client = await authenticateConsumerClient(request);
     const token = bearerToken(request);
-    if (!client || !token) return null;
-    const current = await getConsumerSessionFromToken(token, client.clientId);
-    if (!current || current.session.productId !== client.productId) return null;
+    if (!token) return null;
+    const [client, current] = await Promise.all([
+      authenticateConsumerClient(request),
+      getSessionFromToken(token),
+    ]);
+    if (
+      !client ||
+      !current ||
+      current.session.applicationClientId !== client.clientId ||
+      current.session.productId !== client.productId
+    ) {
+      return null;
+    }
     return { client, current };
   } catch {
     return Response.json(

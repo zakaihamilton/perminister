@@ -71,6 +71,18 @@ Use a Spaces key with **Read** permission in Vercel and a key with **Read/Write/
 in Railway. DigitalOcean supports per-bucket limited-access keys; see
 [Managing Spaces access](https://docs.digitalocean.com/products/spaces/how-to/manage-access/).
 
+After deploying the organization membership index code, rebuild the bucket indexes from the Railway
+writer environment. Run `node scripts/rebuild-spaces-indexes.mjs` once to review the dry-run counts,
+then run `node scripts/rebuild-spaces-indexes.mjs --apply`. The script writes the membership-index
+manifest only after all index objects have been written. Until that manifest exists, organization-wide
+membership reads use the legacy scan; product and catalog-manager reads already use their narrower
+Spaces prefixes. New membership writes maintain the index automatically.
+
+Server logs include structured `perminister.request.performance` events for API routes and the
+organization dashboard access and navigation reads. Each event records route, status, total duration,
+and Spaces call counts and time by operation. Aggregate `durationMs` from these events to compare
+route latency percentiles before and after a deployment.
+
 The proxy is enabled for Vercel Production; Preview deployments reject mutations. Reads from Vercel
 remain available when the proxy is down; writes return `502` or `503` rather than falling back to a
 Vercel process. Railway readiness returns `503` if its shared proxy secret is missing.

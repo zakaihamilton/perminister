@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
 import { cache } from "react";
+import { mapWithConcurrency } from "../concurrency";
 import { authMutationQueue } from "../mutation-queue";
 import { withOrganizationMutationLock } from "../coordination";
 import {
@@ -446,22 +447,20 @@ export async function listProductMembers(
 ): Promise<ProductMemberView[]> {
   return authMutationQueue.run(async () => {
     await requireProductRoleUnlocked(actorId, organizationId, productId, ["owner", "admin"]);
-    const memberships = (await store().listOrganizationMemberships(organizationId))
+    const memberships = (await store().listOrganizationMemberships(organizationId, productId))
       .filter(
         (record) =>
           record.productId === productId && (options.includeDisabled || record.status === "active"),
       )
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-    const result: ProductMemberView[] = [];
-    for (const membership of memberships) {
+    return mapWithConcurrency(memberships, async (membership) => {
       const subject = await loadSubjectUnlocked(membership.subjectId);
-      result.push({
+      return {
         membership,
         email: subject?.primaryEmail ?? null,
         emailVerified: !!subject?.emailVerifiedAt,
-      });
-    }
-    return result;
+      };
+    });
   });
 }
 
@@ -476,7 +475,7 @@ export async function listProductPermissionGrants(
       "admin",
       "member",
     ]);
-    return (await store().listOrganizationMemberships(organizationId))
+    return (await store().listOrganizationMemberships(organizationId, productId))
       .filter((membership) => membership.productId === productId)
       .flatMap((membership) => membership.permissionGrants ?? [])
       .filter(
@@ -540,7 +539,7 @@ export async function updateProductMemberRole(
     async ({ owner, current }) => {
       if (!current || current.status !== "active") throw new Error("Product member not found.");
       if (current.role === role) return;
-      const members = await store().listOrganizationMemberships(organizationId);
+      const members = await store().listOrganizationMemberships(organizationId, productId);
       const owners = members.filter(
         (membership) =>
           membership.productId === productId &&
@@ -574,7 +573,9 @@ export async function removeProductMember(
     async ({ owner, current }) => {
       if (!current) throw new Error("Product member not found.");
       if (current.status === "active" && current.role === "owner") {
-        const owners = (await store().listOrganizationMemberships(organizationId)).filter(
+        const owners = (
+          await store().listOrganizationMemberships(organizationId, productId)
+        ).filter(
           (membership) =>
             membership.productId === productId &&
             membership.role === "owner" &&
@@ -807,18 +808,19 @@ export async function listConsumerMembers(
   const scope = consumerResourceScope(authenticatedProductId, input);
   return authMutationQueue.run(async () => {
     await requireConsumerScopeManagerUnlocked(actorId, authenticatedProductId, scope);
-    const rows = (await store().listOrganizationMemberships(scope.organizationId)).filter(
+    const rows = (
+      await store().listOrganizationMemberships(scope.organizationId, scope.productId)
+    ).filter(
       (membership) =>
         membership.productId === scope.productId &&
         membership.permissionGrants?.some((grant) => sameResourceScope(grant.scope, scope)),
     );
-    const members: ConsumerScopedMemberView[] = [];
-    for (const membership of rows) {
+    const members = await mapWithConcurrency(rows, async (membership) => {
       const grant = consumerMemberGrant(membership, scope);
-      if (!grant) continue;
+      if (!grant) return null;
       const subject = await loadSubjectUnlocked(membership.subjectId);
-      if (!subject) continue;
-      members.push({
+      if (!subject) return null;
+      return {
         subjectId: subject.subjectId,
         email: subject.primaryEmail,
         username: usernameForProduct(subject, scope.productId),
@@ -829,11 +831,13 @@ export async function listConsumerMembers(
           membership.status === "active" &&
           grant.status === "active",
         role: grant.accessRole?.name ?? "",
-      });
-    }
-    return members.sort((left, right) =>
-      (left.email ?? left.username ?? "").localeCompare(right.email ?? right.username ?? ""),
-    );
+      } satisfies ConsumerScopedMemberView;
+    });
+    return members
+      .filter((member): member is ConsumerScopedMemberView => member !== null)
+      .sort((left, right) =>
+        (left.email ?? left.username ?? "").localeCompare(right.email ?? right.username ?? ""),
+      );
   });
 }
 
@@ -1081,7 +1085,7 @@ export async function revokeWorkspaceGrants(
     organizationIdInput,
     workspaceIdInput,
     async ({ organizationId, productId, scope }) => {
-      const memberships = await store().listOrganizationMemberships(organizationId);
+      const memberships = await store().listOrganizationMemberships(organizationId, productId);
       for (const membership of memberships) {
         if (membership.productId !== productId) continue;
         for (const grant of membership.permissionGrants ?? []) {
@@ -1176,7 +1180,10 @@ async function protectLastWorkspaceAdminUnlocked(
   ) {
     return;
   }
-  const memberships = await store().listOrganizationMemberships(scope.organizationId);
+  const memberships = await store().listOrganizationMemberships(
+    scope.organizationId,
+    scope.productId,
+  );
   for (const membership of memberships) {
     const hasActiveAdminGrant =
       membership.productId === scope.productId &&
@@ -1449,7 +1456,10 @@ export async function listConsumerAccounts(
     );
     const policy = consumerProductPolicy(authenticatedProductId)!;
     const subjects = (await listRecordsWithRecovery("subject")).map((item) => item.record);
-    const organizationMemberships = await store().listOrganizationMemberships(organizationId);
+    const organizationMemberships = await store().listOrganizationMemberships(
+      organizationId,
+      productId,
+    );
     const membershipsBySubject = new Map(
       organizationMemberships
         .filter((membership) => membership.productId === productId)

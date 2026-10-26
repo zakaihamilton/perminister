@@ -1,3 +1,4 @@
+import { withApiRoutePerformance } from "@/lib/auth/performance";
 import { checkAuthStorageReadiness } from "@/lib/auth/service";
 import { currentDeploymentId } from "@/lib/deployment";
 import {
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 const noStoreHeaders = { "Cache-Control": "no-store" };
 
-export async function GET(request: Request) {
+export const GET = withApiRoutePerformance("GET /api/ready", async function GET(request: Request) {
   try {
     await checkAuthStorageReadiness();
     const deploymentId = currentDeploymentId();
@@ -91,4 +92,4 @@ export async function GET(request: Request) {
       { status: 503, headers: noStoreHeaders },
     );
   }
-}
+});

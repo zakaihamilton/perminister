@@ -887,6 +887,7 @@ export async function deleteAccountForAdministrator(
         if (membership.status !== "active" || membership.role !== "owner") continue;
         const organizationMemberships = await store().listOrganizationMemberships(
           membership.organizationId,
+          membership.productId ?? null,
         );
         let hasAnotherActiveOwner = false;
         for (const candidate of organizationMemberships) {

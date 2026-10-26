@@ -1,3 +1,4 @@
+import { withApiRoutePerformance } from "@/lib/auth/performance";
 import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
 import {
   consumerIntegrationError,
@@ -86,81 +87,87 @@ function publicKey(record: Awaited<ReturnType<typeof listApiKeysForServicePrinci
   };
 }
 
-export async function GET(request: Request, context: RouteContext) {
-  const auth = await requireConsumerRequestContext(request);
-  if (auth instanceof Response) return auth;
-  const { client, current } = auth;
-  const { servicePrincipalId } = await context.params;
-  try {
-    const keys = await listApiKeysForServicePrincipal(
-      current.subject.subjectId,
-      servicePrincipalId,
-      client.productId,
-    );
-    return Response.json({ keys: keys.map(publicKey) }, { headers: NO_STORE_HEADERS });
-  } catch (error) {
-    return consumerIntegrationError(
-      error,
-      "Integration keys are temporarily unavailable.",
-      "Integration keys are temporarily unavailable.",
-    );
-  }
-}
+export const GET = withApiRoutePerformance(
+  "GET /api/auth/consumer/integrations/[servicePrincipalId]/keys",
+  async function GET(request: Request, context: RouteContext) {
+    const auth = await requireConsumerRequestContext(request);
+    if (auth instanceof Response) return auth;
+    const { client, current } = auth;
+    const { servicePrincipalId } = await context.params;
+    try {
+      const keys = await listApiKeysForServicePrincipal(
+        current.subject.subjectId,
+        servicePrincipalId,
+        client.productId,
+      );
+      return Response.json({ keys: keys.map(publicKey) }, { headers: NO_STORE_HEADERS });
+    } catch (error) {
+      return consumerIntegrationError(
+        error,
+        "Integration keys are temporarily unavailable.",
+        "Integration keys are temporarily unavailable.",
+      );
+    }
+  },
+);
 
-export async function POST(request: Request, context: RouteContext) {
-  const parsed = await requireConsumerJsonRequest(request, 8 * 1024);
-  if (parsed instanceof Response) return parsed;
-  const { body, client, current } = parsed;
-  const options = parseOptions(body, client.productId);
-  if (!options) {
-    return Response.json(
-      { error: "Provide a valid scope, organizationId, actions, and expiration." },
-      {
-        status: 400,
-        headers: NO_STORE_HEADERS,
-      },
-    );
-  }
-  const { servicePrincipalId } = await context.params;
-  try {
-    const created = await createApiKeyForServicePrincipal(
-      current.subject.subjectId,
-      servicePrincipalId,
-      options,
-    );
-    return Response.json(
-      {
-        key: publicKey(created.record),
-        token: created.token,
-        rotationWarning: created.rotationWarning,
-      },
-      { status: 201, headers: NO_STORE_HEADERS },
-    );
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Integration key could not be created.";
-    const status = message.includes("permission")
-      ? 403
-      : /not found/i.test(message)
-        ? 404
-        : /Choose|valid|future|scope|action|key can only/i.test(message)
-          ? 400
-          : 503;
-    return Response.json(
-      {
-        error:
-          status === 403
-            ? "You cannot manage this integration."
-            : status === 400
-              ? message
-              : status === 404
-                ? "Integration not found."
-                : "Integration key service is temporarily unavailable.",
-      },
-      {
-        status,
-        headers: NO_STORE_HEADERS,
-      },
-    );
-  }
-}
+export const POST = withApiRoutePerformance(
+  "POST /api/auth/consumer/integrations/[servicePrincipalId]/keys",
+  async function POST(request: Request, context: RouteContext) {
+    const parsed = await requireConsumerJsonRequest(request, 8 * 1024);
+    if (parsed instanceof Response) return parsed;
+    const { body, client, current } = parsed;
+    const options = parseOptions(body, client.productId);
+    if (!options) {
+      return Response.json(
+        { error: "Provide a valid scope, organizationId, actions, and expiration." },
+        {
+          status: 400,
+          headers: NO_STORE_HEADERS,
+        },
+      );
+    }
+    const { servicePrincipalId } = await context.params;
+    try {
+      const created = await createApiKeyForServicePrincipal(
+        current.subject.subjectId,
+        servicePrincipalId,
+        options,
+      );
+      return Response.json(
+        {
+          key: publicKey(created.record),
+          token: created.token,
+          rotationWarning: created.rotationWarning,
+        },
+        { status: 201, headers: NO_STORE_HEADERS },
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Integration key could not be created.";
+      const status = message.includes("permission")
+        ? 403
+        : /not found/i.test(message)
+          ? 404
+          : /Choose|valid|future|scope|action|key can only/i.test(message)
+            ? 400
+            : 503;
+      return Response.json(
+        {
+          error:
+            status === 403
+              ? "You cannot manage this integration."
+              : status === 400
+                ? message
+                : status === 404
+                  ? "Integration not found."
+                  : "Integration key service is temporarily unavailable.",
+        },
+        {
+          status,
+          headers: NO_STORE_HEADERS,
+        },
+      );
+    }
+  },
+);
