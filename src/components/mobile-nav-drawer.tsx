@@ -21,6 +21,7 @@ export function MobileNavDrawer({ children }: { children: ReactNode }) {
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const drawer = drawerRef.current;
+    const trigger = triggerRef.current;
     drawer?.querySelector<HTMLButtonElement>("button")?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -28,16 +29,24 @@ export function MobileNavDrawer({ children }: { children: ReactNode }) {
         return;
       }
       if (event.key !== "Tab" || !drawer) return;
-      const items = Array.from(drawer.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      )).filter((item) => item.getClientRects().length > 0);
+      const items = Array.from(
+        drawer.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((item) => item.getClientRects().length > 0);
       if (!items.length) return;
       const first = items[0];
       const last = items[items.length - 1];
-      if (event.shiftKey && (document.activeElement === first || !drawer.contains(document.activeElement))) {
+      if (
+        event.shiftKey &&
+        (document.activeElement === first || !drawer.contains(document.activeElement))
+      ) {
         event.preventDefault();
         last?.focus();
-      } else if (!event.shiftKey && (document.activeElement === last || !drawer.contains(document.activeElement))) {
+      } else if (
+        !event.shiftKey &&
+        (document.activeElement === last || !drawer.contains(document.activeElement))
+      ) {
         event.preventDefault();
         first?.focus();
       }
@@ -46,7 +55,7 @@ export function MobileNavDrawer({ children }: { children: ReactNode }) {
     return () => {
       document.body.style.overflow = prevOverflow;
       window.removeEventListener("keydown", handleKeyDown);
-      triggerRef.current?.focus();
+      trigger?.focus();
     };
   }, [isOpen]);
 
