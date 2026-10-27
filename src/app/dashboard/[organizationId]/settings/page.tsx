@@ -1,3 +1,4 @@
+import { OrganizationSettingsForm } from "@/components/organization-settings-form";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { getOrganizationForSubject } from "@/lib/auth/service";
 import { notFound } from "next/navigation";
@@ -24,25 +25,10 @@ export default async function OrganizationSettingsPage(
           kind="error"
         />
       ) : null}
-      <section className="dashboard-card settings-card">
-        <form action="/actions/updateOrganizationNameAction" method="post" className="auth-form">
-          <input type="hidden" name="organizationId" value={organizationId} />
-          <label>
-            Organization name
-            <input
-              name="name"
-              defaultValue={summary.organization.name}
-              required
-              minLength={2}
-              maxLength={80}
-            />
-          </label>
-          <p className="form-hint">Only owners can change organization settings.</p>
-          <button className="button button-primary" type="submit">
-            Save changes
-          </button>
-        </form>
-      </section>
+      <OrganizationSettingsForm
+        organizationId={organizationId}
+        organizationName={summary.organization.name}
+      />
     </>
   );
 }

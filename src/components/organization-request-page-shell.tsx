@@ -34,6 +34,20 @@ export function OrganizationRequestPageShell({
   }
 
   return (
+    <OrganizationRequestEmptyShell breadcrumbs={breadcrumbs}>
+      {children}
+    </OrganizationRequestEmptyShell>
+  );
+}
+
+export function OrganizationRequestEmptyShell({
+  breadcrumbs,
+  children,
+}: {
+  breadcrumbs: readonly DashboardBreadcrumbItem[];
+  children: ReactNode;
+}) {
+  return (
     <>
       <SiteHeader active="dashboard" authenticated />
       <main className="page-shell onboarding-shell">

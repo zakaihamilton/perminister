@@ -68,6 +68,12 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: securityHeaders,
       },
+      {
+        source: "/ui-preview/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'; form-action 'none'" },
+        ],
+      },
     ];
   },
 };
