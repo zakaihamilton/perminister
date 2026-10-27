@@ -357,11 +357,10 @@ export async function requestPasswordRecoveryAction(formData: FormData): Promise
   if (!consumePasswordRecoveryRateLimit(email, passwordRecoveryRequesterKey(requestHeaders))) {
     redirect("/forgot-password?notice=requested");
   }
-  const origin = requestHeaders.get("origin");
   after(async () => {
     try {
       const delivery = await issueRecoveryAction(email);
-      if (delivery) await sendRecoveryEmail(delivery.email, delivery.token, { origin });
+      if (delivery) await sendRecoveryEmail(delivery.email, delivery.token);
     } catch {
       // Keep recovery delivery and account existence out of the response.
     }

@@ -68,10 +68,7 @@ export const POST = withApiRoutePerformance(
       try {
         const action = await issueRecoveryAction(email);
         if (action) {
-          await sendRecoveryEmail(action.email, action.token, {
-            appOrigin: client.appOrigin,
-            appName: client.appName,
-          });
+          await sendRecoveryEmail(action.email, action.token);
         }
       } catch {
         // Do not reveal whether an email address belongs to an account.
