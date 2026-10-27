@@ -69,6 +69,10 @@ function refreshTarget(request: NextRequest): URL {
 
   if (target.pathname.startsWith("/actions/")) {
     target = new URL("/dashboard", request.url);
+  } else if (target.pathname === "/login/submit") {
+    target = new URL("/login", request.url);
+  } else if (target.pathname === "/logout/submit") {
+    target = new URL("/login", request.url);
   }
   target.searchParams.set("__perminister_action", "refresh");
   return target;
