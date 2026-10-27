@@ -11,6 +11,7 @@ export function ClientFilteredList<T>({
   placeholder = "Filter list...",
   ariaLabel = "Filter list",
   emptyMessage = "No matching items found.",
+  noItemsMessage = "No items yet.",
 }: {
   items: readonly T[];
   filterFn: (item: T, query: string) => boolean;
@@ -18,6 +19,7 @@ export function ClientFilteredList<T>({
   placeholder?: string;
   ariaLabel?: string;
   emptyMessage?: string;
+  noItemsMessage?: string;
 }) {
   const [filterQuery, setFilterQuery] = useState("");
 
@@ -37,7 +39,7 @@ export function ClientFilteredList<T>({
       ) : null}
       {filtered.length === 0 ? (
         <div className="filter-empty-message" role="status">
-          {emptyMessage}
+          {items.length === 0 ? noItemsMessage : emptyMessage}
         </div>
       ) : (
         filtered.map((item) => renderItem(item))
