@@ -46,6 +46,11 @@ function MemberSection<T extends SearchableMember>({
           placeholder="Filter members by name or email..."
           ariaLabel={ariaLabel}
           emptyMessage={emptyMessage}
+          noItemsMessage={
+            heading === "Product members"
+              ? "No product members yet."
+              : "No organization members yet."
+          }
           filterFn={memberMatchesQuery}
           renderItem={renderItem}
         />

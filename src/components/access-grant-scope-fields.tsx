@@ -6,7 +6,7 @@ import { CustomDropdown } from "@/components/custom-dropdown";
 type GrantScopeKind = "product" | "project" | "workspace";
 
 export function AccessGrantScopeFields() {
-  const [scopeKind, setScopeKind] = useState<GrantScopeKind>("product");
+  const [scopeKind, setScopeKind] = useState<GrantScopeKind | "">("");
 
   function handleScopeChange(value: string) {
     if (value === "product" || value === "project" || value === "workspace") {
@@ -19,7 +19,9 @@ export function AccessGrantScopeFields() {
       ? "These actions apply across all resources in this product."
       : scopeKind === "project"
         ? "These actions apply only to the project ID entered below."
-        : "These actions apply only to the workspace ID entered below.";
+        : scopeKind === "workspace"
+          ? "These actions apply only to the workspace ID entered below."
+          : "Choose where these permissions should apply.";
 
   const resourceLabel = scopeKind === "project" ? "Project ID" : "Workspace ID";
   const resourcePlaceholder = scopeKind === "project" ? "Enter project ID" : "Enter workspace ID";
@@ -33,7 +35,8 @@ export function AccessGrantScopeFields() {
           aria-describedby="grant-scope-help"
           id="grant-scope"
           name="scopeKind"
-          defaultValue="product"
+          placeholder="Choose a scope"
+          required
           options={[
             { value: "product", label: "Entire product" },
             { value: "project", label: "One project" },
@@ -45,7 +48,7 @@ export function AccessGrantScopeFields() {
           {scopeDescription}
         </small>
       </div>
-      {scopeKind !== "product" ? (
+      {scopeKind === "project" || scopeKind === "workspace" ? (
         <label className="access-resource-field" htmlFor="grant-resource-id" key={scopeKind}>
           {resourceLabel}
           <input
