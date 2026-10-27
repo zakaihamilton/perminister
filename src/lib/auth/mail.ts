@@ -135,9 +135,11 @@ async function sendAccountActionEmail(
   token: string,
   options: EmailLinkOptions,
 ): Promise<void> {
-  const origin = emailLinkOrigin(options);
-  const appName = options.appName ?? "Perminister";
   const isVerification = action === "verification";
+  // Recovery tokens grant global account access and must never be sent to a client origin.
+  if (!isVerification) options = {};
+  const origin = isVerification ? emailLinkOrigin(options) : publicOrigin();
+  const appName = options.appName ?? "Perminister";
   const link = new URL(
     options.appOrigin
       ? isVerification
