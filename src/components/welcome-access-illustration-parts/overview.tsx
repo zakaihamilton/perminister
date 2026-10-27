@@ -2,7 +2,16 @@ export function IllustrationMainHeading() {
   return (
     <>
       <rect x="230" y="126" width="716" height="518" fill="#f7f9fc" />
-      <rect x="264" y="154" width="225" height="18" rx="9" fill="#21384f" />
+      <text
+        x="264"
+        y="171"
+        fill="#21384f"
+        fontFamily="Arial, sans-serif"
+        fontSize="24"
+        fontWeight="700"
+      >
+        Organization overview
+      </text>
       <rect x="264" y="181" width="172" height="8" rx="4" fill="#9aa9b9" />
       <rect x="788" y="151" width="124" height="34" rx="17" fill="#e2f1ea" />
       <circle cx="807" cy="168" r="5" fill="#3b9d72" />
@@ -28,7 +37,9 @@ export function IllustrationMetrics() {
       >
         12
       </text>
-      <rect x="330" y="270" width="93" height="7" rx="3.5" fill="#9aaabd" />
+      <text x="330" y="281" fill="#52677e" fontFamily="Arial, sans-serif" fontSize="17">
+        Products
+      </text>
       <rect x="330" y="284" width="65" height="5" rx="2.5" fill="#d3dce6" />
 
       <rect x="480" y="208" width="202" height="102" rx="13" fill="#fff" stroke="#e1e7ef" />
@@ -45,7 +56,9 @@ export function IllustrationMetrics() {
       >
         48
       </text>
-      <rect x="546" y="270" width="86" height="7" rx="3.5" fill="#9aaabd" />
+      <text x="546" y="281" fill="#52677e" fontFamily="Arial, sans-serif" fontSize="17">
+        Members
+      </text>
       <rect x="546" y="284" width="60" height="5" rx="2.5" fill="#d3dce6" />
 
       <rect x="696" y="208" width="216" height="102" rx="13" fill="#fff" stroke="#e1e7ef" />
@@ -67,7 +80,9 @@ export function IllustrationMetrics() {
       >
         03
       </text>
-      <rect x="761" y="270" width="99" height="7" rx="3.5" fill="#9aaabd" />
+      <text x="761" y="281" fill="#52677e" fontFamily="Arial, sans-serif" fontSize="17">
+        Grants
+      </text>
       <rect x="761" y="284" width="58" height="5" rx="2.5" fill="#d3dce6" />
     </>
   );

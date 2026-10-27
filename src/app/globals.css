@@ -6160,10 +6160,7 @@ html[data-theme="dark"] .simple-panel-links span {
   }
   .developer-hero-image {
     width: min(100%, 420px);
-    max-height: 220px;
     justify-self: start;
-    object-fit: contain;
-    object-position: left center;
   }
 }
 @media (max-width: 560px) {
@@ -8771,5 +8768,46 @@ html[data-theme="dark"] .dashboard-mobile-menu-trigger:hover {
   }
   .site-skeleton-document-nav {
     display: none;
+  }
+}
+
+.password-field {
+  display: grid;
+  gap: 7px;
+}
+.password-input-wrap {
+  position: relative;
+}
+.auth-form .password-input-wrap input {
+  padding-right: 72px;
+}
+.password-visibility {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  border: 0;
+  border-radius: 4px;
+  padding: 0 14px;
+  color: var(--blue-dark);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.password-visibility:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -3px;
+}
+
+.auth-name-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px;
+}
+@media (max-width: 420px) {
+  .auth-name-fields {
+    grid-template-columns: 1fr;
   }
 }

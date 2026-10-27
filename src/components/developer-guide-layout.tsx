@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import Image from "next/image";
+import { WelcomeAccessIllustration } from "@/components/welcome-access-illustration";
 import {
   DeveloperGuideNav,
   SiteFooter,
@@ -35,14 +35,9 @@ export function DeveloperGuideLayout({
               <p>{intro}</p>
             </div>
             {active === "overview" ? (
-              <Image
-                alt="A server checks a scoped key before allowing access to a protected resource."
-                className="developer-hero-image"
-                height={809}
-                sizes="(max-width: 740px) 100vw, 34vw"
-                src="/illustrations/server-key-flow.png"
-                width={1942}
-              />
+              <div className="developer-hero-image">
+                <WelcomeAccessIllustration />
+              </div>
             ) : null}
           </header>
           {children}

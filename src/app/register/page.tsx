@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthPageFeedback } from "@/components/auth-page-feedback";
+import { PasswordField } from "@/components/password-field";
 import { AuthPageFrame } from "@/components/auth-page-frame";
 import { getCurrentSession } from "@/lib/auth/service";
 
@@ -32,13 +33,12 @@ export default async function RegisterPage({
     <AuthPageFrame authenticated={false}>
       <header className="auth-heading">
         <p className="eyebrow">Create an account</p>
-        <h1>Your account, in one place</h1>
+        <h1 id="register-title">Create your account</h1>
         <p>
           Use one account to join organizations and manage your profile, sessions, and API keys.
         </p>
       </header>
       <section className="auth-card" aria-labelledby="register-title">
-        <h2 id="register-title">Create account</h2>
         <AuthPageFeedback
           error={params.error}
           errorText={errorText}
@@ -52,41 +52,33 @@ export default async function RegisterPage({
           {invitationToken ? (
             <input type="hidden" name="invitationToken" value={invitationToken} />
           ) : null}
-          <label>
-            First name
-            <input name="firstName" type="text" autoComplete="given-name" maxLength={80} />
-          </label>
-          <label>
-            Last name
-            <input name="lastName" type="text" autoComplete="family-name" maxLength={80} />
-          </label>
+          <div className="auth-name-fields">
+            <label>
+              First name
+              <input name="firstName" type="text" autoComplete="given-name" maxLength={80} />
+            </label>
+            <label>
+              Last name
+              <input name="lastName" type="text" autoComplete="family-name" maxLength={80} />
+            </label>
+          </div>
           <label>
             Email address
             <input name="email" type="email" autoComplete="email" maxLength={254} required />
           </label>
-          <label>
-            Password
-            <input
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              minLength={15}
-              maxLength={256}
-              required
-            />
-            <span className="form-hint">Use at least 15 characters.</span>
-          </label>
-          <label>
-            Confirm password
-            <input
-              name="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              minLength={15}
-              maxLength={256}
-              required
-            />
-          </label>
+          <PasswordField
+            label="Password"
+            name="password"
+            autoComplete="new-password"
+            minLength={15}
+            hint="Use at least 15 characters."
+          />
+          <PasswordField
+            label="Confirm password"
+            name="confirmPassword"
+            autoComplete="new-password"
+            minLength={15}
+          />
           <button className="button button-primary form-submit" type="submit">
             Create account
           </button>

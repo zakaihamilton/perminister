@@ -46,10 +46,10 @@ export default function HomePage() {
         <section className="container welcome-hero" aria-labelledby="home-title">
           <div className="welcome-hero-copy">
             <p className="eyebrow">For organization owners and admins</p>
-            <h1 id="home-title">A clearer view of every product and permission.</h1>
+            <h1 id="home-title">Manage product access across your organization.</h1>
             <p className="welcome-hero-lede">
-              Bring organization details, product teams, and scoped access together in one
-              workspace, so ownership stays clear as your catalog grows.
+              Invite people to product teams, grant specific actions, and manage access across your
+              organization from one workspace.
             </p>
             <div className="hero-actions welcome-hero-actions">
               <Link className="button button-primary" href="/register">
@@ -68,10 +68,8 @@ export default function HomePage() {
 
         <section className="container home-benefits" aria-labelledby="home-benefits-title">
           <header className="home-section-heading">
-            <p className="eyebrow">A clear operating model</p>
-            <h2 id="home-benefits-title">
-              Keep the catalog clear. Let each product manage its team.
-            </h2>
+            <p className="eyebrow">Manage access together</p>
+            <h2 id="home-benefits-title">Organize products and give teams the access they need.</h2>
             <p>
               Organization Owners and Admins manage organization and product details. Product teams
               handle collaboration, while explicit grants define the actions a member can take.
@@ -90,8 +88,8 @@ export default function HomePage() {
 
         <section className="container home-access-section" aria-labelledby="home-access-title">
           <header className="home-section-heading home-access-heading">
-            <p className="eyebrow">How access stays clear</p>
-            <h2 id="home-access-title">Put each decision at the right level.</h2>
+            <p className="eyebrow">How access works</p>
+            <h2 id="home-access-title">Manage access at each level.</h2>
             <p>
               Perminister centralizes identity and permission records. Each product keeps its own
               sessions, domain data, and final resource checks.
@@ -111,7 +109,7 @@ export default function HomePage() {
         <section className="container home-closing-cta" aria-labelledby="home-cta-title">
           <div>
             <p className="home-cta-label">Start with your organization</p>
-            <h2 id="home-cta-title">Make product access easier to oversee.</h2>
+            <h2 id="home-cta-title">Get started with your organization.</h2>
             <p>
               Request or manage your organization workspace and bring products, teams, and access
               together.
