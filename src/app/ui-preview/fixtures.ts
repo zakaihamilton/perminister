@@ -1,5 +1,4 @@
 import type {
-  OrganizationMemberView,
   ConsumerClientSummary,
   PublicAccount,
   OrganizationReviewRequest,
@@ -11,70 +10,6 @@ export const productId = "example-product";
 const createdAt = "2026-01-01T00:00:00.000Z";
 const orgId = organizationId as ProductRecord["organizationId"];
 const subjectId = "preview-alex" as ProductRecord["createdBySubjectId"];
-export const products: ProductRecord[] = [
-  {
-    kind: "product",
-    schemaVersion: 1,
-    productRecordId: "preview-product" as ProductRecord["productRecordId"],
-    organizationId: orgId,
-    productId: productId as ProductRecord["productId"],
-    name: "Example Product",
-    description: "A fictional product for previewing access management.",
-    websiteUrl: "https://example.test",
-    iconUrl: "",
-    createdBySubjectId: subjectId,
-    createdAt,
-    updatedAt: createdAt,
-  },
-  {
-    kind: "product",
-    schemaVersion: 1,
-    productRecordId: "preview-product-2" as ProductRecord["productRecordId"],
-    organizationId: orgId,
-    productId: "another-product" as ProductRecord["productId"],
-    name: "Another Product",
-    description: "A second fictional product.",
-    websiteUrl: "https://example.test",
-    iconUrl: "",
-    createdBySubjectId: subjectId,
-    createdAt,
-    updatedAt: createdAt,
-  },
-];
-export const members: OrganizationMemberView[] = [
-  {
-    email: "alex@example.test",
-    emailVerified: true,
-    membership: {
-      kind: "organization-membership",
-      schemaVersion: 1,
-      organizationMembershipId:
-        "preview-1" as OrganizationMemberView["membership"]["organizationMembershipId"],
-      organizationId: orgId,
-      subjectId,
-      role: "owner",
-      status: "active",
-      createdAt,
-      updatedAt: createdAt,
-    },
-  },
-  {
-    email: "sam.long-name@example.test",
-    emailVerified: false,
-    membership: {
-      kind: "organization-membership",
-      schemaVersion: 1,
-      organizationMembershipId:
-        "preview-2" as OrganizationMemberView["membership"]["organizationMembershipId"],
-      organizationId: orgId,
-      subjectId: "preview-sam" as OrganizationMemberView["membership"]["subjectId"],
-      role: "admin",
-      status: "active",
-      createdAt,
-      updatedAt: createdAt,
-    },
-  },
-];
 export const client: ConsumerClientSummary = {
   clientId: "preview-client",
   productId,
