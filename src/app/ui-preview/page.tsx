@@ -112,6 +112,43 @@ const products: ProductRecord[] = [
   },
 ];
 
+const previewScreens = [
+  "overview",
+  "products",
+  "members",
+  "keys",
+  "settings",
+  "activity",
+  "profile",
+  "product-overview",
+  "product-people",
+  "product-access",
+  "product-roles",
+  "product-clients",
+  "product-keys",
+  "product-activity",
+  "product-new",
+  "product-role-new",
+  "product-client-new",
+  "product-invite",
+  "product-access-new",
+  "sessions",
+  "operations",
+  "client-edit",
+  "key-new",
+  "organization-new",
+  "operations-accounts",
+  "operations-activity",
+  "operations-legacy-access",
+  "operations-requests",
+  "operations-shared-products",
+  "organization-invite",
+  "organization-requests",
+  "product-key-new",
+  "auth-verify",
+  "auth-reset",
+];
+
 export default async function PreviewPage({
   searchParams,
 }: {
@@ -120,44 +157,7 @@ export default async function PreviewPage({
   if (process.env.NODE_ENV !== "development" || process.env.PERMINISTER_UI_PREVIEW !== "1")
     notFound();
   const params = await searchParams;
-  const screen = [
-    "overview",
-    "products",
-    "members",
-    "keys",
-    "settings",
-    "activity",
-    "profile",
-    "product-overview",
-    "product-people",
-    "product-access",
-    "product-roles",
-    "product-clients",
-    "product-keys",
-    "product-activity",
-    "product-new",
-    "product-role-new",
-    "product-client-new",
-    "product-invite",
-    "product-access-new",
-    "sessions",
-    "operations",
-    "client-edit",
-    "key-new",
-    "organization-new",
-    "operations-accounts",
-    "operations-activity",
-    "operations-legacy-access",
-    "operations-requests",
-    "operations-shared-products",
-    "organization-invite",
-    "organization-requests",
-    "product-key-new",
-    "auth-verify",
-    "auth-reset",
-  ].includes(params.screen ?? "")
-    ? params.screen
-    : "overview";
+  const screen = previewScreens.includes(params.screen ?? "") ? params.screen : "overview";
   const scenario = params.scenario === "empty" ? "empty" : "populated";
   const empty = scenario === "empty";
   const previewRole = "owner" as const;
@@ -178,42 +178,7 @@ export default async function PreviewPage({
         <div className="ui-preview-toolbar">
           <strong>UI preview · synthetic data</strong>{" "}
           <nav aria-label="Preview screens">
-            {[
-              "overview",
-              "products",
-              "members",
-              "keys",
-              "settings",
-              "activity",
-              "profile",
-              "product-overview",
-              "product-people",
-              "product-access",
-              "product-roles",
-              "product-clients",
-              "product-keys",
-              "product-activity",
-              "product-new",
-              "product-role-new",
-              "product-client-new",
-              "product-invite",
-              "product-access-new",
-              "sessions",
-              "operations",
-              "client-edit",
-              "key-new",
-              "organization-new",
-              "operations-accounts",
-              "operations-activity",
-              "operations-legacy-access",
-              "operations-requests",
-              "operations-shared-products",
-              "organization-invite",
-              "organization-requests",
-              "product-key-new",
-              "auth-verify",
-              "auth-reset",
-            ].map((item) => (
+            {previewScreens.map((item) => (
               <a
                 key={item}
                 href={`/ui-preview?screen=${item}&scenario=${scenario}`}
