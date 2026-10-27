@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PasswordField } from "@/components/password-field";
 import { AuthPageFrame, AuthReturnToSignIn } from "@/components/auth-page-frame";
 import { getAuthLinkPageContext } from "@/lib/auth/auth-link-page-context";
 
@@ -32,28 +33,19 @@ function createAuthLinkPage(kind: "reset-password" | "verify-email") {
           {token ? (
             <form action="/actions/resetPasswordAction" method="post" className="auth-form">
               <input type="hidden" name="token" value={token} />
-              <label>
-                New password
-                <input
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  minLength={15}
-                  maxLength={256}
-                  required
-                />
-              </label>
-              <label>
-                Confirm new password
-                <input
-                  name="confirmPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  minLength={15}
-                  maxLength={256}
-                  required
-                />
-              </label>
+              <PasswordField
+                label="New password"
+                name="password"
+                autoComplete="new-password"
+                minLength={15}
+                hint="Use at least 15 characters."
+              />
+              <PasswordField
+                label="Confirm new password"
+                name="confirmPassword"
+                autoComplete="new-password"
+                minLength={15}
+              />
               <button className="button button-primary form-submit" type="submit">
                 Save new password
               </button>

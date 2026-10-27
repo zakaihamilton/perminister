@@ -39,7 +39,7 @@ export default function GettingStartedPage() {
     <DeveloperGuideLayout
       active="getting-started"
       eyebrow="Developer guide / Getting started"
-      title="Integrate at the boundary"
+      title="Connect your app to Perminister"
       intro="Perminister manages central identity and access. Consumer applications keep their own portals, sessions, data, and resource enforcement."
     >
       <div className="guide-grid">
@@ -90,6 +90,41 @@ export default function GettingStartedPage() {
                 Consumer apps own domain data and final resource enforcement.
               </li>
             </ul>
+          </section>
+          <section className="aside-card">
+            <h2>Example: check access</h2>
+            <p>From your backend, use a scoped API key to check an action before serving it.</p>
+            <pre className="code-block">
+              <code>{`const response = await fetch(
+  PERMINISTER_URL + "/api/authorize",
+  {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + PERMINISTER_API_KEY,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      organizationId: "YOUR_ORG_ID",
+      productId: "YOUR_PRODUCT_ID",
+      resourceKind: "project",
+      resourceId: "YOUR_PROJECT_ID",
+      action: "read:profile",
+    }),
+    signal: AbortSignal.timeout(5000),
+  },
+);
+
+if (response.status !== 200 ||
+    (await response.json()).authorized !== true) {
+  throw new Error("Access denied");
+}
+// Serve the protected action only after this check.`}</code>
+            </pre>
+            <p>
+              Replace the example IDs and action with the grant you want to check. Deny access on
+              every other response, invalid response, network error, or timeout. Load the resource
+              and verify its organization boundary in your app before serving it.
+            </p>
           </section>
           <section className="aside-card">
             <h2>Verification and recovery</h2>

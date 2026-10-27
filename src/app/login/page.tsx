@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthPageFeedback } from "@/components/auth-page-feedback";
+import { PasswordField } from "@/components/password-field";
 import { AuthPageFrame } from "@/components/auth-page-frame";
 import { getCurrentSession } from "@/lib/auth/service";
 import { safeConsumerAuthorizationReturnTo } from "@/lib/auth/consumer-sso";
@@ -50,11 +51,10 @@ export default async function LoginPage({
     <AuthPageFrame authenticated={false}>
       <header className="auth-heading login-heading">
         <p className="eyebrow">Account access</p>
-        <h1>Sign in to Perminister</h1>
-        <p>Use your central identity to manage permissions and API keys.</p>
+        <h1 id="login-title">Sign in to Perminister</h1>
+        <p>Sign in to manage your organizations, products, and access.</p>
       </header>
       <section className="auth-card" aria-labelledby="login-title">
-        <h2 id="login-title">Sign in</h2>
         <AuthPageFeedback
           error={params.error}
           errorText={errorText}
@@ -75,16 +75,7 @@ export default async function LoginPage({
             Email address
             <input name="email" type="email" autoComplete="username" maxLength={254} required />
           </label>
-          <label>
-            Password
-            <input
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              maxLength={256}
-              required
-            />
-          </label>
+          <PasswordField label="Password" name="password" autoComplete="current-password" />
           <button className="button button-primary form-submit" type="submit">
             Sign in
           </button>
