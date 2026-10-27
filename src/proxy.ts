@@ -298,6 +298,13 @@ async function proxyWrite(request: NextRequest): Promise<Response> {
 }
 
 export async function proxy(request: NextRequest): Promise<Response> {
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.PERMINISTER_UI_PREVIEW === "1" &&
+    !isReadMethod(request.method)
+  ) {
+    return errorResponse(403, "Mutations are disabled in UI preview mode.");
+  }
   if (request.nextUrl.pathname === "/oauth/authorize" && request.method === "GET") {
     const response = NextResponse.next();
     const contentSecurityPolicy = await consumerAuthorizationPolicy(request);
@@ -341,6 +348,7 @@ export async function proxy(request: NextRequest): Promise<Response> {
 
 export const config = {
   matcher: [
+    "/ui-preview/:path*",
     "/api/:path*",
     "/actions/:path*",
     "/oauth/authorize",

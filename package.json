@@ -30,7 +30,8 @@
     "health:a11y": "playwright test tests/e2e/guardrails.spec.ts --project=chromium --grep=WCAG",
     "health:visual": "if [ \"$RUN_VISUAL_REGRESSION\" = \"1\" ] || [ \"$(uname)\" = \"Darwin\" ]; then playwright test tests/e2e/guardrails.spec.ts --project=chromium; else echo \"Visual regression runs in the macOS guardrail job.\"; fi",
     "health:interactions": "vitest run tests/ui/user-interactions.test.tsx",
-    "health:styles": "stylelint --formatter json \"**/*.{css,pcss,postcss}\""
+    "health:styles": "stylelint --formatter json \"**/*.{css,pcss,postcss}\"",
+    "dev:preview": "PERMINISTER_UI_PREVIEW=1 next dev --webpack --hostname 127.0.0.1 --port 3217"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1146.0",

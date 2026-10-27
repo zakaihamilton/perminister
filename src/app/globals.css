@@ -8811,3 +8811,15 @@ html[data-theme="dark"] .dashboard-mobile-menu-trigger:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* Development-only preview controls. */
+.ui-preview-toolbar {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid currentColor;
+  border-radius: 0.5rem;
+}
+
+.ui-preview-toolbar a[aria-current="page"] {
+  font-weight: 700;
+}
