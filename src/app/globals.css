@@ -8820,6 +8820,16 @@ html[data-theme="dark"] .dashboard-mobile-menu-trigger:hover {
   border-radius: 0.5rem;
 }
 
+.ui-preview-screens {
+  margin: 0.5rem 0;
+}
+
+.ui-preview-screens summary {
+  cursor: pointer;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
 .ui-preview-toolbar nav {
   display: flex;
   flex-wrap: wrap;

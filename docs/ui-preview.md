@@ -6,7 +6,7 @@ needed. The command binds to loopback and starts a dedicated development mode.
 If file watching fails, use `WATCHPACK_POLLING=true pnpm dev:preview`.
 The route is available only in development with `PERMINISTER_UI_PREVIEW=1`.
 
-Select a screen and populated or empty scenario in the toolbar. The gallery uses
+Open the screen selector and choose a screen, then select the populated or empty scenario in the toolbar. The gallery uses
 fictional `.test` addresses and the application's production components:
 
 | Screens                                                                                         | Coverage                                                                   |

@@ -177,17 +177,20 @@ export default async function PreviewPage({
       >
         <div className="ui-preview-toolbar">
           <strong>UI preview · synthetic data</strong>{" "}
-          <nav aria-label="Preview screens">
-            {previewScreens.map((item) => (
-              <a
-                key={item}
-                href={`/ui-preview?screen=${item}&scenario=${scenario}`}
-                aria-current={screen === item ? "page" : undefined}
-              >
-                {item}
-              </a>
-            ))}
-          </nav>
+          <details className="ui-preview-screens">
+            <summary>Screen: {screen}</summary>
+            <nav aria-label="Preview screens">
+              {previewScreens.map((item) => (
+                <a
+                  key={item}
+                  href={`/ui-preview?screen=${item}&scenario=${scenario}`}
+                  aria-current={screen === item ? "page" : undefined}
+                >
+                  {item}
+                </a>
+              ))}
+            </nav>
+          </details>
           <a
             href={`/ui-preview?screen=${screen}&scenario=populated`}
             aria-current={!empty ? "page" : undefined}
