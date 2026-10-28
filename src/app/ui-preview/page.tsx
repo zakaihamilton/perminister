@@ -183,7 +183,6 @@ export default async function PreviewPage({
                 key={item}
                 href={`/ui-preview?screen=${item}&scenario=${scenario}`}
                 aria-current={screen === item ? "page" : undefined}
-                style={{ marginRight: 16 }}
               >
                 {item}
               </a>
