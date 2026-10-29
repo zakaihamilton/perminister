@@ -36,7 +36,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1146.0",
     "@node-rs/argon2": "^2.2.2",
-    "@zakaihamilton/ui-preview-kit": "github:zakaihamilton/ui-preview-kit#v0.1.1",
+    "ui-preview-kit": "^0.1.2",
     "next": "^16.4.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

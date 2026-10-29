@@ -57,7 +57,7 @@ import { InviteOrganizationMemberSection } from "@/components/organization-peopl
 import { ProductApiKeyCreationSection } from "@/components/product-api-key-sections";
 import { OrganizationRequestHistory } from "@/components/new-organization-sections";
 import { PreviewGuard } from "./preview-guard";
-import { PreviewDropdown, PreviewToolbar } from "@zakaihamilton/ui-preview-kit";
+import { PreviewDropdown, PreviewToolbar } from "ui-preview-kit";
 
 const organizationId = "preview-organization";
 const members: OrganizationMemberView[] = [
