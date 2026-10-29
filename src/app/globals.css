@@ -8811,37 +8811,3 @@ html[data-theme="dark"] .dashboard-mobile-menu-trigger:hover {
     grid-template-columns: 1fr;
   }
 }
-
-/* Development-only preview controls. */
-.ui-preview-toolbar {
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  border: 1px solid currentColor;
-  border-radius: 0.5rem;
-}
-
-.ui-preview-screens {
-  margin: 0.5rem 0;
-}
-
-.ui-preview-screens summary {
-  cursor: pointer;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-
-.ui-preview-toolbar nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  min-width: 0;
-  margin: 0.5rem 0;
-}
-
-.ui-preview-toolbar nav a {
-  overflow-wrap: anywhere;
-}
-
-.ui-preview-toolbar a[aria-current="page"] {
-  font-weight: 700;
-}

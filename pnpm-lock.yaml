@@ -32,6 +32,9 @@ importers:
       '@node-rs/argon2':
         specifier: ^2.2.2
         version: 2.2.2
+      '@zakaihamilton/ui-preview-kit':
+        specifier: github:zakaihamilton/ui-preview-kit#v0.1.1
+        version: https://codeload.github.com/zakaihamilton/ui-preview-kit/tar.gz/e7c65cdedd160b20ffc2c742345de69a117cb818(react@19.3.0)
       next:
         specifier: ^16.4.1
         version: 16.4.1(@playwright/test@1.64.0)(@types/node@24.19.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -1508,6 +1511,13 @@ packages:
 
   '@vitest/spy@5.0.3':
     resolution: {integrity: sha512-XhFysQTB8AZ+P4gMi+Lpo99vg2AZi0qKpaB9yXQl37+CaMEAPO3iH/wGVnSyL5MPERiLezpqTVtrR6UZH5GCXg==}
+
+  '@zakaihamilton/ui-preview-kit@https://codeload.github.com/zakaihamilton/ui-preview-kit/tar.gz/e7c65cdedd160b20ffc2c742345de69a117cb818':
+    resolution: {tarball: https://codeload.github.com/zakaihamilton/ui-preview-kit/tar.gz/e7c65cdedd160b20ffc2c742345de69a117cb818}
+    version: 0.1.1
+    hasBin: true
+    peerDependencies:
+      react: '>=19.0.0 <20'
 
   abbrev@1.1.1:
     resolution: {integrity: sha512-nne9/IiQ/hzIhY6pdDnbBtz7DjPTKrY00P/zvPSm5pOFkl6xuGrGnXn/VtTNNfNtAfZ9/1RtehkszU9qcTii0Q==}
@@ -6067,6 +6077,10 @@ snapshots:
       vite: 8.3.3(@types/node@24.19.2)(jiti@2.7.0)(yaml@2.9.1)
 
   '@vitest/spy@5.0.3': {}
+
+  '@zakaihamilton/ui-preview-kit@https://codeload.github.com/zakaihamilton/ui-preview-kit/tar.gz/e7c65cdedd160b20ffc2c742345de69a117cb818(react@19.3.0)':
+    dependencies:
+      react: 19.3.0
 
   abbrev@1.1.1: {}
 

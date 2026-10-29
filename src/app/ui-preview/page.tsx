@@ -57,6 +57,7 @@ import { InviteOrganizationMemberSection } from "@/components/organization-peopl
 import { ProductApiKeyCreationSection } from "@/components/product-api-key-sections";
 import { OrganizationRequestHistory } from "@/components/new-organization-sections";
 import { PreviewGuard } from "./preview-guard";
+import { PreviewDropdown, PreviewToolbar } from "@zakaihamilton/ui-preview-kit";
 
 const organizationId = "preview-organization";
 const members: OrganizationMemberView[] = [
@@ -157,7 +158,7 @@ export default async function PreviewPage({
   if (process.env.NODE_ENV !== "development" || process.env.PERMINISTER_UI_PREVIEW !== "1")
     notFound();
   const params = await searchParams;
-  const screen = previewScreens.includes(params.screen ?? "") ? params.screen : "overview";
+  const screen = params.screen && previewScreens.includes(params.screen) ? params.screen : "overview";
   const scenario = params.scenario === "empty" ? "empty" : "populated";
   const empty = scenario === "empty";
   const previewRole = "owner" as const;
@@ -175,45 +176,44 @@ export default async function PreviewPage({
         lastName="Example"
         breadcrumbs={<p>Preview / Example Studio</p>}
       >
-        <div className="ui-preview-toolbar">
-          <strong>UI preview · synthetic data</strong>{" "}
-          <details className="ui-preview-screens">
-            <summary>Screen: {screen}</summary>
-            <nav aria-label="Preview screens">
-              {previewScreens.map((item) => (
-                <a
-                  key={item}
-                  href={`/ui-preview?screen=${item}&scenario=${scenario}`}
-                  aria-current={screen === item ? "page" : undefined}
-                >
-                  {item}
-                </a>
-              ))}
-            </nav>
-          </details>
-          <a
-            href={`/ui-preview?screen=${screen}&scenario=populated`}
-            aria-current={!empty ? "page" : undefined}
-          >
-            Populated
-          </a>
-          {" · "}
-          <a
-            href={`/ui-preview?screen=${screen}&scenario=empty`}
-            aria-current={empty ? "page" : undefined}
-          >
-            Empty
-          </a>
-          <p>
-            <a href="/ui-preview/request">No-organization request shell</a>
-            {" · "}
-            <a href="/ui-preview/auth">Authorization and invitation</a>
-          </p>
-          <p>
-            Navigation and submissions inside the dashboard are disabled. Filtering and display
-            controls remain interactive.
-          </p>
-        </div>
+        <PreviewToolbar
+          variant="card"
+          subtitle="Synthetic data · changes are not saved"
+          note="Dashboard links and submissions are disabled; filtering and display controls remain interactive."
+          utilitiesLabel="Additional preview screens"
+          utilities={
+            <>
+              <a href="/ui-preview/request">Request shell</a>
+              <a href="/ui-preview/auth">Authorization and invitation</a>
+            </>
+          }
+        >
+          <PreviewDropdown
+            label="Screen"
+            value={screen}
+            options={previewScreens.map((item) => ({
+              value: item,
+              label: item.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
+              href: "/ui-preview?screen=" + encodeURIComponent(item) + "&scenario=" + scenario,
+            }))}
+          />
+          <PreviewDropdown
+            label="Scenario"
+            value={scenario}
+            options={[
+              {
+                value: "populated",
+                label: "Populated",
+                href: "/ui-preview?screen=" + encodeURIComponent(screen) + "&scenario=populated",
+              },
+              {
+                value: "empty",
+                label: "Empty",
+                href: "/ui-preview?screen=" + encodeURIComponent(screen) + "&scenario=empty",
+              },
+            ]}
+          />
+        </PreviewToolbar>
         {screen?.startsWith("product-") && (
           <ProductNavigation
             isSharedInstallation={false}
