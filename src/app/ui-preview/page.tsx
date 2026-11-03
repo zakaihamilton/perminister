@@ -250,7 +250,6 @@ export default async function PreviewPage({
               productId="field-notes"
               productName="Field Notes"
               returnTo="/ui-preview"
-              clientsPath="/ui-preview"
             />
           </>
         )}

@@ -28,7 +28,7 @@ export function CopyAppClientEnvironmentButton({
     setCopyState("idle");
     try {
       await navigator.clipboard.writeText(
-        `PERMINISTER_APP_CLIENT_ID=${clientId}\nPERMINSITER_APP_CLIENT_SECRET=${secret}`,
+        `PERMINISTER_APP_CLIENT_ID=${clientId}\nPERMINISTER_APP_CLIENT_SECRET=${secret}`,
       );
       setCopyState("copied");
       copyStateTimeout.current = setTimeout(() => {

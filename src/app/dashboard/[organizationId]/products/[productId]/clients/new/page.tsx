@@ -33,7 +33,6 @@ export default async function NewConsumerClientPage({ params }: ProductPageParam
         productId={productId}
         productName={access.product.name}
         returnTo={createPath}
-        clientsPath={clientsPath}
       />
     </>
   );
