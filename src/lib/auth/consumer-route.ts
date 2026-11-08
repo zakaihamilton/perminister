@@ -1,7 +1,8 @@
 import "server-only";
 
 import { authenticateConsumerClient, type ConsumerClient } from "./consumer-clients";
-import { isOrganizationId } from "./consumer-policy";
+import { isConsumerResourceId, isOrganizationId } from "./consumer-policy";
+import { withApiRoutePerformance } from "./performance";
 import {
   bearerToken,
   isJsonObject,
@@ -10,7 +11,12 @@ import {
   readBoundedJson,
   RequestBodyTooLargeError,
 } from "./http";
-import { getSessionFromToken, type AuthenticatedSession } from "./service";
+import {
+  bootstrapProjectAdmin,
+  bootstrapWorkspaceAdmin,
+  getSessionFromToken,
+  type AuthenticatedSession,
+} from "./service";
 
 export interface ConsumerRequestContext {
   client: ConsumerClient;
@@ -86,6 +92,44 @@ export async function requireConsumerJsonRequest(
   const body = await readConsumerJsonBody(request, maxBytes);
   if (body instanceof Response) return body;
   return { ...context, body };
+}
+
+export function consumerResourceBootstrapRoute(resourceKind: "project" | "workspace") {
+  const routePath = `POST /api/auth/consumer/${resourceKind}s`;
+  const resourceName = resourceKind === "project" ? "Project" : "Workspace";
+  const bootstrap = resourceKind === "project" ? bootstrapProjectAdmin : bootstrapWorkspaceAdmin;
+
+  return withApiRoutePerformance(routePath, async function POST(request: Request) {
+    const parsed = await requireConsumerJsonRequest(request, 4096);
+    if (parsed instanceof Response) return parsed;
+    const { body, ...auth } = parsed;
+    const resourceId = isJsonObject(body) ? body[`${resourceKind}Id`] : undefined;
+    if (
+      !isJsonObject(body) ||
+      !isOrganizationId(body.organizationId) ||
+      typeof resourceId !== "string" ||
+      (resourceKind === "project"
+        ? !isConsumerResourceId(resourceId)
+        : !isOrganizationId(resourceId))
+    ) {
+      return Response.json(
+        { error: `Provide a valid organizationId and ${resourceKind}Id.` },
+        { status: 400, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    try {
+      await bootstrap(
+        auth.current.subject.subjectId,
+        auth.client.productId,
+        body.organizationId.toLowerCase(),
+        resourceId.toLowerCase(),
+      );
+      return Response.json({ granted: true }, { headers: NO_STORE_HEADERS });
+    } catch (error) {
+      return consumerServiceError(error, `${resourceName} access could not be provisioned.`);
+    }
+  });
 }
 
 async function requireJsonObjectBody<T extends { body: unknown }>(

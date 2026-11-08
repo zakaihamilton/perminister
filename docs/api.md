@@ -236,6 +236,25 @@ Send `organizationId` and, for `POST`, `workspaceId` in a JSON body. Send `organ
 `DELETE` JSON body. Both identifiers must be UUIDs. The product creates and deletes its local
 workspace records separately from these Perminister operations.
 
+## Project lifecycle
+
+A product can bootstrap or remove project access without first having a project-level member
+manager. These operations require a consumer session for the product whose subject is an
+organization owner or admin. Project IDs are product-defined opaque identifiers (for example, a
+UUID or slug). Bootstrap grants the caller the `admin` role on that project and is safe to retry.
+Revocation disables every grant for the supplied project ID and is also safe to retry; it does not
+delete the product's project or associated data.
+
+| Method   | Route                                     | Purpose                                    |
+| -------- | ----------------------------------------- | ------------------------------------------ |
+| `POST`   | `/api/auth/consumer/projects`             | Grant the caller admin access to a project |
+| `DELETE` | `/api/auth/consumer/projects/{projectId}` | Revoke all grants for a project            |
+
+Send `organizationId` and, for `POST`, `projectId` in a JSON body. Send `organizationId` in the
+`DELETE` JSON body. The organization ID must be a UUID; project IDs may contain letters, numbers,
+periods, underscores, colons, or hyphens. The product creates and deletes its local project records
+separately from these Perminister operations.
+
 Product administrators also have product-wide account controls. These endpoints use the same client
 and session headers, and the actor needs the product's account-management permission in the supplied
 organization:
