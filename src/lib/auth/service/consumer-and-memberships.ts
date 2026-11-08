@@ -745,10 +745,11 @@ async function requireConsumerScopeManagerUnlocked(
     !membership.permissionGrants?.some(
       (grant) =>
         grant.status === "active" &&
-        sameConsumerMemberScope(grant.scope, scope) &&
+        (scopeMatchesGrant(grant.scope, scope) || sameConsumerMemberScope(grant.scope, scope)) &&
         grant.grants.some(
           (permission) =>
-            sameConsumerMemberScope(permission.scope, scope) &&
+            (scopeMatchesGrant(permission.scope, scope) ||
+              sameConsumerMemberScope(permission.scope, scope)) &&
             permission.actions.includes(policy.memberManagementAction),
         ),
     )
