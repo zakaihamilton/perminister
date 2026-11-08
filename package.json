@@ -18,7 +18,7 @@
     "storage:rebuild-indexes": "node scripts/rebuild-spaces-indexes.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --write docs/api.md src/app/ui-preview/page.tsx src/lib/auth/service/consumer-and-memberships.ts && git -c color.ui=false --no-pager diff -- docs/api.md src/app/ui-preview/page.tsx src/lib/auth/service/consumer-and-memberships.ts && exit 1",
+    "format:check": "prettier --check .",
     "health": "repnix check",
     "health:dead-code": "knip",
     "health:duplication": "jscpd src",

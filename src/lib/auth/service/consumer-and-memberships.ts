@@ -1177,13 +1177,7 @@ export function revokeWorkspaceGrants(
   organizationId: string,
   workspaceId: string,
 ): Promise<void> {
-  return revokeConsumerResourceGrants(
-    actorId,
-    productId,
-    organizationId,
-    workspaceId,
-    "workspace",
-  );
+  return revokeConsumerResourceGrants(actorId, productId, organizationId, workspaceId, "workspace");
 }
 
 export function bootstrapProjectAdmin(
@@ -1192,13 +1186,7 @@ export function bootstrapProjectAdmin(
   organizationId: string,
   projectId: string,
 ): Promise<void> {
-  return bootstrapConsumerResourceAdmin(
-    actorId,
-    productId,
-    organizationId,
-    projectId,
-    "project",
-  );
+  return bootstrapConsumerResourceAdmin(actorId, productId, organizationId, projectId, "project");
 }
 
 export function revokeProjectGrants(
@@ -1207,13 +1195,7 @@ export function revokeProjectGrants(
   organizationId: string,
   projectId: string,
 ): Promise<void> {
-  return revokeConsumerResourceGrants(
-    actorId,
-    productId,
-    organizationId,
-    projectId,
-    "project",
-  );
+  return revokeConsumerResourceGrants(actorId, productId, organizationId, projectId, "project");
 }
 
 async function setConsumerPlatformAdminUnlocked(

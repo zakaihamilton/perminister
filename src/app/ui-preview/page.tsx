@@ -158,7 +158,8 @@ export default async function PreviewPage({
   if (process.env.NODE_ENV !== "development" || process.env.PERMINISTER_UI_PREVIEW !== "1")
     notFound();
   const params = await searchParams;
-  const screen = params.screen && previewScreens.includes(params.screen) ? params.screen : "overview";
+  const screen =
+    params.screen && previewScreens.includes(params.screen) ? params.screen : "overview";
   const scenario = params.scenario === "empty" ? "empty" : "populated";
   const empty = scenario === "empty";
   const previewRole = "owner" as const;
