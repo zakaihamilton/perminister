@@ -681,6 +681,17 @@ function sameResourceScope(left: ResourceScope, right: ResourceScope): boolean {
   );
 }
 
+function sameConsumerMemberScope(grantScope: ResourceScope, requestedScope: ResourceScope): boolean {
+  if (sameResourceScope(grantScope, requestedScope)) return true;
+  return (
+    requestedScope.kind === "project" &&
+    grantScope.kind === "workspace" &&
+    grantScope.organizationId.toLowerCase() === requestedScope.organizationId.toLowerCase() &&
+    grantScope.productId.toLowerCase() === requestedScope.productId.toLowerCase() &&
+    grantScope.workspaceId.toLowerCase() === requestedScope.projectId.toLowerCase()
+  );
+}
+
 function roleGrant(
   authenticatedProductId: string,
   subjectId: SubjectId,
@@ -731,7 +742,16 @@ async function requireConsumerScopeManagerUnlocked(
   if (
     !membership ||
     membership.status !== "active" ||
-    !productMembershipHasPermission(membership, scope, policy.memberManagementAction)
+    !membership.permissionGrants?.some(
+      (grant) =>
+        grant.status === "active" &&
+        sameConsumerMemberScope(grant.scope, scope) &&
+        grant.grants.some(
+          (permission) =>
+            sameConsumerMemberScope(permission.scope, scope) &&
+            permission.actions.includes(policy.memberManagementAction),
+        ),
+    )
   ) {
     throw new Error("You do not have permission to manage this resource's members.");
   }
@@ -788,8 +808,11 @@ function consumerMemberGrant(
   membership: OrganizationMembershipRecord,
   scope: ResourceScope,
 ): MembershipRecord | null {
+  const grants = membership.permissionGrants ?? [];
   return (
-    membership.permissionGrants?.find((grant) => sameResourceScope(grant.scope, scope)) ?? null
+    grants.find((grant) => sameResourceScope(grant.scope, scope)) ??
+    grants.find((grant) => sameConsumerMemberScope(grant.scope, scope)) ??
+    null
   );
 }
 
@@ -814,7 +837,7 @@ export async function listConsumerMembers(
     ).filter(
       (membership) =>
         membership.productId === scope.productId &&
-        membership.permissionGrants?.some((grant) => sameResourceScope(grant.scope, scope)),
+        membership.permissionGrants?.some((grant) => sameConsumerMemberScope(grant.scope, scope)),
     );
     const members = await mapWithConcurrency(rows, async (membership) => {
       const grant = consumerMemberGrant(membership, scope);
@@ -991,114 +1014,201 @@ async function isConsumerPlatformAdminUnlocked(
   );
 }
 
-type WorkspaceManagementContext = {
+type ManagedResourceKind = "workspace" | "project";
+type ResourceManagementContext = {
   organizationId: string;
-  workspaceId: string;
+  resourceId: string;
   productId: string;
-  scope: ReturnType<typeof validateScope>;
+  scope: Extract<ResourceScope, { kind: ManagedResourceKind }>;
 };
 
-async function withWorkspaceManagement<T>(
+async function withConsumerResourceManagement<T>(
   actorId: SubjectId,
   productIdInput: string,
   organizationIdInput: string,
-  workspaceIdInput: string,
-  operation: (context: WorkspaceManagementContext) => Promise<T>,
+  resourceIdInput: string,
+  resourceKind: ManagedResourceKind,
+  operation: (context: ResourceManagementContext) => Promise<T>,
 ): Promise<T> {
   const productId = validateProductId(productIdInput);
   const organizationId = organizationIdInput.trim().toLowerCase();
-  const workspaceId = workspaceIdInput.trim().toLowerCase();
+  const resourceId = resourceIdInput.trim().toLowerCase();
   assertOpaqueId(organizationId);
-  assertOpaqueId(workspaceId);
-  const scope = validateScope({
-    kind: "workspace",
-    organizationId: organizationId as OrganizationId,
-    productId,
-    workspaceId,
-  });
+  const scope = validateScope(
+    resourceKind === "workspace"
+      ? {
+          kind: "workspace",
+          organizationId: organizationId as OrganizationId,
+          productId,
+          workspaceId: resourceId,
+        }
+      : {
+          kind: "project",
+          organizationId: organizationId as OrganizationId,
+          productId,
+          projectId: resourceId,
+        },
+  ) as Extract<ResourceScope, { kind: ManagedResourceKind }>;
+  if (resourceKind === "workspace") assertOpaqueId(resourceId);
 
   return authMutationQueue.run(() =>
     withOrganizationMutationLock(organizationId, async () => {
       await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
       await requireOrganizationProductUnlocked(organizationId, productId);
-      return operation({ organizationId, workspaceId, productId, scope });
+      return operation({ organizationId, resourceId, productId, scope });
     }),
   );
 }
 
-export async function bootstrapWorkspaceAdmin(
+async function bootstrapConsumerResourceAdmin(
   actorId: SubjectId,
   productId: string,
-  organizationIdInput: string,
-  workspaceIdInput: string,
+  organizationId: string,
+  resourceId: string,
+  resourceKind: ManagedResourceKind,
 ): Promise<void> {
-  await withWorkspaceManagement(
+  await withConsumerResourceManagement(
     actorId,
     productId,
-    organizationIdInput,
-    workspaceIdInput,
-    async ({ organizationId, productId, scope }) => {
+    organizationId,
+    resourceId,
+    resourceKind,
+    async ({ organizationId: normalizedOrganizationId, productId: normalizedProductId, scope }) => {
       const actor = await loadSubjectUnlocked(actorId);
       requireVerifiedActiveSubject(actor);
-      if (consumerProductState(actor, productId).status !== "active") {
+      if (consumerProductState(actor, normalizedProductId).status !== "active") {
         throw new Error("This account is disabled for the application.");
       }
 
       const existingMembership = await store().readOrganizationMembership(
-        organizationId,
+        normalizedOrganizationId,
         actorId,
-        productId,
+        normalizedProductId,
       );
       if (existingMembership?.status === "disabled") {
         throw new Error("This account is disabled for the application.");
       }
       const membership =
         existingMembership ??
-        (await ensureConsumerProductMembershipUnlocked(actor, organizationId, productId));
-      const actions = consumerRoleActions(productId, "admin", "workspace");
-      if (!actions) throw new Error("Workspace administration is unavailable.");
+        (await ensureConsumerProductMembershipUnlocked(
+          actor,
+          normalizedOrganizationId,
+          normalizedProductId,
+        ));
+      const actions = consumerRoleActions(normalizedProductId, "admin", resourceKind);
+      if (!actions) throw new Error(`${resourceKind} administration is unavailable.`);
       const currentGrant = consumerMemberGrant(membership, scope);
       const grant = roleGrant(
-        productId,
+        normalizedProductId,
         actorId,
         scope,
         "admin",
         actions,
         currentGrant ?? undefined,
       );
-      await persistRecord(grant, "consumer.workspace-admin-bootstrapped", {
-        kind: "subject",
-        subjectId: actorId,
-      });
+      const event =
+        resourceKind === "workspace"
+          ? "consumer.workspace-admin-bootstrapped"
+          : "consumer.project-admin-bootstrapped";
+      await persistRecord(grant, event, { kind: "subject", subjectId: actorId });
     },
   );
 }
 
-export async function revokeWorkspaceGrants(
+async function revokeConsumerResourceGrants(
   actorId: SubjectId,
   productId: string,
-  organizationIdInput: string,
-  workspaceIdInput: string,
+  organizationId: string,
+  resourceId: string,
+  resourceKind: ManagedResourceKind,
 ): Promise<void> {
-  await withWorkspaceManagement(
+  await withConsumerResourceManagement(
     actorId,
     productId,
-    organizationIdInput,
-    workspaceIdInput,
-    async ({ organizationId, productId, scope }) => {
-      const memberships = await store().listOrganizationMemberships(organizationId, productId);
+    organizationId,
+    resourceId,
+    resourceKind,
+    async ({ organizationId: normalizedOrganizationId, productId: normalizedProductId, scope }) => {
+      const memberships = await store().listOrganizationMemberships(
+        normalizedOrganizationId,
+        normalizedProductId,
+      );
       for (const membership of memberships) {
-        if (membership.productId !== productId) continue;
+        if (membership.productId !== normalizedProductId) continue;
         for (const grant of membership.permissionGrants ?? []) {
           if (!sameResourceScope(grant.scope, scope) || grant.status !== "active") continue;
+          const event =
+            resourceKind === "workspace"
+              ? "consumer.workspace-access-revoked"
+              : "consumer.project-access-revoked";
           await persistRecord(
             { ...grant, status: "disabled", updatedAt: new Date().toISOString() },
-            "consumer.workspace-access-revoked",
+            event,
             { kind: "subject", subjectId: actorId },
           );
         }
       }
     },
+  );
+}
+
+export function bootstrapWorkspaceAdmin(
+  actorId: SubjectId,
+  productId: string,
+  organizationId: string,
+  workspaceId: string,
+): Promise<void> {
+  return bootstrapConsumerResourceAdmin(
+    actorId,
+    productId,
+    organizationId,
+    workspaceId,
+    "workspace",
+  );
+}
+
+export function revokeWorkspaceGrants(
+  actorId: SubjectId,
+  productId: string,
+  organizationId: string,
+  workspaceId: string,
+): Promise<void> {
+  return revokeConsumerResourceGrants(
+    actorId,
+    productId,
+    organizationId,
+    workspaceId,
+    "workspace",
+  );
+}
+
+export function bootstrapProjectAdmin(
+  actorId: SubjectId,
+  productId: string,
+  organizationId: string,
+  projectId: string,
+): Promise<void> {
+  return bootstrapConsumerResourceAdmin(
+    actorId,
+    productId,
+    organizationId,
+    projectId,
+    "project",
+  );
+}
+
+export function revokeProjectGrants(
+  actorId: SubjectId,
+  productId: string,
+  organizationId: string,
+  projectId: string,
+): Promise<void> {
+  return revokeConsumerResourceGrants(
+    actorId,
+    productId,
+    organizationId,
+    projectId,
+    "project",
   );
 }
 
@@ -1166,7 +1276,7 @@ async function isConsumerIdentitySharedAcrossProductsUnlocked(
   );
 }
 
-async function protectLastWorkspaceAdminUnlocked(
+async function protectLastResourceAdminUnlocked(
   targetId: SubjectId,
   scope: ResourceScope,
   currentGrant: MembershipRecord,
@@ -1174,7 +1284,7 @@ async function protectLastWorkspaceAdminUnlocked(
   nextStatus: "active" | "disabled",
 ): Promise<void> {
   if (
-    scope.kind !== "workspace" ||
+    (scope.kind !== "workspace" && scope.kind !== "project") ||
     currentGrant.status !== "active" ||
     currentGrant.accessRole?.name !== "admin" ||
     (nextRole === "admin" && nextStatus === "active")
@@ -1191,7 +1301,7 @@ async function protectLastWorkspaceAdminUnlocked(
       membership.status === "active" &&
       membership.permissionGrants?.some(
         (grant) =>
-          sameResourceScope(grant.scope, scope) &&
+          sameConsumerMemberScope(grant.scope, scope) &&
           grant.status === "active" &&
           grant.accessRole?.name === "admin" &&
           grant.subjectId !== targetId,
@@ -1201,7 +1311,7 @@ async function protectLastWorkspaceAdminUnlocked(
       if (subject?.status === "active") return;
     }
   }
-  throw new Error("The workspace must keep an active administrator.");
+  throw new Error("This project or workspace must keep an active administrator.");
 }
 
 export async function createConsumerMember(
@@ -1353,7 +1463,7 @@ export async function updateConsumerMember(
       }
       const nextRole = input.role ?? currentGrant.accessRole?.name ?? null;
       const nextStatus = input.status ?? currentGrant.status;
-      await protectLastWorkspaceAdminUnlocked(subjectId, scope, currentGrant, nextRole, nextStatus);
+      await protectLastResourceAdminUnlocked(subjectId, scope, currentGrant, nextRole, nextStatus);
       let nextGrant = currentGrant;
       if (input.status === "active" && productMembership.status !== "active") {
         await persistRecord(

@@ -85,6 +85,7 @@ export {
 
 export {
   acceptOrganizationInvitation,
+  bootstrapProjectAdmin,
   bootstrapWorkspaceAdmin,
   completeOrganizationInvitationResend,
   createConsumerAccount,
@@ -110,6 +111,7 @@ export {
   revokeConsumerClient,
   revokeOrganizationInvitation,
   revokeProductInvitation,
+  revokeProjectGrants,
   revokeWorkspaceGrants,
   rotateConsumerClient,
   updateConsumerAccount,

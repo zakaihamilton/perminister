@@ -50,6 +50,10 @@ export function isOrganizationId(value: unknown): value is string {
   return typeof value === "string" && ORGANIZATION_ID_PATTERN.test(value);
 }
 
+export function isConsumerResourceId(value: unknown): value is string {
+  return typeof value === "string" && RESOURCE_ID_PATTERN.test(value);
+}
+
 export function isConsumerResourceScope(value: Record<string, unknown>): boolean {
   return (
     isOrganizationId(value.organizationId) &&
