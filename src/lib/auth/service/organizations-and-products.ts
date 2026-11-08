@@ -652,6 +652,9 @@ export async function updateOrganizationProduct(
       if (current.record.sharedProductRef) {
         throw new Error("Shared product details are controlled by the publishing organization.");
       }
+      if (current.record.archivedAt) {
+        throw new Error("This product is archived. Restore it before making changes.");
+      }
       const next: ProductRecord = {
         ...current.record,
         ...details,
@@ -677,6 +680,17 @@ export interface ProductShareInfo {
   adopterOrganizations: Array<{ organizationId: string; name: string }>;
 }
 
+export interface ArchivedProductEntry {
+  product: ProductRecord;
+  adopterOrganizations: Array<{ organizationId: string; name: string }>;
+}
+
+export interface ProductDeletionResult {
+  productId: string;
+  affectedOrganizationIds: string[];
+  removedSharedInstallation: boolean;
+}
+
 export interface AdministratorPublicProductTransferEntry {
   product: ProductRecord;
   publisherOrganizationName: string;
@@ -698,7 +712,13 @@ export interface OrganizationProductTransferOptions {
 }
 
 export function isSharedProductSource(product: ProductRecord): boolean {
-  return !product.sharedProductRef && product.visibility === "public";
+  return (
+    !product.sharedProductRef &&
+    !product.archivedAt &&
+    !product.deletionStartedAt &&
+    !product.deletedAt &&
+    product.visibility === "public"
+  );
 }
 
 function hasAnotherPublicPublisher(
@@ -1116,7 +1136,7 @@ export async function getProductShareInfo(
       throw new Error("Product not found.");
     }
     const products = await listProductsByProductIdDuringRender(found.record.productId);
-    if (hasAnotherPublicPublisher(found.record, products)) return null;
+    if (!found.record.archivedAt && hasAnotherPublicPublisher(found.record, products)) return null;
 
     const installations = sharedInstallationsForSource(found.record, products);
     return {
@@ -1203,7 +1223,10 @@ export async function getOwnedPublicProductTransferOptions(
     if (
       !found ||
       found.record.organizationId !== sourceOrganizationId ||
-      found.record.sharedProductRef
+      found.record.sharedProductRef ||
+      found.record.archivedAt ||
+      found.record.deletionStartedAt ||
+      found.record.deletedAt
     ) {
       return { destinations: [] };
     }
@@ -1302,6 +1325,9 @@ async function transferPublicProduct(
     if (
       !initial ||
       initial.record.sharedProductRef ||
+      initial.record.archivedAt ||
+      initial.record.deletionStartedAt ||
+      initial.record.deletedAt ||
       (sourceOrganizationId && initial.record.organizationId !== sourceOrganizationId)
     ) {
       throw new Error("Only a public publisher product can be transferred.");
@@ -1356,6 +1382,9 @@ async function transferPublicProduct(
         throw new Error("Only a public publisher product can be transferred.");
       }
       const source = sourceRecord.record;
+      if (source.archivedAt || source.deletionStartedAt || source.deletedAt) {
+        throw new Error("Only an active public publisher product can be transferred.");
+      }
       if (sourceOrganizationId && source.organizationId !== sourceOrganizationId) {
         throw new Error("Only a public publisher product can be transferred.");
       }
@@ -1696,6 +1725,282 @@ async function revokeDetachedProductDataUnlocked(
   }
 }
 
+export async function archiveOrganizationProduct(
+  actorId: SubjectId,
+  organizationId: string,
+  productRecordId: string,
+): Promise<ProductRecord> {
+  assertOpaqueId(productRecordId);
+  return authMutationQueue.run(async () => {
+    const initial = await loadRecord("product", productRecordId);
+    if (!initial || initial.record.organizationId !== organizationId) {
+      throw new Error("Product not found.");
+    }
+    const lockIds = [
+      organizationId,
+      ...(initial.record.sharedProductRef
+        ? [initial.record.sharedProductRef.sourceOrganizationId]
+        : []),
+    ];
+    return withOrganizationMutationLocks(lockIds, async () => {
+      const actor = await requireOrganizationRoleUnlocked(actorId, organizationId, [
+        "owner",
+        "admin",
+      ]);
+      const current = await loadRecord("product", productRecordId);
+      if (!current || current.record.organizationId !== organizationId) {
+        throw new Error("Product not found.");
+      }
+      if (current.record.deletionStartedAt || current.record.deletedAt) {
+        throw new Error("This product is already being deleted.");
+      }
+      if (current.record.archivedAt) return current.record;
+
+      const now = new Date().toISOString();
+      const archived = { ...current.record, archivedAt: now, updatedAt: now };
+      await persistRecord(archived, "product.archived", {
+        kind: "subject",
+        subjectId: actor.subjectId,
+      });
+      return archived;
+    });
+  });
+}
+
+export async function restoreOrganizationProduct(
+  actorId: SubjectId,
+  organizationId: string,
+  productRecordId: string,
+): Promise<ProductRecord> {
+  assertOpaqueId(productRecordId);
+  return authMutationQueue.run(async () => {
+    const initial = await loadRecord("product", productRecordId);
+    if (!initial || initial.record.organizationId !== organizationId) {
+      throw new Error("Product not found.");
+    }
+    const lockIds = [
+      organizationId,
+      ...(initial.record.sharedProductRef
+        ? [initial.record.sharedProductRef.sourceOrganizationId]
+        : []),
+    ];
+    return withOrganizationMutationLocks(lockIds, async () => {
+      const actor = await requireOrganizationRoleUnlocked(actorId, organizationId, [
+        "owner",
+        "admin",
+      ]);
+      const current = await loadRecord("product", productRecordId);
+      if (!current || current.record.organizationId !== organizationId) {
+        throw new Error("Product not found.");
+      }
+      if (current.record.deletionStartedAt || current.record.deletedAt) {
+        throw new Error("A product being deleted cannot be restored.");
+      }
+      if (!current.record.archivedAt) return current.record;
+
+      if (current.record.sharedProductRef) {
+        const publisher = await store().readProduct(
+          current.record.sharedProductRef.sourceOrganizationId,
+          current.record.sharedProductRef.sourceProductId,
+        );
+        if (!publisher || publisher.visibility !== "public") {
+          throw new Error("The product publisher is no longer available to restore this product.");
+        }
+      } else if (
+        current.record.visibility === "public" &&
+        hasAnotherPublicPublisher(
+          current.record,
+          await store().listProductsByProductId(current.record.productId),
+        )
+      ) {
+        throw new Error(
+          "Another organization now publishes a product with this ID. This archived product cannot be restored while that publisher is active.",
+        );
+      }
+
+      const now = new Date().toISOString();
+      const restored = { ...current.record, archivedAt: undefined, updatedAt: now };
+      await persistRecord(restored, "product.restored", {
+        kind: "subject",
+        subjectId: actor.subjectId,
+      });
+      return restored;
+    });
+  });
+}
+
+export async function listArchivedProductsForOrganization(
+  actorId: SubjectId,
+  organizationId: string,
+): Promise<ArchivedProductEntry[]> {
+  return authMutationQueue.read(async () => {
+    await requireOrganizationRoleUnlocked(actorId, organizationId, ["owner", "admin"]);
+    const products = (await listRecordsWithRecovery("product"))
+      .map((entry) => entry.record)
+      .filter(
+        (product) =>
+          product.organizationId === organizationId &&
+          !product.deletedAt &&
+          (!!product.archivedAt || !!product.deletionStartedAt),
+      );
+    return Promise.all(
+      products.map(async (product) => ({
+        product,
+        adopterOrganizations: product.sharedProductRef
+          ? []
+          : await organizationNamesForInstallationsUnlocked(
+              sharedInstallationsForSource(
+                product,
+                await store().listProductsByProductId(product.productId),
+              ),
+            ),
+      })),
+    );
+  });
+}
+
+export async function deleteOrganizationProduct(
+  actorId: SubjectId,
+  organizationId: string,
+  productRecordId: string,
+  confirmedRemoval = false,
+): Promise<ProductDeletionResult> {
+  assertOpaqueId(productRecordId);
+  return authMutationQueue.run(async () => {
+    const initial = await loadRecord("product", productRecordId);
+    if (!initial || initial.record.organizationId !== organizationId) {
+      throw new Error("Product not found.");
+    }
+    const isSharedInstallation = !!initial.record.sharedProductRef;
+    const initialProducts = isSharedInstallation
+      ? [initial.record]
+      : await store().listProductsByProductId(initial.record.productId);
+    const initialInstallations = isSharedInstallation
+      ? [initial.record]
+      : sharedInstallationsForSource(initial.record, initialProducts);
+    const lockIds = [
+      organizationId,
+      ...(isSharedInstallation
+        ? [initial.record.sharedProductRef!.sourceOrganizationId]
+        : initialInstallations.map((installation) => installation.organizationId)),
+    ];
+
+    return withOrganizationMutationLocks(lockIds, async () => {
+      const actor = await requireOrganizationRoleUnlocked(actorId, organizationId, [
+        "owner",
+        "admin",
+      ]);
+      let current = await loadRecord("product", productRecordId);
+      if (!current || current.record.organizationId !== organizationId) {
+        throw new Error("Product not found.");
+      }
+      if (current.record.deletedAt) {
+        return {
+          productId: current.record.productId,
+          affectedOrganizationIds: lockIds,
+          removedSharedInstallation: isSharedInstallation,
+        };
+      }
+      if (!current.record.archivedAt) {
+        throw new Error("Archive this product before deleting it.");
+      }
+
+      const latestProducts = isSharedInstallation
+        ? [current.record]
+        : await store().listProductsByProductId(current.record.productId);
+      const installations = isSharedInstallation
+        ? [current.record]
+        : sharedInstallationsForSource(current.record, latestProducts);
+      const unheldOrganizations = installations
+        .filter((installation) => !installation.sharedProductRef?.detachedAt)
+        .map((installation) => installation.organizationId)
+        .filter((id) => !lockIds.includes(id));
+      if (unheldOrganizations.length) {
+        throw new Error("Product installations changed. Retry deleting the archived product.");
+      }
+      const activeInstallations = installations.filter(
+        (installation) => !installation.sharedProductRef?.detachedAt,
+      );
+      if (!isSharedInstallation && activeInstallations.length > 0 && !confirmedRemoval) {
+        throw new Error("Confirm removing the product from its installed organizations.");
+      }
+
+      const now = new Date().toISOString();
+      if (!current.record.deletionStartedAt) {
+        const started = { ...current.record, deletionStartedAt: now, updatedAt: now };
+        await persistRecord(started, "product.deletion-started", {
+          kind: "subject",
+          subjectId: actor.subjectId,
+        });
+        current = { ...current, record: started };
+      }
+
+      const affectedOrganizationIds = [
+        ...new Set([
+          ...lockIds,
+          ...installations.map((installation) => installation.organizationId),
+        ]),
+      ];
+      const cleanupTargets = isSharedInstallation
+        ? [current.record]
+        : [current.record, ...installations];
+      for (const target of cleanupTargets) {
+        await revokeDetachedProductDataUnlocked(
+          actor.subjectId,
+          target.organizationId,
+          target.productId,
+        );
+      }
+
+      if (!isSharedInstallation) {
+        for (const installation of installations) {
+          const reference = installation.sharedProductRef;
+          if (!reference || reference.detachedAt || installation.deletedAt) continue;
+          await persistRecord(
+            {
+              ...installation,
+              sharedProductRef: { ...reference, detachedAt: now },
+              deletedAt: now,
+              updatedAt: now,
+            },
+            "product.shared-installation-removed",
+            { kind: "subject", subjectId: actor.subjectId },
+          );
+        }
+      } else if (!current.record.sharedProductRef?.detachedAt) {
+        await persistRecord(
+          {
+            ...current.record,
+            sharedProductRef: { ...current.record.sharedProductRef!, detachedAt: now },
+            deletedAt: now,
+            updatedAt: now,
+          },
+          "product.shared-installation-removed",
+          { kind: "subject", subjectId: actor.subjectId },
+        );
+      }
+
+      const latest = await loadRecord("product", productRecordId);
+      if (latest && !latest.record.deletedAt) {
+        await persistRecord(
+          { ...latest.record, deletedAt: now, updatedAt: now },
+          "product.deleted",
+          { kind: "subject", subjectId: actor.subjectId },
+          {
+            affectedOrganizationIds,
+            removedSharedInstallation: isSharedInstallation,
+          },
+        );
+      }
+      return {
+        productId: current.record.productId,
+        affectedOrganizationIds,
+        removedSharedInstallation: isSharedInstallation,
+      };
+    });
+  });
+}
+
 export async function setOrganizationProductVisibility(
   actorId: SubjectId,
   organizationId: string,
@@ -1731,6 +2036,13 @@ export async function setOrganizationProductVisibility(
         current.record.sharedProductRef
       ) {
         throw new Error("Product not found.");
+      }
+      if (
+        current.record.archivedAt ||
+        current.record.deletionStartedAt ||
+        current.record.deletedAt
+      ) {
+        throw new Error("This product is archived. Restore it before making changes.");
       }
       const currentProducts = await store().listProductsByProductId(current.record.productId);
       if (visibility === "public" && hasAnotherPublicPublisher(current.record, currentProducts)) {
@@ -1902,7 +2214,13 @@ export const listProductsForOrganization = cache(async function listProductsForO
     );
     if (!catalogManager && allowedProducts.size === 0) throw new Error("Organization not found.");
     return products
-      .filter((product) => !!catalogManager || allowedProducts.has(product.productId))
+      .filter(
+        (product) =>
+          !product.archivedAt &&
+          !product.deletionStartedAt &&
+          !product.deletedAt &&
+          (!!catalogManager || allowedProducts.has(product.productId)),
+      )
       .sort((left, right) => left.name.localeCompare(right.name));
   });
 });
@@ -2036,7 +2354,13 @@ export const getOrganizationDashboardData = cache(async function getOrganization
         .filter((summary): summary is OrganizationSummary => summary !== null)
         .sort((left, right) => left.organization.name.localeCompare(right.organization.name)),
       products: allProducts
-        .filter((product) => !!catalogMembership || allowedProductIds.has(product.productId))
+        .filter(
+          (product) =>
+            !product.archivedAt &&
+            !product.deletionStartedAt &&
+            !product.deletedAt &&
+            (!!catalogMembership || allowedProductIds.has(product.productId)),
+        )
         .sort((left, right) => left.name.localeCompare(right.name)),
     };
     setCachedOrganizationDashboardData(subjectId, organizationId, data, memberships);
@@ -2105,6 +2429,9 @@ export async function requireProductRoleUnlocked(
   ]);
   requireVerifiedActiveSubject(actor);
   if (!organization || !product) throw new Error("Product not found.");
+  if (product.archivedAt) {
+    throw new Error("This product is archived. Restore it before making changes.");
+  }
   if (!membership || membership.status !== "active" || !roles.includes(membership.role)) {
     throw new Error("You do not have permission to manage this product.");
   }

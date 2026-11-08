@@ -12,11 +12,13 @@ const productTransferErrorMessages = new Set([
 
 export function ProductPageNotices({
   error,
+  isArchived,
   isSharedInstallation,
   notice,
   reason,
 }: {
   error?: string;
+  isArchived: boolean;
   isSharedInstallation: boolean;
   notice?: string;
   reason?: string;
@@ -40,6 +42,9 @@ export function ProductPageNotices({
       ) : null}
       {notice === "product-visibility-updated" ? (
         <DashboardNotice message="Product availability updated." kind="success" />
+      ) : null}
+      {isArchived ? (
+        <DashboardNotice message="This product is archived. Existing app access remains active; restore it before making changes." />
       ) : null}
       {notice === "product-transferred" ? (
         <DashboardNotice

@@ -251,6 +251,12 @@ export async function updateServicePrincipalStatus(
         throw new Error("Integration not found.");
       }
       if (current.record.status === status) return;
+      if (status === "active") {
+        await requireOrganizationProductUnlocked(
+          current.record.organizationId,
+          current.record.productId,
+        );
+      }
       const updated: ServicePrincipalRecord = {
         ...current.record,
         status,
@@ -578,7 +584,7 @@ export async function authorizeApiKey(
       if (!organization || !productMembership || productMembership.status !== "active") {
         return { authorized: false };
       }
-      await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
+      await requireOrganizationProductUnlocked(scope.organizationId, scope.productId, true);
       const authorized = productMembershipHasPermission(productMembership, scope, action);
       return authorized
         ? { authorized: true, subjectId: currentSession.subject.subjectId }
@@ -599,7 +605,7 @@ export async function authorizeApiKey(
   if (key.owner.kind === "service") {
     const [principal] = await Promise.all([
       loadRecord("service-principal", key.owner.servicePrincipalId),
-      requireOrganizationProductUnlocked(scope.organizationId, scope.productId),
+      requireOrganizationProductUnlocked(scope.organizationId, scope.productId, true),
     ]);
     if (
       !principal ||

@@ -3,7 +3,10 @@ import { DashboardShell, DashboardHeading } from "@/components/dashboard-shell";
 import { OrganizationOverviewMetrics } from "@/components/organization-overview-metrics";
 import { OrganizationPeopleMemberList } from "@/components/people-member-lists";
 import type { OrganizationMemberView } from "@/lib/auth/service";
-import { OrganizationProductCatalog } from "@/components/organization-product-sections";
+import {
+  ArchivedProductCatalog,
+  OrganizationProductCatalog,
+} from "@/components/organization-product-sections";
 import {
   OrganizationApiKeyRecords,
   OrganizationProductKeyLinks,
@@ -284,6 +287,8 @@ export default async function PreviewPage({
               initialDialogOpen={false}
               organizationId={organizationId}
               product={products[0]}
+              canManageLifecycle
+              adopterOrganizations={[{ organizationId: "preview-adopter", name: "Another Studio" }]}
               shareInfo={{
                 visibility: "public",
                 adopterOrganizations: [
@@ -452,9 +457,30 @@ export default async function PreviewPage({
             <OrganizationProductCatalog
               canManage
               conflictingSharedProducts={[]}
+              hasArchivedProducts={!empty}
               organizationId={organizationId}
               products={empty ? [] : products}
             />
+            {!empty ? (
+              <ArchivedProductCatalog
+                organizationId={organizationId}
+                products={[
+                  {
+                    product: {
+                      ...products[0],
+                      productRecordId:
+                        "preview-archived-product" as ProductRecord["productRecordId"],
+                      productId: "legacy-notes",
+                      name: "Legacy Notes",
+                      archivedAt: "2026-11-01T00:00:00Z",
+                    },
+                    adopterOrganizations: [
+                      { organizationId: "preview-adopter", name: "Another Studio" },
+                    ],
+                  },
+                ]}
+              />
+            ) : null}
           </>
         )}
         {screen === "members" && (

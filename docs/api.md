@@ -43,6 +43,18 @@ shared product private removes its installations from other organizations and re
 organization-specific access, pending invitations, integrations, and API keys. The publisher’s app
 clients remain with the product in the publisher organization.
 
+An owner or admin can archive a product or a shared installation from its details page. Archived
+products disappear from active product lists and public discovery, and cannot be changed or newly
+installed. Existing app clients, sign-ins, and access remain active. Owners and admins can restore an
+archived product later. Product invitations that are still pending cannot be accepted while their
+product is archived.
+
+Deletion is available only after archiving. Deleting a publisher product revokes its organization
+memberships, pending invitations, integrations, API keys, app clients, and app sessions, and removes
+its shared installations from adopter organizations. Deleting a shared installation affects only
+that organization. Neither operation deletes shared account identities or data stored by the
+connected applications.
+
 JSON request bodies must use `Content-Type: application/json`. Most are limited to 8 KiB; consumer
 member and account management requests allow 16 KiB. Malformed
 JSON and most invalid fields return `400`; email-only verification and recovery requests keep a

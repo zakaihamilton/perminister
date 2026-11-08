@@ -113,6 +113,12 @@ export interface ProductRecord {
   iconUrl: string;
   /** Missing visibility on older records means private. */
   visibility?: ProductVisibility;
+  /** Keeps existing access live while removing the product from discovery and platform controls. */
+  archivedAt?: string;
+  /** Set before cascading removal so retries can finish cleanup safely. */
+  deletionStartedAt?: string;
+  /** Logical deletion tombstone; product IDs remain reserved in this organization. */
+  deletedAt?: string;
   /** Present only for an organization-local installation of a public product. */
   sharedProductRef?: SharedProductReference;
   /** Action bundles are publisher-owned for shared products. */
