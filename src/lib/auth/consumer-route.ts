@@ -97,8 +97,7 @@ export async function requireConsumerJsonRequest(
 export function consumerResourceBootstrapRoute(resourceKind: "project" | "workspace") {
   const routePath = `POST /api/auth/consumer/${resourceKind}s`;
   const resourceName = resourceKind === "project" ? "Project" : "Workspace";
-  const bootstrap =
-    resourceKind === "project" ? bootstrapProjectAdmin : bootstrapWorkspaceAdmin;
+  const bootstrap = resourceKind === "project" ? bootstrapProjectAdmin : bootstrapWorkspaceAdmin;
 
   return withApiRoutePerformance(routePath, async function POST(request: Request) {
     const parsed = await requireConsumerJsonRequest(request, 4096);
@@ -128,14 +127,10 @@ export function consumerResourceBootstrapRoute(resourceKind: "project" | "worksp
       );
       return Response.json({ granted: true }, { headers: NO_STORE_HEADERS });
     } catch (error) {
-      return consumerServiceError(
-        error,
-        `${resourceName} access could not be provisioned.`,
-      );
+      return consumerServiceError(error, `${resourceName} access could not be provisioned.`);
     }
   });
 }
-
 
 async function requireJsonObjectBody<T extends { body: unknown }>(
   parsedRequest: Promise<T | Response>,

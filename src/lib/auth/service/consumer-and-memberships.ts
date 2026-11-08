@@ -1156,7 +1156,14 @@ function consumerResourceAdminOperation(
   resourceKind: ManagedResourceKind,
 ): ConsumerResourceAdminOperation {
   return (actorId, productId, organizationId, resourceId) =>
-    manageConsumerResourceAdmin(action, actorId, productId, organizationId, resourceId, resourceKind);
+    manageConsumerResourceAdmin(
+      action,
+      actorId,
+      productId,
+      organizationId,
+      resourceId,
+      resourceKind,
+    );
 }
 
 export const bootstrapWorkspaceAdmin = consumerResourceAdminOperation("bootstrap", "workspace");
