@@ -38,6 +38,7 @@ const ORG_ADMIN_MEMBERSHIP_ID = "23232323-2323-4323-8323-232323232323";
 const WORKSPACE_APP_PRODUCT_RECORD_ID = "24242424-2424-4424-8424-242424242424";
 const WORKSPACE_APP_WORKSPACE_ID = "25252525-2525-4525-8525-252525252525";
 const INVITATION_ID = "88888888-8888-4888-8888-888888888888";
+const INVITATION_PRODUCT_RECORD_ID = "34343434-3434-4434-8434-343434343434";
 const ROLE_PRODUCT_RECORD_ID = "99999999-9999-4999-8999-999999999999";
 const ROLE_TARGET_SUBJECT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const ROLE_TARGET_MEMBERSHIP_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -539,6 +540,22 @@ describe("bearer authorization", () => {
         status: "disabled",
       })),
     });
+
+    const now = new Date().toISOString();
+    store.seed({
+      kind: "product",
+      schemaVersion: 1,
+      productRecordId: INVITATION_PRODUCT_RECORD_ID as never,
+      organizationId: ORGANIZATION_ID as never,
+      productId: SCOPE.productId,
+      name: "Atlas",
+      description: "",
+      websiteUrl: "https://atlas.example.com",
+      iconUrl: "",
+      createdBySubjectId: SUBJECT_ID as never,
+      createdAt: now,
+      updatedAt: now,
+    } as AuthRecord);
 
     const token = `${INVITATION_ID}.${"b".repeat(43)}`;
     store.seed({
