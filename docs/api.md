@@ -245,10 +245,10 @@ UUID or slug). Bootstrap grants the caller the `admin` role on that project and 
 Revocation disables every grant for the supplied project ID and is also safe to retry; it does not
 delete the product's project or associated data.
 
-| Method   | Route                                       | Purpose                                    |
-| -------- | ------------------------------------------- | ------------------------------------------ |
-| `POST`   | `/api/auth/consumer/projects`               | Grant the caller admin access to a project |
-| `DELETE` | `/api/auth/consumer/projects/{projectId}`   | Revoke all grants for a project            |
+| Method   | Route                                     | Purpose                                    |
+| -------- | ----------------------------------------- | ------------------------------------------ |
+| `POST`   | `/api/auth/consumer/projects`             | Grant the caller admin access to a project |
+| `DELETE` | `/api/auth/consumer/projects/{projectId}` | Revoke all grants for a project            |
 
 Send `organizationId` and, for `POST`, `projectId` in a JSON body. Send `organizationId` in the
 `DELETE` JSON body. The organization ID must be a UUID; project IDs may contain letters, numbers,

@@ -681,7 +681,10 @@ function sameResourceScope(left: ResourceScope, right: ResourceScope): boolean {
   );
 }
 
-function sameConsumerMemberScope(grantScope: ResourceScope, requestedScope: ResourceScope): boolean {
+function sameConsumerMemberScope(
+  grantScope: ResourceScope,
+  requestedScope: ResourceScope,
+): boolean {
   if (sameResourceScope(grantScope, requestedScope)) return true;
   return (
     requestedScope.kind === "project" &&
