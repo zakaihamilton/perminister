@@ -1064,7 +1064,16 @@ async function withConsumerResourceManagement<T>(
   );
 }
 
-async function bootstrapConsumerResourceAdmin(
+type ConsumerResourceAction = "bootstrap" | "revoke";
+type ConsumerResourceAdminOperation = (
+  actorId: SubjectId,
+  productId: string,
+  organizationId: string,
+  resourceId: string,
+) => Promise<void>;
+
+async function manageConsumerResourceAdmin(
+  action: ConsumerResourceAction,
   actorId: SubjectId,
   productId: string,
   organizationId: string,
@@ -1078,61 +1087,47 @@ async function bootstrapConsumerResourceAdmin(
     resourceId,
     resourceKind,
     async ({ organizationId: normalizedOrganizationId, productId: normalizedProductId, scope }) => {
-      const actor = await loadSubjectUnlocked(actorId);
-      requireVerifiedActiveSubject(actor);
-      if (consumerProductState(actor, normalizedProductId).status !== "active") {
-        throw new Error("This account is disabled for the application.");
-      }
+      if (action === "bootstrap") {
+        const actor = await loadSubjectUnlocked(actorId);
+        requireVerifiedActiveSubject(actor);
+        if (consumerProductState(actor, normalizedProductId).status !== "active") {
+          throw new Error("This account is disabled for the application.");
+        }
 
-      const existingMembership = await store().readOrganizationMembership(
-        normalizedOrganizationId,
-        actorId,
-        normalizedProductId,
-      );
-      if (existingMembership?.status === "disabled") {
-        throw new Error("This account is disabled for the application.");
-      }
-      const membership =
-        existingMembership ??
-        (await ensureConsumerProductMembershipUnlocked(
-          actor,
+        const existingMembership = await store().readOrganizationMembership(
           normalizedOrganizationId,
+          actorId,
           normalizedProductId,
-        ));
-      const actions = consumerRoleActions(normalizedProductId, "admin", resourceKind);
-      if (!actions) throw new Error(`${resourceKind} administration is unavailable.`);
-      const currentGrant = consumerMemberGrant(membership, scope);
-      const grant = roleGrant(
-        normalizedProductId,
-        actorId,
-        scope,
-        "admin",
-        actions,
-        currentGrant ?? undefined,
-      );
-      const event =
-        resourceKind === "workspace"
-          ? "consumer.workspace-admin-bootstrapped"
-          : "consumer.project-admin-bootstrapped";
-      await persistRecord(grant, event, { kind: "subject", subjectId: actorId });
-    },
-  );
-}
+        );
+        if (existingMembership?.status === "disabled") {
+          throw new Error("This account is disabled for the application.");
+        }
+        const membership =
+          existingMembership ??
+          (await ensureConsumerProductMembershipUnlocked(
+            actor,
+            normalizedOrganizationId,
+            normalizedProductId,
+          ));
+        const actions = consumerRoleActions(normalizedProductId, "admin", resourceKind);
+        if (!actions) throw new Error(`${resourceKind} administration is unavailable.`);
+        const currentGrant = consumerMemberGrant(membership, scope);
+        const grant = roleGrant(
+          normalizedProductId,
+          actorId,
+          scope,
+          "admin",
+          actions,
+          currentGrant ?? undefined,
+        );
+        const event =
+          resourceKind === "workspace"
+            ? "consumer.workspace-admin-bootstrapped"
+            : "consumer.project-admin-bootstrapped";
+        await persistRecord(grant, event, { kind: "subject", subjectId: actorId });
+        return;
+      }
 
-async function revokeConsumerResourceGrants(
-  actorId: SubjectId,
-  productId: string,
-  organizationId: string,
-  resourceId: string,
-  resourceKind: ManagedResourceKind,
-): Promise<void> {
-  await withConsumerResourceManagement(
-    actorId,
-    productId,
-    organizationId,
-    resourceId,
-    resourceKind,
-    async ({ organizationId: normalizedOrganizationId, productId: normalizedProductId, scope }) => {
       const memberships = await store().listOrganizationMemberships(
         normalizedOrganizationId,
         normalizedProductId,
@@ -1156,47 +1151,18 @@ async function revokeConsumerResourceGrants(
   );
 }
 
-export function bootstrapWorkspaceAdmin(
-  actorId: SubjectId,
-  productId: string,
-  organizationId: string,
-  workspaceId: string,
-): Promise<void> {
-  return bootstrapConsumerResourceAdmin(
-    actorId,
-    productId,
-    organizationId,
-    workspaceId,
-    "workspace",
-  );
+function consumerResourceAdminOperation(
+  action: ConsumerResourceAction,
+  resourceKind: ManagedResourceKind,
+): ConsumerResourceAdminOperation {
+  return (actorId, productId, organizationId, resourceId) =>
+    manageConsumerResourceAdmin(action, actorId, productId, organizationId, resourceId, resourceKind);
 }
 
-export function revokeWorkspaceGrants(
-  actorId: SubjectId,
-  productId: string,
-  organizationId: string,
-  workspaceId: string,
-): Promise<void> {
-  return revokeConsumerResourceGrants(actorId, productId, organizationId, workspaceId, "workspace");
-}
-
-export function bootstrapProjectAdmin(
-  actorId: SubjectId,
-  productId: string,
-  organizationId: string,
-  projectId: string,
-): Promise<void> {
-  return bootstrapConsumerResourceAdmin(actorId, productId, organizationId, projectId, "project");
-}
-
-export function revokeProjectGrants(
-  actorId: SubjectId,
-  productId: string,
-  organizationId: string,
-  projectId: string,
-): Promise<void> {
-  return revokeConsumerResourceGrants(actorId, productId, organizationId, projectId, "project");
-}
+export const bootstrapWorkspaceAdmin = consumerResourceAdminOperation("bootstrap", "workspace");
+export const revokeWorkspaceGrants = consumerResourceAdminOperation("revoke", "workspace");
+export const bootstrapProjectAdmin = consumerResourceAdminOperation("bootstrap", "project");
+export const revokeProjectGrants = consumerResourceAdminOperation("revoke", "project");
 
 async function setConsumerPlatformAdminUnlocked(
   actorId: SubjectId,
