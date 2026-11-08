@@ -26,14 +26,18 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
   const { current, organizationId, productId, access: productAccess } = context;
   const product = productAccess.product;
   const isSharedInstallation = Boolean(product.sharedProductRef);
-  const canManageDetails =
+  const isArchived = Boolean(product.archivedAt);
+  const canManageLifecycle =
     productAccess.catalogManager &&
-    (productAccess.catalogRole === "owner" || productAccess.catalogRole === "admin") &&
-    !isSharedInstallation;
+    (productAccess.catalogRole === "owner" || productAccess.catalogRole === "admin");
+  const canManageDetails = canManageLifecycle && !isSharedInstallation && !isArchived;
   const canTransferPublisher =
-    productAccess.catalogManager && productAccess.catalogRole === "owner" && !isSharedInstallation;
+    canManageLifecycle &&
+    productAccess.catalogRole === "owner" &&
+    !isSharedInstallation &&
+    !isArchived;
   const productRole = productAccess.membership?.role;
-  const canManageProduct = productRole === "owner" || productRole === "admin";
+  const canManageProduct = !isArchived && (productRole === "owner" || productRole === "admin");
 
   return (
     <>
@@ -42,13 +46,16 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
           product.description || "Manage this product, its members, and their permissions."
         }
       />
-      <ProductPageNavigation
-        access={productAccess}
-        organizationId={organizationId}
-        productId={productId}
-      />
+      {isArchived ? null : (
+        <ProductPageNavigation
+          access={productAccess}
+          organizationId={organizationId}
+          productId={productId}
+        />
+      )}
       <ProductPageNotices
         error={query.error}
+        isArchived={isArchived}
         isSharedInstallation={isSharedInstallation}
         notice={query.notice}
         reason={query.reason}
@@ -67,10 +74,12 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
       <Suspense fallback={<ProductPanelSkeleton label="Loading product details" />}>
         <ProductDetailsPanel
           canManageDetails={canManageDetails}
+          canManageLifecycle={canManageLifecycle}
           canTransferPublisher={canTransferPublisher}
           initialDialogOpen={query.error === "product-private-confirmation"}
           organizationId={organizationId}
           product={product}
+          adopterOrganizations={[]}
           subjectId={current.subject.subjectId}
         />
       </Suspense>
@@ -107,21 +116,25 @@ async function ProductOnboardingPanel({
 
 async function ProductDetailsPanel({
   canManageDetails,
+  canManageLifecycle,
   canTransferPublisher,
   initialDialogOpen,
   organizationId,
   product,
+  adopterOrganizations,
   subjectId,
 }: {
   canManageDetails: boolean;
+  canManageLifecycle: boolean;
   canTransferPublisher: boolean;
   initialDialogOpen: boolean;
   organizationId: string;
   product: ProductRecord;
+  adopterOrganizations: Array<{ organizationId: string; name: string }>;
   subjectId: SubjectId;
 }) {
   const [shareInfo, transferOptions] = await Promise.all([
-    canManageDetails
+    canManageLifecycle && !product.sharedProductRef
       ? withRequestPerformance("dashboard.product-share-info", () =>
           getProductShareInfo(subjectId, organizationId, product.productRecordId),
         )
@@ -135,6 +148,8 @@ async function ProductDetailsPanel({
   return (
     <ProductDetailsCard
       canManageDetails={canManageDetails}
+      canManageLifecycle={canManageLifecycle}
+      adopterOrganizations={shareInfo?.adopterOrganizations ?? adopterOrganizations}
       initialDialogOpen={initialDialogOpen}
       organizationId={organizationId}
       product={product}

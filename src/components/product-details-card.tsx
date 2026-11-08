@@ -1,4 +1,5 @@
 import { ProductIcon } from "@/components/product-icon";
+import { ProductLifecycleControl } from "@/components/product-lifecycle-control";
 import { ProductTransferControl } from "@/components/product-transfer-control";
 import { ProductVisibilityControl } from "@/components/product-visibility-control";
 import type { ProductRecord } from "@/lib/auth/domain";
@@ -6,6 +7,8 @@ import type { OrganizationProductTransferOptions, ProductShareInfo } from "@/lib
 
 export function ProductDetailsCard({
   canManageDetails,
+  canManageLifecycle,
+  adopterOrganizations,
   initialDialogOpen,
   organizationId,
   product,
@@ -14,6 +17,8 @@ export function ProductDetailsCard({
   transferOptions,
 }: {
   canManageDetails: boolean;
+  canManageLifecycle: boolean;
+  adopterOrganizations: Array<{ organizationId: string; name: string }>;
   initialDialogOpen: boolean;
   organizationId: string;
   product: ProductRecord;
@@ -122,6 +127,13 @@ export function ProductDetailsCard({
             sourceOrganizationId={organizationId}
           />
         </section>
+      ) : null}
+      {canManageLifecycle ? (
+        <ProductLifecycleControl
+          adopterOrganizations={adopterOrganizations}
+          organizationId={organizationId}
+          product={product}
+        />
       ) : null}
     </section>
   );

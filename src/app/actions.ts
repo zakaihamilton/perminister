@@ -14,6 +14,9 @@ import {
   createOrganization,
   createOrganizationInvitation,
   createOrganizationProduct,
+  archiveOrganizationProduct,
+  deleteOrganizationProduct,
+  restoreOrganizationProduct,
   getProductShareInfo,
   createProductAccessRole,
   createProductInvitation,
@@ -103,6 +106,14 @@ function publicActionError(error: unknown): string {
     "That product ID is already in use in this organization.",
     "A different product with this ID already exists in this organization. Resolve that conflict before adding the shared product.",
     "This public product is no longer available.",
+    "This product is archived. Restore it before making changes.",
+    "Archive this product before deleting it.",
+    "Confirm removing the product from its installed organizations.",
+    "Product installations changed. Retry deleting the archived product.",
+    "A product being deleted cannot be restored.",
+    "The product publisher is no longer available to restore this product.",
+    "Another organization now publishes a product with this ID. This archived product cannot be restored while that publisher is active.",
+    "This product is already being deleted.",
     "Shared product details are controlled by the publishing organization.",
     "Shared access roles are controlled by the publishing organization.",
     "App clients are managed by the product publisher.",
@@ -158,6 +169,22 @@ function revalidateTransferredProductPaths(transfer: {
     revalidatePath(
       `/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(transfer.product.productId)}`,
     );
+  }
+}
+
+function revalidateProductLifecyclePaths(
+  organizationIds: readonly string[],
+  productId: string,
+): void {
+  revalidatePath("/dashboard/operations/shared-products");
+  for (const organizationId of new Set(organizationIds)) {
+    const organizationPath = `/dashboard/${encodeURIComponent(organizationId)}`;
+    const productPath = `${organizationPath}/products/${encodeURIComponent(productId)}`;
+    revalidatePath(organizationPath);
+    revalidatePath(`${organizationPath}/products`);
+    revalidatePath(productPath);
+    revalidatePath(`${organizationPath}/api-keys`);
+    revalidatePath(`${organizationPath}/api-keys/new`);
   }
 }
 
@@ -678,6 +705,84 @@ export async function transferOwnedPublicProductAction(formData: FormData): Prom
   revalidateTransferredProductPaths(transfer);
   redirect(
     `/dashboard/${encodeURIComponent(transfer.destinationOrganizationId)}/products/${encodeURIComponent(transfer.product.productId)}?notice=product-transferred`,
+  );
+}
+
+export async function archiveOrganizationProductAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  const productRecordId = firstValue(formData, "productRecordId");
+  const productId = firstValue(formData, "productId");
+  let affectedOrganizationIds = [organizationId];
+  try {
+    const shareInfo = await getProductShareInfo(
+      current.subject.subjectId,
+      organizationId,
+      productRecordId,
+    ).catch(() => null);
+    await archiveOrganizationProduct(current.subject.subjectId, organizationId, productRecordId);
+    affectedOrganizationIds = [
+      organizationId,
+      ...(shareInfo?.adopterOrganizations.map((entry) => entry.organizationId) ?? []),
+    ];
+  } catch (error) {
+    redirect(
+      `/dashboard/${encodeURIComponent(organizationId)}/products?error=product-lifecycle&reason=${encodeURIComponent(publicActionError(error))}`,
+    );
+  }
+  revalidateProductLifecyclePaths(affectedOrganizationIds, productId);
+  redirect(`/dashboard/${encodeURIComponent(organizationId)}/products?notice=product-archived`);
+}
+
+export async function restoreOrganizationProductAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  const productRecordId = firstValue(formData, "productRecordId");
+  const productId = firstValue(formData, "productId");
+  let affectedOrganizationIds = [organizationId];
+  try {
+    const shareInfo = await getProductShareInfo(
+      current.subject.subjectId,
+      organizationId,
+      productRecordId,
+    ).catch(() => null);
+    await restoreOrganizationProduct(current.subject.subjectId, organizationId, productRecordId);
+    affectedOrganizationIds = [
+      organizationId,
+      ...(shareInfo?.adopterOrganizations.map((entry) => entry.organizationId) ?? []),
+    ];
+  } catch (error) {
+    redirect(
+      `/dashboard/${encodeURIComponent(organizationId)}/products?error=product-lifecycle&reason=${encodeURIComponent(publicActionError(error))}`,
+    );
+  }
+  revalidateProductLifecyclePaths(affectedOrganizationIds, productId);
+  redirect(`/dashboard/${encodeURIComponent(organizationId)}/products?notice=product-restored`);
+}
+
+export async function deleteOrganizationProductAction(formData: FormData): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  const productRecordId = firstValue(formData, "productRecordId");
+  let deletion: Awaited<ReturnType<typeof deleteOrganizationProduct>>;
+  try {
+    deletion = await deleteOrganizationProduct(
+      current.subject.subjectId,
+      organizationId,
+      productRecordId,
+      firstValue(formData, "confirmedRemoval") === "true",
+    );
+  } catch (error) {
+    redirect(
+      `/dashboard/${encodeURIComponent(organizationId)}/products?error=product-lifecycle&reason=${encodeURIComponent(publicActionError(error))}`,
+    );
+  }
+  revalidateProductLifecyclePaths(deletion.affectedOrganizationIds, deletion.productId);
+  redirect(
+    `/dashboard/${encodeURIComponent(organizationId)}/products?notice=${deletion.removedSharedInstallation ? "shared-product-removed" : "product-deleted"}`,
   );
 }
 

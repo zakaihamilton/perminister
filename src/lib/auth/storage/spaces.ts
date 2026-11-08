@@ -521,6 +521,7 @@ export class SpacesAuthStore {
   async readProduct(organizationId: string, productId: string): Promise<ProductRecord | null> {
     const product = await this.readStoredProduct(organizationId, productId);
     if (!product) return null;
+    if (product.deletionStartedAt || product.deletedAt) return null;
     const sharedProductRef = product.sharedProductRef;
     if (!sharedProductRef) return product;
     if (sharedProductRef.detachedAt) return null;
@@ -530,6 +531,8 @@ export class SpacesAuthStore {
     const canonical = source.record as ProductRecord;
     if (
       canonical.sharedProductRef ||
+      canonical.deletionStartedAt ||
+      canonical.deletedAt ||
       canonical.visibility !== "public" ||
       canonical.organizationId !== sharedProductRef.sourceOrganizationId ||
       canonical.productRecordId !== sharedProductRef.sourceProductRecordId ||

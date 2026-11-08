@@ -736,7 +736,7 @@ async function requireConsumerScopeManagerUnlocked(
   if (!policy || !(await loadApprovedOrganizationUnlocked(scope.organizationId))) {
     throw new Error("Resource not found.");
   }
-  await requireOrganizationProductUnlocked(scope.organizationId, scope.productId);
+  await requireOrganizationProductUnlocked(scope.organizationId, scope.productId, true);
   const membership = await store().readOrganizationMembership(
     scope.organizationId,
     actorId,
@@ -796,7 +796,7 @@ async function requireConsumerAccountManagerUnlocked(
   if (!(await loadApprovedOrganizationUnlocked(organizationId))) {
     throw new Error("Organization not found.");
   }
-  await requireOrganizationProductUnlocked(organizationId, productId);
+  await requireOrganizationProductUnlocked(organizationId, productId, true);
   const membership = await store().readOrganizationMembership(organizationId, actorId, productId);
   if (
     !membership ||
@@ -2129,6 +2129,17 @@ export async function acceptOrganizationInvitation(
         throw new Error(
           "This invitation is invalid or expired, or it was sent to another email address.",
         );
+      }
+      if (current.record.productId) {
+        const product = await store().readProduct(
+          current.record.organizationId,
+          current.record.productId,
+        );
+        if (!product || product.archivedAt) {
+          throw new Error(
+            "This invitation is invalid or expired, or it was sent to another email address.",
+          );
+        }
       }
       const existing = await store().readOrganizationMembership(
         current.record.organizationId,

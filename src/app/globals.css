@@ -3212,6 +3212,83 @@ button:focus-visible {
   color: var(--muted);
   font-size: 13px;
 }
+.product-lifecycle-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.product-lifecycle-copy {
+  min-width: 0;
+}
+.product-lifecycle-copy h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.product-lifecycle-copy p {
+  max-width: 650px;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.product-lifecycle-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.product-lifecycle-actions form {
+  margin: 0;
+}
+.archived-product-catalog {
+  margin-top: 18px;
+}
+.archived-product-list {
+  display: grid;
+  gap: 10px;
+}
+.archived-product-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 12px;
+  background: var(--surface);
+}
+.archived-product-copy {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 4px;
+  min-width: 0;
+}
+.archived-product-copy > a,
+.archived-product-copy > strong {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.archived-product-copy > a:hover {
+  color: var(--blue-dark);
+  text-decoration: underline;
+}
+.archived-product-copy > span,
+.archived-product-copy > small {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 13px;
+}
+.archived-product-copy .record-badge {
+  justify-self: start;
+}
 .button-danger {
   border-color: var(--danger);
   color: var(--white);
@@ -4276,6 +4353,28 @@ html[data-theme="dark"] .operations-section-link:hover {
   .product-visibility-control > form,
   .product-visibility-control > form .button {
     width: 100%;
+  }
+  .product-lifecycle-control {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .product-lifecycle-actions,
+  .product-lifecycle-actions form,
+  .product-lifecycle-actions .button {
+    width: 100%;
+  }
+  .archived-product-item {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .archived-product-copy {
+    flex: 1 1 calc(100% - 54px);
+  }
+  .archived-product-item > .product-lifecycle-control {
+    flex: 1 1 100%;
+    margin: 4px 0 0 54px;
+    border-top: 0;
+    padding-top: 0;
   }
   .simple-hero {
     grid-template-columns: 1fr;

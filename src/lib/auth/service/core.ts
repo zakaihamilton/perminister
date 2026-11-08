@@ -754,9 +754,14 @@ export function validateActions(actions: readonly string[]): string[] {
 export async function requireOrganizationProductUnlocked(
   organizationId: string,
   productId: string,
+  allowArchived = false,
 ): Promise<void> {
-  if (!(await store().readProduct(organizationId, productId))) {
+  const product = await store().readProduct(organizationId, productId);
+  if (!product) {
     throw new Error("Choose a product in this organization.");
+  }
+  if (!allowArchived && product.archivedAt) {
+    throw new Error("This product is archived. Restore it before making changes.");
   }
 }
 
