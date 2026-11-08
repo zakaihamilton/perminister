@@ -1,4 +1,6 @@
+autoInstallPeers: false
 allowBuilds:
+  esbuild: true
   unrs-resolver: true
 overrides:
   basic-ftp@<=6.2.0: 6.2.1
