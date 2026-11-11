@@ -150,65 +150,6 @@ export function DashboardLayoutFrame({
   );
 }
 
-export function DashboardSidebarContent({
-  organizations,
-  organizationId,
-  role,
-  isPlatformAdministrator,
-  pendingOrganizationRequestCount,
-  email,
-  firstName,
-  lastName,
-  organizationSwitcher,
-}: DashboardSidebarProps) {
-  const displayName = [firstName?.trim(), lastName?.trim()]
-    .filter((name): name is string => !!name)
-    .join(" ");
-
-  return (
-    <>
-      <div className="dashboard-brand-row">
-        <Brand />
-      </div>
-      {organizationSwitcher !== undefined ? (
-        organizationSwitcher
-      ) : organizationId && organizations.length > 0 ? (
-        <OrganizationSwitcher organizations={organizations} organizationId={organizationId} />
-      ) : null}
-      <DashboardNavigation
-        organizationId={organizationId}
-        role={role}
-        isPlatformAdministrator={isPlatformAdministrator}
-        pendingOrganizationRequestCount={pendingOrganizationRequestCount}
-      />
-      <div className="dashboard-sidebar-theme">
-        <ThemeControl />
-      </div>
-      <div className="dashboard-sidebar-footer">
-        {email || displayName ? (
-          <div className="sidebar-account">
-            {email ? <div className="sidebar-email">{email}</div> : null}
-            {displayName ? <p className="sidebar-account-name">{displayName}</p> : null}
-          </div>
-        ) : null}
-        <form action="/logout/submit" method="post">
-          <button className="button button-secondary sidebar-signout" type="submit">
-            Sign out
-          </button>
-        </form>
-      </div>
-    </>
-  );
-}
-
-export function DashboardSidebar(props: DashboardSidebarProps) {
-  return (
-    <aside className="dashboard-sidebar">
-      <DashboardSidebarContent {...props} />
-    </aside>
-  );
-}
-
 export function DashboardHeading({
   description,
   action,
