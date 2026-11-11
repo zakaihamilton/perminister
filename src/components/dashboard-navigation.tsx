@@ -8,7 +8,7 @@ type NavigationItem = { label: string; href: string; key: string };
 function NavigationLinkList({ items, activeKey }: { items: NavigationItem[]; activeKey?: string }) {
   return items.map((item) => (
     <Link
-      className="dashboard-nav-link"
+      className="dashboard-nav-link pf-sidebar-link"
       href={item.href}
       key={item.key}
       aria-current={activeKey === item.key ? "page" : undefined}
@@ -74,14 +74,14 @@ export function DashboardNavigation({
                     : undefined;
 
   return (
-    <nav className="dashboard-nav" aria-label="Dashboard pages">
-      {organizationLinks.length ? <p className="dashboard-nav-label">Organization</p> : null}
+    <nav className="dashboard-nav pf-sidebar-group" aria-label="Dashboard pages">
+      {organizationLinks.length ? <p className="dashboard-nav-label pf-sidebar-group-label">Organization</p> : null}
       <NavigationLinkList items={organizationLinks} activeKey={activeKey} />
       {isPlatformAdministrator ? (
         <>
-          <p className="dashboard-nav-label platform-nav-label">Platform</p>
+          <p className="dashboard-nav-label platform-nav-label pf-sidebar-group-label">Platform</p>
           <Link
-            className="dashboard-nav-link"
+            className="dashboard-nav-link pf-sidebar-link"
             href="/dashboard/operations"
             aria-label={
               pendingOrganizationRequestCount

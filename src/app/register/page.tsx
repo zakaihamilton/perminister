@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthPageFeedback } from "@/components/auth-page-feedback";
 import { PasswordField } from "@/components/password-field";
+import { AuthCard } from "panel-frame-ui";
 import { AuthPageFrame } from "@/components/auth-page-frame";
 import { getCurrentSession } from "@/lib/auth/service";
 
@@ -30,7 +31,7 @@ export default async function RegisterPage({
     );
   const invitationToken = params.invitationToken ?? "";
   return (
-    <AuthPageFrame authenticated={false}>
+    <AuthPageFrame>
       <header className="auth-heading">
         <p className="eyebrow">Create an account</p>
         <h1 id="register-title">Create your account</h1>
@@ -38,7 +39,7 @@ export default async function RegisterPage({
           Use one account to join organizations and manage your profile, sessions, and API keys.
         </p>
       </header>
-      <section className="auth-card" aria-labelledby="register-title">
+      <AuthCard className="auth-card" aria-labelledby="register-title">
         <AuthPageFeedback
           error={params.error}
           errorText={errorText}
@@ -97,7 +98,7 @@ export default async function RegisterPage({
             </Link>
           </span>
         </div>
-      </section>
+      </AuthCard>
     </AuthPageFrame>
   );
 }

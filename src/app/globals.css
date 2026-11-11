@@ -1,4 +1,20 @@
+@import "panel-frame-ui/styles.css";
+
 :root {
+  --pf-background: var(--paper);
+  --pf-surface: var(--surface);
+  --pf-surface-raised: var(--surface-2);
+  --pf-text: var(--ink);
+  --pf-muted: var(--muted);
+  --pf-border: var(--line);
+  --pf-accent: var(--blue);
+  --pf-accent-contrast: #ffffff;
+  --pf-danger: var(--danger);
+  --pf-danger-surface: var(--danger-soft);
+  --pf-success: var(--success);
+  --pf-success-surface: var(--success-soft);
+  --pf-warning: var(--amber);
+  --pf-warning-surface: var(--amber-pale);
   color-scheme: light;
   --ink: #24251f;
   --ink-soft: #41443b;
@@ -8921,4 +8937,12 @@ html[data-theme="dark"] .dashboard-mobile-menu-trigger:hover {
   .auth-name-fields {
     grid-template-columns: 1fr;
   }
+}
+
+
+.pf-dashboard-content {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }

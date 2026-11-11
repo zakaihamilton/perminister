@@ -1,4 +1,6 @@
 autoInstallPeers: false
+minimumReleaseAgeExclude:
+  - panel-frame-ui@0.1.0
 allowBuilds:
   esbuild: true
   unrs-resolver: true
