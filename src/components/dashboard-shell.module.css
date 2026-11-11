@@ -1,0 +1,5 @@
+.content {
+  width: min(1160px, 100%);
+  margin: 0 auto;
+  padding-inline: clamp(16px, 2vw, 24px);
+}

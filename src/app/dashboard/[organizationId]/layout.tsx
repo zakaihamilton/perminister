@@ -1,3 +1,4 @@
+import { skeletonClasses } from "@/components/skeleton-classnames";
 import { Suspense, type ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { DashboardBreadcrumbs } from "@/components/dashboard-breadcrumbs";
@@ -61,7 +62,7 @@ async function LoadedOrganizationDashboardLayout({
       sidebarOrganizationSwitcher={
         <Suspense
           fallback={
-            <div aria-hidden="true" className="dashboard-skeleton dashboard-skeleton-switcher" />
+            <div aria-hidden="true" className={skeletonClasses("dashboard-skeleton-switcher")} />
           }
         >
           <OrganizationSwitcherFromDashboard
@@ -73,7 +74,7 @@ async function LoadedOrganizationDashboardLayout({
       breadcrumbs={
         <Suspense
           fallback={
-            <div aria-hidden="true" className="dashboard-skeleton dashboard-skeleton-breadcrumb" />
+            <div aria-hidden="true" className={skeletonClasses("dashboard-skeleton-breadcrumb")} />
           }
         >
           <BreadcrumbsFromDashboard

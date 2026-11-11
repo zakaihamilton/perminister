@@ -1,0 +1,42 @@
+.wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.input {
+  width: 100%;
+  padding: 8px 32px 8px 12px;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--surface-inset);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-pale);
+}
+
+.clearButton {
+  position: absolute;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.clearButton:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}

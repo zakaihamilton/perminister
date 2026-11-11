@@ -1,0 +1,1611 @@
+.appScope {}
+
+/* Organization-first dashboard */
+:where(.appScope) :global(.dashboard-layout) {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
+  background: #f6f7f9;
+}
+:where(.appScope) :global(.dashboard-sidebar) {
+  position: sticky;
+  top: 0;
+  display: flex;
+  height: 100vh;
+  min-height: 620px;
+  flex-direction: column;
+  overflow-y: auto;
+  border-right: 1px solid var(--line);
+  padding: 24px 16px 16px;
+  background: #fff;
+}
+:where(.appScope) :global(.dashboard-brand-row) {
+  padding: 0 10px 27px;
+}
+:where(.appScope) :global(.dashboard-brand-row .brand-word) {
+  font-size: 19px;
+}
+:where(.appScope) :global(.org-switcher) {
+  display: grid;
+  gap: 7px;
+  padding: 0 4px 19px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+:where(.appScope) :global(.org-switcher .custom-dropdown-trigger) {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: white;
+  font:
+    650 14px "DM Sans",
+    sans-serif;
+  letter-spacing: normal;
+  text-transform: none;
+}
+:where(.appScope) :global(.dashboard-nav) {
+  display: grid;
+  gap: 4px;
+}
+:where(.appScope) :global(.dashboard-nav-label) {
+  margin: 7px 9px 5px;
+  color: var(--muted);
+  font:
+    600 12px "DM Mono",
+    monospace;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+:where(.appScope) :global(.platform-nav-label) {
+  margin-top: 22px;
+}
+:where(.appScope) :global(.dashboard-account-nav) {
+  margin-top: 22px;
+}
+:where(.appScope) :global(.dashboard-nav-link) {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 11px;
+  border-radius: 7px;
+  padding: 0 10px;
+  color: #526076;
+  font-size: 15px;
+  font-weight: 650;
+  transition:
+    color 0.14s ease,
+    background 0.14s ease;
+}
+:where(.appScope) :global(.dashboard-nav-link:hover) {
+  color: var(--ink);
+  background: #f5f7fa;
+}
+:where(.appScope) :global(.dashboard-nav-link[aria-current="page"]) {
+  color: #2949c5;
+  background: #edf1ff;
+}
+:where(.appScope) :global(.dashboard-nav-mark) {
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid currentColor;
+  border-radius: 3px;
+  opacity: 0.8;
+}
+:where(.appScope) :global(.dashboard-nav-count) {
+  display: inline-grid;
+  min-width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  margin-left: auto;
+  padding: 0 6px;
+  color: var(--blue-dark);
+  background: var(--blue-pale);
+  font:
+    600 11px/1 "DM Mono",
+    monospace;
+  white-space: nowrap;
+}
+:where(.appScope) :global(.dashboard-nav-link[aria-current="page"] .dashboard-nav-mark) {
+  border-radius: 50%;
+  background: currentColor;
+}
+:where(.appScope) :global(.dashboard-sidebar-theme) {
+  display: flex;
+  align-items: center;
+  margin-top: auto;
+  padding: 0 7px 12px;
+}
+:where(.appScope) :global(.dashboard-sidebar-footer) {
+  display: grid;
+  gap: 10px;
+  margin-top: 0;
+  border-top: 1px solid #edf0f4;
+  padding: 16px 7px 0;
+}
+:where(.appScope) :global(.sidebar-account) {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+:where(.appScope) :global(.sidebar-email) {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:where(.appScope) :global(.sidebar-account-name) {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+:where(.appScope) :global(.sidebar-signout) {
+  width: 100%;
+  min-height: 40px;
+  justify-content: flex-start;
+  padding: 0 12px;
+  color: var(--ink-soft);
+  text-align: left;
+  font-size: 13px;
+  cursor: pointer;
+}
+:where(.appScope) :global(.sidebar-signout:hover) {
+  color: var(--blue-dark);
+}
+:where(.appScope) :global(.dashboard-main) {
+  min-width: 0;
+  padding: 42px clamp(24px, 5vw, 72px) 70px;
+}
+:where(.appScope) :global(.dashboard-page-heading) {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 29px;
+}
+:where(.appScope) :global(.dashboard-page-heading > p) {
+  max-width: 680px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.6;
+}
+:where(.appScope) :global(.dashboard-heading-action) {
+  flex: 0 0 auto;
+}
+:where(.appScope) :global(.product-detail-actions .button) {
+  padding: 10px 14px;
+}
+:where(.appScope) :global(.dashboard-notice) {
+  border: 1px solid #d5dff8;
+  border-radius: 8px;
+  margin: -11px 0 20px;
+  padding: 12px 14px;
+  color: #3d568f;
+  background: #f5f7ff;
+  font-size: 14px;
+  line-height: 1.5;
+}
+:where(.appScope) :global(.action-refresh-notice) {
+  position: fixed;
+  z-index: 10000;
+  top: 16px;
+  left: 50%;
+  width: min(640px, calc(100% - 32px));
+  margin: 0;
+  transform: translateX(-50%);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 12%);
+}
+:where(.appScope) :global(.dashboard-notice.success) {
+  border-color: #cde6d5;
+  color: #276144;
+  background: #f3fbf5;
+}
+:where(.appScope) :global(.dashboard-notice.error) {
+  border-color: #f0d6d2;
+  color: #8d3027;
+  background: #fff6f4;
+}
+:where(.appScope) :global(.dashboard-card), :where(.appScope) :global(.dashboard-empty-card) {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 22px;
+  background: white;
+  box-shadow: 0 4px 16px rgba(24, 38, 63, 0.025);
+}
+:where(.appScope) :global(.dashboard-card + .dashboard-card), :where(.appScope) :global(.dashboard-card + .dashboard-empty-card) {
+  margin-top: 18px;
+}
+:where(.appScope) :global(.dashboard-card h2), :where(.appScope) :global(.dashboard-empty-card h2) {
+  margin: 0;
+  font:
+    700 18px/1.3 "Manrope",
+    sans-serif;
+  letter-spacing: -0.3px;
+}
+:where(.appScope) :global(.dashboard-card-heading) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 17px;
+}
+:where(.appScope) :global(.dashboard-card-heading p) {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+:where(.appScope) :global(.organization-id-inline) {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 12px;
+  margin: -8px 0 20px;
+  color: var(--muted);
+  font-size: 12px;
+}
+:where(.appScope) :global(.organization-id-copy) {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+:where(.appScope) :global(.organization-id-copy input) {
+  width: 320px;
+  min-width: 0;
+  border: 0;
+  padding: 4px 0;
+  color: var(--muted);
+  background: transparent;
+  font:
+    11px/1.5 "SFMono-Regular",
+    Consolas,
+    monospace;
+  user-select: all;
+}
+:where(.appScope) :global(.organization-id-copy input:focus-visible) {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+:where(.appScope) :global(.organization-id-copy-action) {
+  display: grid;
+  flex: 0 0 auto;
+  justify-items: center;
+  gap: 2px;
+}
+:where(.appScope) :global(.organization-id-copy-button) {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+:where(.appScope) :global(.organization-id-copy-button:hover) {
+  border-color: var(--blue);
+  color: var(--blue-dark);
+  background: var(--surface-2);
+}
+:where(.appScope) :global(.organization-id-copy-button svg) {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+:where(.appScope) :global(.organization-id-copy-error) {
+  color: var(--danger);
+  font-size: 12px;
+}
+:where(.appScope) :global(.dashboard-empty-card) {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+}
+:where(.appScope) :global(.dashboard-empty-card > div) {
+  flex: 1;
+}
+:where(.appScope) :global(.dashboard-empty-card p) {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+:where(.appScope) :global(.dashboard-overview-products) {
+  margin-top: 0;
+}
+:where(.appScope) :global(.dashboard-product-preview img), :where(.appScope) :global(.product-card > img), :where(.appScope) :global(.product-detail-top > img) {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 1px solid #e9edf2;
+  border-radius: 9px;
+  object-fit: cover;
+}
+:where(.appScope) :global(.product-placeholder) {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #dce4f3;
+  border-radius: 10px;
+  color: var(--blue-dark);
+  background: #edf1ff;
+  font:
+    700 17px "Manrope",
+    sans-serif;
+}
+:where(.appScope) :global(.organization-empty-actions) {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+:where(.appScope) :global(.product-nav) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: -7px 0 22px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+:where(.appScope) :global(.product-nav-link) {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0 11px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+:where(.appScope) :global(.product-nav-link:hover), :where(.appScope) :global(.product-nav-link[aria-current="page"]) {
+  border-color: var(--line);
+  color: var(--ink);
+  background: var(--surface-2);
+}
+:where(.appScope) :global(.product-nav-link:focus-visible) {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+:where(.appScope) :global(.product-catalog) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
+}
+:where(.appScope) :global(.public-product-catalog) {
+  margin-top: 18px;
+}
+:where(.appScope) :global(.public-product-list) {
+  display: grid;
+  gap: 10px;
+}
+:where(.appScope) :global(.public-product-item) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 12px;
+  background: var(--surface);
+}
+:where(.appScope) :global(.public-product-copy) {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+:where(.appScope) :global(.public-product-copy > strong) {
+  font-size: 14px;
+}
+:where(.appScope) :global(.public-product-copy > span) {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:where(.appScope) :global(.public-product-copy > small) {
+  color: var(--muted);
+  font-size: 12px;
+}
+:where(.appScope) :global(.public-product-copy code) {
+  font-family: "DM Mono", monospace;
+}
+:where(.appScope) :global(.public-product-conflict) {
+  max-width: 190px;
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+:where(.appScope) :global(.product-card) {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  background: #fff;
+}
+:where(.appScope) :global(.product-card:hover) {
+  border-color: #bac6dc;
+  box-shadow: 0 4px 14px rgba(24, 38, 63, 0.05);
+}
+:where(.appScope) :global(.product-card-copy) {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+:where(.appScope) :global(.product-card-copy .product-visibility-badge) {
+  justify-self: start;
+}
+:where(.appScope) :global(.product-card-copy strong) {
+  font-size: 15px;
+}
+:where(.appScope) :global(.product-card-copy small) {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:where(.appScope) :global(.product-card-copy code), :where(.appScope) :global(.product-id-code) {
+  color: #647188;
+  font:
+    13px "DM Mono",
+    monospace;
+}
+:where(.appScope) :global(.product-card-arrow) {
+  margin-left: auto;
+  color: var(--muted);
+}
+:where(.appScope) :global(.product-detail-top) {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  border-bottom: 1px solid #edf0f4;
+  padding-bottom: 18px;
+}
+:where(.appScope) :global(.product-detail-top > img), :where(.appScope) :global(.product-detail-top > .product-placeholder) {
+  width: 54px;
+  height: 54px;
+}
+:where(.appScope) :global(.product-detail-top > div) {
+  display: grid;
+  gap: 5px;
+}
+:where(.appScope) :global(.product-id-code) {
+  font-size: 14px;
+}
+:where(.appScope) :global(.product-detail-card .text-link), :where(.appScope) :global(.text-link) {
+  color: var(--blue-dark);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+:where(.appScope) :global(.product-edit-form) {
+  max-width: 660px;
+  margin: 19px auto 0;
+}
+:where(.appScope) :global(.product-edit-form h2) {
+  margin: 0;
+}
+:where(.appScope) :global(.product-detail-list) {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 9px 15px;
+  margin: 17px 0 0;
+  font-size: 14px;
+}
+:where(.appScope) :global(.product-detail-list dt) {
+  color: var(--muted);
+}
+:where(.appScope) :global(.product-detail-list dd) {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #344158;
+}
+:where(.appScope) :global(.product-detail-list a) {
+  color: var(--blue-dark);
+  text-decoration: underline;
+}
+:where(.appScope) :global(.product-visibility-control) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+:where(.appScope) :global(.product-visibility-control h2) {
+  margin: 0;
+  font-size: 16px;
+}
+:where(.appScope) :global(.product-visibility-control p) {
+  max-width: 650px;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+:where(.appScope) :global(.product-visibility-control small) {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+:where(.appScope) :global(.product-lifecycle-control) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+:where(.appScope) :global(.product-lifecycle-copy) {
+  min-width: 0;
+}
+:where(.appScope) :global(.product-lifecycle-copy h2) {
+  margin: 0;
+  font-size: 16px;
+}
+:where(.appScope) :global(.product-lifecycle-copy p) {
+  max-width: 650px;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+:where(.appScope) :global(.product-lifecycle-actions) {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+:where(.appScope) :global(.product-lifecycle-actions form) {
+  margin: 0;
+}
+:where(.appScope) :global(.archived-product-catalog) {
+  margin-top: 18px;
+}
+:where(.appScope) :global(.archived-product-list) {
+  display: grid;
+  gap: 10px;
+}
+:where(.appScope) :global(.archived-product-item) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 12px;
+  background: var(--surface);
+}
+:where(.appScope) :global(.archived-product-copy) {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 4px;
+  min-width: 0;
+}
+:where(.appScope) :global(.archived-product-copy > a), :where(.appScope) :global(.archived-product-copy > strong) {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}
+:where(.appScope) :global(.archived-product-copy > a:hover) {
+  color: var(--blue-dark);
+  text-decoration: underline;
+}
+:where(.appScope) :global(.archived-product-copy > span), :where(.appScope) :global(.archived-product-copy > small) {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 13px;
+}
+:where(.appScope) :global(.archived-product-copy .record-badge) {
+  justify-self: start;
+}
+:where(.appScope) :global(.button-danger) {
+  border-color: var(--danger);
+  color: var(--white);
+  background: var(--danger);
+}
+:where(.appScope) :global(.button-danger:hover) {
+  background: var(--danger);
+}
+:where(.appScope) :global(.product-privacy-dialog) {
+  width: min(540px, calc(100% - 32px));
+  max-width: none;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 24px;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+:where(.appScope) :global(.product-privacy-dialog.api-key-rotation-dialog) {
+  width: min(720px, calc(100% - 32px));
+}
+:where(.appScope) :global(.product-privacy-dialog::backdrop) {
+  background: rgba(20, 23, 29, 0.55);
+  backdrop-filter: blur(2px);
+}
+:where(.appScope) :global(.product-privacy-dialog h2) {
+  margin: 0;
+  font-size: 20px;
+}
+:where(.appScope) :global(.product-privacy-dialog p) {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+:where(.appScope) :global(.product-privacy-organization-list) {
+  display: grid;
+  gap: 4px;
+  max-height: 180px;
+  overflow: auto;
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+:where(.appScope) :global(.product-privacy-dialog-actions) {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+:where(.appScope) :global(.product-privacy-dialog-actions form) {
+  margin: 0;
+}
+:where(.appScope) :global(.product-setup-flow) {
+  display: grid;
+  gap: 16px;
+}
+:where(.appScope) :global(.product-setup-step) {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 15px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 23px;
+  background: white;
+}
+:where(.appScope) :global(.onboarding-step) {
+  display: grid;
+  width: 31px;
+  height: 31px;
+  place-items: center;
+  border-radius: 9px;
+  color: #2949c5;
+  background: #edf1ff;
+  font:
+    12px "DM Mono",
+    monospace;
+}
+:where(.appScope) :global(.product-setup-step-body) {
+  min-width: 0;
+}
+:where(.appScope) :global(.product-setup-step h2) {
+  margin: 0;
+  font:
+    700 18px "Manrope",
+    sans-serif;
+}
+:where(.appScope) :global(.product-setup-step-body > p) {
+  margin: 6px 0 16px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.55;
+}
+:where(.appScope) :global(.product-source-form) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 13px;
+  margin-top: 8px;
+}
+:where(.appScope) :global(.product-source-form label) {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 650;
+}
+:where(.appScope) :global(.product-source-form input), :where(.appScope) :global(.custom-dropdown-trigger) {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: var(--surface-inset);
+}
+:where(.appScope) :global(.product-source-form input) {
+  max-width: 420px;
+  font:
+    500 14px/1.4 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+:where(.appScope) :global(.product-source-form input::placeholder) {
+  color: var(--muted);
+  opacity: 0.8;
+}
+:where(.appScope) :global(.product-source-form input:focus) {
+  border-color: var(--blue);
+}
+:where(.appScope) :global(.product-details-form) {
+  max-width: 630px;
+  margin-top: 16px;
+}
+:where(.appScope) :global(.product-icon-preview) {
+  width: 45px;
+  height: 45px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  object-fit: cover;
+}
+:where(.appScope) :global(.product-manual-button) {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  border: 0;
+  margin-top: 8px;
+  padding: 0 2px;
+  background: none;
+  cursor: pointer;
+}
+:where(.appScope) :global(.access-grant-list), :where(.appScope) :global(.people-list) {
+  display: grid;
+  gap: 9px;
+}
+:where(.appScope) :global(.access-grant-card) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 14px;
+  background: white;
+}
+:where(.appScope) :global(.access-grant-main) {
+  display: grid;
+  grid-column: 1;
+  grid-row: 2;
+  gap: 7px;
+  min-width: 0;
+}
+:where(.appScope) :global(.access-grant-main > div) {
+  display: grid;
+  gap: 5px;
+}
+:where(.appScope) :global(.access-grant-member-heading) {
+  display: flex;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+:where(.appScope) :global(.access-grant-member-heading strong) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+:where(.appScope) :global(.access-grant-member-heading .record-badge) {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+:where(.appScope) :global(.access-grant-actions) {
+  display: flex;
+  grid-column: 2;
+  grid-row: 2;
+  align-self: center;
+  justify-self: end;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+:where(.appScope) :global(.access-grant-main strong) {
+  color: #344158;
+  font-size: 14px;
+}
+:where(.appScope) :global(.access-grant-main span), :where(.appScope) :global(.access-grant-main small) {
+  color: var(--muted);
+  font-size: 13px;
+}
+:where(.appScope) :global(.access-grant-card form) {
+  flex: 0 0 auto;
+  margin: 0;
+}
+:where(.appScope) :global(.access-create-card) {
+  margin-top: 20px;
+}
+:where(.appScope) :global(.access-form) {
+  max-width: 780px;
+}
+:where(.appScope) :global(.people-card), :where(.appScope) :global(.invite-card), :where(.appScope) :global(.pending-invitations) {
+  margin-top: 18px;
+}
+:where(.appScope) :global(.people-row) {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid #edf0f4;
+  padding: 12px 0;
+}
+:where(.appScope) :global(.people-row:first-child) {
+  border-top: 0;
+}
+:where(.appScope) :global(.people-avatar) {
+  display: grid;
+  width: 35px;
+  height: 35px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  color: #354d9d;
+  background: #edf1ff;
+  font-weight: 700;
+}
+:where(.appScope) :global(.people-identity) {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+:where(.appScope) :global(.people-identity strong) {
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:where(.appScope) :global(.people-identity small) {
+  color: var(--muted);
+  font-size: 13px;
+}
+:where(.appScope) :global(.role-pill) {
+  border: 1px solid #dce2eb;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: #56647b;
+  background: #fafbfc;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+:where(.appScope) :global(.people-row-actions) {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+}
+:where(.appScope) :global(.people-row-actions form) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+:where(.appScope) :global(.people-row-actions .custom-dropdown-trigger), :where(.appScope) :global(.invite-form .custom-dropdown-trigger) {
+  min-height: 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 0 10px;
+  color: var(--ink-soft);
+  background: #fff;
+  font-size: 14px;
+}
+:where(.appScope) :global(.people-row-actions .button) {
+  min-height: 44px;
+  padding: 0 11px;
+  font-size: 14px;
+}
+:where(.appScope) :global(.invite-form) {
+  grid-template-columns: minmax(0, 1.5fr) minmax(130px, 0.7fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+:where(.appScope) :global(.invite-form .button) {
+  min-height: 43px;
+}
+:where(.appScope) :global(.pending-invite-row) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid #edf0f4;
+  padding: 12px 0;
+}
+:where(.appScope) :global(.pending-invite-row > span) {
+  display: grid;
+  gap: 4px;
+}
+:where(.appScope) :global(.pending-invite-row strong) {
+  font-size: 14px;
+}
+:where(.appScope) :global(.pending-invite-row small) {
+  color: var(--muted);
+  font-size: 13px;
+}
+:where(.appScope) :global(.pending-invite-row form) {
+  margin: 0;
+}
+:where(.appScope) :global(.role-help) {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+:where(.appScope) :global(.profile-card .profile-name-form) {
+  border-bottom: 1px solid var(--line);
+  margin: 15px 0 18px;
+  padding-bottom: 18px;
+}
+:where(.appScope) :global(.profile-details) {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+:where(.appScope) :global(.profile-details > div) {
+  display: grid;
+  grid-template-columns: minmax(135px, 0.4fr) minmax(0, 1fr);
+  gap: 16px;
+  border-top: 1px solid #edf0f4;
+  padding: 14px 0;
+}
+:where(.appScope) :global(.profile-details > div:first-child) {
+  border-top: 0;
+  padding-top: 0;
+}
+:where(.appScope) :global(.profile-details dt) {
+  color: var(--muted);
+  font-size: 14px;
+}
+:where(.appScope) :global(.profile-details dd) {
+  margin: 0;
+  color: #354157;
+  font-size: 14px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+:where(.appScope) :global(.profile-actions) {
+  margin-top: 16px;
+}
+:where(.appScope) :global(.profile-actions form) {
+  margin: 0;
+}
+:where(.appScope) :global(.profile-links) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  border-top: 1px solid #edf0f4;
+  margin-top: 17px;
+  padding-top: 15px;
+}
+:where(.appScope) :global(.profile-links a) {
+  color: var(--blue-dark);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+:where(.appScope) :global(.activity-list) {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+:where(.appScope) :global(.activity-item) {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 14px 15px;
+  background: var(--surface);
+}
+:where(.appScope) :global(.activity-item-content) {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+:where(.appScope) :global(.activity-item-header) {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+:where(.appScope) :global(.activity-item-heading) {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 7px 10px;
+}
+:where(.appScope) :global(.activity-summary) {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.45;
+}
+:where(.appScope) :global(.activity-list strong) {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+:where(.appScope) :global(.activity-target-chip) {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: baseline;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 9px;
+  color: var(--ink-soft);
+  background: var(--surface-2);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+:where(.appScope) :global(.activity-target-label) {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-weight: 600;
+}
+:where(.appScope) :global(.activity-target-value) {
+  min-width: 0;
+  color: var(--ink);
+  font-weight: 600;
+}
+:where(.appScope) :global(.activity-time) {
+  display: grid;
+  flex: 0 0 auto;
+  justify-items: end;
+  gap: 2px;
+  align-self: start;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+:where(.appScope) :global(.activity-time-relative) {
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+:where(.appScope) :global(.activity-time-exact) {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+:where(.appScope) :global(.activity-context) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+:where(.appScope) :global(.activity-context-chip) {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 3px 7px;
+  color: var(--muted);
+  background: var(--surface-2);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+:where(.appScope) :global(.activity-details) {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid var(--line);
+  margin-top: 1px;
+  padding-top: 8px;
+}
+:where(.appScope) :global(.activity-detail-row) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+:where(.appScope) :global(.activity-detail-label) {
+  color: var(--muted);
+}
+:where(.appScope) :global(.activity-pagination) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+:where(.appScope) :global(.activity-pagination-summary) {
+  color: var(--muted);
+  font-size: 13px;
+}
+:where(.appScope) :global(.activity-pagination-controls) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+:where(.appScope) :global(.activity-pagination .button) {
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+:where(.appScope) :global(.activity-pagination-current) {
+  background: var(--surface-2);
+  cursor: default;
+}
+:where(.appScope) :global(.operations-section-links) {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+:where(.appScope) :global(.operations-section-links > li) {
+  display: flex;
+  min-width: 0;
+}
+:where(.appScope) :global(.operations-section-link) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+:where(.appScope) :global(.operations-section-link:hover) {
+  border-color: var(--blue);
+  box-shadow: 0 5px 18px rgba(24, 38, 63, 0.08);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.operations-section-link:hover) {
+  border-color: var(--blue);
+}
+:where(.appScope) :global(.operations-section-link:focus-visible) {
+  outline: 3px solid var(--blue);
+  outline-offset: 3px;
+}
+:where(.appScope) :global(.operations-section-link p) {
+  margin: 8px 0 20px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+:where(.appScope) :global(.operations-section-link-action) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  color: var(--blue-dark);
+  font-size: 14px;
+  font-weight: 700;
+}
+:where(.appScope) :global(.operations-migration > div:first-child p) {
+  max-width: 750px;
+  margin: 7px 0 15px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+:where(.appScope) :global(.migration-counts) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+:where(.appScope) :global(.migration-counts span) {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 8px 11px;
+  color: #68758a;
+  font-size: 13px;
+}
+:where(.appScope) :global(.migration-counts strong) {
+  color: var(--ink);
+  font-size: 15px;
+}
+:where(.appScope) :global(.operations-accounts) {
+  margin-top: 18px;
+}
+:where(.appScope) :global(.operations-accounts .dashboard-card-heading) {
+  margin-bottom: 8px;
+}
+:where(.appScope) :global(.operations-accounts .admin-account-row) {
+  padding: 14px 8px;
+}
+:where(.appScope) :global(.operations-accounts .admin-account-row:first-child) {
+  padding-top: 14px;
+}
+:where(.appScope) :global(.operations-accounts .admin-account-row .button) {
+  min-height: 38px;
+  padding: 6px 12px;
+}
+:where(.appScope) :global(.product-transfer-form) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 9px;
+  margin-top: 12px;
+}
+:where(.appScope) :global(.product-transfer-field) {
+  display: grid;
+  flex: 0 1 280px;
+  min-width: min(100%, 220px);
+  gap: 5px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 650;
+}
+:where(.appScope) :global(.product-transfer-dropdown .custom-dropdown-trigger) {
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 0 10px;
+  color: var(--ink-soft);
+  background: var(--surface-inset);
+  font:
+    500 14px/1.4 "DM Sans",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+:where(.appScope) :global(.product-transfer-form > .button) {
+  height: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+}
+:where(.appScope) :global(.profile-card .button), :where(.appScope) :global(.settings-card .button), :where(.appScope) :global(.operations-migration .button) {
+  min-height: 42px;
+}
+:where(.appScope) :global(.onboarding-shell) {
+  padding: 54px 0 86px;
+}
+:where(.appScope) :global(.onboarding-page) {
+  max-width: 790px;
+}
+:where(.appScope) :global(.onboarding-page h1) {
+  margin: 7px 0 8px;
+  font:
+    750 clamp(32px, 4vw, 42px)/1.12 "Manrope",
+    sans-serif;
+  letter-spacing: -1.8px;
+}
+:where(.appScope) :global(.onboarding-card) {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 22px;
+  background: white;
+}
+:where(.appScope) :global(.onboarding-card h2) {
+  margin: 2px 0 5px;
+  font:
+    700 18px "Manrope",
+    sans-serif;
+}
+:where(.appScope) :global(.onboarding-card p) {
+  margin: 0 0 13px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+:where(.appScope) :global(.onboarding-secondary) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 20px;
+  color: var(--muted);
+  font-size: 14px;
+}
+:where(.appScope) :global(.onboarding-secondary a), :where(.appScope) :global(.onboarding-ops-link a) {
+  color: var(--blue-dark);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+:where(.appScope) :global(.invitation-auth-links) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 16px;
+}
+:where(.appScope) :global(.simple-hero-copy > p:not(.eyebrow)) {
+  max-width: 580px;
+  margin: 0;
+  color: #5d6a7e;
+  font-size: 17px;
+  line-height: 1.65;
+}
+:where(.appScope) :global(.dashboard-layout .button) {
+  min-height: 44px;
+  font-size: 14px;
+}
+:where(.appScope) :global(.dashboard-layout .auth-form) {
+  gap: 13px;
+}
+:where(.appScope) :global(.visually-hidden) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 1030px) {
+  :where(.appScope) :global(.dashboard-page-heading:has(.product-detail-actions)) {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 13px;
+  }
+  :where(.appScope) :global(.dashboard-page-heading:has(.product-detail-actions) .dashboard-heading-action) {
+    width: 100%;
+  }
+}
+
+@media (max-width: 980px) {
+  :where(.appScope) :global(.dashboard-layout) {
+    grid-template-columns: 225px minmax(0, 1fr);
+  }
+  :where(.appScope) :global(.dashboard-sidebar) {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+  :where(.appScope) :global(.dashboard-main) {
+    padding-right: 26px;
+    padding-left: 26px;
+  }
+  :where(.appScope) :global(.people-row) {
+    flex-wrap: wrap;
+  }
+  :where(.appScope) :global(.people-row-actions) {
+    width: 100%;
+    margin-left: 47px;
+  }
+}
+@media (max-width: 1200px) {
+  :where(.appScope) :global(.operations-section-links) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 740px) {
+  :where(.appScope) :global(.operations-section-links) {
+    grid-template-columns: 1fr;
+  }
+
+  :where(.appScope) :global(.org-switcher) {
+    padding: 0 1px 10px;
+  }
+  :where(.appScope) :global(.org-switcher > span) {
+    display: none;
+  }
+  :where(.appScope) :global(.org-switcher .custom-dropdown) {
+    max-width: 100%;
+  }
+  :where(.appScope) :global(.dashboard-page-heading) {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 13px;
+    margin-bottom: 22px;
+  }
+  :where(.appScope) :global(.dashboard-heading-action) {
+    width: 100%;
+  }
+  :where(.appScope) :global(.dashboard-heading-action .button) {
+    width: 100%;
+  }
+  :where(.appScope) :global(.product-catalog) {
+    grid-template-columns: 1fr;
+  }
+  :where(.appScope) :global(.public-product-item) {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  :where(.appScope) :global(.public-product-item > form), :where(.appScope) :global(.public-product-item > form .button) {
+    width: 100%;
+  }
+  :where(.appScope) :global(.public-product-item > .public-product-conflict) {
+    flex: 0 1 calc(100% - 54px);
+    max-width: none;
+    margin-left: 54px;
+    text-align: left;
+  }
+  :where(.appScope) :global(.public-product-item > .record-badge) {
+    margin-left: 54px;
+  }
+  :where(.appScope) :global(.public-product-item > form) {
+    flex: 1 1 calc(100% - 54px);
+    width: calc(100% - 54px);
+    margin-left: 54px;
+  }
+  :where(.appScope) :global(.product-visibility-control) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  :where(.appScope) :global(.product-visibility-control > form), :where(.appScope) :global(.product-visibility-control > form .button) {
+    width: 100%;
+  }
+  :where(.appScope) :global(.product-lifecycle-control) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  :where(.appScope) :global(.product-lifecycle-actions), :where(.appScope) :global(.product-lifecycle-actions form), :where(.appScope) :global(.product-lifecycle-actions .button) {
+    width: 100%;
+  }
+  :where(.appScope) :global(.archived-product-item) {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  :where(.appScope) :global(.archived-product-copy) {
+    flex: 1 1 calc(100% - 54px);
+  }
+  :where(.appScope) :global(.archived-product-item > .product-lifecycle-control) {
+    flex: 1 1 100%;
+    margin: 4px 0 0 54px;
+    border-top: 0;
+    padding-top: 0;
+  }
+}
+@media (max-width: 540px) {
+  :where(.appScope) :global(.dashboard-main) {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+  :where(.appScope) :global(.dashboard-card), :where(.appScope) :global(.dashboard-empty-card) {
+    padding: 16px;
+  }
+  :where(.appScope) :global(.product-privacy-dialog) {
+    padding: 20px;
+  }
+  :where(.appScope) :global(.product-privacy-dialog-actions) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :where(.appScope) :global(.product-privacy-dialog-actions > .button), :where(.appScope) :global(.product-privacy-dialog-actions form), :where(.appScope) :global(.product-privacy-dialog-actions form .button) {
+    width: 100%;
+  }
+  :where(.appScope) :global(.dashboard-empty-card) {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  :where(.appScope) :global(.dashboard-empty-card .button) {
+    width: 100%;
+  }
+  :where(.appScope) :global(.product-source-form), :where(.appScope) :global(.invite-form) {
+    grid-template-columns: 1fr;
+  }
+  :where(.appScope) :global(.product-source-form .button), :where(.appScope) :global(.invite-form .button) {
+    width: 100%;
+  }
+  :where(.appScope) :global(.product-setup-step) {
+    grid-template-columns: 1fr;
+    padding: 17px;
+  }
+  :where(.appScope) :global(.product-setup-step > .onboarding-step) {
+    width: 27px;
+    height: 27px;
+  }
+  :where(.appScope) :global(.access-grant-card) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  :where(.appScope) :global(.access-grant-member-heading) {
+    grid-column: 1;
+  }
+  :where(.appScope) :global(.access-grant-main) {
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+  }
+  :where(.appScope) :global(.access-grant-actions) {
+    grid-column: 1;
+    grid-row: 3;
+    width: 100%;
+    justify-self: start;
+    align-self: start;
+    justify-content: flex-end;
+  }
+  :where(.appScope) :global(.people-row) {
+    gap: 9px;
+  }
+  :where(.appScope) :global(.people-row-actions) {
+    flex-wrap: wrap;
+    margin-left: 0;
+  }
+  :where(.appScope) :global(.people-row-actions form) {
+    flex-wrap: wrap;
+  }
+  :where(.appScope) :global(.pending-invite-row) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  :where(.appScope) :global(.profile-details > div) {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  :where(.appScope) :global(.activity-item) {
+    padding: 12px;
+  }
+  :where(.appScope) :global(.activity-item-header) {
+    flex-direction: column;
+    gap: 8px;
+  }
+  :where(.appScope) :global(.activity-time) {
+    justify-items: start;
+    text-align: left;
+  }
+  :where(.appScope) :global(.simple-hero-copy > p:not(.eyebrow)) {
+    font-size: 16px;
+  }
+  :where(.appScope) :global(.simple-cta .button) {
+    width: 100%;
+  }
+}

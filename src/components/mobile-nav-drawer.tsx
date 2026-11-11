@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import styles from "./mobile-nav-drawer.module.css";
 
 export function MobileNavDrawer({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -61,28 +62,28 @@ export function MobileNavDrawer({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <div className="dashboard-mobile-bar">
+      <div>
         <button
           type="button"
           ref={triggerRef}
-          className="dashboard-mobile-menu-trigger"
+          className={styles.menuTrigger}
           aria-expanded={isOpen}
           aria-controls="mobile-nav-drawer"
           aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
           onClick={() => setIsOpen((prev) => !prev)}
         >
-          <span className="mobile-menu-icon" aria-hidden="true">
-            <span className={`bar ${isOpen ? "open" : ""}`} />
-            <span className={`bar ${isOpen ? "open" : ""}`} />
-            <span className={`bar ${isOpen ? "open" : ""}`} />
+          <span className={styles.menuIcon} aria-hidden="true">
+            <span className={styles.bar} />
+            <span className={styles.bar} />
+            <span className={styles.bar} />
           </span>
-          <span className="mobile-menu-label">{isOpen ? "Close" : "Menu"}</span>
+          <span>{isOpen ? "Close" : "Menu"}</span>
         </button>
       </div>
 
       {isOpen ? (
         <div
-          className="dashboard-drawer-backdrop"
+          className={styles.backdrop}
           onClick={() => setIsOpen(false)}
           aria-hidden="true"
         />
@@ -92,22 +93,22 @@ export function MobileNavDrawer({ children }: { children: ReactNode }) {
         ref={drawerRef}
         inert={!isOpen}
         id="mobile-nav-drawer"
-        className={`dashboard-mobile-drawer ${isOpen ? "is-open" : ""}`}
+        className={`${styles.mobileDrawer} ${isOpen ? styles.isOpen : ""}`.trim()}
         aria-hidden={!isOpen}
       >
-        <div className="dashboard-drawer-inner">
-          <div className="dashboard-drawer-header">
-            <span className="dashboard-drawer-title">Navigation</span>
+        <div className={styles.drawerInner}>
+          <div className={styles.drawerHeader}>
+            <span className={styles.drawerTitle}>Navigation</span>
             <button
               type="button"
-              className="dashboard-drawer-close"
+              className={styles.drawerClose}
               aria-label="Close menu"
               onClick={() => setIsOpen(false)}
             >
               ✕
             </button>
           </div>
-          <div className="dashboard-drawer-content">{children}</div>
+          <div className={styles.drawerContent}>{children}</div>
         </div>
       </div>
     </>

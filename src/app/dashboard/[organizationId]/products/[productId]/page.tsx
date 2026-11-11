@@ -1,3 +1,4 @@
+import { skeletonClasses } from "@/components/skeleton-classnames";
 import { Suspense } from "react";
 import { DashboardHeading } from "@/components/dashboard-shell";
 import {
@@ -165,22 +166,22 @@ function ProductPanelSkeleton({ label }: { label: string }) {
     <div
       aria-busy="true"
       aria-label={label}
-      className="dashboard-skeleton-grid is-one-column"
+      className={skeletonClasses("dashboard-skeleton-grid", "is-one-column")}
       role="status"
     >
       <span className="visually-hidden">{label}</span>
-      <div aria-hidden="true" className="dashboard-skeleton-card">
-        <span className="dashboard-skeleton-block is-card-title" />
-        <span className="dashboard-skeleton-block is-card-description" />
-        <div className="dashboard-skeleton-rows">
+      <div aria-hidden="true" className={skeletonClasses("dashboard-skeleton-card")}>
+        <span className={skeletonClasses("dashboard-skeleton-block", "is-card-title")} />
+        <span className={skeletonClasses("dashboard-skeleton-block", "is-card-description")} />
+        <div className={skeletonClasses("dashboard-skeleton-rows")}>
           {[0, 1, 2].map((row) => (
-            <div className="dashboard-skeleton-row" key={row}>
-              <span className="dashboard-skeleton-block is-avatar" />
-              <div className="dashboard-skeleton-row-copy">
-                <span className="dashboard-skeleton-block is-row-title" />
-                <span className="dashboard-skeleton-block is-row-detail" />
+            <div className={skeletonClasses("dashboard-skeleton-row")} key={row}>
+              <span className={skeletonClasses("dashboard-skeleton-block", "is-avatar")} />
+              <div className={skeletonClasses("dashboard-skeleton-row-copy")}>
+                <span className={skeletonClasses("dashboard-skeleton-block", "is-row-title")} />
+                <span className={skeletonClasses("dashboard-skeleton-block", "is-row-detail")} />
               </div>
-              <span className="dashboard-skeleton-block is-row-action" />
+              <span className={skeletonClasses("dashboard-skeleton-block", "is-row-action")} />
             </div>
           ))}
         </div>

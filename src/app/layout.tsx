@@ -4,6 +4,21 @@ import Script from "next/script";
 import { ActionRefreshNotice } from "@/components/action-refresh-notice";
 import { UrlNoticeCleanser } from "@/components/url-notice-cleanser";
 import "./globals.css";
+import publicPageStyles from "./styles/public-pages.module.css";
+import dashboardGuideStyles from "./styles/dashboard-and-guide.module.css";
+import organizationDashboardStyles from "./styles/organization-dashboard.module.css";
+import visualSystemStyles from "./styles/visual-system.module.css";
+import organizationOverviewStyles from "./styles/organization-overview.module.css";
+import dashboardComponentStyles from "./styles/dashboard-components.module.css";
+
+const appStyleScope = [
+  publicPageStyles.appScope,
+  dashboardGuideStyles.appScope,
+  organizationDashboardStyles.appScope,
+  visualSystemStyles.appScope,
+  organizationOverviewStyles.appScope,
+  dashboardComponentStyles.appScope,
+].join(" ");
 
 const themeBootstrap = `(() => {
   let choice = "system";
@@ -30,7 +45,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
           {themeBootstrap}
         </Script>
       </head>
-      <body>
+      <body className={appStyleScope}>
         <Suspense fallback={null}>
           <ActionRefreshNotice />
           <UrlNoticeCleanser />

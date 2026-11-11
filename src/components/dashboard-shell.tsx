@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { DashboardShell as PanelFrameDashboardShell } from "panel-frame-ui";
+import styles from "./dashboard-shell.module.css";
 import { Brand } from "@/components/site-shell";
 import type { OrganizationSummary } from "@/lib/auth/service";
 import { DashboardBreadcrumbs } from "@/components/dashboard-breadcrumbs";
@@ -144,7 +145,7 @@ export function DashboardLayoutFrame({
       toolbar={breadcrumbs}
       contentAsMain={false}
     >
-      <main className="dashboard-main-inner">{children}</main>
+      <main className={styles.content}>{children}</main>
     </PanelFrameDashboardShell>
   );
 }
