@@ -1,4 +1,6 @@
-.appScope {}
+.appScope {
+  --scope-marker: 1;
+}
 
 /* Organization overview */
 :where(.appScope) :global(.dashboard-page-title) {

@@ -1,4 +1,6 @@
-.appScope {}
+.appScope {
+  --scope-marker: 1;
+}
 
 /* ==========================================================================
    Mobile Nav Drawer & Filter Controls

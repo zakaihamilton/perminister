@@ -1,4 +1,6 @@
-.appScope {}:where(.appScope) :global(.site-header) {
+.appScope {
+  --scope-marker: 1;
+}:where(.appScope) :global(.site-header) {
   height: 76px;
   border-bottom: 1px solid rgba(215, 222, 232, 0.8);
   background: rgba(250, 251, 252, 0.92);

@@ -18,6 +18,7 @@ export default defineConfig(
     "build/**",
     "next-env.d.ts",
     "coverage/**",
+    ".pnpm-store/**",
     ".repnix/**",
     ".lighthouseci/**",
   ]),

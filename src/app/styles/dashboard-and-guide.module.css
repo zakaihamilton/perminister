@@ -1,4 +1,6 @@
-.appScope {}
+.appScope {
+  --scope-marker: 1;
+}
 
 /* Dashboard */
 :where(.appScope) :global(.dashboard-page), :where(.appScope) :global(.developers-page) {

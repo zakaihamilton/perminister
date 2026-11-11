@@ -1,4 +1,6 @@
-.appScope {}
+.appScope {
+  --scope-marker: 1;
+}
 
 /* Perminister visual system */
 :global(body):where(.appScope) {

@@ -1,4 +1,6 @@
-.appScope {}
+.appScope {
+  --scope-marker: 1;
+}
 
 /* Organization-first dashboard */
 :where(.appScope) :global(.dashboard-layout) {
