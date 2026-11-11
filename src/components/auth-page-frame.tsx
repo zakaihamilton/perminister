@@ -10,7 +10,7 @@ export function AuthPageFrame({ children }: { children: ReactNode }) {
       brand={<Brand />}
       aside={
         <>
-          <p className="eyebrow">Account access</p>
+          <p className="eyebrow">One secure account</p>
           <h1>Your organizations, products, and permissions in one place.</h1>
           <p>Use one secure account to manage your memberships, sessions, and API keys.</p>
         </>

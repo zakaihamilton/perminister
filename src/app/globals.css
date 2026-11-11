@@ -8946,3 +8946,55 @@ html[data-theme="dark"] .dashboard-mobile-menu-trigger:hover {
   margin: 0;
   padding: 0;
 }
+
+/* Keep the shared sidebar pattern intact in the dashboard and mobile drawer. */
+.pf-dashboard-shell .dashboard-nav {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  overflow: visible;
+  padding: 0;
+}
+
+.pf-dashboard-shell .dashboard-nav-label {
+  display: block;
+}
+
+.pf-dashboard-shell .dashboard-nav-mark {
+  display: inline-block;
+}
+
+.pf-dashboard-shell .dashboard-nav-link {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  flex: initial;
+  justify-content: flex-start;
+  border: 1px solid transparent;
+  border-radius: var(--pf-radius-sm);
+  padding: 8px 10px;
+  color: var(--pf-muted);
+  font-size: 13px;
+  font-weight: 590;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+}
+
+.pf-dashboard-shell .dashboard-nav-link:hover {
+  color: var(--pf-text);
+  background: color-mix(in srgb, var(--pf-accent) 7%, var(--pf-surface));
+}
+
+.pf-dashboard-shell .dashboard-nav-link.pf-sidebar-link[aria-current="page"] {
+  border-color: color-mix(in srgb, var(--pf-accent) 18%, var(--pf-border));
+  color: var(--pf-accent);
+  background: color-mix(in srgb, var(--pf-accent) 10%, var(--pf-surface));
+  font-weight: 700;
+}
+
+@media (max-width: 780px) {
+  .pf-dashboard-shell[data-mobile-open="true"] .pf-sidebar {
+    z-index: 40;
+  }
+}
