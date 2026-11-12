@@ -4,13 +4,9 @@ import Link from "next/link";
 
 type ActivePage = "home" | "dashboard" | "developers" | "none";
 
-export function Brand({ compact = false }: { compact?: boolean }) {
+function BrandVisual() {
   return (
-    <Link
-      className={`brand${compact ? " brand-compact" : ""}`}
-      href="/"
-      aria-label="Perminister home"
-    >
+    <>
       <span className="brand-mark" aria-hidden="true">
         <svg viewBox="0 0 40 40" fill="none">
           <path d="M20 3.5 34 9v10.4c0 8.1-5.7 13.9-14 17.1C11.7 33.3 6 27.5 6 19.4V9l14-5.5Z" />
@@ -21,6 +17,26 @@ export function Brand({ compact = false }: { compact?: boolean }) {
       <span className="brand-word">
         Perminister<span className="brand-period">.</span>
       </span>
+    </>
+  );
+}
+
+export function BrandContent({ compact = false }: { compact?: boolean }) {
+  return (
+    <span className={`brand pf-brand${compact ? " brand-compact" : ""}`}>
+      <BrandVisual />
+    </span>
+  );
+}
+
+export function Brand({ compact = false }: { compact?: boolean }) {
+  return (
+    <Link
+      className={`brand${compact ? " brand-compact" : ""}`}
+      href="/"
+      aria-label="Perminister home"
+    >
+      <BrandVisual />
     </Link>
   );
 }

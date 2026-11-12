@@ -34,7 +34,7 @@ export function ConsumerClientList({
 }: ConsumerClientListProps) {
   const [confirmation, setConfirmation] = useState<ConsumerClientConfirmation | null>(null);
   const [rotationError, setRotationError] = useState<string | null>(null);
-  const { dialogRef, openDialog, closeDialog } = useModalDialog();
+  const { isOpen, openDialog, closeDialog } = useModalDialog();
   const selectedClient = clients.find((client) => client.clientId === confirmation?.clientId);
 
   function requestConfirmation(
@@ -101,7 +101,7 @@ export function ConsumerClientList({
       <ConsumerClientConfirmationDialog
         client={selectedClient}
         confirmation={confirmation}
-        dialogRef={dialogRef}
+        isOpen={isOpen}
         onDismiss={dismissConfirmation}
         onRotateSubmit={handleRotateConfirmation}
         organizationId={organizationId}

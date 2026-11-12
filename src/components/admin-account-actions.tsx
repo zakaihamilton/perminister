@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { AlertDialog } from "panel-frame-ui";
 import { useModalDialog } from "@/components/use-modal-dialog";
 
 export function AdminAccountActions({
@@ -12,8 +12,7 @@ export function AdminAccountActions({
   email: string | null;
   status: "active" | "disabled";
 }) {
-  const { dialogRef, openDialog, closeDialog } = useModalDialog();
-  const dialogId = useId();
+  const { isOpen, openDialog, closeDialog } = useModalDialog();
 
   return (
     <div className="admin-account-actions">
@@ -29,23 +28,16 @@ export function AdminAccountActions({
           <button className="button button-danger" type="button" onClick={openDialog}>
             Delete account
           </button>
-          <dialog
-            className="product-privacy-dialog"
-            ref={dialogRef}
-            aria-labelledby={`${dialogId}-title`}
-            aria-describedby={`${dialogId}-description`}
-            onCancel={(event) => {
-              event.preventDefault();
-              closeDialog();
+          <AlertDialog
+            description={
+              "This permanently removes the account’s personal details and sign-in access. Its organization and product memberships will be removed, and its API keys will be revoked. Activity history remains available. Transfer ownership first if this is the only active owner of an organization or product."
+            }
+            onOpenChange={(open) => {
+              if (!open) closeDialog();
             }}
+            open={isOpen}
+            title={`Delete ${email ?? "this account"}?`}
           >
-            <h2 id={`${dialogId}-title`}>Delete {email ?? "this account"}?</h2>
-            <p id={`${dialogId}-description`}>
-              This permanently removes the account’s personal details and sign-in access. Its
-              organization and product memberships will be removed, and its API keys will be
-              revoked. Activity history remains available. Transfer ownership first if this is the
-              only active owner of an organization or product.
-            </p>
             <div className="product-privacy-dialog-actions">
               <button className="button button-secondary" type="button" onClick={closeDialog}>
                 Cancel
@@ -57,7 +49,7 @@ export function AdminAccountActions({
                 </button>
               </form>
             </div>
-          </dialog>
+          </AlertDialog>
         </>
       ) : null}
     </div>

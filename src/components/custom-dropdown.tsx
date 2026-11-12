@@ -1,13 +1,13 @@
 "use client";
 
-import { useId } from "react";
-import {
-  DropdownNativeSelect,
-  DropdownOptionsList,
-  DropdownTrigger,
-  type CustomDropdownOption,
-} from "@/components/custom-dropdown-parts";
-import { useCustomDropdownController } from "@/components/use-custom-dropdown-controller";
+import { Select } from "panel-frame-ui";
+
+export interface CustomDropdownOption {
+  value: string;
+  label: string;
+  disabled?: boolean;
+  variant?: "action";
+}
 
 interface CustomDropdownProps {
   options: readonly CustomDropdownOption[];
@@ -38,72 +38,25 @@ export function CustomDropdown({
   "aria-describedby": ariaDescribedBy,
   onValueChange,
 }: CustomDropdownProps) {
-  const generatedId = useId();
-  const triggerId = id ?? generatedId;
-  const listboxId = `${triggerId}-listbox`;
-  const {
-    rootRef,
-    triggerRef,
-    invalid,
-    open,
-    selectedOption,
-    normalizedValue,
-    toggleMenu,
-    handleTriggerKeyDown,
-    handleListboxKeyDown,
-    handleNativeChange,
-    handleNativeInvalid,
-    setOptionRef,
-    choose,
-    closeMenu,
-  } = useCustomDropdownController({ options, value, defaultValue, onValueChange });
-
   return (
-    <div
-      className={`custom-dropdown${className ? ` ${className}` : ""}`}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          closeMenu();
-        }
-      }}
-      ref={rootRef}
-    >
-      <DropdownTrigger
-        ariaDescribedBy={ariaDescribedBy}
-        ariaLabel={ariaLabel}
-        disabled={disabled}
-        invalid={invalid}
-        listboxId={listboxId}
-        onClick={toggleMenu}
-        onKeyDown={handleTriggerKeyDown}
-        open={open}
-        placeholder={placeholder}
-        required={required}
-        selectedLabel={selectedOption?.label}
-        triggerId={triggerId}
-        triggerRef={triggerRef}
-      />
-      {open ? (
-        <DropdownOptionsList
-          ariaLabel={ariaLabel}
-          id={listboxId}
-          normalizedValue={normalizedValue}
-          onChoose={choose}
-          onKeyDown={handleListboxKeyDown}
-          onOptionRef={setOptionRef}
-          options={options}
-        />
-      ) : null}
-      <DropdownNativeSelect
-        disabled={disabled}
-        name={name}
-        normalizedValue={normalizedValue}
-        onChange={handleNativeChange}
-        onInvalid={handleNativeInvalid}
-        options={options}
-        placeholder={placeholder}
-        required={required}
-      />
-    </div>
+    <Select
+      aria-describedby={ariaDescribedBy}
+      aria-label={ariaLabel}
+      className={`custom-dropdown ${className}`.trim()}
+      defaultValue={defaultValue}
+      disabled={disabled}
+      id={id}
+      name={name}
+      onValueChange={onValueChange}
+      options={options.map((option) => ({
+        value: option.value,
+        label: option.label,
+        disabled: option.disabled,
+        kind: option.variant,
+      }))}
+      placeholder={placeholder}
+      required={required}
+      value={value}
+    />
   );
 }

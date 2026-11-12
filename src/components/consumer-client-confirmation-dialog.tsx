@@ -1,4 +1,5 @@
-import { useId, type FormEventHandler, type RefObject } from "react";
+import type { FormEventHandler } from "react";
+import { AlertDialog } from "panel-frame-ui";
 import type { ConsumerClientSummary } from "@/lib/auth/service";
 import type { ConsumerClientConfirmation } from "@/components/consumer-client-list-types";
 import { ConsumerClientFormContextFields } from "@/components/consumer-client-form-context-fields";
@@ -6,7 +7,7 @@ import { ConsumerClientFormContextFields } from "@/components/consumer-client-fo
 export function ConsumerClientConfirmationDialog({
   client,
   confirmation,
-  dialogRef,
+  isOpen,
   onDismiss,
   onRotateSubmit,
   organizationId,
@@ -17,7 +18,7 @@ export function ConsumerClientConfirmationDialog({
 }: {
   client?: ConsumerClientSummary;
   confirmation: ConsumerClientConfirmation | null;
-  dialogRef: RefObject<HTMLDialogElement | null>;
+  isOpen: boolean;
   onDismiss: () => void;
   onRotateSubmit: FormEventHandler<HTMLFormElement>;
   organizationId: string;
@@ -26,32 +27,27 @@ export function ConsumerClientConfirmationDialog({
   returnTo: string;
   rotationError: string | null;
 }) {
-  const dialogId = useId();
-
   return (
-    <dialog
-      aria-describedby={`${dialogId}-description`}
-      aria-labelledby={`${dialogId}-title`}
-      className="product-privacy-dialog"
-      id={`${dialogId}-dialog`}
-      onCancel={(event) => {
-        event.preventDefault();
-        onDismiss();
+    <AlertDialog
+      description={
+        confirmation?.action === "rotate"
+          ? "The current secret will stop working immediately. Update the app backend with the new secret before it makes another request. The new secret will only be shown once."
+          : "This app client will immediately lose access to Perminister. Its client ID and secret will stop working, and this action cannot be undone."
+      }
+      onOpenChange={(open) => {
+        if (!open) onDismiss();
       }}
-      ref={dialogRef}
+      open={isOpen}
+      title={
+        client && confirmation?.action === "rotate"
+          ? `Replace ${client.appName}’s secret?`
+          : client
+            ? `Revoke ${client.appName}?`
+            : "Manage app client"
+      }
     >
       {client && confirmation ? (
         <>
-          <h2 id={`${dialogId}-title`}>
-            {confirmation.action === "rotate"
-              ? `Replace ${client.appName}’s secret?`
-              : `Revoke ${client.appName}?`}
-          </h2>
-          <p id={`${dialogId}-description`}>
-            {confirmation.action === "rotate"
-              ? "The current secret will stop working immediately. Update the app backend with the new secret before it makes another request. The new secret will only be shown once."
-              : "This app client will immediately lose access to Perminister. Its client ID and secret will stop working, and this action cannot be undone."}
-          </p>
           {rotationError ? (
             <p className="form-error" role="alert">
               {rotationError}
@@ -93,6 +89,6 @@ export function ConsumerClientConfirmationDialog({
           </div>
         </>
       ) : null}
-    </dialog>
+    </AlertDialog>
   );
 }

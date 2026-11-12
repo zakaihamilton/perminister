@@ -1,7 +1,8 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { AlertDialog } from "panel-frame-ui";
 import { ApiKeyForm } from "@/components/api-key-form";
 import { useModalDialog } from "@/components/use-modal-dialog";
 import type { ApiKeyRecord, ProductRecord } from "@/lib/auth/domain";
@@ -17,8 +18,7 @@ export function ApiKeyRotationControl({
   product: ProductRecord;
   returnTo: string;
 }) {
-  const { dialogRef, openDialog, closeDialog } = useModalDialog();
-  const dialogId = useId();
+  const { isOpen, openDialog, closeDialog } = useModalDialog();
   const router = useRouter();
   const [rotated, setRotated] = useState(false);
 
@@ -42,21 +42,14 @@ export function ApiKeyRotationControl({
       >
         Rotate this key
       </button>
-      <dialog
-        aria-describedby={`${dialogId}-description`}
-        aria-labelledby={`${dialogId}-title`}
-        className="product-privacy-dialog api-key-rotation-dialog"
-        onCancel={(event) => {
-          event.preventDefault();
-          closeRotationDialog();
+      <AlertDialog
+        description="Creating a replacement will revoke this key. Update any app or script using it with the new key as soon as it is created."
+        onOpenChange={(open) => {
+          if (!open) closeRotationDialog();
         }}
-        ref={dialogRef}
+        open={isOpen}
+        title="Rotate this API key?"
       >
-        <h2 id={`${dialogId}-title`}>Rotate this API key?</h2>
-        <p id={`${dialogId}-description`}>
-          Creating a replacement will revoke this key. Update any app or script using it with the
-          new key as soon as it is created.
-        </p>
         <ApiKeyForm
           defaults={{
             scope: apiKey.scope,
@@ -71,7 +64,7 @@ export function ApiKeyRotationControl({
           rotateFromApiKeyId={apiKey.apiKeyId}
           submitLabel="Create replacement key"
         />
-      </dialog>
+      </AlertDialog>
     </>
   );
 }

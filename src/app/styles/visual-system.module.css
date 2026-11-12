@@ -181,7 +181,7 @@
   min-width: 0;
   gap: 7px;
 }
-:where(.appScope) :global(.auth-form input), :where(.appScope) :global(.auth-form .custom-dropdown-trigger), :where(.appScope) :global(.auth-form textarea), :where(.appScope) :global(.people-row-actions .custom-dropdown-trigger), :where(.appScope) :global(.invite-form .custom-dropdown-trigger) {
+:where(.appScope) :global(.auth-form input), :where(.appScope) :global(.auth-form .pf-select-trigger), :where(.appScope) :global(.auth-form textarea), :where(.appScope) :global(.people-row-actions .pf-select-trigger), :where(.appScope) :global(.invite-form .pf-select-trigger) {
   border-color: var(--line-strong);
   border-radius: 4px;
   color: var(--ink);
@@ -258,7 +258,7 @@
   font-size: 10px;
   letter-spacing: 0.1em;
 }
-:where(.appScope) :global(.org-switcher .custom-dropdown-trigger) {
+:where(.appScope) :global(.org-switcher .pf-select-trigger) {
   border-color: var(--line);
   border-radius: 4px;
   color: var(--ink);
@@ -748,129 +748,11 @@
   width: 100%;
   min-width: 0;
 }
-:where(.appScope) :global(.custom-dropdown-trigger) {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  font:
-    500 14px/1.4 "DM Sans",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    border-color 0.14s ease,
-    background 0.14s ease;
-}
-:where(.appScope) :global(.custom-dropdown-trigger > span:first-child) {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-:where(.appScope) :global(.custom-dropdown-trigger:hover), :where(.appScope) :global(.custom-dropdown-trigger[aria-expanded="true"]) {
-  border-color: var(--blue);
-}
-:where(.appScope) :global(.custom-dropdown-trigger:focus-visible) {
-  border-color: var(--blue);
-  outline: 3px solid var(--blue);
-  outline-offset: 2px;
-}
-:where(.appScope) :global(.custom-dropdown-trigger:disabled) {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-:where(.appScope) :global(.custom-dropdown-trigger[aria-invalid="true"]) {
-  border-color: var(--danger);
-}
-:where(.appScope) :global(.custom-dropdown-placeholder) {
-  color: var(--muted);
-}
-:where(.appScope) :global(.custom-dropdown-chevron) {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 auto;
-  margin-left: auto;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-:where(.appScope) :global(.custom-dropdown-menu) {
-  position: absolute;
-  z-index: 90;
-  top: calc(100% + 5px);
-  right: 0;
-  left: 0;
-  max-height: min(300px, 60vh);
-  overflow-y: auto;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 4px;
-  background: var(--surface);
-  box-shadow: 0 10px 28px rgba(30, 29, 23, 0.16);
-}
-:where(.appScope) :global(.custom-dropdown-option) {
-  display: flex;
-  width: 100%;
-  min-height: 40px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border: 0;
-  border-radius: 3px;
-  padding: 7px 9px;
-  color: var(--ink);
-  background: transparent;
-  font-size: 14px;
-  line-height: 1.4;
-  text-align: left;
-  cursor: pointer;
-}
-:where(.appScope) :global(.custom-dropdown-option-action) {
-  margin-top: 4px;
-  border-top: 1px solid var(--line);
-  border-radius: 0;
-  padding-top: 10px;
-  color: var(--blue-dark);
-}
-:where(.appScope) :global(.custom-dropdown-option:hover), :where(.appScope) :global(.custom-dropdown-option:focus-visible), :where(.appScope) :global(.custom-dropdown-option[aria-selected="true"]) {
-  background: var(--surface-2);
-}
-:where(.appScope) :global(.custom-dropdown-option[aria-selected="true"]) {
-  color: var(--blue-dark);
-  font-weight: 700;
-}
-:where(.appScope) :global(.custom-dropdown-option:disabled) {
-  color: var(--muted);
-  cursor: not-allowed;
-}
-:where(.appScope) :global(.custom-dropdown-check) {
-  color: var(--blue-dark);
-}
-:where(.appScope) :global(.custom-dropdown .custom-dropdown-native) {
-  position: absolute;
-  width: 1px;
-  min-width: 0;
-  min-height: 0;
-  height: 1px;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
-  padding: 0;
-  opacity: 0;
-  pointer-events: none;
-}
 :where(.appScope) :global(.people-role-dropdown) {
   width: 126px;
   flex: 0 0 auto;
 }
-:where(.appScope) :global(.people-row-actions .custom-dropdown-trigger) {
+:where(.appScope) :global(.people-row-actions .pf-select-trigger) {
   min-height: 44px;
   padding: 0 10px;
   color: var(--ink-soft);
@@ -989,7 +871,7 @@
 :global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-callout strong), :global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-callout p), :global(html[data-theme="dark"]) :where(.appScope) :global(.guide-notice strong), :global(html[data-theme="dark"]) :where(.appScope) :global(.guide-notice p) {
   color: var(--ink-soft);
 }
-:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form input), :global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form .custom-dropdown-trigger), :global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form textarea), :global(html[data-theme="dark"]) :where(.appScope) :global(.product-transfer-dropdown .custom-dropdown-trigger), :global(html[data-theme="dark"]) :where(.appScope) :global(.people-row-actions .custom-dropdown-trigger), :global(html[data-theme="dark"]) :where(.appScope) :global(.invite-form .custom-dropdown-trigger), :global(html[data-theme="dark"]) :where(.appScope) :global(.org-switcher .custom-dropdown-trigger) {
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form input), :global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form .pf-select-trigger), :global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form textarea), :global(html[data-theme="dark"]) :where(.appScope) :global(.product-transfer-dropdown .pf-select-trigger), :global(html[data-theme="dark"]) :where(.appScope) :global(.people-row-actions .pf-select-trigger), :global(html[data-theme="dark"]) :where(.appScope) :global(.invite-form .pf-select-trigger), :global(html[data-theme="dark"]) :where(.appScope) :global(.org-switcher .pf-select-trigger) {
   border-color: var(--line-strong);
   color: var(--ink);
   background: var(--surface-inset);

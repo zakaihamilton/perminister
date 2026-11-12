@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Suspense } from "react";
 import Script from "next/script";
+import { getThemeBootstrapScript, ThemeProvider } from "panel-frame-ui";
 import { ActionRefreshNotice } from "@/components/action-refresh-notice";
 import { UrlNoticeCleanser } from "@/components/url-notice-cleanser";
 import "./globals.css";
@@ -20,15 +21,8 @@ const appStyleScope = [
   dashboardComponentStyles.appScope,
 ].join(" ");
 
-const themeBootstrap = `(() => {
-  let choice = "system";
-  try {
-    const stored = localStorage.getItem("perminister-theme");
-    if (stored === "light" || stored === "dark" || stored === "system") choice = stored;
-  } catch {}
-  const dark = choice === "dark" || (choice === "system" && typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: dark)").matches);
-  document.documentElement.dataset.theme = dark ? "dark" : "light";
-})();`;
+const themePersistence = { type: "localStorage" as const, key: "perminister-theme" };
+const themeBootstrap = getThemeBootstrapScript(themePersistence, { systemMode: "resolved" });
 
 export const metadata = {
   title: "Perminister — shared identity and access",
@@ -50,7 +44,9 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
           <ActionRefreshNotice />
           <UrlNoticeCleanser />
         </Suspense>
-        {children}
+        <ThemeProvider persistence={themePersistence} systemMode="resolved">
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

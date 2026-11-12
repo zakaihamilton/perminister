@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { DashboardShell as PanelFrameDashboardShell } from "panel-frame-ui";
 import styles from "./dashboard-shell.module.css";
-import { Brand } from "@/components/site-shell";
+import { BrandContent } from "@/components/site-shell";
 import type { OrganizationSummary } from "@/lib/auth/service";
 import { DashboardBreadcrumbs } from "@/components/dashboard-breadcrumbs";
 import { DashboardNavigation } from "@/components/dashboard-navigation";
@@ -106,7 +106,7 @@ export function DashboardLayoutFrame({
 
   return (
     <PanelFrameDashboardShell
-      brand={<Brand />}
+      brand={<BrandContent />}
       sidebarContext={
         organizationSwitcher !== undefined
           ? organizationSwitcher
