@@ -50,7 +50,7 @@ describe("public product transfer control", () => {
     await user.click(screen.getByRole("option", { name: "Northstar" }));
     await user.click(screen.getByRole("button", { name: "Transfer publisher" }));
 
-    expect(screen.getByRole("dialog").textContent).toContain("Transfer Atlas to Northstar?");
+    expect(screen.getByRole("alertdialog").textContent).toContain("Transfer Atlas to Northstar?");
     expect(screen.getByRole("button", { name: "Confirm transfer" })).toBeTruthy();
   });
 
