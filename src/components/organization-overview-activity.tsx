@@ -62,7 +62,7 @@ function lowercaseFirst(value: string): string {
 
 function ActivityMetricIcon() {
   return (
-    <svg fill="none" viewBox="0 0 24 24">
+    <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
       <path d="M3 12h4l2.2-6 4.1 12 2.2-6H21" />
     </svg>
   );

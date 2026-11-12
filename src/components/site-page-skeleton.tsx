@@ -13,14 +13,14 @@ function Block({ className = "" }: { className?: string }) {
 
 function SiteHeaderSkeleton() {
   return (
-    <header className={skeletonClasses("site-skeleton-header")} aria-hidden="true">
+    <div className={skeletonClasses("site-skeleton-header")} aria-hidden="true">
       <Block className="is-brand" />
       <div className={skeletonClasses("site-skeleton-header-links")}>
         <Block />
         <Block />
         <Block />
       </div>
-    </header>
+    </div>
   );
 }
 

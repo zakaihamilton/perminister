@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 const NOTICE_KEYS = ["notice", "error", "message"];
 
 export function UrlNoticeCleanser() {
-  const pathname = usePathname();
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -42,7 +41,7 @@ export function UrlNoticeCleanser() {
     }, 400);
 
     return () => window.clearTimeout(timeout);
-  }, [pathname, searchParams]);
+  }, [searchParams]);
 
   return null;
 }

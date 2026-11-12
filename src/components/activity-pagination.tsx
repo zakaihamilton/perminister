@@ -45,7 +45,6 @@ export function ActivityPagination({
           pageNumber === page ? (
             <span
               aria-current="page"
-              aria-label={`Page ${pageNumber}`}
               className="button button-secondary activity-pagination-current"
               key={pageNumber}
             >

@@ -111,7 +111,7 @@ function MetricIcon({ icon }: { icon: "products" | "members" | "keys" }) {
 
 function ProductsMetricIcon() {
   return (
-    <svg fill="none" viewBox="0 0 24 24">
+    <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
       <path d="m12 3 8 4.4v9.2L12 21l-8-4.4V7.4L12 3Z" />
       <path d="m4.5 7.7 7.5 4.2 7.5-4.2M12 12v8.5" />
     </svg>
@@ -120,7 +120,7 @@ function ProductsMetricIcon() {
 
 function MembersMetricIcon() {
   return (
-    <svg fill="none" viewBox="0 0 24 24">
+    <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
       <circle cx="9" cy="8" r="3" />
       <path d="M3.5 20v-1.3a5.5 5.5 0 0 1 11 0V20h-11ZM16 5.5a3 3 0 0 1 0 5.8M17 14.5a4.7 4.7 0 0 1 3.5 4.6v.9" />
     </svg>
@@ -129,7 +129,7 @@ function MembersMetricIcon() {
 
 function KeysMetricIcon() {
   return (
-    <svg fill="none" viewBox="0 0 24 24">
+    <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
       <circle cx="8" cy="15" r="4" />
       <path d="m11 12 8-8 2 2-2 2 2 2-3 3-2-2-2 2" />
     </svg>

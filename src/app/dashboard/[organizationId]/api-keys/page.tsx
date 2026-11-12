@@ -43,7 +43,6 @@ export default async function ApiKeysPage({
 
   // This request-rendered page must compare key expiry against the current time.
   const now =
-    // eslint-disable-next-line react-hooks/purity
     Date.now();
 
   return (

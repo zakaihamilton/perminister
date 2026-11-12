@@ -69,7 +69,7 @@ export function OrganizationSwitcher({
     return (
       <div className="org-switcher">
         <span>Organization</span>
-        <div aria-label="No organization access" className="pf-context-empty">
+        <div className="pf-context-empty">
           No organization access
         </div>
       </div>
