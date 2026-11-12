@@ -29,7 +29,7 @@
       "mode": "required"
     },
     "accessibility": {
-      "mode": "required"
+      "mode": "optional"
     },
     "secrets": {
       "mode": "optional"
