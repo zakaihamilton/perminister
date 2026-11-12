@@ -838,35 +838,20 @@
 :global(html[data-theme="dark"]) :where(.appScope) :global(.auth-links a), :global(html[data-theme="dark"]) :where(.appScope) :global(.text-link), :global(html[data-theme="dark"]) :where(.appScope) :global(.guide-next-link a), :global(html[data-theme="dark"]) :where(.appScope) :global(.profile-links a), :global(html[data-theme="dark"]) :where(.appScope) :global(.onboarding-secondary a), :global(html[data-theme="dark"]) :where(.appScope) :global(.onboarding-ops-link a), :global(html[data-theme="dark"]) :where(.appScope) :global(.operations-topline a), :global(html[data-theme="dark"]) :where(.appScope) :global(.product-detail-list a) {
   color: var(--blue-dark);
 }
-:global(html[data-theme="dark"]) :where(.appScope) :global(.form-error) {
-  border-color: #67403a;
-  color: var(--danger);
-  background: var(--danger-soft);
-}
-:global(html[data-theme="dark"]) :where(.appScope) :global(.form-success) {
-  border-color: #41543e;
-  color: var(--success);
-  background: var(--success-soft);
-}
-:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-notice) {
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-notice), :global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-callout), :global(html[data-theme="dark"]) :where(.appScope) :global(.guide-notice) {
   border-color: var(--line);
   color: var(--ink-soft);
   background: var(--surface-2);
 }
-:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-notice.success) {
+:global(html[data-theme="dark"]) :where(.appScope) :global(.form-success), :global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-notice.success), :global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge.active), :global(html[data-theme="dark"]) :where(.appScope) :global(.one-time-secret) {
   border-color: #41543e;
   color: var(--success);
   background: var(--success-soft);
 }
-:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-notice.error) {
+:global(html[data-theme="dark"]) :where(.appScope) :global(.form-error), :global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-notice.error), :global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge.disabled), :global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge.revoked), :global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge.expired) {
   border-color: #67403a;
   color: var(--danger);
   background: var(--danger-soft);
-}
-:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-callout), :global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-callout.info), :global(html[data-theme="dark"]) :where(.appScope) :global(.guide-notice) {
-  border-color: var(--line);
-  color: var(--ink-soft);
-  background: var(--surface-2);
 }
 :global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-callout strong), :global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-callout p), :global(html[data-theme="dark"]) :where(.appScope) :global(.guide-notice strong), :global(html[data-theme="dark"]) :where(.appScope) :global(.guide-notice p) {
   color: var(--ink-soft);
@@ -883,21 +868,12 @@
   border-color: var(--line);
   background: transparent;
 }
-:global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge) {
+:global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge), :global(html[data-theme="dark"]) :where(.appScope) :global(.role-pill) {
   border-color: var(--line-strong);
   color: var(--muted);
   background: var(--surface-2);
 }
-:global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge.active) {
-  border-color: #41543e;
-  color: var(--success);
-  background: var(--success-soft);
-}
-:global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge.disabled), :global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge.revoked), :global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge.expired) {
-  border-color: #67403a;
-  color: var(--danger);
-  background: var(--danger-soft);
-}
+
 :global(html[data-theme="dark"]) :where(.appScope) :global(.code-block) {
   border-color: var(--line);
   color: var(--ink-soft);
@@ -908,21 +884,13 @@
   color: var(--ink-soft);
   background: var(--surface-2);
 }
-:global(html[data-theme="dark"]) :where(.appScope) :global(.one-time-secret) {
-  border-color: #41543e;
-  color: var(--success);
-  background: var(--success-soft);
-}
+
 :global(html[data-theme="dark"]) :where(.appScope) :global(.one-time-secret code) {
   color: var(--ink);
   background: var(--surface-inset);
 }
-:global(html[data-theme="dark"]) :where(.appScope) :global(.role-pill) {
-  border-color: var(--line-strong);
-  color: var(--muted);
-  background: var(--surface-2);
-}
-:global(html[data-theme="dark"]) :where(.appScope) :global(.product-placeholder), :global(html[data-theme="dark"]) :where(.appScope) :global(.people-avatar) {
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-placeholder), :global(html[data-theme="dark"]) :where(.appScope) :global(.people-avatar), :global(html[data-theme="dark"]) :where(.appScope) :global(.product-nav-link:hover), :global(html[data-theme="dark"]) :where(.appScope) :global(.product-nav-link[aria-current="page"]), :global(html[data-theme="dark"]) :where(.appScope) :global(.developer-nav a:hover), :global(html[data-theme="dark"]) :where(.appScope) :global(.developer-nav a[aria-current="page"]) {
   border-color: var(--line);
   color: var(--ink);
   background: var(--surface-2);
@@ -975,11 +943,7 @@
 :global(html[data-theme="dark"]) :where(.appScope) :global(.product-nav-link) {
   color: var(--muted);
 }
-:global(html[data-theme="dark"]) :where(.appScope) :global(.product-nav-link:hover), :global(html[data-theme="dark"]) :where(.appScope) :global(.product-nav-link[aria-current="page"]), :global(html[data-theme="dark"]) :where(.appScope) :global(.developer-nav a:hover), :global(html[data-theme="dark"]) :where(.appScope) :global(.developer-nav a[aria-current="page"]) {
-  border-color: var(--line);
-  color: var(--ink);
-  background: var(--surface-2);
-}
+
 :global(html[data-theme="dark"]) :where(.appScope) :global(.developer-nav a) {
   color: var(--muted);
 }
