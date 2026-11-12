@@ -228,8 +228,9 @@ describe("platform activity pagination controls", () => {
     expect(markup).toContain('href="/dashboard/operations/activity?page=1"');
     expect(markup).toContain('href="/dashboard/operations/activity?page=3"');
     expect(markup).toContain('href="/dashboard/operations/activity?page=4"');
-    expect(markup).toContain('aria-current="page"');
-    expect(markup).toContain('aria-label="Page 2"');
+    expect(markup).toMatch(
+      /<span aria-current="page" class="button button-secondary activity-pagination-current">2<\/span>/,
+    );
   });
 
   it("disables First and Previous on the first page, and Next and Last on the last page", () => {
