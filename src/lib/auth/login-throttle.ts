@@ -1,35 +1,28 @@
 import { createHash } from "node:crypto";
 
-const MAX_LOGIN_FAILURES = 8;
-const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-const LOGIN_LOCK_MS = 15 * 60 * 1000;
+const FAILURE_WINDOW_MS = 15 * 60 * 1000;
+const FAILURE_DELAY_STEP_MS = 125;
+const MAX_FAILURE_DELAY_MS = 1_000;
 const MAX_THROTTLE_BUCKETS = 10_000;
-const LOGIN_REQUEST_WINDOW_MS = 15 * 60 * 1000;
-const MAX_LOGIN_REQUESTS_PER_WINDOW = 60;
-
-interface RequestRecord {
-  count: number;
-  resetAt: number;
-}
 
 interface FailureRecord {
   count: number;
   resetAt: number;
-  lockedUntil: number;
   inFlight: number;
 }
 
 export interface LoginAttemptReservation {
+  delayMs: number;
   recordFailure(): void;
   recordSuccess(): void;
   release(): void;
 }
 
-function throttleKey(email: string): string {
-  return createHash("sha256").update(email).digest("hex");
+function throttleKey(identifier: string): string {
+  return createHash("sha256").update(identifier).digest("hex");
 }
 
-/** In-memory login throttling. Limits are local to the current app process. */
+/** Adds a small, process-local delay after failures without locking an account. */
 export class ProcessLocalLoginThrottle {
   private readonly failures = new Map<string, FailureRecord>();
 
@@ -38,37 +31,44 @@ export class ProcessLocalLoginThrottle {
     private readonly maxBuckets: number = MAX_THROTTLE_BUCKETS,
   ) {}
 
-  beginAttempt(email: string): LoginAttemptReservation {
-    const key = throttleKey(email);
+  beginAttempt(identifier: string): LoginAttemptReservation {
+    const key = throttleKey(identifier);
     const now = this.now();
-    if (!this.failures.has(key) && this.failures.size >= this.maxBuckets) {
-      this.evictForCapacity(now);
-    }
-    const record = this.failures.get(key) ?? {
-      count: 0,
-      resetAt: 0,
-      lockedUntil: 0,
-      inFlight: 0,
-    };
-    if (record.lockedUntil > now) throw new Error("Too many sign-in attempts. Try again later.");
-    if (record.resetAt > 0 && record.resetAt <= now) {
+    let record = this.failures.get(key);
+    if (record && record.resetAt > 0 && record.resetAt <= now) {
       record.count = 0;
       record.resetAt = 0;
-      record.lockedUntil = 0;
-    }
-    if (record.count + record.inFlight >= MAX_LOGIN_FAILURES) {
-      this.failures.set(key, record);
-      throw new Error("Too many sign-in attempts. Try again later.");
+      if (record.inFlight === 0) {
+        this.failures.delete(key);
+        record = undefined;
+      }
     }
 
-    record.inFlight += 1;
-    this.failures.set(key, record);
-    this.pruneExpired(now);
+    let tracked = true;
+    if (!record && this.failures.size >= this.maxBuckets) {
+      const removableKey = [...this.failures].find(([, candidate]) => candidate.inFlight === 0)?.[0];
+      if (removableKey !== undefined) this.failures.delete(removableKey);
+      else tracked = false;
+    }
+
+    if (!record && tracked) {
+      record = { count: 0, resetAt: 0, inFlight: 0 };
+    }
+    const delayMs = record
+      ? Math.min(MAX_FAILURE_DELAY_MS, (record.count + record.inFlight) * FAILURE_DELAY_STEP_MS)
+      : 0;
+
+    if (record) {
+      record.inFlight += 1;
+      this.failures.delete(key);
+      this.failures.set(key, record);
+    }
 
     let finalized = false;
     const finish = (outcome: "failure" | "success" | "released") => {
       if (finalized) return;
       finalized = true;
+      if (!tracked) return;
 
       const current = this.failures.get(key);
       if (!current) return;
@@ -78,104 +78,29 @@ export class ProcessLocalLoginThrottle {
       if (outcome === "success") {
         current.count = 0;
         current.resetAt = 0;
-        current.lockedUntil = 0;
       } else if (outcome === "failure") {
         if (current.resetAt === 0 || current.resetAt <= completedAt) {
           current.count = 0;
-          current.resetAt = completedAt + LOGIN_WINDOW_MS;
-          current.lockedUntil = 0;
+          current.resetAt = completedAt + FAILURE_WINDOW_MS;
         }
         current.count += 1;
-        if (current.count >= MAX_LOGIN_FAILURES) {
-          current.lockedUntil = completedAt + LOGIN_LOCK_MS;
-        }
       }
 
       if (current.count === 0 && current.inFlight === 0) {
         this.failures.delete(key);
       } else {
+        this.failures.delete(key);
         this.failures.set(key, current);
       }
-      this.pruneExpired(completedAt);
     };
 
     return {
+      delayMs,
       recordFailure: () => finish("failure"),
       recordSuccess: () => finish("success"),
       release: () => finish("released"),
     };
   }
-
-  private pruneExpired(now: number): void {
-    if (this.failures.size <= Math.min(5000, this.maxBuckets)) return;
-    for (const [key, record] of this.failures) {
-      if (record.inFlight === 0 && record.resetAt <= now && record.lockedUntil <= now) {
-        this.failures.delete(key);
-      }
-    }
-  }
-
-  private evictForCapacity(now: number): void {
-    for (const [key, record] of this.failures) {
-      if (record.inFlight === 0 && record.resetAt <= now && record.lockedUntil <= now) {
-        this.failures.delete(key);
-      }
-    }
-    if (this.failures.size < this.maxBuckets) return;
-    for (const [key, record] of this.failures) {
-      if (record.inFlight === 0 && record.lockedUntil <= now) {
-        this.failures.delete(key);
-        if (this.failures.size < this.maxBuckets) return;
-      }
-    }
-    if (this.failures.size >= this.maxBuckets) {
-      throw new Error("Too many sign-in attempts. Try again later.");
-    }
-  }
 }
 
 export const processLocalLoginThrottle = new ProcessLocalLoginThrottle();
-
-/** Limits all login attempts from a recognized caller address in this process. */
-export class ProcessLocalLoginRequestThrottle {
-  private readonly requests = new Map<string, RequestRecord>();
-
-  constructor(
-    private readonly now: () => number = Date.now,
-    private readonly maxBuckets = MAX_THROTTLE_BUCKETS,
-  ) {}
-
-  consume(callerKey: string): boolean {
-    const key = throttleKey(callerKey);
-    const now = this.now();
-    let record = this.requests.get(key);
-
-    if (record && record.resetAt <= now) {
-      this.requests.delete(key);
-      record = undefined;
-    }
-
-    if (!record && this.requests.size >= this.maxBuckets) {
-      for (const [existingKey, existing] of this.requests) {
-        if (existing.resetAt <= now) this.requests.delete(existingKey);
-      }
-      if (this.requests.size >= this.maxBuckets) return false;
-    }
-
-    if (!record) {
-      record = { count: 0, resetAt: now + LOGIN_REQUEST_WINDOW_MS };
-    }
-    if (record.count >= MAX_LOGIN_REQUESTS_PER_WINDOW) return false;
-
-    record.count += 1;
-    this.requests.set(key, record);
-    if (this.requests.size > Math.min(5000, this.maxBuckets)) {
-      for (const [existingKey, existing] of this.requests) {
-        if (existing.resetAt <= now) this.requests.delete(existingKey);
-      }
-    }
-    return true;
-  }
-}
-
-export const processLocalLoginRequestThrottle = new ProcessLocalLoginRequestThrottle();

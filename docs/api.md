@@ -137,13 +137,18 @@ current action grants; membership alone does not authorize an action:
 
 Invalid credentials return `401` with `{"error":"invalid_credentials"}`. A new self-service
 account with an unverified email returns `403` with `{"error":"email_verification_required"}`;
-imported and administrator-provisioned accounts do not require email verification. After eight
-failed attempts for an identifier within 15 minutes, login is locked for 15 minutes and returns `429` with
-`{"error":"too_many_attempts"}`. This login throttle is process-local, so product backends should
-also apply their own rate limits. Authentication service failures return `503`.
+imported and administrator-provisioned accounts do not require email verification. The hosted
+browser sign-in route limits recognized caller IPs to 60 attempts per 15 minutes. Consumer API
+sign-in is limited to 6,000 requests per app client and caller IP per 15 minutes, or per client when
+the caller address is unavailable. Both limits use the shared Spaces store. Failed credentials
+receive a short progressive delay, capped at one second, instead of locking the account. Product
+backends should also apply their own rate limits.
+Authentication service failures return `503`.
 
-Each app client stores its configured session lifetime (5 minutes through 90 days). Choose a lifetime
-that fits the application's sign-in and security needs. Keep the returned token in the app's Secure,
+Each app client stores its configured session lifetime (5 minutes through 30 days; new clients
+default to 12 hours). Choose the shortest lifetime the application supports. Existing clients set
+above 30 days now receive sessions capped at 30 days; sessions already issued under longer settings
+also stop working 30 days after creation. Keep the returned token in the app's Secure,
 HttpOnly, SameSite cookie.
 
 Use `GET /api/auth/consumer/session` with the client headers and session bearer token to validate the

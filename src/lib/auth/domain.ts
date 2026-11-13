@@ -18,6 +18,18 @@ export type OrganizationMembershipId = BrandedId<"OrganizationMembershipId">;
 export type ProductRecordId = BrandedId<"ProductRecordId">;
 export type InvitationId = BrandedId<"InvitationId">;
 
+export const MIN_CONSUMER_SESSION_LIFETIME_MS = 5 * 60 * 1000;
+export const DEFAULT_CONSUMER_SESSION_LIFETIME_MS = 12 * 60 * 60 * 1000;
+export const MAX_CONSUMER_SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
+
+export function effectiveConsumerSessionLifetimeMs(value: number): number {
+  if (!Number.isSafeInteger(value)) return DEFAULT_CONSUMER_SESSION_LIFETIME_MS;
+  return Math.min(
+    MAX_CONSUMER_SESSION_LIFETIME_MS,
+    Math.max(MIN_CONSUMER_SESSION_LIFETIME_MS, value),
+  );
+}
+
 export type OrganizationApprovalStatus = "pending" | "approved" | "rejected";
 
 export const newSubjectId = (): SubjectId => randomUUID() as SubjectId;

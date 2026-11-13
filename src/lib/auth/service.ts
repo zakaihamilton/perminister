@@ -5,6 +5,8 @@ export {
   MailDeliveryUnavailableError,
   administratorEmailsConfigured,
   checkAuthStorageReadiness,
+  consumeConsumerLoginRequestRateLimit,
+  consumeLoginRequestRateLimit,
   isAdministrator,
   type OrganizationDashboardData,
   type OrganizationSummary,

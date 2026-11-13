@@ -11,6 +11,10 @@ import {
   newEmailActionId,
   newSessionId,
   newSubjectId,
+  DEFAULT_CONSUMER_SESSION_LIFETIME_MS,
+  MAX_CONSUMER_SESSION_LIFETIME_MS,
+  MIN_CONSUMER_SESSION_LIFETIME_MS,
+  effectiveConsumerSessionLifetimeMs,
   type ConsumerAuthorizationCodeRecord,
   type EmailActionId,
   type EmailActionRecord,
@@ -44,8 +48,17 @@ import {
 } from "./core";
 
 const SESSION_COOKIE = "perminister_session";
-const SESSION_LIFETIME_MS = 12 * 60 * 60 * 1000;
+const SESSION_LIFETIME_MS = DEFAULT_CONSUMER_SESSION_LIFETIME_MS;
 const EMAIL_ACTION_LIFETIME_MS = 30 * 60 * 1000;
+
+function hasSessionExpired(record: SessionRecord, now: number): boolean {
+  const expiresAt = Date.parse(record.expiresAt);
+  if (!Number.isFinite(expiresAt) || expiresAt <= now) return true;
+  if (!record.applicationClientId && !record.productId) return false;
+
+  const createdAt = Date.parse(record.createdAt);
+  return !Number.isFinite(createdAt) || createdAt + MAX_CONSUMER_SESSION_LIFETIME_MS <= now;
+}
 
 export async function registerAccount(
   emailInput: string,
@@ -123,6 +136,9 @@ export async function authenticate(
     productId ? `${productId}:${identifier}` : identifier,
   );
   try {
+    if (attempt.delayMs > 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, attempt.delayMs));
+    }
     const subject = await authMutationQueue.run(async () => {
       if (!productId) return loadSubjectByEmailUnlocked(identifier);
       const emailSubject = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)
@@ -209,7 +225,7 @@ export async function createConsumerSession(
   subjectId: SubjectId,
   clientId: string,
   productId: string,
-  sessionLifetimeMs = SESSION_LIFETIME_MS,
+  sessionLifetimeMs = DEFAULT_CONSUMER_SESSION_LIFETIME_MS,
 ): Promise<{ session: SessionRecord; token: string }> {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(clientId)) {
     throw new Error("Choose a valid application client.");
@@ -217,13 +233,13 @@ export async function createConsumerSession(
   const normalizedProductId = validateProductId(productId);
   if (
     !Number.isSafeInteger(sessionLifetimeMs) ||
-    sessionLifetimeMs < 5 * 60 * 1000 ||
-    sessionLifetimeMs > 90 * 24 * 60 * 60 * 1000
+    sessionLifetimeMs < MIN_CONSUMER_SESSION_LIFETIME_MS
   ) {
     throw new Error("Choose a valid consumer session lifetime.");
   }
+  const effectiveLifetimeMs = effectiveConsumerSessionLifetimeMs(sessionLifetimeMs);
   return authMutationQueue.run(() =>
-    createConsumerSessionUnlocked(subjectId, clientId, normalizedProductId, sessionLifetimeMs),
+    createConsumerSessionUnlocked(subjectId, clientId, normalizedProductId, effectiveLifetimeMs),
   );
 }
 
@@ -374,7 +390,7 @@ export async function exchangeConsumerAuthorizationCode(
       authorization.record.subjectId,
       client.record.consumerClientId,
       client.record.productId,
-      client.record.sessionLifetimeMs,
+      effectiveConsumerSessionLifetimeMs(client.record.sessionLifetimeMs),
     );
     return {
       ...created,
@@ -432,7 +448,7 @@ export async function getSessionFromToken(
     const record = session.record;
     if (
       record.revokedAt ||
-      Date.parse(record.expiresAt) <= Date.now() ||
+      hasSessionExpired(record, Date.now()) ||
       !equalHex(record.verifierDigestHex, hashHex(token))
     )
       return null;
