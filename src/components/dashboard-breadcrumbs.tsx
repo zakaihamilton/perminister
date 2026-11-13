@@ -14,7 +14,7 @@ export function BreadcrumbBar({ items }: { items: readonly DashboardBreadcrumbIt
   const ancestors = items.slice(0, -1);
 
   return (
-    <>
+    <div className="dashboard-page-context">
       {ancestors.length > 0 ? (
         <nav aria-label="Breadcrumb" className="dashboard-breadcrumbs">
           <ol>
@@ -32,11 +32,18 @@ export function BreadcrumbBar({ items }: { items: readonly DashboardBreadcrumbIt
         </nav>
       ) : null}
       <h1 className="dashboard-page-title">{currentPage.label}</h1>
-    </>
+    </div>
   );
 }
 
-export function DashboardBreadcrumbs(context: DashboardBreadcrumbContext) {
+export function DashboardBreadcrumbs(
+  context: DashboardBreadcrumbContext & { pathnameOverride?: string },
+) {
   const pathname = usePathname();
-  return <BreadcrumbBar items={buildDashboardBreadcrumbs(pathname, context)} />;
+  const { pathnameOverride, ...breadcrumbContext } = context;
+  return (
+    <BreadcrumbBar
+      items={buildDashboardBreadcrumbs(pathnameOverride ?? pathname, breadcrumbContext)}
+    />
+  );
 }

@@ -16,14 +16,17 @@ export function ProductNavigation({
   productId,
   productName,
   role,
+  pathnameOverride,
 }: {
   isSharedInstallation: boolean;
   organizationId: string;
   productId: string;
   productName: string;
   role?: OrganizationRole | null;
+  pathnameOverride?: string;
 }) {
-  const pathname = usePathname();
+  const currentPathname = usePathname();
+  const pathname = pathnameOverride ?? currentPathname;
   const productRoot = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}`;
   const canManage = role === "owner" || role === "admin";
   const items: ProductNavigationItem[] = canManage
