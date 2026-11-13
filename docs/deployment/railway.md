@@ -112,6 +112,11 @@ Only one Railway process may write to a given bucket. Vercel instances can scale
 configured with read-only Spaces credentials. Keep Railway at one replica and prevent overlapping
 old and new writer processes during deploys.
 
+Sign-in rate-limit counters are stored as HMAC-keyed shards under
+`security/rate-limits/login-ip/` and `security/rate-limits/consumer-login/` in the same bucket. They
+survive writer restarts and contain no raw IP addresses. The per-shard update lock is process-local,
+so the single-writer and no-overlap requirements above also protect these counters.
+
 Deploy and configure Railway first, then configure and redeploy Vercel Production. Do not direct
 production mutation traffic to Railway until its writer secret, Spaces credentials, and health
 check are ready.

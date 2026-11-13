@@ -64,7 +64,7 @@ export function ConsumerClientCreateForm({
               type="number"
               required
               min="0.083333"
-              max="2160"
+              max="720"
               step="any"
               defaultValue="12"
             />
@@ -85,8 +85,9 @@ export function ConsumerClientCreateForm({
           </label>
         </div>
         <p className="form-hint">
-          Session lifetime can be 5 minutes to 90 days. New clients default to disabled public
-          registration. Enable registration for apps that support self-service sign-up. Set
+          Session lifetime defaults to 12 hours and can be set from 5 minutes to 30 days. Choose the
+          shortest duration your app supports. New clients default to disabled public registration.
+          Enable registration for apps that support self-service sign-up. Set
           http://localhost without a port to allow any localhost port during development. Add a port
           to restrict sign-in to that port. HTTPS and 127.0.0.1 origins match exactly.
         </p>

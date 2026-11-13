@@ -1,11 +1,13 @@
 import { withApiRoutePerformance } from "@/lib/auth/performance";
 import {
   authenticate,
+  consumeConsumerLoginRequestRateLimit,
   createConsumerSession,
   listConsumerOrganizationsForSubject,
 } from "@/lib/auth/service";
 import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
 import { requireConsumerClientJsonBody } from "@/lib/auth/consumer-route";
+import { passwordRecoveryRequesterKey } from "@/lib/auth/coordination";
 
 export const runtime = "nodejs";
 
@@ -42,6 +44,25 @@ export const POST = withApiRoutePerformance(
           status: 400,
           headers: NO_STORE_HEADERS,
         },
+      );
+    }
+
+    try {
+      if (
+        !(await consumeConsumerLoginRequestRateLimit(
+          client.clientId,
+          passwordRecoveryRequesterKey(request.headers),
+        ))
+      ) {
+        return Response.json(
+          { error: "too_many_attempts" },
+          { status: 429, headers: NO_STORE_HEADERS },
+        );
+      }
+    } catch {
+      return Response.json(
+        { error: "Authentication is temporarily unavailable." },
+        { status: 503, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -89,15 +110,6 @@ export const POST = withApiRoutePerformance(
         { headers: NO_STORE_HEADERS },
       );
     } catch (error) {
-      if (error instanceof Error && error.message.startsWith("Too many sign-in attempts")) {
-        return Response.json(
-          { error: "too_many_attempts" },
-          {
-            status: 429,
-            headers: NO_STORE_HEADERS,
-          },
-        );
-      }
       if (error instanceof Error && error.message === "Email or password is incorrect.") {
         return Response.json(
           { error: "invalid_credentials" },

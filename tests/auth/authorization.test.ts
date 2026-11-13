@@ -588,7 +588,7 @@ describe("bearer authorization", () => {
     );
   });
 
-  it("releases a sign-in reservation when the account lookup fails", async () => {
+  it("releases a sign-in reservation when lookup fails without locking later attempts", async () => {
     const findSubjectIdByEmail = store.findSubjectIdByEmail.bind(store);
     store.findSubjectIdByEmail = async () => {
       throw new Error("Spaces unavailable");
@@ -599,13 +599,13 @@ describe("bearer authorization", () => {
     );
 
     store.findSubjectIdByEmail = findSubjectIdByEmail;
-    for (let attempt = 0; attempt < 8; attempt += 1) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
       await expect(service.authenticate("person@example.com", "wrong-password")).rejects.toThrow(
         "Email or password is incorrect.",
       );
     }
     await expect(service.authenticate("person@example.com", "wrong-password")).rejects.toThrow(
-      "Too many sign-in attempts. Try again later.",
+      "Email or password is incorrect.",
     );
   });
 });

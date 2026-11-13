@@ -7,8 +7,12 @@ import {
   publicRedirectResponse,
   readBoundedRequestBody,
 } from "@/lib/auth/http";
-import { processLocalLoginRequestThrottle } from "@/lib/auth/login-throttle";
-import { authenticate, createSession, setSessionCookie } from "@/lib/auth/service";
+import {
+  authenticate,
+  consumeLoginRequestRateLimit,
+  createSession,
+  setSessionCookie,
+} from "@/lib/auth/service";
 
 const MAX_LOGIN_FORM_BYTES = 8 * 1024;
 const MAX_LOGIN_PASSWORD_LENGTH = 256;
@@ -43,8 +47,14 @@ export async function handleLoginPost(request: Request): Promise<Response> {
   }
 
   const callerKey = passwordRecoveryRequesterKey(request.headers);
-  if (callerKey && !processLocalLoginRequestThrottle.consume(callerKey)) {
-    return publicRedirectResponse(request, loginPath("throttled", "", null));
+  if (callerKey) {
+    try {
+      if (!(await consumeLoginRequestRateLimit(callerKey))) {
+        return publicRedirectResponse(request, loginPath("throttled", "", null));
+      }
+    } catch {
+      return publicRedirectResponse(request, loginPath("unavailable", "", null));
+    }
   }
 
   let formData: FormData;
@@ -69,11 +79,9 @@ export async function handleLoginPost(request: Request): Promise<Response> {
     await setSessionCookie(session.token);
   } catch (error) {
     const code =
-      error instanceof Error && error.message.startsWith("Too many sign-in attempts")
-        ? "throttled"
-        : error instanceof Error && error.message === "Email or password is incorrect."
-          ? "credentials"
-          : "unavailable";
+      error instanceof Error && error.message === "Email or password is incorrect."
+        ? "credentials"
+        : "unavailable";
     return publicRedirectResponse(request, loginPath(code, invitationToken, next));
   }
 

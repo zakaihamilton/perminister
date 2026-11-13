@@ -75,7 +75,6 @@ function publicActionError(error: unknown): string {
   const safePrefixes = [
     "An account with this email address already exists.",
     "Email or password is incorrect.",
-    "Too many sign-in attempts.",
     "Use a password",
     "Password must be",
     "Enter a valid email address.",
@@ -134,7 +133,7 @@ function publicActionError(error: unknown): string {
     "Enter an application name up to 80 characters.",
     "Enter a valid app origin.",
     "Use an HTTPS app origin, or an HTTP localhost or 127.0.0.1 origin, without a path, query, or fragment. A portless http://localhost origin allows any localhost port.",
-    "Session lifetime must be between 5 minutes and 90 days.",
+    "Session lifetime must be between 5 minutes and 30 days.",
     "Choose whether self-registration is enabled.",
     "Choose an active application client for this product.",
     "Application client not found.",
@@ -292,6 +291,9 @@ export async function registerAction(formData: FormData): Promise<void> {
     });
   } catch (error) {
     const message = publicActionError(error);
+    if (message.startsWith("An account with") && !invitationToken) {
+      redirect("/register?notice=registration-requested");
+    }
     const code = message.startsWith("An account with")
       ? "account-exists"
       : message.startsWith("Enter a valid email")
@@ -325,27 +327,20 @@ export async function registerAction(formData: FormData): Promise<void> {
     }
   }
 
-  let notice = "account-created-mail-unconfigured";
   if (isMailDeliveryConfigured()) {
-    try {
-      const verification = await issueEmailAction(subject.subjectId, "verify-email");
-      if (verification) {
-        const origin = browserOriginFromHeaders(await headers());
-        await sendVerificationEmail(verification.email, verification.token, { origin });
+    const origin = browserOriginFromHeaders(await headers());
+    after(async () => {
+      try {
+        const verification = await issueEmailAction(subject.subjectId, "verify-email");
+        if (verification) {
+          await sendVerificationEmail(verification.email, verification.token, { origin });
+        }
+      } catch {
+        // Keep the registration response independent of account and delivery state.
       }
-      notice = verification ? "verification-sent" : "account-created";
-    } catch {
-      notice = "verification-delivery-failed";
-    }
+    });
   }
-
-  try {
-    const session = await createSession(subject.subjectId);
-    await setSessionCookie(session.token);
-  } catch {
-    redirect(`/login?notice=${notice}`);
-  }
-  redirect(`/dashboard?notice=${notice}`);
+  redirect(`/register?notice=registration-requested${invitationQuery}`);
 }
 
 export async function requestVerificationAction(formData: FormData): Promise<void> {
