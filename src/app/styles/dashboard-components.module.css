@@ -1,0 +1,160 @@
+.appScope {
+  --scope-marker: 1;
+}
+
+/* ==========================================================================
+   Mobile Nav Drawer & Filter Controls
+   ========================================================================== */
+
+:where(.appScope) :global(.dashboard-mobile-header) {
+  display: none;
+}
+
+@media (max-width: 740px) {
+  :where(.appScope) :global(.dashboard-sidebar) {
+    display: none !important;
+  }
+
+  :where(.appScope) :global(.dashboard-mobile-header) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 16px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  :where(.appScope) :global(.dashboard-mobile-header .dashboard-mobile-brand) {
+    display: block;
+    margin: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.appScope) :global(.organization-overview-page *), :where(.appScope) :global(.organization-overview-page *::before), :where(.appScope) :global(.organization-overview-page *::after) {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.appScope) :global(.organization-overview-stat),
+  :where(.appScope) :global(.organization-overview-grid > .dashboard-card),
+  :where(.appScope) :global(.organization-product-card),
+  :where(.appScope) :global(.organization-activity-item) {
+    animation: none !important;
+  }
+}
+
+/* ==========================================================================
+   Filter Input Control
+   ========================================================================== */
+
+:where(.appScope) :global(.filter-empty-message) {
+  padding: 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.password-field) {
+  display: grid;
+  gap: 7px;
+}
+:where(.appScope) :global(.password-input-wrap) {
+  position: relative;
+}
+:where(.appScope) :global(.auth-form .password-input-wrap input) {
+  padding-right: 72px;
+}
+:where(.appScope) :global(.password-visibility) {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  border: 0;
+  border-radius: 4px;
+  padding: 0 14px;
+  color: var(--blue-dark);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+:where(.appScope) :global(.password-visibility:focus-visible) {
+  outline: 2px solid var(--blue);
+  outline-offset: -3px;
+}
+
+:where(.appScope) :global(.auth-name-fields) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px;
+}
+@media (max-width: 420px) {
+  :where(.appScope) :global(.auth-name-fields) {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+:where(.appScope) :global(.pf-dashboard-content) {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Keep the shared sidebar pattern intact in the dashboard and mobile drawer. */
+:where(.appScope) :global(.pf-dashboard-shell .dashboard-nav) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  overflow: visible;
+  padding: 0;
+}
+
+:where(.appScope) :global(.pf-dashboard-shell .dashboard-nav-label) {
+  display: block;
+}
+
+:where(.appScope) :global(.pf-dashboard-shell .dashboard-nav-mark) {
+  display: inline-block;
+}
+
+:where(.appScope) :global(.pf-dashboard-shell .dashboard-nav-link) {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  flex: initial;
+  justify-content: flex-start;
+  border: 1px solid transparent;
+  border-radius: var(--pf-radius-sm);
+  padding: 8px 10px;
+  color: var(--pf-muted);
+  font-size: 13px;
+  font-weight: 590;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+}
+
+:where(.appScope) :global(.pf-dashboard-shell .dashboard-nav-link:hover) {
+  color: var(--pf-text);
+  background: color-mix(in srgb, var(--pf-accent) 7%, var(--pf-surface));
+}
+
+:where(.appScope) :global(.pf-dashboard-shell .dashboard-nav-link.pf-sidebar-link[aria-current="page"]) {
+  border-color: color-mix(in srgb, var(--pf-accent) 18%, var(--pf-border));
+  color: var(--pf-accent);
+  background: color-mix(in srgb, var(--pf-accent) 10%, var(--pf-surface));
+  font-weight: 700;
+}
+
+@media (max-width: 780px) {
+  :where(.appScope) :global(.pf-dashboard-shell[data-mobile-open="true"] .pf-sidebar) {
+    z-index: 40;
+  }
+}

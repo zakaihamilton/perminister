@@ -41,7 +41,6 @@ export function ProductSetupForm({ organizationId }: { organizationId: string })
     }
   }
 
-  /* eslint-disable react-hooks/set-state-in-effect -- The server action returns a suggested editable draft. */
   useEffect(() => {
     const suggestion = lookupState.suggestion;
     if (!suggestion) return;
@@ -58,7 +57,6 @@ export function ProductSetupForm({ organizationId }: { organizationId: string })
     if (!lookupState.source) return;
     setSource(lookupState.source);
   }, [lookupState.source]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   function setNameValue(value: string) {
     setName(value);

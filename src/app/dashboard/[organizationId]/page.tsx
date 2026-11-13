@@ -35,7 +35,6 @@ export default async function OrganizationOverview(
       ])
     : null;
   const now =
-    // eslint-disable-next-line react-hooks/purity
     Date.now();
   const activeApiKeyCount = apiKeys.filter(
     (key) =>

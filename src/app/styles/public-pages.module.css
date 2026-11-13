@@ -1,0 +1,599 @@
+.appScope {
+  --scope-marker: 1;
+}:where(.appScope) :global(.site-header) {
+  height: 76px;
+  border-bottom: 1px solid rgba(215, 222, 232, 0.8);
+  background: rgba(250, 251, 252, 0.92);
+}
+
+:where(.appScope) :global(.site-header-inner) {
+  width: min(1160px, calc(100% - 48px));
+  height: 100%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+}
+
+:where(.appScope) :global(.brand) {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+:where(.appScope) :global(.brand-mark) {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+}
+:where(.appScope) :global(.brand-mark svg) {
+  width: 100%;
+  height: 100%;
+}
+:where(.appScope) :global(.brand-mark path:first-child) {
+  fill: var(--ink);
+  stroke: var(--ink);
+  stroke-width: 1;
+}
+:where(.appScope) :global(.brand-mark path:nth-child(2)) {
+  stroke: var(--mint);
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+:where(.appScope) :global(.brand-mark circle) {
+  fill: var(--mint);
+}
+:where(.appScope) :global(.brand-word) {
+  font:
+    800 21px/1 "Manrope",
+    sans-serif;
+  letter-spacing: -1.1px;
+}
+:where(.appScope) :global(.brand-period) {
+  color: var(--blue);
+}
+:where(.appScope) :global(.brand-compact .brand-mark) {
+  width: 28px;
+  height: 28px;
+}
+:where(.appScope) :global(.brand-compact .brand-word) {
+  font-size: 17px;
+}
+
+:where(.appScope) :global(.primary-nav) {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  margin-left: auto;
+}
+:where(.appScope) :global(.primary-nav a) {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  color: #647084;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 9px 0;
+  transition: color 160ms ease;
+}
+:where(.appScope) :global(.primary-nav a:hover), :where(.appScope) :global(.primary-nav a[aria-current="page"]) {
+  color: var(--ink);
+}
+:where(.appScope) :global(.primary-nav a[aria-current="page"]) {
+  box-shadow: inset 0 -2px var(--blue);
+}
+
+:where(.appScope) :global(.page-shell) {
+  min-height: auto;
+  flex: 1 0 auto;
+  overflow: hidden;
+}
+:where(.appScope) :global(.container) {
+  width: min(1160px, calc(100% - 48px));
+  margin: 0 auto;
+}
+:where(.appScope) :global(.eyebrow) {
+  margin: 0;
+  color: var(--blue-dark);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: normal;
+  text-transform: none;
+}
+:where(.appScope) :global(.muted) {
+  color: var(--muted);
+}
+:where(.appScope) :global(.arrow-icon) {
+  width: 17px;
+  height: 17px;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:where(.appScope) :global(.header-create) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: 7px;
+  padding: 0 13px;
+  color: white;
+  background: var(--blue);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+:where(.appScope) :global(.header-create:hover) {
+  background: var(--blue-dark);
+}
+
+:where(.appScope) :global(.auth-page-shell) {
+  padding: 70px 0 90px;
+}
+:where(.appScope) :global(.auth-page) {
+  width: min(620px, calc(100% - 48px));
+}
+:where(.appScope) :global(.auth-heading) {
+  margin: 0 0 26px;
+  text-align: center;
+}
+:where(.appScope) :global(.auth-heading h1) {
+  margin: 9px 0 10px;
+  font:
+    700 clamp(31px, 4vw, 42px)/1.12 "Manrope",
+    sans-serif;
+  letter-spacing: -1.8px;
+}
+:where(.appScope) :global(.auth-heading > p:last-child) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.6;
+}
+:where(.appScope) :global(.auth-card) {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 27px;
+  background: white;
+  box-shadow: var(--shadow);
+}
+:where(.appScope) :global(.auth-card h1) {
+  margin: 8px 0 18px;
+  font:
+    700 32px/1.13 "Manrope",
+    sans-serif;
+  letter-spacing: -1.5px;
+}
+:where(.appScope) :global(.auth-card h2) {
+  margin: 0 0 20px;
+  font:
+    700 21px/1.25 "Manrope",
+    sans-serif;
+}
+:where(.appScope) :global(.auth-form) {
+  display: grid;
+  gap: 16px;
+}
+:where(.appScope) :global(.auth-form label) {
+  display: grid;
+  gap: 7px;
+  color: #435069;
+  font-size: 14px;
+  font-weight: 700;
+}
+:where(.appScope) :global(.auth-form input), :where(.appScope) :global(.auth-form .pf-select-trigger), :where(.appScope) :global(.auth-form textarea) {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: white;
+  font:
+    500 15px/1.4 "DM Sans",
+    sans-serif;
+}
+:where(.appScope) :global(.auth-form input:focus), :where(.appScope) :global(.auth-form textarea:focus) {
+  border-color: var(--blue);
+  outline: 3px solid var(--blue);
+  outline-offset: 1px;
+}
+:where(.appScope) :global(.auth-form textarea) {
+  min-height: 82px;
+  resize: vertical;
+}
+:where(.appScope) :global(.form-submit) {
+  width: 100%;
+  margin-top: 4px;
+}
+:where(.appScope) :global(.form-hint) {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+:where(.appScope) :global(.form-error), :where(.appScope) :global(.form-success) {
+  border-radius: 7px;
+  padding: 11px 13px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+:where(.appScope) :global(.form-error) {
+  border: 1px solid #f0d6d2;
+  color: #8d3027;
+  background: #fff6f4;
+}
+:where(.appScope) :global(.form-success) {
+  border: 1px solid #cce8d7;
+  color: #1f6241;
+  background: #f2fbf5;
+}
+:where(.appScope) :global(.auth-links) {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-top: 19px;
+  color: var(--muted);
+  font-size: 14px;
+}
+:where(.appScope) :global(.auth-links a) {
+  color: var(--blue-dark);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+:where(.appScope) :global(.dashboard-callout.info) {
+  border-color: #d4deff;
+  background: #f5f7ff;
+}
+:where(.appScope) :global(.dashboard-callout.info strong) {
+  color: #314784;
+}
+:where(.appScope) :global(.dashboard-callout.info p) {
+  color: #58688f;
+}
+:where(.appScope) :global(.dashboard-callout.info a) {
+  color: var(--blue-dark);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+:where(.appScope) :global(.record-list) {
+  display: grid;
+  gap: 10px;
+}
+:where(.appScope) :global(.record-item) {
+  border: 1px solid #e7ebf1;
+  border-radius: 8px;
+  padding: 13px;
+  background: #fcfcfd;
+}
+:where(.appScope) :global(.record-item-head) {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+:where(.appScope) :global(.record-item strong) {
+  color: #354157;
+  font-size: 14px;
+}
+:where(.appScope) :global(.record-meta) {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+:where(.appScope) :global(.record-actions) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 11px;
+}
+:where(.appScope) :global(.record-actions form) {
+  margin: 0;
+}
+:where(.appScope) :global(.record-actions .button) {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+:where(.appScope) :global(.record-badge) {
+  flex: 0 0 auto;
+  border: 1px solid #dce2eb;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: #657187;
+  background: white;
+  font:
+    13px "DM Mono",
+    monospace;
+  text-transform: uppercase;
+}
+:where(.appScope) :global(.record-badge.active) {
+  border-color: #cce8d7;
+  color: #286747;
+  background: #f2fbf5;
+}
+:where(.appScope) :global(.record-badge.disabled), :where(.appScope) :global(.record-badge.revoked), :where(.appScope) :global(.record-badge.expired) {
+  border-color: #ead4cf;
+  color: #8b463e;
+  background: #fff6f4;
+}
+:where(.appScope) :global(.management-form) {
+  border-top: 1px solid #edf0f4;
+  margin-top: 15px;
+  padding-top: 15px;
+}
+:where(.appScope) :global(.form-grid) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+:where(.appScope) :global(.access-form .form-grid) {
+  align-items: start;
+}
+:where(.appScope) :global(.access-form .form-grid > label) {
+  grid-template-rows: minmax(18px, auto) auto auto;
+}
+:where(.appScope) :global(.access-form .form-grid > .form-field-with-tooltip) {
+  align-content: start;
+}
+:where(.appScope) :global(.management-form .auth-form) {
+  gap: 12px;
+}
+:where(.appScope) :global(.management-form .form-hint) {
+  margin: -5px 0 0;
+}
+:where(.appScope) :global(.one-time-secret) {
+  display: grid;
+  gap: 9px;
+  border: 1px solid #cfe5d8;
+  border-radius: 8px;
+  padding: 13px;
+  color: #28553c;
+  background: #f1fbf4;
+}
+:where(.appScope) :global(.one-time-secret-heading) {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+:where(.appScope) :global(.one-time-secret-heading > strong) {
+  padding-top: 5px;
+}
+:where(.appScope) :global(.copy-environment-button) {
+  display: grid;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 0;
+  color: var(--success);
+  background: transparent;
+  cursor: pointer;
+}
+:where(.appScope) :global(.copy-environment-button:hover), :where(.appScope) :global(.copy-environment-button:focus-visible) {
+  border-color: var(--success);
+  background: var(--surface);
+}
+:where(.appScope) :global(.copy-environment-button svg) {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+:where(.appScope) :global(.copy-environment-error) {
+  color: var(--danger);
+  font-size: 12px;
+}
+:where(.appScope) :global(.one-time-secret code) {
+  display: block;
+  padding: 10px;
+  border-radius: 6px;
+  color: #233c2f;
+  background: white;
+  font:
+    13px/1.5 "DM Mono",
+    monospace;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+:where(.appScope) :global(.one-time-secret .form-error) {
+  margin: 0;
+}
+:where(.appScope) :global(.code-block) {
+  overflow-x: auto;
+  border: 1px solid #e7ebf1;
+  border-radius: 7px;
+  margin: 12px 0;
+  padding: 14px;
+  color: #26334a;
+  background: #f7f8fa;
+  font:
+    13px/1.6 "DM Mono",
+    monospace;
+  white-space: pre;
+}
+:where(.appScope) :global(.empty-list) {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+:where(.appScope) :global(.admin-account-row) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border-top: 1px solid #edf0f4;
+  padding: 12px 0;
+}
+:where(.appScope) :global(.admin-account-row:first-child) {
+  border-top: 0;
+  padding-top: 0;
+}
+:where(.appScope) :global(.admin-account-row p) {
+  min-width: 0;
+  margin: 0;
+  color: #3b475a;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+:where(.appScope) :global(.admin-account-row p span) {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+:where(.appScope) :global(.admin-account-row form) {
+  margin: 0;
+}
+:where(.appScope) :global(.admin-account-actions) {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 560px) {
+  :where(.appScope) :global(.site-header-inner) {
+    padding-bottom: 8px;
+  }
+  :where(.appScope) :global(.primary-nav) {
+    order: 3;
+  }
+  :where(.appScope) :global(.header-create) {
+    margin-left: auto;
+    min-height: 44px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+  :where(.appScope) :global(.auth-page-shell) {
+    padding: 38px 0 58px;
+  }
+  :where(.appScope) :global(.auth-page) {
+    width: min(100% - 34px, 620px);
+  }
+  :where(.appScope) :global(.auth-card) {
+    padding: 20px;
+  }
+  :where(.appScope) :global(.form-grid) {
+    grid-template-columns: 1fr;
+  }
+  :where(.appScope) :global(.admin-account-row) {
+    grid-template-columns: 1fr;
+  }
+  :where(.appScope) :global(.record-item-head) {
+    flex-direction: column;
+  }
+}
+:where(.appScope) :global(.hero-actions) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 13px;
+  margin-top: 31px;
+}
+:where(.appScope) :global(.button) {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0 17px;
+  font-size: 15px;
+  font-weight: 700;
+  transition:
+    transform 150ms ease,
+    background 150ms ease,
+    border-color 150ms ease;
+}
+:where(.appScope) :global(.button:not(:disabled):hover) {
+  transform: translateY(-1px);
+}
+:where(.appScope) :global(.button-primary) {
+  background: var(--blue);
+  color: white;
+  box-shadow: 0 8px 18px rgba(56, 93, 232, 0.18);
+}
+:where(.appScope) :global(.button-primary:hover) {
+  background: var(--blue-dark);
+}
+:where(.appScope) :global(.button-secondary) {
+  border-color: var(--line-strong);
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--ink);
+}
+:where(.appScope) :global(.button-secondary:hover) {
+  border-color: var(--blue);
+  background: white;
+}
+:where(.appScope) :global(.button:disabled) {
+  color: var(--muted);
+  border-color: #e3e7ed;
+  background: #f0f2f5;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+:where(.appScope) :global(.perminister-node .brand-mark) {
+  width: 31px;
+  height: 31px;
+}
+:where(.appScope) :global(.perminister-node .brand-word) {
+  font-size: 15px;
+  color: white;
+}
+:where(.appScope) :global(.perminister-node .brand-mark path:first-child) {
+  fill: #334055;
+  stroke: #7d8ba4;
+}
+:where(.appScope) :global(.perminister-node .brand-mark path:nth-child(2)) {
+  stroke: var(--mint);
+}
+:where(.appScope) :global(.perminister-node .brand-mark circle) {
+  fill: var(--mint);
+}
+:where(.appScope) :global(.home-bottom-cta .button) {
+  align-self: center;
+}
+:where(.appScope) :global(.home-bottom-cta .button) {
+  background: var(--mint);
+  color: #153a29;
+}
+:where(.appScope) :global(.home-bottom-cta .button:hover) {
+  background: #d7f7e0;
+}
+
+:where(.appScope) :global(.site-footer) {
+  width: min(1160px, calc(100% - 48px));
+  min-height: 89px;
+  display: flex;
+  align-items: center;
+  gap: 19px;
+  margin: 0 auto;
+  border-top: 1px solid var(--line);
+}
+:where(.appScope) :global(.site-footer p) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}

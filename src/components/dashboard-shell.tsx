@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
-import { Brand } from "@/components/site-shell";
+import { DashboardShell as PanelFrameDashboardShell } from "panel-frame-ui";
+import styles from "./dashboard-shell.module.css";
+import { BrandContent } from "@/components/site-shell";
 import type { OrganizationSummary } from "@/lib/auth/service";
 import { DashboardBreadcrumbs } from "@/components/dashboard-breadcrumbs";
 import { DashboardNavigation } from "@/components/dashboard-navigation";
 import { OrganizationSwitcher } from "@/components/organization-switcher";
 import { ThemeControl } from "@/components/theme-control";
-import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
 import type { DashboardBreadcrumbProduct } from "@/lib/dashboard-breadcrumbs";
 
 export function DashboardShell({
@@ -88,83 +89,64 @@ export function DashboardLayoutFrame({
   breadcrumbs: ReactNode;
   children: ReactNode;
 }) {
-  return (
-    <div className="dashboard-layout">
-      <DashboardSidebar {...sidebarProps} />
-      <main className="dashboard-main">
-        <div className="dashboard-mobile-header">
-          <div className="dashboard-mobile-brand">
-            <Brand />
-          </div>
-          <MobileNavDrawer>
-            <DashboardSidebarContent {...sidebarProps} />
-          </MobileNavDrawer>
-        </div>
-        <div className="dashboard-main-inner">
-          {breadcrumbs}
-          {children}
-        </div>
-      </main>
-    </div>
-  );
-}
-
-export function DashboardSidebarContent({
-  organizations,
-  organizationId,
-  role,
-  isPlatformAdministrator,
-  pendingOrganizationRequestCount,
-  email,
-  firstName,
-  lastName,
-  organizationSwitcher,
-}: DashboardSidebarProps) {
+  const {
+    organizations,
+    organizationId,
+    role,
+    isPlatformAdministrator,
+    pendingOrganizationRequestCount,
+    email,
+    firstName,
+    lastName,
+    organizationSwitcher,
+  } = sidebarProps;
   const displayName = [firstName?.trim(), lastName?.trim()]
     .filter((name): name is string => !!name)
     .join(" ");
 
   return (
-    <>
-      <div className="dashboard-brand-row">
-        <Brand />
-      </div>
-      {organizationSwitcher !== undefined ? (
-        organizationSwitcher
-      ) : organizationId && organizations.length > 0 ? (
-        <OrganizationSwitcher organizations={organizations} organizationId={organizationId} />
-      ) : null}
-      <DashboardNavigation
-        organizationId={organizationId}
-        role={role}
-        isPlatformAdministrator={isPlatformAdministrator}
-        pendingOrganizationRequestCount={pendingOrganizationRequestCount}
-      />
-      <div className="dashboard-sidebar-theme">
-        <ThemeControl />
-      </div>
-      <div className="dashboard-sidebar-footer">
-        {email || displayName ? (
-          <div className="sidebar-account">
-            {email ? <div className="sidebar-email">{email}</div> : null}
-            {displayName ? <p className="sidebar-account-name">{displayName}</p> : null}
+    <PanelFrameDashboardShell
+      brand={<BrandContent />}
+      sidebarContext={
+        organizationSwitcher !== undefined
+          ? organizationSwitcher
+          : organizationId && organizations.length > 0
+            ? <OrganizationSwitcher organizations={organizations} organizationId={organizationId} />
+            : undefined
+      }
+      navigation={
+        <DashboardNavigation
+          organizationId={organizationId}
+          role={role}
+          isPlatformAdministrator={isPlatformAdministrator}
+          pendingOrganizationRequestCount={pendingOrganizationRequestCount}
+        />
+      }
+      sidebarFooter={
+        <>
+          <div className="dashboard-sidebar-theme">
+            <ThemeControl />
           </div>
-        ) : null}
-        <form action="/logout/submit" method="post">
-          <button className="button button-secondary sidebar-signout" type="submit">
-            Sign out
-          </button>
-        </form>
-      </div>
-    </>
-  );
-}
-
-export function DashboardSidebar(props: DashboardSidebarProps) {
-  return (
-    <aside className="dashboard-sidebar">
-      <DashboardSidebarContent {...props} />
-    </aside>
+          <div className="dashboard-sidebar-footer">
+            {email || displayName ? (
+              <div className="sidebar-account">
+                {email ? <div className="sidebar-email">{email}</div> : null}
+                {displayName ? <p className="sidebar-account-name">{displayName}</p> : null}
+              </div>
+            ) : null}
+            <form action="/logout/submit" method="post">
+              <button className="button button-secondary pf-sidebar-link pf-sign-out" type="submit">
+                Sign out
+              </button>
+            </form>
+          </div>
+        </>
+      }
+      toolbar={breadcrumbs}
+      contentAsMain={false}
+    >
+      <main className={styles.content}>{children}</main>
+    </PanelFrameDashboardShell>
   );
 }
 

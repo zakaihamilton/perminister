@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AlertDialog } from "panel-frame-ui";
 import { CustomDropdown } from "@/components/custom-dropdown";
 import { useModalDialog } from "@/components/use-modal-dialog";
 
@@ -27,7 +28,7 @@ export function ProductTransferControl({
   const [destinationOrganizationId, setDestinationOrganizationId] = useState(
     pendingDestinationOrganizationId ?? "",
   );
-  const { dialogRef, openDialog, closeDialog } = useModalDialog();
+  const { isOpen, openDialog, closeDialog } = useModalDialog();
   const availableDestinations = destinations.filter((destination) => !destination.disabledReason);
   const effectiveDestinationOrganizationId =
     pendingDestinationOrganizationId ?? destinationOrganizationId;
@@ -71,29 +72,24 @@ export function ProductTransferControl({
       >
         {isResumingTransfer ? "Resume transfer" : "Transfer publisher"}
       </button>
-      <dialog
-        className="product-privacy-dialog"
-        ref={dialogRef}
-        aria-labelledby="product-transfer-dialog-title"
-        aria-describedby="product-transfer-dialog-description"
-        onCancel={(event) => {
-          event.preventDefault();
-          closeDialog();
-        }}
-      >
-        <h2 id="product-transfer-dialog-title">
-          {isResumingTransfer
-            ? `Resume transfer of ${productName} to ${selectedDestination?.name}?`
-            : `Transfer ${productName} to ${selectedDestination?.name}?`}
-        </h2>
-        <p id="product-transfer-dialog-description">
-          {isResumingTransfer ? "This will finish the interrupted transfer. " : ""}
-          {selectedDestination?.transferNotice
+      <AlertDialog
+        description={
+          `${isResumingTransfer ? "This will finish the interrupted transfer. " : ""}${
+            selectedDestination?.transferNotice
             ? "The destination’s product details and permission sets will be replaced by the current publisher’s. Existing organization members, clients, and API keys remain attached to this product ID. "
             : ""}
-          The product keeps ID <code>{productId}</code>. Organizations already using this published
-          product keep their setup and access.
-        </p>
+          The product keeps ID ${productId}. Organizations already using this published product keep their setup and access.`
+        }
+        onOpenChange={(open) => {
+          if (!open) closeDialog();
+        }}
+        open={isOpen}
+        title={
+          isResumingTransfer
+            ? `Resume transfer of ${productName} to ${selectedDestination?.name}?`
+            : `Transfer ${productName} to ${selectedDestination?.name}?`
+        }
+      >
         <div className="product-privacy-dialog-actions">
           <button className="button button-secondary" type="button" onClick={closeDialog}>
             Cancel
@@ -102,7 +98,7 @@ export function ProductTransferControl({
             {isResumingTransfer ? "Resume transfer" : "Confirm transfer"}
           </button>
         </div>
-      </dialog>
+      </AlertDialog>
     </form>
   );
 }

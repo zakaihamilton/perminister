@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import styles from "./list-filter-input.module.css";
 
 export function ListFilterInput({
   value,
@@ -16,11 +17,11 @@ export function ListFilterInput({
   const inputId = useId();
 
   return (
-    <div className="filter-input-wrapper">
+    <div className={styles.wrapper}>
       <input
         id={inputId}
         type="search"
-        className="filter-input"
+        className={styles.input}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -29,7 +30,7 @@ export function ListFilterInput({
       {value ? (
         <button
           type="button"
-          className="filter-clear-button"
+          className={styles.clearButton}
           onClick={() => onChange("")}
           aria-label="Clear filter"
         >

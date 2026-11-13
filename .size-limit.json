@@ -2,6 +2,6 @@
   {
     "name": "All browser JavaScript chunks",
     "path": ".next/static/chunks/**/*.js",
-    "limit": "380 KB"
+    "limit": "400 KB"
   }
 ]

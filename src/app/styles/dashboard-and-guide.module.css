@@ -1,0 +1,592 @@
+.appScope {
+  --scope-marker: 1;
+}
+
+/* Dashboard */
+:where(.appScope) :global(.dashboard-page), :where(.appScope) :global(.developers-page) {
+  padding: 46px 0 76px;
+}
+:where(.appScope) :global(.dashboard-grid > *), :where(.appScope) :global(.dashboard-bottom-grid > *), :where(.appScope) :global(.product-access-grid > *), :where(.appScope) :global(.guide-grid > *), :where(.appScope) :global(.guide-main > *), :where(.appScope) :global(.guide-aside > *) {
+  min-width: 0;
+}
+:where(.appScope) :global(.account-actions .button) {
+  min-height: 44px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+/* Developer guide */
+:where(.appScope) :global(.developers-page) {
+  padding-bottom: 92px;
+}
+:where(.appScope) :global(.developer-nav) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0 0 34px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+}
+:where(.appScope) :global(.developer-nav a) {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 10px 13px;
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 600;
+  transition:
+    background 150ms ease,
+    color 150ms ease;
+}
+:where(.appScope) :global(.developer-nav a:hover) {
+  color: var(--ink);
+  background: #f0f3f8;
+}
+:where(.appScope) :global(.developer-nav a[aria-current="page"]) {
+  border-color: #dfe5f6;
+  color: #304fc8;
+  background: #eff3ff;
+}
+:where(.appScope) :global(.developer-hero) {
+  max-width: 760px;
+}
+:where(.appScope) :global(.developer-hero h1) {
+  margin: 9px 0 0;
+  font:
+    700 clamp(38px, 5vw, 52px)/1.09 "Manrope",
+    sans-serif;
+  letter-spacing: -2.5px;
+}
+:where(.appScope) :global(.developer-hero > p:last-child) {
+  max-width: 720px;
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.7;
+}
+:where(.appScope) :global(.guide-notice) {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  max-width: 950px;
+  margin-top: 26px;
+  border: 1px solid #efdfbe;
+  border-radius: 8px;
+  padding: 17px 18px;
+  background: #fffaf0;
+}
+:where(.appScope) :global(.guide-notice-wide) {
+  width: 100%;
+  max-width: none;
+}
+:where(.appScope) :global(.guide-notice .callout-icon) {
+  width: 26px;
+  height: 26px;
+}
+:where(.appScope) :global(.guide-notice p) {
+  margin: 0;
+  color: #776442;
+  font-size: 16px;
+  line-height: 1.65;
+}
+:where(.appScope) :global(.guide-notice strong) {
+  color: #604920;
+}
+:where(.appScope) :global(.developer-index) {
+  margin-top: 35px;
+}
+:where(.appScope) :global(.developer-index-heading) {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-bottom: 15px;
+}
+:where(.appScope) :global(.developer-index-heading h2) {
+  margin: 0;
+  font:
+    700 21px "Manrope",
+    sans-serif;
+  letter-spacing: -0.5px;
+}
+:where(.appScope) :global(.developer-index-heading p) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+}
+:where(.appScope) :global(.developer-index-grid) {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+:where(.appScope) :global(.developer-index-card) {
+  min-width: 0;
+  min-height: 112px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 17px;
+  align-items: start;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 17px;
+  background: white;
+  transition:
+    border-color 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+:where(.appScope) :global(.developer-index-card:hover) {
+  transform: translateY(-1px);
+  border-color: #cbd5e6;
+  box-shadow: 0 8px 22px rgba(26, 42, 75, 0.06);
+}
+:where(.appScope) :global(.developer-index-number) {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  color: var(--blue);
+  background: var(--blue-pale);
+  font:
+    500 12px "DM Mono",
+    monospace;
+}
+:where(.appScope) :global(.developer-index-copy) {
+  display: grid;
+  gap: 7px;
+}
+:where(.appScope) :global(.developer-index-copy strong) {
+  color: #303e54;
+  font:
+    700 17px "Manrope",
+    sans-serif;
+}
+:where(.appScope) :global(.developer-index-copy span) {
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.6;
+}
+:where(.appScope) :global(.developer-index-card > .arrow-icon) {
+  margin-top: 7px;
+  color: var(--muted);
+}
+:where(.appScope) :global(.foundation-panel) {
+  margin-top: 23px;
+}
+:where(.appScope) :global(.foundation-panel > .secure-list) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0 20px 20px;
+}
+:where(.appScope) :global(.guide-grid) {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.75fr);
+  gap: 20px;
+  align-items: start;
+  margin-top: 27px;
+}
+:where(.appScope) :global(.guide-main) {
+  display: grid;
+  gap: 18px;
+}
+:where(.appScope) :global(.guide-panel) {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+}
+:where(.appScope) :global(.guide-panel-head) {
+  padding: 20px 21px 16px;
+}
+:where(.appScope) :global(.guide-panel-head h2) {
+  margin: 0;
+  font:
+    700 17px "Manrope",
+    sans-serif;
+  letter-spacing: -0.2px;
+}
+:where(.appScope) :global(.guide-panel-head p) {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.65;
+}
+:where(.appScope) :global(.steps) {
+  display: grid;
+}
+:where(.appScope) :global(.step) {
+  display: grid;
+  grid-template-columns: 31px minmax(0, 1fr);
+  gap: 14px;
+  padding: 17px 21px;
+  border-top: 1px solid #edf0f4;
+}
+:where(.appScope) :global(.step-number) {
+  width: 29px;
+  height: 29px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dfe5f5;
+  border-radius: 7px;
+  color: var(--blue);
+  background: #f4f6ff;
+  font:
+    500 11px "DM Mono",
+    monospace;
+}
+:where(.appScope) :global(.step-number svg) {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+:where(.appScope) :global(.step h3) {
+  margin: 1px 0 7px;
+  color: #374359;
+  font-size: 16px;
+  font-weight: 700;
+}
+:where(.appScope) :global(.step p) {
+  margin: 0;
+  color: #687589;
+  font-size: 16px;
+  line-height: 1.7;
+}
+:where(.appScope) :global(.scope-table) {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+:where(.appScope) :global(.scope-table th), :where(.appScope) :global(.scope-table td) {
+  border-top: 1px solid #edf0f4;
+  padding: 13px 16px;
+  vertical-align: top;
+}
+:where(.appScope) :global(.scope-table th) {
+  color: var(--muted);
+  font:
+    500 13px "DM Mono",
+    monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+:where(.appScope) :global(.scope-table td) {
+  color: #59667b;
+  font-size: 16px;
+  line-height: 1.65;
+}
+:where(.appScope) :global(.scope-table td:first-child) {
+  color: #374359;
+  font-weight: 700;
+  white-space: nowrap;
+}
+:where(.appScope) :global(.code-label) {
+  display: inline-block;
+  border: 1px solid #e6e9ef;
+  border-radius: 4px;
+  padding: 3px 6px;
+  color: #647087;
+  background: #f7f8fa;
+  font:
+    13px "DM Mono",
+    monospace;
+}
+:where(.appScope) :global(.guide-aside) {
+  display: grid;
+  gap: 16px;
+}
+:where(.appScope) :global(.aside-card) {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 20px;
+  background: white;
+}
+:where(.appScope) :global(.aside-card h2) {
+  margin: 0;
+  font:
+    700 17px "Manrope",
+    sans-serif;
+}
+:where(.appScope) :global(.aside-card > p) {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.7;
+}
+:where(.appScope) :global(.secure-list) {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+:where(.appScope) :global(.secure-list li) {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: #657287;
+  font-size: 16px;
+  line-height: 1.6;
+}
+:where(.appScope) :global(.secure-list svg) {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #43875f;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+:where(.appScope) :global(.guide-next-link) {
+  margin: 24px 0 0;
+  color: #687589;
+  font-size: 16px;
+}
+:where(.appScope) :global(.guide-next-link a) {
+  color: var(--blue-dark);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+:where(.appScope) :global(.key-callout-icon) {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 13px;
+  border-radius: 8px;
+  color: #3152cc;
+  background: var(--blue-pale);
+}
+:where(.appScope) :global(.key-callout-icon svg) {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+:where(.appScope) :global(.storage-config-note) {
+  margin: 16px 21px 19px;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+@media (max-width: 920px) {
+  :where(.appScope) :global(.dashboard-grid), :where(.appScope) :global(.guide-grid) {
+    grid-template-columns: 1fr;
+  }
+  :where(.appScope) :global(.developer-index-grid) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  :where(.appScope) :global(.site-header) {
+    height: 68px;
+  }
+  :where(.appScope) :global(.site-header-inner), :where(.appScope) :global(.container), :where(.appScope) :global(.site-footer) {
+    width: min(100% - 34px, 540px);
+  }
+  :where(.appScope) :global(.site-header-inner) {
+    gap: 12px;
+  }
+  :where(.appScope) :global(.brand) {
+    gap: 7px;
+  }
+  :where(.appScope) :global(.brand-mark) {
+    width: 31px;
+    height: 31px;
+  }
+  :where(.appScope) :global(.brand-word) {
+    font-size: 18px;
+  }
+  :where(.appScope) :global(.primary-nav) {
+    gap: 14px;
+  }
+  :where(.appScope) :global(.primary-nav a) {
+    font-size: 14px;
+  }
+  :where(.appScope) :global(.site-footer) {
+    min-height: 82px;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding: 15px 0;
+  }
+  :where(.appScope) :global(.guide-grid) {
+    gap: 12px;
+    margin-top: 17px;
+  }
+  :where(.appScope) :global(.scope-table th), :where(.appScope) :global(.scope-table td) {
+    padding: 10px 9px;
+  }
+  :where(.appScope) :global(.scope-table td:first-child) {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 560px) {
+  :where(.appScope) :global(.site-header) {
+    height: auto;
+  }
+  :where(.appScope) :global(.site-header-inner) {
+    height: auto;
+    min-height: 58px;
+    flex-wrap: wrap;
+    gap: 0 10px;
+    padding: 8px 0 0;
+  }
+  :where(.appScope) :global(.primary-nav) {
+    order: 3;
+    width: 100%;
+    justify-content: space-around;
+    gap: 8px;
+    margin: 7px 0 0;
+    border-top: 1px solid var(--line);
+    padding: 6px 0 8px;
+  }
+  :where(.appScope) :global(.primary-nav a) {
+    padding: 6px 2px;
+  }
+  :where(.appScope) :global(.developer-nav) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 26px;
+  }
+  :where(.appScope) :global(.developer-nav a) {
+    padding: 9px 7px;
+    text-align: center;
+  }
+  :where(.appScope) :global(.developer-index) {
+    margin-top: 28px;
+  }
+  :where(.appScope) :global(.developer-index-heading) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  :where(.appScope) :global(.developer-index-card) {
+    min-height: 0;
+    padding: 14px;
+  }
+  :where(.appScope) :global(.foundation-panel > .secure-list) {
+    grid-template-columns: 1fr;
+    padding: 0 14px 16px;
+  }
+  :where(.appScope) :global(.foundation-panel .guide-panel-head) {
+    padding: 15px 14px 12px;
+  }
+  :where(.appScope) :global(.step) {
+    grid-template-columns: 26px minmax(0, 1fr);
+    gap: 9px;
+    padding: 12px 14px;
+  }
+  :where(.appScope) :global(.guide-panel-head) {
+    padding: 15px 14px 12px;
+  }
+  :where(.appScope) :global(.guide-notice) {
+    padding: 12px;
+  }
+  :where(.appScope) :global(.scope-table) {
+    display: block;
+    width: 100%;
+  }
+  :where(.appScope) :global(.scope-table thead) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  :where(.appScope) :global(.scope-table tbody), :where(.appScope) :global(.scope-table tr) {
+    display: block;
+    width: 100%;
+  }
+  :where(.appScope) :global(.scope-table tr) {
+    border-top: 1px solid #edf0f4;
+    padding: 8px 13px;
+  }
+  :where(.appScope) :global(.scope-table td) {
+    display: grid;
+    grid-template-columns: minmax(92px, 34%) minmax(0, 1fr);
+    gap: 8px;
+    border: 0;
+    padding: 4px 0;
+    overflow-wrap: anywhere;
+  }
+  :where(.appScope) :global(.scope-table td::before) {
+    content: attr(data-label);
+    color: var(--muted);
+    font:
+      500 11px/1.5 "DM Mono",
+      monospace;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  :where(.appScope) :global(.scope-table td:first-child) {
+    white-space: normal;
+  }
+  :where(.appScope) :global(.scope-table td:first-child:not(:last-child)) {
+    border-bottom: 0;
+  }
+  :where(.appScope) :global(.aside-card) {
+    padding: 15px;
+  }
+  :where(.appScope) :global(.storage-config-note) {
+    margin: 14px;
+  }
+  :where(.appScope) :global(.home-bottom-cta .button) {
+    width: 100%;
+  }
+  :where(.appScope) :global(.site-footer) {
+    width: min(100% - 34px, 540px);
+  }
+}
+
+@media (max-width: 390px) {
+  :where(.appScope) :global(.site-header-inner), :where(.appScope) :global(.container), :where(.appScope) :global(.site-footer) {
+    width: calc(100% - 26px);
+  }
+  :where(.appScope) :global(.brand-word) {
+    font-size: 16px;
+  }
+  :where(.appScope) :global(.primary-nav) {
+    gap: 5px;
+  }
+  :where(.appScope) :global(.primary-nav a) {
+    font-size: 13px;
+  }
+  :where(.appScope) :global(.hero-actions) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  :where(.appScope) :global(.hero-actions .button) {
+    width: 100%;
+  }
+  :where(.appScope) :global(.scope-table td) {
+    grid-template-columns: 78px minmax(0, 1fr);
+    gap: 6px;
+  }
+  :where(.appScope) :global(.scope-table td::before) {
+    font-size: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.appScope) :global(*), :where(.appScope) :global(*::before), :where(.appScope) :global(*::after) {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

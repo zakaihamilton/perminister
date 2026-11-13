@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthPageFeedback } from "@/components/auth-page-feedback";
 import { PasswordField } from "@/components/password-field";
+import { AuthCard } from "panel-frame-ui";
 import { AuthPageFrame } from "@/components/auth-page-frame";
 import { getCurrentSession } from "@/lib/auth/service";
 import { safeConsumerAuthorizationReturnTo } from "@/lib/auth/consumer-sso";
@@ -48,13 +49,13 @@ export default async function LoginPage({
     );
   const invitationToken = params.invitationToken ?? "";
   return (
-    <AuthPageFrame authenticated={false}>
+    <AuthPageFrame>
       <header className="auth-heading login-heading">
         <p className="eyebrow">Account access</p>
         <h1 id="login-title">Sign in to Perminister</h1>
         <p>Sign in to manage your organizations, products, and access.</p>
       </header>
-      <section className="auth-card" aria-labelledby="login-title">
+      <AuthCard className="auth-card" aria-labelledby="login-title">
         <AuthPageFeedback
           error={params.error}
           errorText={errorText}
@@ -95,7 +96,7 @@ export default async function LoginPage({
             </Link>
           </span>
         </div>
-      </section>
+      </AuthCard>
     </AuthPageFrame>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { AlertDialog } from "panel-frame-ui";
 import { useModalDialog } from "@/components/use-modal-dialog";
 
 export function ProductVisibilityControl({
@@ -19,7 +20,7 @@ export function ProductVisibilityControl({
 }) {
   const isPublic = visibility === "public";
   const needsConfirmation = isPublic && adopterOrganizations.length > 0;
-  const { dialogRef, openDialog, closeDialog } = useModalDialog(initialDialogOpen);
+  const { isOpen, openDialog, closeDialog } = useModalDialog(initialDialogOpen);
 
   return (
     <section className="product-visibility-control" aria-labelledby="product-visibility-title">
@@ -53,23 +54,14 @@ export function ProductVisibilityControl({
         )}
       </form>
 
-      <dialog
-        className="product-privacy-dialog"
-        ref={dialogRef}
-        aria-labelledby="product-privacy-dialog-title"
-        aria-describedby="product-privacy-dialog-description"
-        onCancel={(event) => {
-          event.preventDefault();
-          closeDialog();
+      <AlertDialog
+        description="The product will be removed from these organizations, and their members will lose access. Pending invitations, integrations, and API keys in those organizations will be revoked. The publisher’s app clients remain configured for the product in its publisher organization."
+        onOpenChange={(open) => {
+          if (!open) closeDialog();
         }}
+        open={isOpen}
+        title="Make this product private?"
       >
-        <h2 id="product-privacy-dialog-title">Make this product private?</h2>
-        <p id="product-privacy-dialog-description">
-          The product will be removed from these organizations, and their members will lose access.
-          Pending invitations, integrations, and API keys in those organizations will be revoked.
-          The publisher&apos;s app clients remain configured for the product in its publisher
-          organization.
-        </p>
         <ul className="product-privacy-organization-list">
           {adopterOrganizations.map((organization) => (
             <li key={organization.organizationId}>{organization.name}</li>
@@ -90,7 +82,7 @@ export function ProductVisibilityControl({
             </button>
           </form>
         </div>
-      </dialog>
+      </AlertDialog>
     </section>
   );
 }

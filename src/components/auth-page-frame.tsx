@@ -1,22 +1,25 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { SiteFooter, SiteHeader } from "@/components/site-shell";
+import { AuthShell } from "panel-frame-ui";
+import { Brand } from "@/components/site-shell";
+import { ThemeControl } from "@/components/theme-control";
 
-export function AuthPageFrame({
-  children,
-  authenticated,
-}: {
-  children: ReactNode;
-  authenticated?: boolean;
-}) {
+export function AuthPageFrame({ children }: { children: ReactNode }) {
   return (
-    <>
-      <SiteHeader active="none" authenticated={authenticated} />
-      <main className="page-shell auth-page-shell">
-        <div className="container auth-page">{children}</div>
-      </main>
-      <SiteFooter />
-    </>
+    <AuthShell
+      brand={<Brand />}
+      aside={
+        <>
+          <p className="eyebrow">One secure account</p>
+          <h1>Your organizations, products, and permissions in one place.</h1>
+          <p>Use one secure account to manage your memberships, sessions, and API keys.</p>
+        </>
+      }
+      utility={<ThemeControl />}
+      footer={<Link href="/privacy">Privacy policy</Link>}
+    >
+      {children}
+    </AuthShell>
   );
 }
 

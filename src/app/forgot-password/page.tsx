@@ -1,3 +1,4 @@
+import { AuthCard } from "panel-frame-ui";
 import { AuthPageFrame, AuthReturnToSignIn } from "@/components/auth-page-frame";
 import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 
@@ -24,7 +25,7 @@ export default async function ForgotPasswordPage({
           yet.
         </p>
       </header>
-      <section className="auth-card" aria-labelledby="recovery-title">
+      <AuthCard className="auth-card" aria-labelledby="recovery-title">
         <h2 id="recovery-title">Request recovery link</h2>
         {params.error && errorText[params.error] ? (
           <p className="form-error" role="alert">
@@ -52,7 +53,7 @@ export default async function ForgotPasswordPage({
           </button>
         </form>
         <AuthReturnToSignIn />
-      </section>
+      </AuthCard>
     </AuthPageFrame>
   );
 }

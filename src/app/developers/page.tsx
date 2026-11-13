@@ -31,7 +31,7 @@ export default function DevelopersPage() {
       title="Build with Perminister"
       intro="Share identity and access across your applications. Each app keeps its own sign-in experience, sessions, and data."
     >
-      <div className="guide-notice guide-notice-wide" aria-label="Application integration boundary">
+      <div className="guide-notice guide-notice-wide">
         <p>
           App backends use Perminister for shared identity and access checks. Keep application
           credentials and sessions on your server; your application owns its data and enforces

@@ -25,7 +25,6 @@ export default async function ProductApiKeysPage({
   ]);
   // This request-rendered page compares key expiry against the current time.
   const now =
-    // eslint-disable-next-line react-hooks/purity
     Date.now();
   const keys = allKeys.filter(
     (key) => key.scope.organizationId === organizationId && key.scope.productId === productId,
