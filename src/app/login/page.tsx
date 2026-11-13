@@ -9,7 +9,7 @@ import { safeConsumerAuthorizationReturnTo } from "@/lib/auth/consumer-sso";
 
 const errorText: Record<string, string> = {
   credentials: "Email or password is incorrect.",
-  throttled: "Too many sign-in attempts. Try again in 15 minutes.",
+  throttled: "Too many sign-in requests. Please wait a while and try again.",
   request: "Your sign-in request could not be verified. Reload the page and try again.",
   unavailable: "Sign-in is unavailable right now. Check the Spaces configuration and try again.",
   sso: "This product sign-in request is invalid or has expired. Return to the product and try again.",

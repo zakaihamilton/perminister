@@ -19,7 +19,7 @@ const errorText: Record<string, string> = {
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; invitationToken?: string }>;
+  searchParams: Promise<{ error?: string; notice?: string; invitationToken?: string }>;
 }) {
   const params = await searchParams;
   const current = await getCurrentSession();
@@ -43,6 +43,11 @@ export default async function RegisterPage({
         <AuthPageFeedback
           error={params.error}
           errorText={errorText}
+          notice={params.notice}
+          noticeText={{
+            "registration-requested":
+              "If you can register with this address, check your email for next steps. If you already have an account, sign in or reset your password. If no message arrives, contact the administrator.",
+          }}
           invitationMessage={
             invitationToken
               ? "Create your account with the email address that received your invitation."

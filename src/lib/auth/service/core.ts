@@ -60,6 +60,22 @@ export async function checkAuthStorageReadiness(): Promise<void> {
   await store().checkReadiness();
 }
 
+export async function consumeLoginRequestRateLimit(callerKey: string): Promise<boolean> {
+  return store().consumeRateLimit("login-ip", callerKey, 60, 15 * 60 * 1000);
+}
+
+export async function consumeConsumerLoginRequestRateLimit(
+  clientId: string,
+  callerKey: string | null,
+): Promise<boolean> {
+  return store().consumeRateLimit(
+    "consumer-login",
+    `${clientId}\0${callerKey ?? "unattributed"}`,
+    6_000,
+    15 * 60 * 1000,
+  );
+}
+
 export class InvalidAuthActionError extends Error {
   constructor(message = "This link is invalid or expired.") {
     super(message);

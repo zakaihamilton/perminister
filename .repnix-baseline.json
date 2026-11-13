@@ -1,7 +1,16 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-11T19:41:43.247Z",
+  "generatedAt": "2026-11-13T10:31:08.489Z",
   "entries": [
+    {
+      "fingerprint": "cc57e3209cba4ae71bb44289",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/actions.ts",
+      "line": 706
+    },
     {
       "fingerprint": "29ef00669c5293dd7a8f3c06",
       "provider": "jscpd",
@@ -12,13 +21,13 @@
       "line": 711
     },
     {
-      "fingerprint": "29ef00669c5293dd7a8f3c06",
+      "fingerprint": "4703ea8b534c675b6867de86",
       "provider": "jscpd",
       "category": "duplication",
       "type": "duplication",
       "scope": ".",
       "file": "app/actions.ts",
-      "line": 711
+      "line": 719
     },
     {
       "fingerprint": "60816aaa3e83fb5a39ab5413",
@@ -28,6 +37,24 @@
       "scope": ".",
       "file": "app/actions.ts",
       "line": 724
+    },
+    {
+      "fingerprint": "f01ca19d11ce5a577e82d58a",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/globals.css",
+      "line": 3052
+    },
+    {
+      "fingerprint": "17571d51a343d47113ec2525",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/globals.css",
+      "line": 3189
     },
     {
       "fingerprint": "bd6e609c2e56d41c62cae652",
@@ -111,15 +138,6 @@
       "line": 541
     },
     {
-      "fingerprint": "bd94cf4994f2c518788fbdee",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/styles/organization-overview.module.css",
-      "line": 541
-    },
-    {
       "fingerprint": "4ed1e165dba85a2c796e56c0",
       "provider": "jscpd",
       "category": "duplication",
@@ -136,33 +154,6 @@
       "scope": ".",
       "file": "app/styles/visual-system.module.css",
       "line": 959
-    },
-    {
-      "fingerprint": "61e964af0cb378f8dfef16f7",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/styles/visual-system.module.css",
-      "line": 959
-    },
-    {
-      "fingerprint": "b413640ff34f1f87a1582eab",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/styles/visual-system.module.css",
-      "line": 964
-    },
-    {
-      "fingerprint": "b413640ff34f1f87a1582eab",
-      "provider": "jscpd",
-      "category": "duplication",
-      "type": "duplication",
-      "scope": ".",
-      "file": "app/styles/visual-system.module.css",
-      "line": 964
     },
     {
       "fingerprint": "b413640ff34f1f87a1582eab",

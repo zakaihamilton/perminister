@@ -12,6 +12,9 @@ import {
   newMembershipId,
   newOrganizationMembershipId,
   type ConsumerClientRecord,
+  MAX_CONSUMER_SESSION_LIFETIME_MS,
+  MIN_CONSUMER_SESSION_LIFETIME_MS,
+  effectiveConsumerSessionLifetimeMs,
   type MembershipRecord,
   type OrganizationId,
   type OrganizationInvitationRecord,
@@ -96,7 +99,7 @@ function consumerClientSummary(record: ConsumerClientRecord): ConsumerClientSumm
     productId: record.productId,
     appName: record.appName,
     appOrigin: record.appOrigin,
-    sessionLifetimeMs: record.sessionLifetimeMs,
+    sessionLifetimeMs: effectiveConsumerSessionLifetimeMs(record.sessionLifetimeMs),
     selfRegistrationEnabled: record.selfRegistrationEnabled,
     status: record.status,
     createdAt: record.createdAt,
@@ -220,10 +223,10 @@ function validateConsumerClientOptions(productId: string, options: CreateConsume
   }
   if (
     !Number.isSafeInteger(options.sessionLifetimeSeconds) ||
-    options.sessionLifetimeSeconds < 5 * 60 ||
-    options.sessionLifetimeSeconds > 90 * 24 * 60 * 60
+    options.sessionLifetimeSeconds < MIN_CONSUMER_SESSION_LIFETIME_MS / 1000 ||
+    options.sessionLifetimeSeconds > MAX_CONSUMER_SESSION_LIFETIME_MS / 1000
   ) {
-    throw new Error("Session lifetime must be between 5 minutes and 90 days.");
+    throw new Error("Session lifetime must be between 5 minutes and 30 days.");
   }
   if (typeof options.selfRegistrationEnabled !== "boolean") {
     throw new Error("Choose whether self-registration is enabled.");

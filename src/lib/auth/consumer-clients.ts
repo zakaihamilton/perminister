@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createHash, timingSafeEqual } from "node:crypto";
+import { effectiveConsumerSessionLifetimeMs } from "./domain";
 import { getConsumerClientRecord } from "./service";
 
 export interface ConsumerClient {
@@ -25,7 +26,7 @@ export async function getConsumerClient(clientId: string): Promise<ConsumerClien
     productId: record.productId,
     secretDigestHex: record.verifier.digestHex,
     appOrigin: record.appOrigin,
-    sessionLifetimeMs: record.sessionLifetimeMs,
+    sessionLifetimeMs: effectiveConsumerSessionLifetimeMs(record.sessionLifetimeMs),
     selfRegistrationEnabled: record.selfRegistrationEnabled,
   };
 }

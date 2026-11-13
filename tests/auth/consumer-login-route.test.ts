@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   authenticate: vi.fn(),
+  consumeConsumerLoginRequestRateLimit: vi.fn(),
   createConsumerSession: vi.fn(),
   listConsumerOrganizationsForSubject: vi.fn(),
   client: {
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/service", () => ({
   authenticate: mocks.authenticate,
+  consumeConsumerLoginRequestRateLimit: mocks.consumeConsumerLoginRequestRateLimit,
   createConsumerSession: mocks.createConsumerSession,
   listConsumerOrganizationsForSubject: mocks.listConsumerOrganizationsForSubject,
 }));
@@ -46,6 +48,7 @@ describe("consumer login route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.authenticate.mockResolvedValue(subject);
+    mocks.consumeConsumerLoginRequestRateLimit.mockResolvedValue(true);
     mocks.createConsumerSession.mockResolvedValue({
       token: "opaque-session-token",
       session: { expiresAt: "2030-01-01T00:00:00.000Z" },
@@ -58,6 +61,10 @@ describe("consumer login route", () => {
     const response = await POST(loginRequest(password));
 
     expect(response.status).toBe(200);
+    expect(mocks.consumeConsumerLoginRequestRateLimit).toHaveBeenCalledWith(
+      mocks.client.clientId,
+      null,
+    );
     expect(mocks.authenticate).toHaveBeenCalledWith("person@example.com", password, "workspaceapp");
     expect(await response.json()).toMatchObject({
       authenticated: true,
