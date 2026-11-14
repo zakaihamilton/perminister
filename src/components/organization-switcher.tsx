@@ -12,10 +12,12 @@ export function OrganizationSwitcher({
   organizations,
   organizationId,
   preview = false,
+  onOrganizationChange,
 }: {
   organizations: OrganizationSummary[];
   organizationId: string;
   preview?: boolean;
+  onOrganizationChange?: (organizationId: string) => void;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,11 @@ export function OrganizationSwitcher({
   ];
 
   async function selectOrganization(nextOrganizationId: string) {
-    if (preview) return;
+    if (preview) {
+      if (organizations.some(({ organization }) => organization.organizationId === nextOrganizationId))
+        onOrganizationChange?.(nextOrganizationId);
+      return;
+    }
     if (nextOrganizationId === requestOrganizationValue) {
       router.push("/dashboard/new-organization");
       return;

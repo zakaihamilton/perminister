@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
-import { DashboardShell, DashboardHeading } from "@/components/dashboard-shell";
+import { DashboardShell, DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { OrganizationOverviewMetrics } from "@/components/organization-overview-metrics";
 import { OrganizationPeopleMemberList } from "@/components/people-member-lists";
-import type { OrganizationMemberView } from "@/lib/auth/service";
+import type { OrganizationMemberView, OrganizationSummary } from "@/lib/auth/service";
 import {
   ArchivedProductCatalog,
   OrganizationProductCatalog,
@@ -18,6 +18,7 @@ import { ActivityFeed } from "@/components/activity-feed";
 import { ProfileDetailsSection } from "@/components/profile-sections";
 import type { OrganizationActivityEntry } from "@/lib/auth/service";
 import { ProductNavigation } from "@/components/product-navigation";
+import { DashboardBreadcrumbs } from "@/components/dashboard-breadcrumbs";
 import { ProductDetailsCard } from "@/components/product-details-card";
 import { ProductAccessRoleCatalog } from "@/components/product-access-role-sections";
 import { ConsumerClientManager } from "@/components/consumer-client-manager";
@@ -60,6 +61,7 @@ import { InviteOrganizationMemberSection } from "@/components/organization-peopl
 import { ProductApiKeyCreationSection } from "@/components/product-api-key-sections";
 import { OrganizationRequestHistory } from "@/components/new-organization-sections";
 import { PreviewGuard } from "./preview-guard";
+import { PreviewOrganizationSwitcher } from "./preview-organization-switcher";
 import { PreviewDropdown, PreviewToolbar } from "ui-preview-kit";
 
 const organizationId = "preview-organization";
@@ -151,7 +153,98 @@ const previewScreens = [
   "product-key-new",
   "auth-verify",
   "auth-reset",
+  "access-denied",
 ];
+
+const scenarioOptions = [
+  { value: "populated", label: "Populated" },
+  { value: "empty", label: "Empty" },
+  { value: "role-owner", label: "Owner navigation" },
+  { value: "role-admin", label: "Admin navigation" },
+  { value: "role-member", label: "Member navigation" },
+  { value: "platform-admin", label: "Platform admin navigation" },
+  { value: "long-organization-names", label: "Long organization names" },
+  { value: "many-records", label: "High-volume lists" },
+  { value: "pending-invitation", label: "Pending invitation" },
+  { value: "expired-invitation", label: "Expired invitation" },
+  { value: "revoked-key", label: "Revoked key" },
+  { value: "disabled-grant", label: "Disabled permission" },
+  { value: "unverified-account", label: "Unverified account" },
+  { value: "validation-errors", label: "Form validation" },
+  { value: "access-denied", label: "Access denied" },
+  { value: "no-organizations", label: "No organizations" },
+] as const;
+
+type PreviewScenario = (typeof scenarioOptions)[number]["value"];
+
+function previewPathForScreen(screen: string) {
+  const organizationRoot = `/dashboard/${organizationId}`;
+  const productRoot = `${organizationRoot}/products/field-notes`;
+  const paths: Record<string, string> = {
+    overview: organizationRoot,
+    products: `${organizationRoot}/products`,
+    members: `${organizationRoot}/people`,
+    keys: `${organizationRoot}/api-keys`,
+    settings: `${organizationRoot}/settings`,
+    activity: `${organizationRoot}/activity`,
+    profile: `${organizationRoot}/profile`,
+    sessions: `${organizationRoot}/sessions`,
+    "product-overview": productRoot,
+    "product-people": `${productRoot}/people`,
+    "product-invite": `${productRoot}/people/invite`,
+    "product-access": `${productRoot}/access`,
+    "product-access-new": `${productRoot}/access/new`,
+    "product-roles": `${productRoot}/roles`,
+    "product-role-new": `${productRoot}/roles/new`,
+    "product-clients": `${productRoot}/clients`,
+    "product-client-new": `${productRoot}/clients/new`,
+    "client-edit": `${productRoot}/clients/preview-client/edit`,
+    "product-keys": `${productRoot}/api-keys`,
+    "product-key-new": `${productRoot}/api-keys/new`,
+    "product-activity": `${productRoot}/activity`,
+    "product-new": `${organizationRoot}/products/new`,
+    "key-new": `${organizationRoot}/api-keys/new`,
+    "organization-requests": "/dashboard/new-organization",
+    "organization-new": "/dashboard/new-organization/new",
+    operations: "/dashboard/operations",
+    "operations-accounts": "/dashboard/operations/accounts",
+    "operations-activity": "/dashboard/operations/activity",
+    "operations-legacy-access": "/dashboard/operations/legacy-access",
+    "operations-requests": "/dashboard/operations/organization-requests",
+    "operations-shared-products": "/dashboard/operations/shared-products",
+    "access-denied": `${productRoot}/access`,
+    "auth-verify": "/verify-email",
+    "auth-reset": "/reset-password",
+  };
+  return paths[screen] ?? organizationRoot;
+}
+
+function previewOrganizationSummary(
+  id: string,
+  name: string,
+  membershipIndex: number,
+): OrganizationSummary {
+  const membership = members[0].membership;
+  const organizationIdValue = id as OrganizationSummary["organization"]["organizationId"];
+  return {
+    organization: {
+      kind: "organization",
+      schemaVersion: 1,
+      organizationId: organizationIdValue,
+      name,
+      approvalStatus: "approved",
+      createdBySubjectId: membership.subjectId,
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+    },
+    membership: {
+      ...membership,
+      organizationId: organizationIdValue,
+      organizationMembershipId: `preview-switcher-${membershipIndex}` as OrganizationSummary["membership"]["organizationMembershipId"],
+    },
+    catalogManager: false,
+  };
+}
 
 export default async function PreviewPage({
   searchParams,
@@ -163,22 +256,150 @@ export default async function PreviewPage({
   const params = await searchParams;
   const screen =
     params.screen && previewScreens.includes(params.screen) ? params.screen : "overview";
-  const scenario = params.scenario === "empty" ? "empty" : "populated";
+  const scenario = scenarioOptions.some((option) => option.value === params.scenario)
+    ? (params.scenario as PreviewScenario)
+    : "populated";
   const empty = scenario === "empty";
-  const previewRole = "owner" as const;
+  const previewRole: "owner" | "admin" | "member" =
+    scenario === "role-admin" ? "admin" : scenario === "role-member" ? "member" : "owner";
+  const isOwner = previewRole === "owner";
+  const canManage = previewRole !== "member";
+  const isPlatformAdministrator =
+    screen.startsWith("operations") || scenario === "platform-admin";
+  const previewPathname =
+    scenario === "no-organizations" ? "/dashboard" : previewPathForScreen(screen);
+  const isLongNameScenario = scenario === "long-organization-names";
+  const organizationName = isLongNameScenario
+    ? "Example Studio for Distributed Creative Teams"
+    : "Example Studio";
+  const previewProducts =
+    scenario === "many-records"
+      ? [
+          ...products,
+          ...Array.from({ length: 12 }, (_, index) => ({
+            ...products[0],
+            productRecordId: `preview-product-${index + 2}` as ProductRecord["productRecordId"],
+            productId: `example-product-${index + 2}` as ProductRecord["productId"],
+            name: `Example product ${index + 2}`,
+          })),
+        ]
+      : isLongNameScenario
+        ? [
+            {
+              ...products[0],
+              name: "Field Notes for Distributed Editorial Teams and Regional Publishers",
+            },
+          ]
+        : products;
+  const previewMembers: OrganizationMemberView[] =
+    scenario === "many-records"
+      ? [
+          ...members,
+          ...Array.from({ length: 18 }, (_, index) => {
+            const baseMember = members[(index + 1) % members.length];
+            return {
+              ...baseMember,
+              email: `member-${String(index + 1).padStart(2, "0")}@example.test`,
+              membership: {
+                ...baseMember.membership,
+                organizationMembershipId: `preview-member-${index + 3}` as OrganizationMemberView["membership"]["organizationMembershipId"],
+                subjectId: `preview-subject-${index + 3}` as OrganizationMemberView["membership"]["subjectId"],
+                role: "member" as const,
+              },
+            };
+          }),
+        ]
+      : members;
+  const previewGrants =
+    scenario === "disabled-grant"
+      ? grants.filter((grant) => grant.status === "disabled")
+      : grants;
+  const previewApiKeys =
+    scenario === "revoked-key"
+      ? apiKeys.filter((key) => key.status === "revoked")
+      : scenario === "many-records"
+        ? [
+            ...apiKeys,
+            ...Array.from({ length: 14 }, (_, index) => ({
+              ...apiKeys[0],
+              apiKeyId: `preview-key-${index + 3}` as (typeof apiKeys)[number]["apiKeyId"],
+            })),
+          ]
+        : apiKeys;
+  const previewProductActivity =
+    scenario === "many-records"
+      ? Array.from({ length: 24 }, (_, index) => ({
+          ...productActivity[0],
+          eventId: `preview-product-event-${index + 1}` as OrganizationActivityEntry["eventId"],
+          summary: `Updated permissions for member ${index + 1}`,
+        }))
+      : productActivity;
+  const previewAccessRoles =
+    scenario === "many-records"
+      ? [
+          ...accessRoles,
+          ...Array.from({ length: 18 }, (_, index) => ({
+            ...accessRoles[index % accessRoles.length],
+            id: `preview-role-${index + 3}`,
+            name: `Application role ${index + 3}`,
+            description: `Synthetic permission set for service group ${index + 3}`,
+          })),
+        ]
+      : accessRoles;
+  const invitationExpiry =
+    scenario === "expired-invitation" ? "2026-01-01T00:00:00Z" : "2027-01-01T00:00:00Z";
+  const scenarioScreen: Record<string, string> = {
+    "access-denied": "access-denied",
+    "disabled-grant": "product-access",
+    "expired-invitation": "product-people",
+    "pending-invitation": "product-people",
+    "platform-admin": "operations",
+    "revoked-key": "product-keys",
+    "unverified-account": "profile",
+    "validation-errors": "product-new",
+  };
+  const previewOrganizations = isLongNameScenario
+    ? [
+        previewOrganizationSummary(organizationId, organizationName, 1),
+        previewOrganizationSummary(
+          "preview-organization-staging",
+          "Example Studio European Production and Review Organization",
+          2,
+        ),
+        previewOrganizationSummary(
+          "preview-organization-archive",
+          "Example Studio Long-Term Publishing Archive",
+          3,
+        ),
+      ]
+    : [previewOrganizationSummary(organizationId, organizationName, 1)];
   return (
     <PreviewGuard>
       <DashboardShell
         organizationId={organizationId}
-        organizationName="Example Studio"
-        organizations={[]}
+        organizationName={organizationName}
+        organizations={previewOrganizations}
+        sidebarOrganizationSwitcher={
+          <PreviewOrganizationSwitcher
+            organizations={previewOrganizations}
+            organizationId={organizationId}
+          />
+        }
         role={previewRole}
-        isPlatformAdministrator={Boolean(screen?.startsWith("operations"))}
+        isPlatformAdministrator={isPlatformAdministrator}
+        navigationPathname={previewPathname}
         pendingOrganizationRequestCount={null}
         email="alex@example.test"
         firstName="Alex"
         lastName="Example"
-        breadcrumbs={<p>Preview / Example Studio</p>}
+        breadcrumbs={
+          <DashboardBreadcrumbs
+            organizationId={organizationId}
+            organizationName={organizationName}
+            products={previewProducts.map(({ productId, name }) => ({ productId, name }))}
+            pathnameOverride={previewPathname}
+          />
+        }
       >
         <PreviewToolbar
           variant="card"
@@ -204,27 +425,45 @@ export default async function PreviewPage({
           <PreviewDropdown
             label="Scenario"
             value={scenario}
-            options={[
-              {
-                value: "populated",
-                label: "Populated",
-                href: "/ui-preview?screen=" + encodeURIComponent(screen) + "&scenario=populated",
-              },
-              {
-                value: "empty",
-                label: "Empty",
-                href: "/ui-preview?screen=" + encodeURIComponent(screen) + "&scenario=empty",
-              },
-            ]}
+            options={scenarioOptions.map((option) => ({
+              value: option.value,
+              label: option.label,
+              href:
+                option.value === "no-organizations"
+                  ? "/ui-preview/request?scenario=empty"
+                  : "/ui-preview?screen=" +
+                    encodeURIComponent(scenarioScreen[option.value] ?? screen) +
+                    "&scenario=" +
+                    option.value,
+            }))}
           />
         </PreviewToolbar>
-        {screen?.startsWith("product-") && (
+        {scenario === "access-denied" ? (
+          <DashboardNotice
+            kind="error"
+            message="Perminister denied access to these product permissions. Ask an organization admin to review your role."
+          />
+        ) : null}
+        {scenario === "validation-errors" ? (
+          <DashboardNotice
+            kind="info"
+            message="Validation preview: try submitting this form with the required fields empty or malformed."
+          />
+        ) : null}
+        {scenario === "no-organizations" ? (
+          <DashboardNotice
+            kind="info"
+            message="This account has no organizations yet. Use the request shell to inspect the organization request flow."
+          />
+        ) : null}
+        {(screen?.startsWith("product-") || screen === "access-denied") && (
           <ProductNavigation
             isSharedInstallation={false}
             organizationId={organizationId}
             productId="field-notes"
-            productName="Field Notes"
+            productName={previewProducts[0].name}
             role={previewRole}
+            pathnameOverride={previewPathname}
           />
         )}
         {screen === "product-new" && (
@@ -261,7 +500,7 @@ export default async function PreviewPage({
           <>
             <DashboardHeading description="Invite someone to join Field Notes." />
             <InviteProductMemberSection
-              isOwner
+              isOwner={isOwner}
               organizationId={organizationId}
               productId="field-notes"
             />
@@ -272,22 +511,22 @@ export default async function PreviewPage({
             <DashboardHeading description="Choose a member, define where their permissions apply, and select a permission set or custom actions." />
             <AccessGrantExplainer />
             <AccessGrantCreationSection
-              eligibleMembers={empty ? [] : members}
+              eligibleMembers={empty ? [] : previewMembers}
               organizationId={organizationId}
               productId="field-notes"
-              accessRoles={empty ? [] : accessRoles}
+              accessRoles={empty ? [] : previewAccessRoles}
             />
           </>
         )}
         {screen === "product-overview" && (
           <>
-            <DashboardHeading description={products[0].description} />
+            <DashboardHeading description={previewProducts[0].description} />
             <ProductDetailsCard
-              canManageDetails
+              canManageDetails={canManage}
               initialDialogOpen={false}
               organizationId={organizationId}
-              product={products[0]}
-              canManageLifecycle
+              product={previewProducts[0]}
+              canManageLifecycle={canManage}
               adopterOrganizations={[{ organizationId: "preview-adopter", name: "Another Studio" }]}
               shareInfo={{
                 visibility: "public",
@@ -295,7 +534,7 @@ export default async function PreviewPage({
                   { organizationId: "preview-adopter", name: "Another Studio" },
                 ],
               }}
-              canTransferPublisher
+              canTransferPublisher={isOwner}
               transferOptions={{
                 destinations: [{ organizationId: "preview-destination", name: "Another Studio" }],
               }}
@@ -306,8 +545,8 @@ export default async function PreviewPage({
           <>
             <DashboardHeading description="Manage who can use this product and what they can do." />
             <ProductPeopleSection
-              isOwner
-              members={empty ? [] : members}
+              isOwner={isOwner}
+              members={empty ? [] : previewMembers}
               organizationId={organizationId}
               productId="field-notes"
             />
@@ -320,7 +559,7 @@ export default async function PreviewPage({
                         invitationId: "preview-invite" as import("@/lib/auth/domain").InvitationId,
                         email: "jordan@example.test",
                         role: "member",
-                        expiresAt: "2027-01-01T00:00:00Z",
+                        expiresAt: invitationExpiry,
                       },
                     ]
               }
@@ -341,13 +580,13 @@ export default async function PreviewPage({
               </section>
             ) : (
               <div className="access-grant-list">
-                {grants.map((grant) => (
+                {previewGrants.map((grant) => (
                   <ProductAccessGrantCard
                     key={grant.membershipId}
                     grant={grant}
                     email="alex@example.test"
-                    productMember={members[0]}
-                    canManage
+                    productMember={previewMembers[0]}
+                    canManage={canManage}
                     organizationId={organizationId}
                     productId="field-notes"
                   />
@@ -360,7 +599,7 @@ export default async function PreviewPage({
           <>
             <DashboardHeading description="Manage reusable permission sets for this product." />
             <ProductAccessRoleCatalog
-              accessRoles={empty ? [] : accessRoles}
+              accessRoles={empty ? [] : previewAccessRoles}
               organizationId={organizationId}
               productId="field-notes"
             />
@@ -382,10 +621,10 @@ export default async function PreviewPage({
             <DashboardHeading description="Create and manage API keys that work with this product." />
             <ProductApiKeyRecords
               canCreate
-              keys={empty ? [] : apiKeys}
+              keys={empty ? [] : previewApiKeys}
               now={Date.parse("2026-10-27T00:00:00Z")}
               organizationId={organizationId}
-              product={products[0]}
+              product={previewProducts[0]}
               returnTo="/ui-preview"
             />
           </>
@@ -394,7 +633,7 @@ export default async function PreviewPage({
           <>
             <DashboardHeading description="Recent changes to members, invitations, permissions, and API keys." />
             <ActivityFeed
-              entries={empty ? [] : productActivity}
+              entries={empty ? [] : previewProductActivity}
               emptyMessage="Changes to this product will appear here."
             />
           </>
@@ -433,7 +672,8 @@ export default async function PreviewPage({
                 firstName: "Alex",
                 lastName: "Example",
                 primaryEmail: "alex@example.test",
-                emailVerifiedAt: "2026-01-01T00:00:00Z",
+                emailVerifiedAt:
+                  scenario === "unverified-account" ? null : "2026-01-01T00:00:00Z",
                 createdAt: "2026-01-01T00:00:00Z",
               }}
             />
@@ -444,7 +684,7 @@ export default async function PreviewPage({
             <DashboardHeading description="Update the name shown to members and in invitations." />
             <OrganizationSettingsForm
               organizationId={organizationId}
-              organizationName="Example Studio"
+              organizationName={organizationName}
             />
           </>
         )}
@@ -455,11 +695,11 @@ export default async function PreviewPage({
           <>
             <DashboardHeading description="Manage the products in this organization and the access attached to each one." />
             <OrganizationProductCatalog
-              canManage
+              canManage={canManage}
               conflictingSharedProducts={[]}
               hasArchivedProducts={!empty}
               organizationId={organizationId}
-              products={empty ? [] : products}
+              products={empty ? [] : previewProducts}
             />
             {!empty ? (
               <ArchivedProductCatalog
@@ -488,9 +728,9 @@ export default async function PreviewPage({
             <DashboardHeading description="Manage organization members." />
             <OrganizationPeopleMemberList
               currentSubjectId="preview-alex"
-              members={empty ? [] : members}
+              members={empty ? [] : previewMembers}
               organizationId={organizationId}
-              owner
+              owner={isOwner}
             />
           </>
         )}
@@ -498,15 +738,15 @@ export default async function PreviewPage({
           <>
             <DashboardHeading description="Review this organization’s API keys or create one for a product you can access." />
             <OrganizationApiKeyRecords
-              keys={empty ? [] : apiKeys}
+              keys={empty ? [] : previewApiKeys}
               now={Date.parse("2026-10-27T00:00:00Z")}
               organizationId={organizationId}
-              productNames={new Map([["field-notes", "Field Notes"]])}
+              productNames={new Map([["field-notes", previewProducts[0].name]])}
               returnTo="/ui-preview"
             />
             <OrganizationProductKeyLinks
               organizationId={organizationId}
-              products={empty ? [] : products}
+              products={empty ? [] : previewProducts}
             />
             <ApiKeyAccessHint canCreate={false} hasProducts={!empty} isEmailVerified />
           </>
@@ -515,25 +755,25 @@ export default async function PreviewPage({
           <div className="organization-overview-page">
             <OrganizationOverviewMetrics
               activeApiKeyCount={empty ? 0 : 2}
-              memberCount={empty ? 0 : members.length}
+              memberCount={empty ? 0 : previewMembers.length}
               organizationId={organizationId}
-              productCount={empty ? 0 : products.length}
+              productCount={empty ? 0 : previewProducts.length}
               role={previewRole}
             />
             <OrganizationProductsSection
-              canManage
+              canManage={canManage}
               organizationId={organizationId}
-              products={empty ? [] : products}
+              products={empty ? [] : previewProducts}
             />
             <OrganizationActivityPreview
-              entries={empty ? [] : productActivity}
+              entries={empty ? [] : previewProductActivity}
               organizationId={organizationId}
             />
             <OrganizationPeopleMemberList
               currentSubjectId="preview-alex"
-              members={empty ? [] : members}
+              members={empty ? [] : previewMembers}
               organizationId={organizationId}
-              owner
+              owner={isOwner}
             />
           </div>
         )}

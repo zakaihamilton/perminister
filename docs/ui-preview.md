@@ -6,8 +6,22 @@ needed. The command binds to loopback and starts a dedicated development mode.
 If file watching fails, use `WATCHPACK_POLLING=true pnpm dev:preview`.
 The route is available only in development with `PERMINISTER_UI_PREVIEW=1`.
 
-Open the screen selector and choose a screen, then select the populated or empty scenario in the toolbar. The gallery uses
-fictional `.test` addresses and the application's production components:
+Use the screen and scenario controls to inspect synthetic route states. The gallery uses the real authenticated dashboard shell, including route-aware breadcrumbs, global navigation, product navigation, and organization switching, with a synthetic route context and fictional `.test` addresses. `ui-preview-kit` supplies the shared preview controls.
+
+| Scenario control | Coverage |
+| --- | --- |
+| Populated / empty | Default data and empty states across supported pages |
+| Owner / admin / member | Role-specific navigation and management controls |
+| Platform admin | Operations navigation and active route |
+| Long organization names | Organization switcher, breadcrumbs, and product names |
+| High-volume lists | Members, products, API keys, invitations, activity, and permission sets |
+| Pending / expired invitation | Invitation list status and long row content |
+| Revoked key / disabled permission | Revoked API key and disabled access-grant states |
+| Unverified account | Profile verification prompt |
+| Form validation / access denied | Product setup form guidance and denied-access notice |
+| No organizations / pending request | Authenticated shell with no organization and request history |
+
+The gallery uses the application's production components:
 
 | Screens                                                                                         | Coverage                                                                   |
 | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
@@ -36,18 +50,18 @@ to a network. The browser guard is not a security boundary.
 
 Fixtures are in `src/app/ui-preview/fixtures.ts` and the scenario composition is
 in `src/app/ui-preview/page.tsx`. Keep fixtures synthetic, avoid data-service
-calls, and update the guard and tests when adding interactive components. The
-gallery does not yet cover every authenticated page, invitation delivery, successful mutation feedback,
-or third-party data. It is a visual development aid, not an authentication bypass
-or a substitute for end-to-end tests.
+calls, and keep the guard on every preview route. Successful mutations, mail
+delivery, and third-party data remain outside the gallery. Review the pages at
+desktop and mobile widths; this is a visual development aid, not an authentication
+bypass or a substitute for end-to-end tests.
 
 ## Route map
 
-The mapping below names each page route and the closest gallery screen. A screen
-reuses the page's principal production component(s), but its shell, notices,
-navigation context and data are synthetic; it is not a complete route-level
-replica. `populated` and `empty` apply only where the corresponding screen has
-both fixtures. Buttons and links that would leave the gallery are disabled.
+The mapping below names each page route and the closest gallery screen. Each
+screen reuses the page's principal production components and authenticated shell;
+its user, route context, notices, and data are synthetic. `populated` and `empty`
+apply where the corresponding screen has both fixtures. Buttons and links that
+would leave the gallery are disabled.
 
 | Application route                                                                                    | Preview or limitation                                                                                                                                                                                                                                                                                   |
 | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
