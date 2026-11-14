@@ -18,6 +18,7 @@ export function DashboardShell({
   breadcrumbs,
   role,
   isPlatformAdministrator,
+  navigationPathname,
   pendingOrganizationRequestCount,
   email,
   firstName,
@@ -32,6 +33,7 @@ export function DashboardShell({
   breadcrumbs?: ReactNode;
   role: "owner" | "admin" | "member";
   isPlatformAdministrator: boolean;
+  navigationPathname?: string;
   pendingOrganizationRequestCount: number | null;
   email: string | null;
   firstName: string | null;
@@ -44,6 +46,7 @@ export function DashboardShell({
     organizationSwitcher: sidebarOrganizationSwitcher,
     role,
     isPlatformAdministrator,
+    navigationPathname,
     pendingOrganizationRequestCount,
     email,
     firstName,
@@ -73,6 +76,7 @@ export type DashboardSidebarProps = {
   organizationId?: string;
   role?: "owner" | "admin" | "member";
   isPlatformAdministrator: boolean;
+  navigationPathname?: string;
   pendingOrganizationRequestCount: number | null;
   email: string | null;
   firstName: string | null;
@@ -94,6 +98,7 @@ export function DashboardLayoutFrame({
     organizationId,
     role,
     isPlatformAdministrator,
+    navigationPathname,
     pendingOrganizationRequestCount,
     email,
     firstName,
@@ -117,6 +122,7 @@ export function DashboardLayoutFrame({
       navigation={
         <DashboardNavigation
           organizationId={organizationId}
+          pathnameOverride={navigationPathname}
           role={role}
           isPlatformAdministrator={isPlatformAdministrator}
           pendingOrganizationRequestCount={pendingOrganizationRequestCount}

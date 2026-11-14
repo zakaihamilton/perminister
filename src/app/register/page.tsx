@@ -4,7 +4,6 @@ import { AuthPageFeedback } from "@/components/auth-page-feedback";
 import { PasswordField } from "@/components/password-field";
 import { AuthCard } from "panel-frame-ui";
 import { AuthPageFrame } from "@/components/auth-page-frame";
-import { AuthCard } from "panel-frame-ui";
 import { getCurrentSession } from "@/lib/auth/service";
 
 const errorText: Record<string, string> = {

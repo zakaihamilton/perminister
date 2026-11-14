@@ -23,14 +23,17 @@ export function DashboardNavigation({
   organizationId,
   role,
   isPlatformAdministrator,
+  pathnameOverride,
   pendingOrganizationRequestCount,
 }: {
   organizationId?: string;
   role?: "owner" | "admin" | "member";
   isPlatformAdministrator: boolean;
+  pathnameOverride?: string;
   pendingOrganizationRequestCount: number | null;
 }) {
-  const pathname = usePathname();
+  const currentPathname = usePathname();
+  const pathname = pathnameOverride ?? currentPathname;
   const root = organizationId ? `/dashboard/${organizationId}` : null;
   const canManage = role === "owner" || role === "admin";
   const organizationLinks: NavigationItem[] = root

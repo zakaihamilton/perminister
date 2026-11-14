@@ -1,6 +1,5 @@
 import { AuthCard } from "panel-frame-ui";
 import { AuthPageFrame, AuthReturnToSignIn } from "@/components/auth-page-frame";
-import { AuthCard } from "panel-frame-ui";
 import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 
 const errorText: Record<string, string> = {

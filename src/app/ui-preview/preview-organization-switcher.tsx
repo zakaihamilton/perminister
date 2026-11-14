@@ -16,6 +16,7 @@ export function PreviewOrganizationSwitcher({
     <OrganizationSwitcher
       organizations={organizations}
       organizationId={selectedOrganizationId}
+      preview
       onOrganizationChange={setSelectedOrganizationId}
     />
   );
