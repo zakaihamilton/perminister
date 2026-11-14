@@ -18,11 +18,11 @@ const steps = [
   },
   {
     title: "Connect the app backend",
-    body: "A product owner or admin creates an app client from the publisher product’s App clients page and sets its app origin. Set http://localhost without a port to allow the app to run on any localhost port during development; add a port to restrict sign-in to that port. Other app origins must match exactly. Reuse that client across organizations installing the public product. Copy the client ID and one-time secret into the app backend. The backend sends them in X-Perminister-Client-Id and X-Perminister-Client-Secret headers; never include the secret in browser code or logs.",
+    body: "A product owner or admin creates an app client from the publisher product’s App clients page and registers its exact app origin. Include the local development port, such as http://localhost:3000. Reuse that client across organizations installing the public product. Copy the client ID and one-time secret into the app backend. The backend sends them as client_secret_basic at the OIDC token endpoint; never include the secret in browser code or logs.",
   },
   {
     title: "Keep the app's own session",
-    body: "The backend can use password login or the Sign in with Perminister authorization-code flow. Store the returned session token in your app's Secure, HttpOnly, SameSite cookie and keep it out of browser JavaScript. The token is bound to that app.",
+    body: "Send users to Perminister's OIDC authorization-code sign-in, with state, nonce, and S256 PKCE. Validate the signed ID token, then store the opaque app-bound access token in your app's Secure, HttpOnly, SameSite cookie. The token is bound to that app.",
   },
   {
     title: "Select an organization and grant access",

@@ -80,6 +80,23 @@ describe("consumer client credentials", () => {
     await expect(authenticateConsumerClient(validRequest)).resolves.toBeNull();
   });
 
+  it("authenticates OIDC token clients with client_secret_basic", async () => {
+    const { authenticateConsumerClientBasic } = await import(
+      "../../src/lib/auth/consumer-clients"
+    );
+    const encodedCredentials = Buffer.from(
+      `${encodeURIComponent(CLIENT_ID)}:${encodeURIComponent(CLIENT_SECRET)}`,
+      "utf8",
+    ).toString("base64");
+    const request = new Request("https://perminister.example/oauth/token", {
+      headers: { Authorization: `Basic ${encodedCredentials}` },
+    });
+
+    await expect(authenticateConsumerClientBasic(request)).resolves.toMatchObject({
+      clientId: CLIENT_ID,
+    });
+  });
+
   it("rejects malformed or unknown client IDs", async () => {
     const { getConsumerClient } = await import("../../src/lib/auth/consumer-clients");
 

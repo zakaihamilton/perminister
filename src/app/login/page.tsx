@@ -4,8 +4,13 @@ import { AuthPageFeedback } from "@/components/auth-page-feedback";
 import { PasswordField } from "@/components/password-field";
 import { AuthCard } from "panel-frame-ui";
 import { AuthPageFrame } from "@/components/auth-page-frame";
-import { getCurrentSession } from "@/lib/auth/service";
-import { safeConsumerAuthorizationReturnTo } from "@/lib/auth/consumer-sso";
+import { getCurrentSession, getConsumerClientRecord } from "@/lib/auth/service";
+import {
+  legacyConsumerAuthorizationEnabled,
+  parseConsumerAuthorizationRequest,
+  safeConsumerAuthorizationReturnTo,
+} from "@/lib/auth/consumer-sso";
+import { getConsumerAuthPresentation } from "@/components/consumer-auth-presentation";
 
 const errorText: Record<string, string> = {
   credentials: "Email or password is incorrect.",
@@ -39,8 +44,21 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const next = safeConsumerAuthorizationReturnTo(params.next ?? "");
+  let presentation = null;
+  if (next) {
+    const authorizeUrl = new URL(next, "https://perminister.invalid");
+    const clientId = authorizeUrl.searchParams.get("client_id") ?? "";
+    const client = await getConsumerClientRecord(clientId).catch(() => null);
+    const authorization = parseConsumerAuthorizationRequest(authorizeUrl.searchParams, client, {
+      allowLegacy: legacyConsumerAuthorizationEnabled(),
+    });
+    if (authorization && client) presentation = getConsumerAuthPresentation(client.productId);
+  }
   const current = await getCurrentSession();
-  if (current)
+  const promptLogin = Boolean(
+    next && new URL(next, "https://perminister.invalid").searchParams.get("prompt") === "login",
+  );
+  if (current && !promptLogin)
     redirect(
       next ??
         (params.invitationToken
@@ -49,7 +67,7 @@ export default async function LoginPage({
     );
   const invitationToken = params.invitationToken ?? "";
   return (
-    <AuthPageFrame>
+    <AuthPageFrame presentation={presentation}>
       <header className="auth-heading login-heading">
         <p className="eyebrow">Account access</p>
         <h1 id="login-title">Sign in to Perminister</h1>
@@ -69,6 +87,7 @@ export default async function LoginPage({
         />
         <form action="/login/submit" method="post" className="auth-form">
           {next ? <input type="hidden" name="next" value={next} /> : null}
+          {promptLogin ? <input type="hidden" name="prompt" value="login" /> : null}
           {invitationToken ? (
             <input type="hidden" name="invitationToken" value={invitationToken} />
           ) : null}

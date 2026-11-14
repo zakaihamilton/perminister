@@ -6,12 +6,20 @@ import { PreviewGuard } from "../preview-guard";
 export default async function AuthPreview({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; state?: string }>;
+  searchParams: Promise<{ view?: string; state?: string; product?: string }>;
 }) {
   if (process.env.NODE_ENV !== "development" || process.env.PERMINISTER_UI_PREVIEW !== "1")
     notFound();
   const query = await searchParams;
   const view = query.view === "invitation" ? "invitation" : "authorization";
+  const productIds = ["postparticle", "visitoring", "nanogres"] as const;
+  const productId = productIds.find((id) => id === query.product) ?? null;
+  const productNames = {
+    postparticle: "PostParticle",
+    visitoring: "Visitoring",
+    nanogres: "Nanogres",
+  } as const;
+  const productQuery = productId ? `&product=${productId}` : "";
   const invalid = query.state === "invalid";
   const token = invalid
     ? "invalid-preview-token"
@@ -23,13 +31,17 @@ export default async function AuthPreview({
         <nav aria-label="Authentication previews">
           <a href="/ui-preview">Back to gallery</a>
           {" · "}
-          <a href="/ui-preview/auth?view=authorization">Authorization</a>
+          <a href={`/ui-preview/auth?view=${view}&state=ready`}>Perminister</a>
           {" · "}
-          <a href="/ui-preview/auth?view=invitation">Invitation</a>
+          <a href={`/ui-preview/auth?view=${view}&state=ready&product=postparticle`}>PostParticle</a>
           {" · "}
-          <a href={`/ui-preview/auth?view=${view}&state=ready`}>Ready</a>
+          <a href={`/ui-preview/auth?view=${view}&state=ready&product=visitoring`}>Visitoring</a>
           {" · "}
-          <a href={`/ui-preview/auth?view=${view}&state=invalid`}>Invalid</a>
+          <a href={`/ui-preview/auth?view=${view}&state=ready&product=nanogres`}>Nanogres</a>
+          {" · "}
+          <a href={`/ui-preview/auth?view=invitation${productQuery}`}>Invitation</a>
+          {" · "}
+          <a href={`/ui-preview/auth?view=${view}&state=invalid${productQuery}`}>Invalid</a>
         </nav>
         <p>
           Forms and navigation outside the preview are disabled. Values are fictional and cannot
@@ -47,10 +59,13 @@ export default async function AuthPreview({
                   redirectUri: "https://example.test/callback",
                   responseType: "code",
                   state: "preview-state",
+                  nonce: "preview-nonce",
+                  scope: "openid profile email perminister_api",
+                  prompt: null,
                   codeChallenge: "preview-challenge",
                 }
           }
-          client={invalid ? null : { appName: "Example app" }}
+          client={invalid ? null : { appName: productId ? productNames[productId] : "Example app", productId: productId ?? undefined }}
           current={invalid ? null : { subject: { primaryEmail: "alex@example.test" } }}
           error=""
         />

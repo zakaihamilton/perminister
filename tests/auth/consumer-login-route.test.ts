@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   authenticate: vi.fn(),
@@ -47,6 +47,7 @@ function loginRequest(password: string): Request {
 describe("consumer login route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  vi.stubEnv("PERMINISTER_ENABLE_LEGACY_CONSUMER_PASSWORD_LOGIN", "true");
     mocks.authenticate.mockResolvedValue(subject);
     mocks.consumeConsumerLoginRequestRateLimit.mockResolvedValue(true);
     mocks.createConsumerSession.mockResolvedValue({
@@ -56,7 +57,7 @@ describe("consumer login route", () => {
     mocks.listConsumerOrganizationsForSubject.mockResolvedValue([]);
   });
 
-  it("accepts an imported WorkspaceApp password at its legacy maximum length", async () => {
+  it("keeps legacy password login available only during an explicit rollout window", async () => {
     const password = "p".repeat(1024);
     const response = await POST(loginRequest(password));
 
@@ -78,4 +79,14 @@ describe("consumer login route", () => {
     expect(response.status).toBe(400);
     expect(mocks.authenticate).not.toHaveBeenCalled();
   });
+
+  it("disables direct product password login when the rollout flag is off", async () => {
+    vi.stubEnv("PERMINISTER_ENABLE_LEGACY_CONSUMER_PASSWORD_LOGIN", "false");
+    const response = await POST(loginRequest("secret"));
+
+    expect(response.status).toBe(410);
+    expect(mocks.authenticate).not.toHaveBeenCalled();
+  });
 });
+
+afterEach(() => vi.unstubAllEnvs());

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Visitoring</title>
+  <rect x="24" y="24" width="464" height="464" rx="136" fill="#28745f"/>
+  <rect x="112" y="280" width="64" height="104" rx="32" fill="#f5f7f4"/>
+  <rect x="224" y="224" width="64" height="160" rx="32" fill="#f5f7f4"/>
+  <rect x="336" y="152" width="64" height="232" rx="32" fill="#a3d7c0"/>
+</svg>

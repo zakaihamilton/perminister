@@ -323,6 +323,9 @@ export interface ConsumerAuthorizationCodeRecord {
   /** Digest of the one-time authorization code; the code itself is never persisted. */
   codeDigestHex: string;
   codeChallenge: string;
+  nonce: string | null;
+  redirectUri: string;
+  scope: string | null;
   createdAt: string;
   expiresAt: string;
   consumedAt: string | null;

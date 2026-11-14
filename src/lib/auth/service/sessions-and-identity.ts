@@ -290,10 +290,22 @@ export async function createConsumerAuthorizationCode(
   subjectId: SubjectId,
   clientId: string,
   codeChallenge: string,
+  nonce: string | null,
+  redirectUri: string,
+  scope: string | null,
 ): Promise<string> {
   assertOpaqueId(clientId);
-  if (!/^[A-Za-z0-9_-]{43}$/.test(codeChallenge)) {
-    throw new Error("Choose a valid PKCE challenge.");
+  if (
+    !/^[A-Za-z0-9_-]{43}$/.test(codeChallenge) ||
+    !(
+      (nonce === null && scope === null) ||
+      (typeof nonce === "string" &&
+        /^[A-Za-z0-9_-]{43}$/.test(nonce) &&
+        scope === "openid profile email perminister_api")
+    ) ||
+    redirectUri.length > 2048
+  ) {
+    throw new Error("Choose a valid OpenID Connect authorization request.");
   }
   return authMutationQueue.run(async () => {
     const client = await loadRecord("consumer-client", clientId);
@@ -319,6 +331,9 @@ export async function createConsumerAuthorizationCode(
       productSessionVersion: productState.sessionVersion,
       codeDigestHex: hashHex(code),
       codeChallenge,
+      nonce,
+      redirectUri,
+      scope,
       createdAt: now.toISOString(),
       expiresAt: new Date(now.getTime() + 5 * 60 * 1000).toISOString(),
       consumedAt: null,
@@ -335,7 +350,15 @@ export async function exchangeConsumerAuthorizationCode(
   code: string,
   clientId: string,
   codeVerifier: string,
-): Promise<{ session: SessionRecord; token: string; subject: SubjectRecord; productId: string }> {
+  redirectUri?: string,
+): Promise<{
+  session: SessionRecord;
+  token: string;
+  subject: SubjectRecord;
+  productId: string;
+  nonce: string | null;
+  scope: string | null;
+}> {
   assertOpaqueId(clientId);
   if (code.length > 128 || !/^[A-Za-z0-9_-]{43,128}$/.test(codeVerifier)) {
     throw new InvalidConsumerAuthorizationCodeError();
@@ -353,6 +376,14 @@ export async function exchangeConsumerAuthorizationCode(
       !client ||
       client.record.status !== "active" ||
       authorization.record.consumerClientId !== clientId ||
+      (authorization.record.redirectUri &&
+        redirectUri &&
+        authorization.record.redirectUri !== redirectUri) ||
+      ((authorization.record.scope || authorization.record.nonce) &&
+        (!redirectUri ||
+          !authorization.record.scope ||
+          !authorization.record.nonce ||
+          authorization.record.redirectUri !== redirectUri)) ||
       authorization.record.consumedAt ||
       Date.parse(authorization.record.expiresAt) <= Date.now() ||
       !equalHex(authorization.record.codeDigestHex, hashHex(code))
@@ -396,6 +427,8 @@ export async function exchangeConsumerAuthorizationCode(
       ...created,
       subject: productStateSubject,
       productId: client.record.productId,
+      nonce: authorization.record.nonce,
+      scope: authorization.record.scope,
     };
   });
 }

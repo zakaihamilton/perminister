@@ -88,8 +88,8 @@ export function ConsumerClientCreateForm({
           Session lifetime defaults to 12 hours and can be set from 5 minutes to 30 days. Choose the
           shortest duration your app supports. New clients default to disabled public registration.
           Enable registration for apps that support self-service sign-up. Set
-          http://localhost without a port to allow any localhost port during development. Add a port
-          to restrict sign-in to that port. HTTPS and 127.0.0.1 origins match exactly.
+          an exact origin, including the port used in development. For example, use
+          http://localhost:3000 when the app runs on port 3000. Callback URLs must match exactly.
         </p>
         <button className="button button-primary form-submit" disabled={pending} type="submit">
           {pending ? "Creating…" : "Create app client"}

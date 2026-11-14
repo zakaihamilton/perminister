@@ -53,3 +53,29 @@ export async function authenticateConsumerClient(request: Request): Promise<Cons
   if (!client || !verifyConsumerClientSecret(client, providedSecret)) return null;
   return client;
 }
+
+export async function authenticateConsumerClientBasic(request: Request): Promise<ConsumerClient | null> {
+  const match = /^Basic ([A-Za-z0-9+/]+={0,2})$/i.exec(request.headers.get("authorization") ?? "");
+  if (!match) return null;
+  let decoded: string;
+  try {
+    decoded = Buffer.from(match[1], "base64").toString("utf8");
+  } catch {
+    return null;
+  }
+  const separator = decoded.indexOf(":");
+  if (separator <= 0) return null;
+  const decodeFormValue = (value: string) => {
+    try {
+      return decodeURIComponent(value.replace(/\+/g, " "));
+    } catch {
+      return null;
+    }
+  };
+  const clientId = decodeFormValue(decoded.slice(0, separator));
+  const clientSecret = decodeFormValue(decoded.slice(separator + 1));
+  if (!clientId || !clientSecret) return null;
+  const client = await getConsumerClient(clientId);
+  if (!client || !verifyConsumerClientSecret(client, clientSecret)) return null;
+  return client;
+}

@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(cleanup);
 
-vi.mock("@/components/site-shell", () => ({ SiteHeader: () => null, SiteFooter: () => null }));
+vi.mock("@/components/site-shell", () => ({ Brand: () => null, SiteHeader: () => null, SiteFooter: () => null }));
+vi.mock("@/components/theme-control", () => ({ ThemeControl: () => null }));
 import { AuthorizationView } from "@/components/authorization-view";
 import { InvitationView } from "@/components/invitation-view";
 
@@ -13,6 +14,9 @@ const authorization = {
   redirectUri: "https://example.test/callback",
   responseType: "code" as const,
   state: "preview",
+  nonce: "preview-nonce",
+  scope: "openid profile email perminister_api" as const,
+  prompt: null,
   codeChallenge: "preview",
 };
 describe("authorization and invitation views", () => {

@@ -3,20 +3,29 @@ import Link from "next/link";
 import { AuthShell } from "panel-frame-ui";
 import { Brand } from "@/components/site-shell";
 import { ThemeControl } from "@/components/theme-control";
+import type { ConsumerAuthPresentation } from "@/components/consumer-auth-presentation";
 
-export function AuthPageFrame({ children }: { children: ReactNode }) {
+export function AuthPageFrame({
+  children,
+  presentation,
+}: {
+  children: ReactNode;
+  presentation?: ConsumerAuthPresentation | null;
+}) {
   return (
     <AuthShell
-      brand={<Brand />}
+      brand={presentation?.brand ?? <Brand />}
       aside={
-        <>
-          <p className="eyebrow">One secure account</p>
-          <h1>Your organizations, products, and permissions in one place.</h1>
-          <p>Use one secure account to manage your memberships, sessions, and API keys.</p>
-        </>
+        presentation?.aside ?? (
+          <>
+            <p className="eyebrow">One secure account</p>
+            <h1>Your organizations, products, and permissions in one place.</h1>
+            <p>Use one secure account to manage your memberships, sessions, and API keys.</p>
+          </>
+        )
       }
       utility={<ThemeControl />}
-      footer={<Link href="/privacy">Privacy policy</Link>}
+      footer={presentation?.footer ?? <Link href="/privacy">Privacy policy</Link>}
     >
       {children}
     </AuthShell>

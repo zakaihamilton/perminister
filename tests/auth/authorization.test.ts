@@ -1745,6 +1745,137 @@ describe("consumer identity migration and management", () => {
     ).resolves.toMatchObject({ subject: { subjectId: projectAppId } });
   });
 
+  it("binds one-time OIDC codes to the client, exact callback, PKCE verifier, and nonce", async () => {
+    const now = new Date().toISOString();
+    const callback = "https://postparticle.example/auth/perminister/callback";
+    const verifier = "v".repeat(43);
+    const nonce = "n".repeat(43);
+    const scope = "openid profile email perminister_api";
+    store.seed({
+      kind: "consumer-client",
+      schemaVersion: 1,
+      consumerClientId: CONSUMER_CLIENT_ID as never,
+      productId: "postparticle",
+      appName: "PostParticle",
+      appOrigin: "https://postparticle.example",
+      sessionLifetimeMs: 60 * 60 * 1000,
+      selfRegistrationEnabled: false,
+      verifier: { algorithm: "sha256", digestHex: "a".repeat(64) },
+      status: "active",
+      createdBySubjectId: SUBJECT_ID as never,
+      createdAt: now,
+      updatedAt: now,
+      revokedAt: null,
+    } as AuthRecord);
+
+    const code = await service.createConsumerAuthorizationCode(
+      SUBJECT_ID as never,
+      CONSUMER_CLIENT_ID,
+      createHash("sha256").update(verifier).digest("base64url"),
+      nonce,
+      callback,
+      scope,
+    );
+
+    await expect(
+      service.exchangeConsumerAuthorizationCode(code, CONSUMER_CLIENT_ID, verifier, "https://postparticle.example/other"),
+    ).rejects.toThrow("authorization code is invalid");
+    await expect(
+      service.exchangeConsumerAuthorizationCode(code, CONSUMER_CLIENT_ID, "x".repeat(43), callback),
+    ).rejects.toThrow("authorization code is invalid");
+
+    const exchanged = await service.exchangeConsumerAuthorizationCode(
+      code,
+      CONSUMER_CLIENT_ID,
+      verifier,
+      callback,
+    );
+    expect(exchanged).toMatchObject({ nonce, scope, productId: "postparticle" });
+    expect(exchanged.session.applicationClientId).toBe(CONSUMER_CLIENT_ID);
+    await expect(
+      service.exchangeConsumerAuthorizationCode(code, CONSUMER_CLIENT_ID, verifier, callback),
+    ).rejects.toThrow("authorization code is invalid");
+  });
+
+  it("exchanges a legacy code without OIDC claims or a callback parameter", async () => {
+    const now = new Date().toISOString();
+    const callback = "https://postparticle.example/auth/perminister/callback";
+    const verifier = "v".repeat(43);
+    store.seed({
+      kind: "consumer-client",
+      schemaVersion: 1,
+      consumerClientId: CONSUMER_CLIENT_ID as never,
+      productId: "postparticle",
+      appName: "PostParticle",
+      appOrigin: "https://postparticle.example",
+      sessionLifetimeMs: 60 * 60 * 1000,
+      selfRegistrationEnabled: false,
+      verifier: { algorithm: "sha256", digestHex: "a".repeat(64) },
+      status: "active",
+      createdBySubjectId: SUBJECT_ID as never,
+      createdAt: now,
+      updatedAt: now,
+      revokedAt: null,
+    } as AuthRecord);
+
+    const code = await service.createConsumerAuthorizationCode(
+      SUBJECT_ID as never,
+      CONSUMER_CLIENT_ID,
+      createHash("sha256").update(verifier).digest("base64url"),
+      null,
+      callback,
+      null,
+    );
+
+    const exchanged = await service.exchangeConsumerAuthorizationCode(
+      code,
+      CONSUMER_CLIENT_ID,
+      verifier,
+    );
+    expect(exchanged).toMatchObject({ nonce: null, scope: null, productId: "postparticle" });
+    expect(exchanged.session.applicationClientId).toBe(CONSUMER_CLIENT_ID);
+    await expect(
+      service.exchangeConsumerAuthorizationCode(code, CONSUMER_CLIENT_ID, verifier),
+    ).rejects.toThrow("authorization code is invalid");
+  });
+
+  it("rejects expired OIDC authorization codes", async () => {
+    const now = new Date().toISOString();
+    const callback = "https://postparticle.example/auth/perminister/callback";
+    const verifier = "v".repeat(43);
+    store.seed({
+      kind: "consumer-client",
+      schemaVersion: 1,
+      consumerClientId: CONSUMER_CLIENT_ID as never,
+      productId: "postparticle",
+      appName: "PostParticle",
+      appOrigin: "https://postparticle.example",
+      sessionLifetimeMs: 60 * 60 * 1000,
+      selfRegistrationEnabled: false,
+      verifier: { algorithm: "sha256", digestHex: "a".repeat(64) },
+      status: "active",
+      createdBySubjectId: SUBJECT_ID as never,
+      createdAt: now,
+      updatedAt: now,
+      revokedAt: null,
+    } as AuthRecord);
+    const code = await service.createConsumerAuthorizationCode(
+      SUBJECT_ID as never,
+      CONSUMER_CLIENT_ID,
+      createHash("sha256").update(verifier).digest("base64url"),
+      "n".repeat(43),
+      callback,
+      "openid profile email perminister_api",
+    );
+    const id = code.split(".")[0]!;
+    const stored = store.records.get(store.key("consumer-authorization-code", id))!;
+    store.seed({ ...stored.record, expiresAt: new Date(Date.now() - 1000).toISOString() } as AuthRecord);
+
+    await expect(
+      service.exchangeConsumerAuthorizationCode(code, CONSUMER_CLIENT_ID, verifier, callback),
+    ).rejects.toThrow("authorization code is invalid");
+  });
+
   it("keeps ProjectApp account disable and session revocation scoped to that product", async () => {
     const password = "Shared legacy password 123!";
     const now = new Date().toISOString();

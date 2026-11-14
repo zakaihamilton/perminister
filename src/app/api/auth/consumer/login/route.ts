@@ -34,6 +34,12 @@ function isLoginRequest(value: unknown): value is {
 export const POST = withApiRoutePerformance(
   "POST /api/auth/consumer/login",
   async function POST(request: Request) {
+    if (process.env.PERMINISTER_ENABLE_LEGACY_CONSUMER_PASSWORD_LOGIN !== "true") {
+      return Response.json(
+        { error: "Use the Perminister authorization-code sign-in flow." },
+        { status: 410, headers: NO_STORE_HEADERS },
+      );
+    }
     const parsed = await requireConsumerClientJsonBody(request, 8 * 1024);
     if (parsed instanceof Response) return parsed;
     const { body, client } = parsed;

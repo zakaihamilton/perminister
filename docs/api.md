@@ -16,9 +16,8 @@ Perminister returns each client ID and secret once; copy them into the correspon
 backend’s environment. Rotating a secret immediately invalidates the previous one, and revoking a
 client stops its credentials from working. Set the product origin to enable Sign in with
 Perminister. HTTPS origins are required, with HTTP allowed for `localhost` and `127.0.0.1`
-development origins. A portless `http://localhost` app origin accepts callbacks from any localhost
-port; specifying a port restricts callbacks to that origin. Other origins match exactly. The SSO
-callback path is `/auth/perminister/callback`. The application backend sends these headers when
+development origins. Register the exact app origin, including its development port. The callback
+URL is that origin plus `/auth/perminister/callback`, and must match exactly. The application backend sends these headers when
 calling consumer endpoints:
 
 ```http
@@ -64,29 +63,29 @@ generic `202` response. Oversized bodies return `413`, and other content types r
 
 Consumer authentication endpoints are called by the application backend:
 
-| Method   | Route                                   | Purpose                                                               |
-| -------- | --------------------------------------- | --------------------------------------------------------------------- |
-| `POST`   | `/api/auth/consumer/register`           | Create a central account and request email verification               |
-| `POST`   | `/api/auth/consumer/login`              | Verify credentials and create an app-bound session                    |
-| `POST`   | `/api/auth/consumer/token`              | Exchange a one-time SSO authorization code for an app-bound session   |
-| `GET`    | `/api/auth/consumer/session`            | Validate a session and return current account and organization access |
-| `DELETE` | `/api/auth/consumer/session`            | Revoke the current app session                                        |
-| `POST`   | `/api/auth/consumer/email-verification` | Request or complete email verification                                |
-| `POST`   | `/api/auth/consumer/password-recovery`  | Request or complete password recovery                                 |
-| `PATCH`  | `/api/auth/consumer/password`           | Change a password for the current session                             |
+| Method   | Route                                   | Purpose                                                                |
+| -------- | --------------------------------------- | ---------------------------------------------------------------------- |
+| `POST`   | `/api/auth/consumer/register`           | Create a central account and request email verification                |
+| `POST`   | `/api/auth/consumer/login`              | Deprecated direct-password flow; disabled by default                   |
+| `POST`   | `/api/auth/consumer/token`              | Compatibility exchange for authorization codes issued before migration |
+| `GET`    | `/api/auth/consumer/session`            | Validate a session and return current account and organization access  |
+| `DELETE` | `/api/auth/consumer/session`            | Revoke the current app session                                         |
+| `POST`   | `/api/auth/consumer/email-verification` | Request or complete email verification                                 |
+| `POST`   | `/api/auth/consumer/password-recovery`  | Request or complete password recovery                                  |
+| `PATCH`  | `/api/auth/consumer/password`           | Change a password for the current session                              |
 
 ### Sign in with Perminister
 
-The product backend starts an authorization-code flow at `/oauth/authorize` with its client ID,
-callback URI, random `state`, and an S256 PKCE challenge. The callback URI must use the registered
-app origin and the fixed `/auth/perminister/callback` path, subject to the portless localhost rule
-above. Perminister asks the signed-in
-person to confirm, then redirects back with a short-lived code and the original state. The backend
-checks the state and exchanges the code at `POST /api/auth/consumer/token`, sending its app-client
-headers and a `grant_type` of `authorization_code`, the code, and its original PKCE verifier. Codes
-expire after five minutes, are bound to the app client, and can be exchanged once. The exchange
-returns the same app-bound session shape as password login; store that token in the product's own
-Secure, HttpOnly, SameSite cookie.
+The product backend starts an OpenID Connect authorization-code flow at `/oauth/authorize` with
+`response_type=code`, `scope=openid profile email perminister_api`, a random `state`, a random
+`nonce`, and an S256 PKCE challenge. The callback URI must exactly match the registered app origin
+plus `/auth/perminister/callback`. Perminister asks the signed-in person to confirm, then redirects
+back with a short-lived code and the original state. The backend checks state and exchanges the code
+at `POST /oauth/token` with HTTP Basic client authentication, the callback URI, and its original PKCE
+verifier. It validates the RS256 ID token's issuer, audience, expiry, and nonce, then stores the
+opaque app-bound access token in the product's own Secure, HttpOnly, SameSite cookie. Codes expire
+after five minutes, are bound to the client, exact callback URI, PKCE challenge, and nonce, and can
+be exchanged once. No refresh token is issued.
 
 Registration accepts `email` and `password`; the password must be 15–256 characters. Optional
 `firstName` and `lastName` fields may each contain up to 80 characters. The names are available in
@@ -97,10 +96,11 @@ returns `202` with `{"accepted":true}` for both new and existing email addresses
 not gain organization access automatically; an invitation or organization manager must grant it.
 Invalid registration fields return `400`; a temporary registration service failure returns `503`.
 
-Login accepts `identifier` and `password`; `email` remains supported for existing clients. The
-identifier can be an email or, when configured for the product, a product-scoped username. Login
-accepts passwords up to 1,024 characters for imported legacy credentials; new, changed, and recovered
-passwords still use the 15–256 character policy. For example:
+Product password login is disabled by default and returns `410`. Set
+`PERMINISTER_ENABLE_LEGACY_CONSUMER_PASSWORD_LOGIN=true` only during a staged upgrade, then turn it
+off after every product uses OIDC. Product apps send users to Perminister's `/login`; they do not
+collect or forward Perminister passwords. The legacy login response below is retained only as a
+reference for existing clients during migration.
 
 A successful login returns a session token, stable subject ID, and the organization contexts
 associated with the account for this product. `account.email` and `account.username` are nullable;
@@ -386,3 +386,27 @@ restore those keys; create new keys for it. Invalid bodies return `400`, missing
 credentials or sessions return `401`, insufficient organization permissions return `403`, missing
 resources return `404`, oversized bodies return `413`, unsupported content types return `415`, and
 temporary service failures return `503` where applicable.
+
+## OIDC configuration
+
+Perminister publishes OpenID Provider metadata at /.well-known/openid-configuration and signing
+keys at /.well-known/jwks.json. The issuer must be set to the canonical public origin in
+PERMINISTER_OIDC_ISSUER. Generate a persistent RSA key with
+node scripts/generate-oidc-signing-key.mjs; place PERMINISTER_OIDC_PRIVATE_JWK only on the
+Railway writer, and publish PERMINISTER_OIDC_PUBLIC_JWKS on both Railway and Vercel.
+
+For rotation, publish the new active public key and prior public keys together in
+PERMINISTER_OIDC_PUBLIC_JWKS, then update the private key on Railway. Keep the prior public key
+published until all tokens signed with it have expired and the JWKS cache window has passed.
+Never commit the generated private key or send it to Vercel.
+
+During the staged client rollout, Visitoring and Nanogres may still send their previous
+authorization-code request. Set PERMINISTER_ENABLE_LEGACY_CONSUMER_OAUTH=true to accept that request
+shape for those two registered product IDs. Each request still needs an active client, its exact
+registered callback, state, and S256 PKCE; only the OIDC scope and nonce are omitted. Keep the flag
+temporary and set it to false after both apps have switched to the OIDC callback flow.
+
+PostParticle's older version submits passwords to Perminister directly. Set
+PERMINISTER_ENABLE_LEGACY_CONSUMER_PASSWORD_LOGIN=true only while that version remains deployed,
+then set it to false after PostParticle has switched to OIDC. The new product login pages send users
+to Perminister and never collect or forward Perminister passwords.

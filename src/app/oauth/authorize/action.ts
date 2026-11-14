@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth/service";
 import {
   consumerAuthorizationQuery,
+  legacyConsumerAuthorizationEnabled,
   parseConsumerAuthorizationRequest,
   safeConsumerAuthorizationReturnTo,
 } from "@/lib/auth/consumer-sso";
@@ -18,7 +19,7 @@ function firstValue(data: FormData, name: string): string {
 }
 
 function authorizationParamsFromFormData(formData: FormData): URLSearchParams {
-  return new URLSearchParams({
+  const params = new URLSearchParams({
     client_id: firstValue(formData, "client_id"),
     redirect_uri: firstValue(formData, "redirect_uri"),
     response_type: firstValue(formData, "response_type"),
@@ -26,12 +27,21 @@ function authorizationParamsFromFormData(formData: FormData): URLSearchParams {
     code_challenge: firstValue(formData, "code_challenge"),
     code_challenge_method: firstValue(formData, "code_challenge_method"),
   });
+  for (const name of ["nonce", "scope"] as const) {
+    const value = firstValue(formData, name);
+    if (value) params.set(name, value);
+  }
+  const prompt = firstValue(formData, "prompt");
+  if (prompt) params.set("prompt", prompt);
+  return params;
 }
 
 export async function approveConsumerAuthorizationAction(formData: FormData): Promise<void> {
   const params = authorizationParamsFromFormData(formData);
   const client = await getConsumerClientRecord(params.get("client_id") ?? "").catch(() => null);
-  const authorization = parseConsumerAuthorizationRequest(params, client);
+  const authorization = parseConsumerAuthorizationRequest(params, client, {
+    allowLegacy: legacyConsumerAuthorizationEnabled(),
+  });
   if (!authorization || !client) redirect("/login?error=sso");
 
   const current = await getCurrentSession();
@@ -48,6 +58,9 @@ export async function approveConsumerAuthorizationAction(formData: FormData): Pr
       current.subject.subjectId,
       client.consumerClientId,
       authorization.codeChallenge,
+      authorization.nonce,
+      authorization.redirectUri,
+      authorization.scope,
     );
   } catch {
     const query = new URLSearchParams({ ...Object.fromEntries(params), error: "unavailable" });
@@ -63,7 +76,9 @@ export async function approveConsumerAuthorizationAction(formData: FormData): Pr
 export async function cancelConsumerAuthorizationAction(formData: FormData): Promise<void> {
   const params = authorizationParamsFromFormData(formData);
   const client = await getConsumerClientRecord(params.get("client_id") ?? "").catch(() => null);
-  const authorization = parseConsumerAuthorizationRequest(params, client);
+  const authorization = parseConsumerAuthorizationRequest(params, client, {
+    allowLegacy: legacyConsumerAuthorizationEnabled(),
+  });
   if (!authorization) redirect("/login?error=sso");
   const destination = new URL(authorization.redirectUri);
   destination.searchParams.set("error", "access_denied");

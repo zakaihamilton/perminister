@@ -121,9 +121,9 @@ export function ConsumerClientSettingsForm({
           </label>
         </div>
         <p className="form-hint">
-          Session lifetime is capped at 30 days. Choose the shortest duration your app supports. Set
-          http://localhost without a port to allow any localhost port during development. Add a
-          port to restrict sign-in to that port. HTTPS and 127.0.0.1 origins match exactly.
+          Session lifetime is capped at 30 days. Choose the shortest duration your app supports.
+          Set the exact origin, including the port used in development. Callback URLs must match
+          exactly.
         </p>
         {state.error ? (
           <p className="form-error" role="alert">

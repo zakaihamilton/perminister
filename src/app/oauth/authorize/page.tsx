@@ -3,6 +3,7 @@ import { AuthorizationView } from "@/components/authorization-view";
 import { getConsumerClientRecord, getCurrentSession } from "@/lib/auth/service";
 import {
   consumerAuthorizationQuery,
+  legacyConsumerAuthorizationEnabled,
   parseConsumerAuthorizationRequest,
   safeConsumerAuthorizationReturnTo,
 } from "@/lib/auth/consumer-sso";
@@ -19,6 +20,9 @@ export default async function ConsumerAuthorizationPage({
     redirect_uri?: string | string[];
     response_type?: string | string[];
     state?: string | string[];
+    nonce?: string | string[];
+    scope?: string | string[];
+    prompt?: string | string[];
     code_challenge?: string | string[];
     code_challenge_method?: string | string[];
     error?: string | string[];
@@ -31,6 +35,9 @@ export default async function ConsumerAuthorizationPage({
     "redirect_uri",
     "response_type",
     "state",
+    "nonce",
+    "scope",
+    "prompt",
     "code_challenge",
     "code_challenge_method",
   ] as const) {
@@ -39,9 +46,11 @@ export default async function ConsumerAuthorizationPage({
   }
 
   const client = await getConsumerClientRecord(params.get("client_id") ?? "").catch(() => null);
-  const authorization = parseConsumerAuthorizationRequest(params, client);
+  const authorization = parseConsumerAuthorizationRequest(params, client, {
+    allowLegacy: legacyConsumerAuthorizationEnabled(),
+  });
   const current = authorization ? await getCurrentSession() : null;
-  if (authorization && client && !current) {
+  if (authorization && client && (!current || authorization.prompt === "login")) {
     const returnTo = safeConsumerAuthorizationReturnTo(
       `/oauth/authorize?${consumerAuthorizationQuery(authorization)}`,
     );

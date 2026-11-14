@@ -132,7 +132,7 @@ function publicActionError(error: unknown): string {
     "Only an active, unexpired API key can be rotated.",
     "Enter an application name up to 80 characters.",
     "Enter a valid app origin.",
-    "Use an HTTPS app origin, or an HTTP localhost or 127.0.0.1 origin, without a path, query, or fragment. A portless http://localhost origin allows any localhost port.",
+    "Use an HTTPS app origin, or an HTTP localhost or 127.0.0.1 origin, without a path, query, or fragment.",
     "Session lifetime must be between 5 minutes and 30 days.",
     "Choose whether self-registration is enabled.",
     "Choose an active application client for this product.",

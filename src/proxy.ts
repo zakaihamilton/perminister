@@ -2,7 +2,10 @@ import { isIP } from "node:net";
 import { NextResponse, type NextRequest } from "next/server";
 import { lastValidForwardedIp } from "@/lib/client-ip";
 import { currentDeploymentId, currentWriterRevision } from "@/lib/deployment";
-import { parseConsumerAuthorizationRequest } from "@/lib/auth/consumer-sso";
+import {
+  legacyConsumerAuthorizationEnabled,
+  parseConsumerAuthorizationRequest,
+} from "@/lib/auth/consumer-sso";
 import { getConsumerClientRecord } from "@/lib/auth/service";
 import {
   getConfiguredWriteProxySecret,
@@ -110,7 +113,9 @@ async function consumerAuthorizationPolicy(request: NextRequest): Promise<string
   const params = request.nextUrl.searchParams;
   const clientId = params.get("client_id") ?? "";
   const client = await getConsumerClientRecord(clientId).catch(() => null);
-  const authorization = parseConsumerAuthorizationRequest(params, client);
+  const authorization = parseConsumerAuthorizationRequest(params, client, {
+    allowLegacy: legacyConsumerAuthorizationEnabled(),
+  });
   if (!authorization) return null;
 
   const callback = new URL(authorization.redirectUri);
@@ -356,6 +361,7 @@ export const config = {
     "/api/:path*",
     "/actions/:path*",
     "/oauth/authorize",
+    "/oauth/token",
     "/accept-invitation",
     "/dashboard/:path*",
     "/forgot-password",

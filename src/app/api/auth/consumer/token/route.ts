@@ -32,6 +32,7 @@ export const POST = withApiRoutePerformance(
         body.code,
         client.clientId,
         body.code_verifier,
+        typeof body.redirect_uri === "string" ? body.redirect_uri : undefined,
       );
       const organizations = await listConsumerOrganizationsForSubject(
         exchanged.subject.subjectId,
