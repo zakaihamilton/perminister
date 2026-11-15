@@ -965,6 +965,7 @@ export async function deleteAccountForAdministrator(
           emailVerificationExempt: false,
           loginIdentifiers: [],
           legacySources: [],
+          externalIdentities: [],
           legacyCredentialSource: undefined,
           consumerProductStates: [],
           passwordCredential: null,

@@ -8,8 +8,12 @@ The paths below are relative to the Perminister base URL provided by the platfor
 
 Product owners and admins create app clients from the product’s **App clients** page in its
 publishing organization. Each client is bound to that product and has its own session lifetime,
-optional app origin, and self-registration setting. For a public product, the publisher manages this
-configuration once and all organizations using the product share it. Product managers in those
+optional app origin, and registration policy. Public registration allows any verified Perminister
+account to sign in to that app. Invite-only registration requires active product membership in an
+approved organization. The owning organization's active owner and configured Perminister system
+administrators can sign in to every app client regardless of its registration policy. For a public
+product, the publisher manages this configuration once and all organizations using the product
+share it. Product managers in those
 organizations can view client details, while only the publisher can create, rotate, or revoke
 clients. A product can have multiple clients for separate app deployments or environments.
 Perminister returns each client ID and secret once; copy them into the corresponding application
@@ -87,10 +91,12 @@ opaque app-bound access token in the product's own Secure, HttpOnly, SameSite co
 after five minutes, are bound to the client, exact callback URI, PKCE challenge, and nonce, and can
 be exchanged once. No refresh token is issued.
 
-Before issuing an authorization code, Perminister requires the account to have an active
-product-scoped membership in at least one approved organization for the consumer client's product.
-An organization catalog-manager membership does not grant consumer-app access. If the account has
-no qualifying membership, Perminister redirects to the exact registered callback with
+Before issuing an authorization code, Perminister applies the client’s registration policy. Public
+clients allow any verified account to sign in. Invite-only clients require an active product-scoped
+membership in at least one approved organization for the consumer client's product. The active
+owner of the client’s organization and configured Perminister system administrators can sign in to
+all of its applications. Other organization catalog-manager memberships do not grant app access. If
+the account has no qualifying access, Perminister redirects to the exact registered callback with
 `error=access_denied` and the original `state`; it does not issue a code or app session. Consumer
 callbacks should handle this error and show the user how to request access. If product membership is
 removed later, consumer session validation returns `401` with `{"authenticated":false}`. If access is
@@ -99,11 +105,15 @@ removed after code issuance but before exchange, `/oauth/token` returns `invalid
 Registration accepts `email` and `password`; the password must be 15–256 characters. Optional
 `firstName` and `lastName` fields may each contain up to 80 characters. The names are available in
 authenticated account responses (`null` when unset) and can also be updated from the Perminister
-profile page. Public self-registration is disabled by default for all new clients. An owner or admin
-can enable it in client settings; otherwise `/register` returns `403`. When enabled, the endpoint
-returns `202` with `{"accepted":true}` for both new and existing email addresses. A new account does
-not gain product access automatically; an invitation or organization manager must grant an active
-product membership in an approved organization before the account can sign in to that app.
+profile page. New app clients default to invite-only. An owner or admin can enable public
+registration in client settings; otherwise `/register` returns `403`. When enabled, the endpoint
+returns `202` with `{"accepted":true}` for both new and existing email addresses. Public registration
+makes the app available to any verified Perminister account, including accounts created with Google
+sign-in. It does not create product memberships or resource permission grants. Invite-only apps
+require an active product membership in an approved organization; invitations and organization
+managers can grant that membership. System administrators and the owning organization's active
+owner can sign in regardless of this setting. App sign-in does not itself grant resource actions;
+those still use the app's current permission grants.
 Invalid registration fields return `400`; a temporary registration service failure returns `503`.
 
 Product password login is disabled by default and returns `410`. Set
@@ -341,13 +351,16 @@ token that is present but invalid, denied, or out of scope returns `403` with `{
 Invalid JSON or fields return `400`, oversized bodies return `413`, and a non-JSON content type
 returns `415`. A temporary service failure returns `503`.
 
-For app session tokens and user-owned API keys, Perminister checks session or account validity,
-active product membership, and current grants on each request. User-owned API keys also require an
-active, verified account. Product membership roles alone do not grant actions. For a
-service-principal key, Perminister checks the key's active and unexpired state, its configured
-actions and scope, and whether its service principal is active. A service-principal key does not
-depend on the creator's current grants after it is issued. Product scopes cover resources within
-that product; project and workspace scopes must match the requested resource.
+For app session tokens, Perminister checks session or account validity, current app entitlement, and
+current grants on each request. App entitlement follows the client's registration policy and
+includes active product membership, public registration, the owning organization's active owner, or
+a configured system administrator. For user-owned API keys, Perminister checks an active product
+membership and current grants; keys also require an active, verified account. Product membership
+roles alone do not grant actions. For a service-principal key, Perminister checks the key's active
+and unexpired state, its configured actions and scope, and whether its service principal is active.
+A service-principal key does not depend on the creator's current grants after it is issued. Product
+scopes cover resources within that product; project and workspace scopes must match the requested
+resource.
 
 Only treat a request as authorized when the response is `200` with `authorized: true`. Deny the
 protected operation on every other status, a false decision, or a timeout. The application must

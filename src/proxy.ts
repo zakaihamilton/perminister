@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { lastValidForwardedIp } from "@/lib/client-ip";
 import { currentDeploymentId, currentWriterRevision } from "@/lib/deployment";
 import {
+  GOOGLE_LOGIN_CALLBACK_PATH,
   legacyConsumerAuthorizationEnabled,
   parseConsumerAuthorizationRequest,
 } from "@/lib/auth/consumer-sso";
@@ -248,8 +249,8 @@ function writerRequest(request: NextRequest): Response {
   return NextResponse.next({ request: { headers } });
 }
 
-async function proxyWrite(request: NextRequest): Promise<Response> {
-  if (!WRITE_METHODS.has(request.method)) {
+async function proxyWrite(request: NextRequest, method = request.method): Promise<Response> {
+  if (!WRITE_METHODS.has(method)) {
     return errorResponse(405, "Method not allowed.");
   }
 
@@ -265,13 +266,13 @@ async function proxyWrite(request: NextRequest): Promise<Response> {
   }
 
   const destination = new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, writerOrigin);
-  const body = await request.arrayBuffer();
+  const body = method === "POST" && request.method === "GET" ? undefined : await request.arrayBuffer();
 
   try {
     const upstream = await fetch(destination, {
-      method: request.method,
+      method,
       headers: forwardHeaders(request, secret),
-      body,
+      ...(body ? { body } : {}),
       cache: "no-store",
       redirect: "manual",
     });
@@ -323,7 +324,15 @@ export async function proxy(request: NextRequest): Promise<Response> {
     return response;
   }
 
+  const googleOAuthCallback =
+    request.nextUrl.pathname === GOOGLE_LOGIN_CALLBACK_PATH && request.method === "GET";
   const hostedVercel = process.env.VERCEL === "1" && process.env.VERCEL_ENV !== "development";
+  const hasLocalProxyConfiguration =
+    process.env.PERMINISTER_WRITE_PROXY_URL || process.env.PERMINISTER_WRITE_PROXY_SECRET;
+  if (googleOAuthCallback && (hostedVercel || hasLocalProxyConfiguration)) {
+    return proxyWrite(request, "POST");
+  }
+
   if (hostedVercel) {
     if (isReadMethod(request.method)) return NextResponse.next();
     const clientReleaseId = request.headers.get("x-deployment-id");
@@ -347,8 +356,6 @@ export async function proxy(request: NextRequest): Promise<Response> {
   if (isWriterRuntime()) return writerRequest(request);
 
   if (!isReadMethod(request.method)) {
-    const hasLocalProxyConfiguration =
-      process.env.PERMINISTER_WRITE_PROXY_URL || process.env.PERMINISTER_WRITE_PROXY_SECRET;
     if (hasLocalProxyConfiguration) return proxyWrite(request);
   }
 
@@ -360,6 +367,7 @@ export const config = {
     "/ui-preview/:path*",
     "/api/:path*",
     "/actions/:path*",
+    "/auth/google/:path*",
     "/oauth/authorize",
     "/oauth/token",
     "/accept-invitation",

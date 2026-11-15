@@ -13,6 +13,7 @@ const writerSourceFiles = [
   "tsconfig.json",
   "src/app/actions.ts",
   "src/app/login/submit/route.ts",
+  "src/app/auth/google/callback/route.ts",
   "src/app/logout/submit/route.ts",
   "src/app/oauth/authorize/action.ts",
   "src/proxy.ts",

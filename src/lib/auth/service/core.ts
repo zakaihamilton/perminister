@@ -437,6 +437,14 @@ export async function loadSubjectByEmailUnlocked(email: string): Promise<Subject
   return subjectId ? loadSubjectUnlocked(subjectId) : null;
 }
 
+export async function loadSubjectByExternalIdentityUnlocked(
+  provider: "google",
+  providerSubject: string,
+): Promise<SubjectRecord | null> {
+  const subjectId = await store().findSubjectIdByExternalIdentity(provider, providerSubject);
+  return subjectId ? loadSubjectUnlocked(subjectId) : null;
+}
+
 export async function loadSubjectByUsernameUnlocked(
   productId: string,
   username: string,
@@ -641,14 +649,50 @@ export async function loadApprovedOrganizationUnlocked(
 }
 
 /**
- * Consumer app access is granted by an active product membership in at least one approved
- * organization. Organization catalog-manager memberships do not grant access to a consumer app.
+ * Consumer app access is granted by public registration, an active product membership in an
+ * approved organization, organization ownership of the app client, or system-administrator status.
  */
 export async function hasActiveConsumerProductEntitlement(
   subjectId: SubjectId,
   productId: string,
+  clientId?: string,
 ): Promise<boolean> {
   const normalizedProductId = validateProductId(productId);
+  const subject = await loadSubjectUnlocked(subjectId);
+  if (!subject || subject.status !== "active") return false;
+
+  const client = clientId ? await loadRecord("consumer-client", clientId) : null;
+  if (
+    client &&
+    (client.record.status !== "active" ||
+      client.record.productId.trim().toLowerCase() !== normalizedProductId)
+  ) {
+    return false;
+  }
+
+  const systemAdministrator = isAdministrator(subject);
+  let organizationOwner = false;
+  const organizationId = client?.record.organizationId;
+  if (organizationId && (await loadApprovedOrganizationUnlocked(organizationId))) {
+    const organizationMembership = await store().readOrganizationMembership(
+      organizationId,
+      subjectId,
+    );
+    organizationOwner =
+      organizationMembership?.status === "active" && organizationMembership.role === "owner";
+  }
+
+  if (
+    consumerProductState(subject, normalizedProductId).status !== "active" &&
+    !systemAdministrator &&
+    !organizationOwner
+  ) {
+    return false;
+  }
+  if (systemAdministrator || client?.record.selfRegistrationEnabled || organizationOwner) {
+    return true;
+  }
+
   const memberships = (await store().listMembershipsForSubject(subjectId)).filter(
     (membership) =>
       membership.subjectId === subjectId &&

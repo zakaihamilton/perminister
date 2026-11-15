@@ -13,6 +13,7 @@ on:
       - src/app/actions.ts
       - src/app/actions/**
       - src/app/api/**
+      - src/app/auth/google/callback/**
       - src/app/login/submit/**
       - src/app/logout/submit/**
       - src/app/oauth/authorize/action.ts

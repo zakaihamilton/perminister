@@ -714,6 +714,21 @@ export class SpacesAuthStore {
     return value.subjectId as SubjectId;
   }
 
+  async findSubjectIdByExternalIdentity(
+    provider: "google",
+    providerSubject: string,
+  ): Promise<SubjectId | null> {
+    const digest = createHmac("sha256", this.identityIndexSecret)
+      .update(`${provider}\0${providerSubject}`)
+      .digest("hex");
+    const value = await this.readJson<{ subjectId?: unknown }>(
+      `${INDEX_ROOT}/by-external-identity/${provider}/${digest}.json`,
+    );
+    if (typeof value?.subjectId !== "string") return null;
+    assertOpaqueId(value.subjectId);
+    return value.subjectId as SubjectId;
+  }
+
   async findSubjectIdByUsername(productId: string, username: string): Promise<SubjectId | null> {
     const product = safeSegment(productId);
     const normalized = username.trim().toLowerCase();
@@ -753,6 +768,25 @@ export class SpacesAuthStore {
       });
     }
     if (record.kind === "subject") {
+      for (const identity of record.externalIdentities ?? []) {
+        if (
+          identity.provider !== "google" ||
+          typeof identity.subject !== "string" ||
+          !/^[\x21-\x7e]{1,255}$/.test(identity.subject)
+        ) {
+          throw new Error("Invalid external login identity");
+        }
+        const digest = createHmac("sha256", this.identityIndexSecret)
+          .update(`${identity.provider}\0${identity.subject}`)
+          .digest("hex");
+        const indexKey = `${INDEX_ROOT}/by-external-identity/${identity.provider}/${digest}.json`;
+        const existing = await this.readJson<{ subjectId?: unknown }>(indexKey);
+        if (typeof existing?.subjectId === "string" && existing.subjectId !== record.subjectId) {
+          throw new Error("This external login identity is already linked to another account.");
+        }
+        await this.writeJson(indexKey, { subjectId: record.subjectId });
+      }
+
       for (const identifier of record.loginIdentifiers ?? []) {
         const product = safeSegment(identifier.productId);
         const normalized = identifier.normalizedValue.trim().toLowerCase();
@@ -1186,6 +1220,12 @@ export class SpacesAuthStore {
         .update(`${product}\0${normalized}`)
         .digest("hex");
       keys.add(`${INDEX_ROOT}/by-product-username/${product}/${digest}.json`);
+    }
+    for (const identity of subject.externalIdentities ?? []) {
+      const digest = createHmac("sha256", this.identityIndexSecret)
+        .update(`${identity.provider}\0${identity.subject}`)
+        .digest("hex");
+      keys.add(`${INDEX_ROOT}/by-external-identity/${identity.provider}/${digest}.json`);
     }
     await Promise.all(
       [...keys].map(async (key) => {

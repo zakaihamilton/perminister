@@ -176,6 +176,12 @@ export interface LegacyIdentitySource {
   accountId: string;
 }
 
+export interface ExternalIdentity {
+  provider: "google";
+  /** Stable provider subject; use this instead of the provider's mutable email claim. */
+  subject: string;
+}
+
 export interface ConsumerProductState {
   productId: ProductId;
   status: "active" | "disabled";
@@ -211,6 +217,8 @@ export interface SubjectRecord {
   loginIdentifiers?: ConsumerLoginIdentifier[];
   /** Stable references used to make legacy imports idempotent and auditable. */
   legacySources?: LegacyIdentitySource[];
+  /** Federated sign-in identities linked to this account. */
+  externalIdentities?: ExternalIdentity[];
   /** Source reference selected as the authoritative password during a conflict resolution. */
   legacyCredentialSource?: string;
   /** App-specific account state; shared identity status remains independent across products. */

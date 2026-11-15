@@ -107,6 +107,19 @@ an HTTP loopback address for a local writer; hosted Vercel deployments require H
 reads use the production bucket, use a read-only Spaces key locally too. Without the proxy
 settings, point local development at a separate bucket with its own read/write key.
 
+## Google sign-in
+
+Create a Google OAuth web client and register the exact production callback URI
+`https://www.perminister.com/auth/google/callback`. Google returns to Vercel with a `GET`; the
+proxy forwards that callback internally to Railway as a `POST` so account linking and session
+creation stay on the single writer. The start route requests only `openid`, `email`, and `profile`.
+
+Configure the OAuth client ID as `GOOGLE_CLIENT_ID` in both Vercel Production and Railway. Configure
+`GOOGLE_CLIENT_SECRET` only in Railway; the secret is used when the writer exchanges the code with
+Google and must never be exposed to browser code. For direct local development, set both in
+`.env.local` and register `http://localhost:3000/auth/google/callback` as an additional redirect URI.
+If local writes are proxied to Railway, keep the client secret on the writer instead.
+
 Perminister stores auth records in DigitalOcean Spaces, and its mutation queue is process-local.
 Only one Railway process may write to a given bucket. Vercel instances can scale for reads when
 configured with read-only Spaces credentials. Keep Railway at one replica and prevent overlapping
