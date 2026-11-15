@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
 
 permissions:
   contents: read
@@ -28,6 +30,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run format:check
       - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm run health:responsive
       - run: pnpm test
       - run: node scripts/check-stable-form-actions.mjs
       - run: pnpm run typecheck
@@ -65,3 +68,17 @@ jobs:
       - run: pnpm run health:visual
         env:
           RUN_VISUAL_REGRESSION: "1"
+
+  preview-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a reviewed PR preview
+        env:
+          PULL_REQUEST_BODY: ${{ github.event.pull_request.body || '' }}
+        run: |
+          required='- [x] I reviewed the PR preview at 320, 390, 768, 1024, and 1280 px in both light and dark themes, including headers, controls, padding, and margins.'
+          if ! grep -Fq -- "$required" <<< "$PULL_REQUEST_BODY"; then
+            echo "::error::Review the PR preview at all five widths in both themes, then check the preview review box in the PR description."
+            exit 1
+          fi

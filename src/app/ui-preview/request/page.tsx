@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { isUiPreviewAllowed } from "@/lib/ui-preview-access";
 import { DashboardHeading } from "@/components/dashboard-shell";
 import { OrganizationRequestHistory } from "@/components/new-organization-sections";
 import { OrganizationRequestEmptyShell } from "@/components/organization-request-page-shell";
@@ -25,8 +26,7 @@ export default async function RequestShellPreview({
 }: {
   searchParams: Promise<{ scenario?: string }>;
 }) {
-  if (process.env.NODE_ENV !== "development" || process.env.PERMINISTER_UI_PREVIEW !== "1")
-    notFound();
+  if (!isUiPreviewAllowed()) notFound();
   const params = await searchParams;
   const scenario = params.scenario === "pending" ? "pending" : "empty";
   return (
