@@ -31,6 +31,17 @@ for (const width of widths) {
         await expect(page.locator(".pf-dashboard-content")).toBeVisible();
         await expect(page.locator(".dashboard-page-heading")).toBeVisible();
 
+        const dropdownHeights = await page
+          .locator(".ui-preview-toolbar__controls .ui-preview-dropdown__trigger")
+          .evaluateAll((triggers) =>
+            triggers.map((trigger) => trigger.getBoundingClientRect().height),
+          );
+        expect(dropdownHeights, `${preview.name}, ${width}px: preview dropdowns`).toHaveLength(2);
+        expect(
+          Math.max(...dropdownHeights) - Math.min(...dropdownHeights),
+          `${preview.name}, ${width}px: same-row dropdown heights`,
+        ).toBeLessThanOrEqual(1);
+
         const layout = await page.evaluate(() => {
           const toolbar = document.querySelector<HTMLElement>(".pf-dashboard-toolbar");
           const content = document.querySelector<HTMLElement>(".pf-dashboard-content");
