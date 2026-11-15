@@ -663,9 +663,8 @@ export async function hasActiveConsumerProductEntitlement(
 
   const client = clientId ? await loadRecord("consumer-client", clientId) : null;
   if (
-    clientId &&
-    (!client ||
-      client.record.status !== "active" ||
+    client &&
+    (client.record.status !== "active" ||
       client.record.productId.trim().toLowerCase() !== normalizedProductId)
   ) {
     return false;
