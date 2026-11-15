@@ -34,13 +34,18 @@ function authorizationParamsFromFormData(formData: FormData): URLSearchParams {
   return params;
 }
 
-export async function approveConsumerAuthorizationAction(formData: FormData): Promise<void> {
+async function consumerAuthorizationFromFormData(formData: FormData) {
   const params = authorizationParamsFromFormData(formData);
   const client = await getConsumerClientRecord(params.get("client_id") ?? "").catch(() => null);
   const authorization = parseConsumerAuthorizationRequest(params, client, {
     allowLegacy: legacyConsumerAuthorizationEnabled(),
   });
   if (!authorization || !client) redirect("/login?error=sso");
+  return authorization;
+}
+
+export async function approveConsumerAuthorizationAction(formData: FormData): Promise<void> {
+  const authorization = await consumerAuthorizationFromFormData(formData);
 
   const current = await getCurrentSession();
   if (!current) {
@@ -54,11 +59,6 @@ export async function approveConsumerAuthorizationAction(formData: FormData): Pr
 }
 
 export async function cancelConsumerAuthorizationAction(formData: FormData): Promise<void> {
-  const params = authorizationParamsFromFormData(formData);
-  const client = await getConsumerClientRecord(params.get("client_id") ?? "").catch(() => null);
-  const authorization = parseConsumerAuthorizationRequest(params, client, {
-    allowLegacy: legacyConsumerAuthorizationEnabled(),
-  });
-  if (!authorization) redirect("/login?error=sso");
+  const authorization = await consumerAuthorizationFromFormData(formData);
   redirect(consumerAuthorizationErrorCallback(authorization, "access_denied"));
 }
