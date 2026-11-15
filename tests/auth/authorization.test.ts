@@ -51,6 +51,7 @@ const TRANSFER_ADOPTER_MEMBERSHIP_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const TRANSFER_ADOPTER_CLIENT_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 const TRANSFER_ADOPTER_PRODUCT_RECORD_ID = "12121212-1212-4212-8212-121212121212";
 const TRANSFER_ADOPTER_ORG_MEMBERSHIP_ID = "18181818-1818-4818-8818-181818181818";
+const PRODUCT_ENTITLEMENT_MEMBERSHIP_ID = "15151515-1515-4515-8515-151515151515";
 const TOKEN = `pmk_${API_KEY_ID}_${"a".repeat(43)}`;
 const SCOPE: ResourceScope = {
   kind: "product",
@@ -328,6 +329,23 @@ function seedAuthorizationData(store: MemoryStore) {
     expiresAt: null,
     revokedAt: null,
     rotatedFromApiKeyId: null,
+  } as AuthRecord);
+}
+
+function seedConsumerProductMembership(store: MemoryStore, subjectId: string, productId: string) {
+  const now = new Date().toISOString();
+  store.seed({
+    kind: "organization-membership",
+    schemaVersion: 1,
+    organizationMembershipId: PRODUCT_ENTITLEMENT_MEMBERSHIP_ID as never,
+    organizationId: ORGANIZATION_ID as never,
+    productId,
+    subjectId: subjectId as never,
+    role: "member",
+    status: "active",
+    permissionGrants: [],
+    createdAt: now,
+    updatedAt: now,
   } as AuthRecord);
 }
 
@@ -1715,6 +1733,7 @@ describe("consumer identity migration and management", () => {
       createdAt: now,
       updatedAt: now,
     } as AuthRecord);
+    seedConsumerProductMembership(store, projectAppId, "projectapp");
 
     await expect(
       service.authenticate("argon@example.com", password, "workspaceapp"),
@@ -1767,6 +1786,7 @@ describe("consumer identity migration and management", () => {
       updatedAt: now,
       revokedAt: null,
     } as AuthRecord);
+    seedConsumerProductMembership(store, SUBJECT_ID, "postparticle");
 
     const code = await service.createConsumerAuthorizationCode(
       SUBJECT_ID as never,
@@ -1817,6 +1837,7 @@ describe("consumer identity migration and management", () => {
       updatedAt: now,
       revokedAt: null,
     } as AuthRecord);
+    seedConsumerProductMembership(store, SUBJECT_ID, "postparticle");
 
     const code = await service.createConsumerAuthorizationCode(
       SUBJECT_ID as never,
@@ -1859,6 +1880,7 @@ describe("consumer identity migration and management", () => {
       updatedAt: now,
       revokedAt: null,
     } as AuthRecord);
+    seedConsumerProductMembership(store, SUBJECT_ID, "postparticle");
     const code = await service.createConsumerAuthorizationCode(
       SUBJECT_ID as never,
       CONSUMER_CLIENT_ID,
@@ -1976,6 +1998,7 @@ describe("consumer identity migration and management", () => {
       },
     );
     const sharedId = provisionedWorkspace.member.subjectId;
+    seedConsumerProductMembership(store, sharedId, "projectapp");
     await service.createConsumerAccount(adminId as never, "projectapp", {
       organizationId: ORGANIZATION_ID,
       productId: "projectapp",

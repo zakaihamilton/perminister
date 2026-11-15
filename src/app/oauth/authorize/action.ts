@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getCurrentSession, getConsumerClientRecord } from "@/lib/auth/service";
 import { completeConsumerAuthorization } from "@/lib/auth/complete-consumer-authorization";
 import {
+  consumerAuthorizationErrorCallback,
   consumerAuthorizationQuery,
   legacyConsumerAuthorizationEnabled,
   parseConsumerAuthorizationRequest,
@@ -33,13 +34,18 @@ function authorizationParamsFromFormData(formData: FormData): URLSearchParams {
   return params;
 }
 
-export async function approveConsumerAuthorizationAction(formData: FormData): Promise<void> {
+async function consumerAuthorizationFromFormData(formData: FormData) {
   const params = authorizationParamsFromFormData(formData);
   const client = await getConsumerClientRecord(params.get("client_id") ?? "").catch(() => null);
   const authorization = parseConsumerAuthorizationRequest(params, client, {
     allowLegacy: legacyConsumerAuthorizationEnabled(),
   });
   if (!authorization || !client) redirect("/login?error=sso");
+  return authorization;
+}
+
+export async function approveConsumerAuthorizationAction(formData: FormData): Promise<void> {
+  const authorization = await consumerAuthorizationFromFormData(formData);
 
   const current = await getCurrentSession();
   if (!current) {
@@ -53,14 +59,6 @@ export async function approveConsumerAuthorizationAction(formData: FormData): Pr
 }
 
 export async function cancelConsumerAuthorizationAction(formData: FormData): Promise<void> {
-  const params = authorizationParamsFromFormData(formData);
-  const client = await getConsumerClientRecord(params.get("client_id") ?? "").catch(() => null);
-  const authorization = parseConsumerAuthorizationRequest(params, client, {
-    allowLegacy: legacyConsumerAuthorizationEnabled(),
-  });
-  if (!authorization) redirect("/login?error=sso");
-  const destination = new URL(authorization.redirectUri);
-  destination.searchParams.set("error", "access_denied");
-  destination.searchParams.set("state", authorization.state);
-  redirect(destination.toString());
+  const authorization = await consumerAuthorizationFromFormData(formData);
+  redirect(consumerAuthorizationErrorCallback(authorization, "access_denied"));
 }

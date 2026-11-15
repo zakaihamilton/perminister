@@ -117,6 +117,16 @@ export function consumerAuthorizationQuery(request: ConsumerAuthorizationRequest
   return query.toString();
 }
 
+export function consumerAuthorizationErrorCallback(
+  request: ConsumerAuthorizationRequest,
+  error: "access_denied",
+): string {
+  const destination = new URL(request.redirectUri);
+  destination.searchParams.set("error", error);
+  destination.searchParams.set("state", request.state);
+  return destination.toString();
+}
+
 export function safeConsumerAuthorizationReturnTo(value: string): string | null {
   if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return null;
   try {

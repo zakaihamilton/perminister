@@ -2,6 +2,7 @@ import { withApiRoutePerformance } from "@/lib/auth/performance";
 import {
   authenticate,
   consumeConsumerLoginRequestRateLimit,
+  ConsumerProductAccessDeniedError,
   createConsumerSession,
   listConsumerOrganizationsForSubject,
 } from "@/lib/auth/service";
@@ -121,6 +122,15 @@ export const POST = withApiRoutePerformance(
           { error: "invalid_credentials" },
           {
             status: 401,
+            headers: NO_STORE_HEADERS,
+          },
+        );
+      }
+      if (error instanceof ConsumerProductAccessDeniedError) {
+        return Response.json(
+          { error: "access_denied" },
+          {
+            status: 403,
             headers: NO_STORE_HEADERS,
           },
         );

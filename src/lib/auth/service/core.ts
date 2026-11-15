@@ -640,6 +640,31 @@ export async function loadApprovedOrganizationUnlocked(
   return organization.record;
 }
 
+/**
+ * Consumer app access is granted by an active product membership in at least one approved
+ * organization. Organization catalog-manager memberships do not grant access to a consumer app.
+ */
+export async function hasActiveConsumerProductEntitlement(
+  subjectId: SubjectId,
+  productId: string,
+): Promise<boolean> {
+  const normalizedProductId = validateProductId(productId);
+  const memberships = (await store().listMembershipsForSubject(subjectId)).filter(
+    (membership) =>
+      membership.subjectId === subjectId &&
+      membership.status === "active" &&
+      membership.productId?.trim().toLowerCase() === normalizedProductId,
+  );
+  if (memberships.length === 0) return false;
+
+  const organizationIds = [...new Set(memberships.map((membership) => membership.organizationId))];
+  const approvedOrganizations = await mapWithConcurrency(
+    organizationIds,
+    (organizationId) => loadApprovedOrganizationUnlocked(organizationId),
+  );
+  return approvedOrganizations.some(Boolean);
+}
+
 export async function organizationMembershipUnlocked(
   organizationId: string,
   subjectId: SubjectId,
