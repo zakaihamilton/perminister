@@ -2,8 +2,12 @@ import "server-only";
 
 import { redirect } from "next/navigation";
 import type { SubjectId } from "@/lib/auth/domain";
-import { createConsumerAuthorizationCode } from "@/lib/auth/service";
 import {
+  ConsumerProductAccessDeniedError,
+  createConsumerAuthorizationCode,
+} from "@/lib/auth/service";
+import {
+  consumerAuthorizationErrorCallback,
   consumerAuthorizationQuery,
   type ConsumerAuthorizationRequest,
 } from "@/lib/auth/consumer-sso";
@@ -22,7 +26,10 @@ export async function completeConsumerAuthorization(
       authorization.redirectUri,
       authorization.scope,
     );
-  } catch {
+  } catch (error) {
+    if (error instanceof ConsumerProductAccessDeniedError) {
+      redirect(consumerAuthorizationErrorCallback(authorization, "access_denied"));
+    }
     const query = new URLSearchParams(consumerAuthorizationQuery(authorization));
     query.set("error", "unavailable");
     redirect(`/oauth/authorize?${query.toString()}`);

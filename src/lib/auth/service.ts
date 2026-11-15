@@ -14,6 +14,7 @@ export {
 } from "./service/core";
 
 export {
+  ConsumerProductAccessDeniedError,
   InvalidConsumerAuthorizationCodeError,
   authenticate,
   changePasswordForSubject,

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getCurrentSession, getConsumerClientRecord } from "@/lib/auth/service";
 import { completeConsumerAuthorization } from "@/lib/auth/complete-consumer-authorization";
 import {
+  consumerAuthorizationErrorCallback,
   consumerAuthorizationQuery,
   legacyConsumerAuthorizationEnabled,
   parseConsumerAuthorizationRequest,
@@ -59,8 +60,5 @@ export async function cancelConsumerAuthorizationAction(formData: FormData): Pro
     allowLegacy: legacyConsumerAuthorizationEnabled(),
   });
   if (!authorization) redirect("/login?error=sso");
-  const destination = new URL(authorization.redirectUri);
-  destination.searchParams.set("error", "access_denied");
-  destination.searchParams.set("state", authorization.state);
-  redirect(destination.toString());
+  redirect(consumerAuthorizationErrorCallback(authorization, "access_denied"));
 }

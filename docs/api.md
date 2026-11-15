@@ -87,13 +87,23 @@ opaque app-bound access token in the product's own Secure, HttpOnly, SameSite co
 after five minutes, are bound to the client, exact callback URI, PKCE challenge, and nonce, and can
 be exchanged once. No refresh token is issued.
 
+Before issuing an authorization code, Perminister requires the account to have an active
+product-scoped membership in at least one approved organization for the consumer client's product.
+An organization catalog-manager membership does not grant consumer-app access. If the account has
+no qualifying membership, Perminister redirects to the exact registered callback with
+`error=access_denied` and the original `state`; it does not issue a code or app session. Consumer
+callbacks should handle this error and show the user how to request access. If product membership is
+removed later, consumer session validation returns `401` with `{"authenticated":false}`. If access is
+removed after code issuance but before exchange, `/oauth/token` returns `invalid_grant`.
+
 Registration accepts `email` and `password`; the password must be 15–256 characters. Optional
 `firstName` and `lastName` fields may each contain up to 80 characters. The names are available in
 authenticated account responses (`null` when unset) and can also be updated from the Perminister
 profile page. Public self-registration is disabled by default for all new clients. An owner or admin
 can enable it in client settings; otherwise `/register` returns `403`. When enabled, the endpoint
 returns `202` with `{"accepted":true}` for both new and existing email addresses. A new account does
-not gain organization access automatically; an invitation or organization manager must grant it.
+not gain product access automatically; an invitation or organization manager must grant an active
+product membership in an approved organization before the account can sign in to that app.
 Invalid registration fields return `400`; a temporary registration service failure returns `503`.
 
 Product password login is disabled by default and returns `410`. Set

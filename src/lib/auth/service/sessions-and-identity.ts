@@ -30,6 +30,7 @@ import {
   consumerProductState,
   createPasswordCredential,
   equalHex,
+  hasActiveConsumerProductEntitlement,
   hashHex,
   listRecordsWithRecovery,
   loadRecord,
@@ -238,9 +239,22 @@ export async function createConsumerSession(
     throw new Error("Choose a valid consumer session lifetime.");
   }
   const effectiveLifetimeMs = effectiveConsumerSessionLifetimeMs(sessionLifetimeMs);
-  return authMutationQueue.run(() =>
-    createConsumerSessionUnlocked(subjectId, clientId, normalizedProductId, effectiveLifetimeMs),
-  );
+  return authMutationQueue.run(async () => {
+    const subject = await loadSubjectUnlocked(subjectId);
+    requireVerifiedActiveSubject(subject);
+    if (consumerProductState(subject, normalizedProductId).status !== "active") {
+      throw new ConsumerProductAccessDeniedError();
+    }
+    if (!(await hasActiveConsumerProductEntitlement(subjectId, normalizedProductId))) {
+      throw new ConsumerProductAccessDeniedError();
+    }
+    return createConsumerSessionUnlocked(
+      subjectId,
+      clientId,
+      normalizedProductId,
+      effectiveLifetimeMs,
+    );
+  });
 }
 
 async function createConsumerSessionUnlocked(
@@ -286,6 +300,13 @@ export class InvalidConsumerAuthorizationCodeError extends Error {
   }
 }
 
+export class ConsumerProductAccessDeniedError extends Error {
+  constructor() {
+    super("This account is not authorized to use the application.");
+    this.name = "ConsumerProductAccessDeniedError";
+  }
+}
+
 export async function createConsumerAuthorizationCode(
   subjectId: SubjectId,
   clientId: string,
@@ -316,7 +337,10 @@ export async function createConsumerAuthorizationCode(
     requireVerifiedActiveSubject(subject);
     const productState = consumerProductState(subject, client.record.productId);
     if (productState.status !== "active") {
-      throw new Error("This account is disabled for the application.");
+      throw new ConsumerProductAccessDeniedError();
+    }
+    if (!(await hasActiveConsumerProductEntitlement(subjectId, client.record.productId))) {
+      throw new ConsumerProductAccessDeniedError();
     }
     const codeId = newConsumerAuthorizationCodeId();
     const code = `${codeId}.${randomBytes(32).toString("base64url")}`;
@@ -411,6 +435,14 @@ export async function exchangeConsumerAuthorizationCode(
     ) {
       throw new InvalidConsumerAuthorizationCodeError();
     }
+    if (
+      !(await hasActiveConsumerProductEntitlement(
+        authorization.record.subjectId,
+        client.record.productId,
+      ))
+    ) {
+      throw new InvalidConsumerAuthorizationCodeError();
+    }
     const consumedAt = new Date().toISOString();
     await persistRecord(
       { ...authorization.record, consumedAt },
@@ -496,7 +528,8 @@ export async function getSessionFromToken(
       (!!record.productId &&
         (consumerProductState(subject.record, record.productId).status !== "active" ||
           consumerProductState(subject.record, record.productId).sessionVersion !==
-            (record.productSessionVersion ?? 1)))
+            (record.productSessionVersion ?? 1) ||
+          !(await hasActiveConsumerProductEntitlement(record.subjectId, record.productId))))
     )
       return null;
     rememberSessionSubject(sessionId, record.subjectId);
