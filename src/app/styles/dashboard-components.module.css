@@ -100,13 +100,6 @@
 }
 
 
-:where(.appScope) :global(.pf-dashboard-content) {
-  width: 100%;
-  max-width: none;
-  margin: 0;
-  padding: 0;
-}
-
 /* Keep the shared sidebar pattern intact in the dashboard and mobile drawer. */
 :where(.appScope) :global(.pf-dashboard-shell .dashboard-nav) {
   display: grid;
