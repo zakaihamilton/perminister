@@ -130,10 +130,6 @@ function isTokenResponse(value: unknown): value is GoogleTokenResponse {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function googleLoginConfigured(): boolean {
-  return !!process.env.GOOGLE_CLIENT_ID?.trim();
-}
-
 export async function handleGoogleLoginStart(request: Request): Promise<Response> {
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
   const origin = configuredPublicOrigin(request);
