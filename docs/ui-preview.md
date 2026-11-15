@@ -33,6 +33,12 @@ The gallery uses the application's production components:
 | `key-new`, `organization-new`                                                                   | API key and organization request forms                                     |
 | `operations`                                                                                    | Pending organization request and registered account controls               |
 
+Run `pnpm run health:responsive` to check the long-breadcrumb and high-volume
+member fixtures at 320, 390, 768, 1024, and 1280 pixels in light and dark
+themes. The Playwright check runs against the isolated preview server and
+guards horizontal overflow, dashboard header overlap, and responsive shell
+padding and heading spacing. CI runs it for pushes and pull requests.
+
 Inputs, dropdowns, display controls and confirmation dialogs can be inspected.
 Submissions are stopped before component handlers run, and dashboard links do
 not navigate. The preview mode also rejects write requests through the
