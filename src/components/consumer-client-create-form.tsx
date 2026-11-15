@@ -70,24 +70,26 @@ export function ConsumerClientCreateForm({
             />
           </label>
           <label htmlFor={`${formId}-registration`}>
-            Let people sign up themselves
+            Registration policy
             <CustomDropdown
-              aria-label="Let people sign up themselves"
+              aria-label="Registration policy"
               id={`${formId}-registration`}
               name="selfRegistrationEnabled"
               required
               defaultValue="false"
               options={[
-                { value: "false", label: "Disabled" },
-                { value: "true", label: "Enabled" },
+                { value: "false", label: "Invite only" },
+                { value: "true", label: "Public registration" },
               ]}
             />
           </label>
         </div>
         <p className="form-hint">
           Session lifetime defaults to 12 hours and can be set from 5 minutes to 30 days. Choose the
-          shortest duration your app supports. New clients default to disabled public registration.
-          Enable registration for apps that support self-service sign-up. Set
+          shortest duration your app supports. New clients default to invite only. Public
+          registration lets any verified Perminister account sign in to this app. Invite-only apps
+          require product membership. Organization owners and system administrators can sign in
+          either way. Set
           an exact origin, including the port used in development. For example, use
           http://localhost:3000 when the app runs on port 3000. Callback URLs must match exactly.
         </p>

@@ -132,6 +132,22 @@ async function main() {
             subjectId: record.subjectId,
           });
         }
+        for (const identity of record.externalIdentities ?? []) {
+          if (
+            identity.provider !== "google" ||
+            typeof identity.subject !== "string" ||
+            !/^[\x21-\x7e]{1,255}$/.test(identity.subject)
+          )
+            throw new Error(`Malformed external login identity at ${key}`);
+          const digest = createHmac("sha256", identityIndexSecret)
+            .update(`${identity.provider}\0${identity.subject}`)
+            .digest("hex");
+          add(
+            indexes,
+            `${ROOT_PREFIX}indexes/by-external-identity/${identity.provider}/${digest}.json`,
+            { subjectId: record.subjectId },
+          );
+        }
         for (const identifier of record.loginIdentifiers ?? []) {
           if (identifier.kind !== "username" || typeof identifier.normalizedValue !== "string")
             throw new Error(`Malformed username login identifier at ${key}`);

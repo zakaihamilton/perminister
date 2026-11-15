@@ -18,6 +18,12 @@ const errorText: Record<string, string> = {
   request: "Your sign-in request could not be verified. Reload the page and try again.",
   unavailable: "Sign-in is unavailable right now. Check the Spaces configuration and try again.",
   sso: "This product sign-in request is invalid or has expired. Return to the product and try again.",
+  google_cancelled: "Google sign-in was cancelled.",
+  google_link_required:
+    "This email already has a Perminister account. Sign in and verify its email before linking Google.",
+  google_account: "This Perminister account cannot sign in. Contact your organization administrator.",
+  google_request: "Your Google sign-in request could not be verified. Start again from this page.",
+  google_unavailable: "Google sign-in is unavailable right now. Try again later.",
 };
 
 const noticeText: Record<string, string> = {
@@ -66,6 +72,10 @@ export default async function LoginPage({
           : "/dashboard"),
     );
   const invitationToken = params.invitationToken ?? "";
+  const googleLoginEnabled = Boolean(process.env.GOOGLE_CLIENT_ID?.trim());
+  const googleLoginParams = new URLSearchParams();
+  if (next) googleLoginParams.set("next", next);
+  if (invitationToken) googleLoginParams.set("invitationToken", invitationToken);
   return (
     <AuthPageFrame presentation={presentation}>
       <header className="auth-heading login-heading">
@@ -100,6 +110,24 @@ export default async function LoginPage({
             Sign in
           </button>
         </form>
+        {googleLoginEnabled ? (
+          <div className="login-provider-options">
+            <div className="login-divider" role="separator">
+              <span>Or continue with</span>
+            </div>
+            <Link
+              className="button button-secondary login-google-button"
+              href={`/auth/google/start${googleLoginParams.size ? `?${googleLoginParams}` : ""}`}
+            >
+              Continue with Google
+            </Link>
+            <p className="auth-footnote">
+              A Google sign-in creates or opens your Perminister account. Each app checks its
+              registration policy, organization membership, and owner or administrator access.
+              Access to app data and actions remains separately permission-controlled.
+            </p>
+          </div>
+        ) : null}
         <div className="auth-links">
           <Link href="/forgot-password">Forgot password?</Link>
           <span>

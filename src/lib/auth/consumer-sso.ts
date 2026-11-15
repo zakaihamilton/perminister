@@ -1,6 +1,7 @@
 import type { ConsumerClientRecord } from "./domain";
 
 export const CONSUMER_SSO_CALLBACK_PATH = "/auth/perminister/callback";
+export const GOOGLE_LOGIN_CALLBACK_PATH = "/auth/google/callback";
 export const CONSUMER_OIDC_SCOPE = "openid profile email perminister_api";
 export const LEGACY_CONSUMER_OAUTH_FLAG = "PERMINISTER_ENABLE_LEGACY_CONSUMER_OAUTH";
 const LEGACY_CONSUMER_OAUTH_PRODUCT_IDS = new Set(["nanogres", "visitoring"]);

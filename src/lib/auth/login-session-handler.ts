@@ -1,6 +1,7 @@
 import "server-only";
 
 import { safeConsumerAuthorizationReturnTo } from "@/lib/auth/consumer-sso";
+import { postLoginDestination } from "@/lib/auth/login-redirect";
 import { passwordRecoveryRequesterKey } from "@/lib/auth/coordination";
 import {
   isSameOriginBrowserRequest,
@@ -39,23 +40,6 @@ function loginPath(error: string, invitationToken: string, next: string | null):
   if (invitationToken) query.set("invitationToken", invitationToken);
   if (next) query.set("next", next);
   return `/login?${query.toString()}`;
-}
-
-function authorizationReturnAfterLogin(next: string | null): string | null {
-  if (!next) return null;
-
-  try {
-    const target = new URL(next, "https://perminister.invalid");
-    if (target.origin !== "https://perminister.invalid" || target.pathname !== "/oauth/authorize") {
-      return next;
-    }
-
-    target.searchParams.delete("prompt");
-    if (target.searchParams.get("error") === "unavailable") target.searchParams.delete("error");
-    return `${target.pathname}${target.search}`;
-  } catch {
-    return next;
-  }
 }
 
 export async function handleLoginPost(request: Request): Promise<Response> {
@@ -102,11 +86,5 @@ export async function handleLoginPost(request: Request): Promise<Response> {
     return publicRedirectResponse(request, loginPath(code, invitationToken, next));
   }
 
-  return publicRedirectResponse(
-    request,
-    authorizationReturnAfterLogin(next) ??
-      (invitationToken
-        ? `/accept-invitation?token=${encodeURIComponent(invitationToken)}`
-        : "/dashboard"),
-  );
+  return publicRedirectResponse(request, postLoginDestination(next, invitationToken));
 }

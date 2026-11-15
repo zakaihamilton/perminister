@@ -34,7 +34,7 @@ export function OrganizationSwitcher({
     },
   ];
 
-  async function selectOrganization(nextOrganizationId: string) {
+  function selectOrganization(nextOrganizationId: string) {
     if (preview) {
       if (organizations.some(({ organization }) => organization.organizationId === nextOrganizationId))
         onOrganizationChange?.(nextOrganizationId);
@@ -45,30 +45,17 @@ export function OrganizationSwitcher({
       return;
     }
     if (nextOrganizationId === organizationId) return;
-
-    setError(null);
-    try {
-      const response = await fetch("/api/organizations/select", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ organizationId: nextOrganizationId }),
-      });
-      if (!response.ok) {
-        const result: unknown = await response.json().catch(() => null);
-        const message =
-          typeof result === "object" &&
-          result !== null &&
-          "error" in result &&
-          typeof result.error === "string"
-            ? result.error
-            : "The organization could not be selected.";
-        setError(message);
-        return;
-      }
-      router.push("/overview");
-    } catch {
-      setError("The organization could not be selected. Try again.");
+    const selectedOrganization = organizations.find(
+      ({ organization }) => organization.organizationId === nextOrganizationId,
+    );
+    if (!selectedOrganization) {
+      setError("Choose an organization you have access to.");
+      return;
     }
+    setError(null);
+    router.push(
+      `/dashboard/${encodeURIComponent(selectedOrganization.organization.organizationId)}`,
+    );
   }
 
   if (!organizations.some(({ organization }) => organization.organizationId === organizationId)) {

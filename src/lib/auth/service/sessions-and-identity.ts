@@ -18,6 +18,7 @@ import {
   type ConsumerAuthorizationCodeRecord,
   type EmailActionId,
   type EmailActionRecord,
+  type ExternalIdentity,
   type PasswordCredential,
   type SessionId,
   type SessionRecord,
@@ -35,6 +36,7 @@ import {
   listRecordsWithRecovery,
   loadRecord,
   loadSubjectByEmailUnlocked,
+  loadSubjectByExternalIdentityUnlocked,
   loadSubjectByUsernameUnlocked,
   loadSubjectUnlocked,
   normalizeProductUsername,
@@ -93,6 +95,93 @@ export async function registerAccount(
       updatedAt: now,
     };
     await persistRecord(subject, "identity.registered", {
+      kind: "subject",
+      subjectId: subject.subjectId,
+    });
+    return subject;
+  });
+}
+
+export class GoogleAccountLinkRequiredError extends Error {
+  constructor() {
+    super("Sign in to your existing account and verify its email before linking Google.");
+    this.name = "GoogleAccountLinkRequiredError";
+  }
+}
+
+export async function signInWithGoogle(input: {
+  providerSubject: string;
+  email: string;
+  emailVerified: boolean;
+  firstName?: string;
+  lastName?: string;
+}): Promise<SubjectRecord> {
+  if (
+    typeof input.providerSubject !== "string" ||
+    !/^[\x21-\x7e]{1,255}$/.test(input.providerSubject) ||
+    input.emailVerified !== true
+  ) {
+    throw new Error("Google did not return a verified account.");
+  }
+
+  const email = canonicalEmail(input.email);
+  const identity: ExternalIdentity = { provider: "google", subject: input.providerSubject };
+  const firstName = normalizedPersonName(input.firstName?.slice(0, 80), "First");
+  const lastName = normalizedPersonName(input.lastName?.slice(0, 80), "Last");
+
+  return authMutationQueue.run(async () => {
+    const linkedSubject = await loadSubjectByExternalIdentityUnlocked("google", identity.subject);
+    if (linkedSubject) {
+      if (linkedSubject.status !== "active" || linkedSubject.deletedAt) {
+        throw new Error("This Perminister account cannot sign in.");
+      }
+      return linkedSubject;
+    }
+
+    const existingSubject = await loadSubjectByEmailUnlocked(email);
+    if (existingSubject) {
+      if (existingSubject.status !== "active" || existingSubject.deletedAt) {
+        throw new Error("This Perminister account cannot sign in.");
+      }
+      if (existingSubject.primaryEmail !== email || !existingSubject.emailVerifiedAt) {
+        throw new GoogleAccountLinkRequiredError();
+      }
+      if (existingSubject.externalIdentities?.some(({ provider }) => provider === "google")) {
+        throw new GoogleAccountLinkRequiredError();
+      }
+
+      const linked: SubjectRecord = {
+        ...existingSubject,
+        externalIdentities: [...(existingSubject.externalIdentities ?? []), identity],
+        updatedAt: new Date().toISOString(),
+      };
+      await persistRecord(linked, "identity.google-linked", {
+        kind: "subject",
+        subjectId: linked.subjectId,
+      });
+      return linked;
+    }
+
+    const now = new Date().toISOString();
+    const subject: SubjectRecord = {
+      kind: "subject",
+      schemaVersion: 1,
+      subjectId: newSubjectId(),
+      status: "active",
+      firstName,
+      lastName,
+      primaryEmail: email,
+      emailVerifiedAt: now,
+      emailVerificationExempt: false,
+      loginIdentifiers: [],
+      legacySources: [],
+      externalIdentities: [identity],
+      passwordCredential: null,
+      authVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await persistRecord(subject, "identity.google-registered", {
       kind: "subject",
       subjectId: subject.subjectId,
     });
@@ -242,10 +331,9 @@ export async function createConsumerSession(
   return authMutationQueue.run(async () => {
     const subject = await loadSubjectUnlocked(subjectId);
     requireVerifiedActiveSubject(subject);
-    if (consumerProductState(subject, normalizedProductId).status !== "active") {
-      throw new ConsumerProductAccessDeniedError("This account is disabled for the application.");
-    }
-    if (!(await hasActiveConsumerProductEntitlement(subjectId, normalizedProductId))) {
+    if (
+      !(await hasActiveConsumerProductEntitlement(subjectId, normalizedProductId, clientId))
+    ) {
       throw new ConsumerProductAccessDeniedError();
     }
     return createConsumerSessionUnlocked(
@@ -266,9 +354,6 @@ async function createConsumerSessionUnlocked(
   const subject = await loadSubjectUnlocked(subjectId);
   requireVerifiedActiveSubject(subject);
   const productState = consumerProductState(subject, productId);
-  if (productState.status !== "active") {
-    throw new Error("This account is disabled for the application.");
-  }
   const sessionId = newSessionId();
   const token = `${sessionId}.${randomBytes(32).toString("base64url")}`;
   const now = new Date();
@@ -336,10 +421,13 @@ export async function createConsumerAuthorizationCode(
     const subject = await loadSubjectUnlocked(subjectId);
     requireVerifiedActiveSubject(subject);
     const productState = consumerProductState(subject, client.record.productId);
-    if (productState.status !== "active") {
-      throw new ConsumerProductAccessDeniedError("This account is disabled for the application.");
-    }
-    if (!(await hasActiveConsumerProductEntitlement(subjectId, client.record.productId))) {
+    if (
+      !(await hasActiveConsumerProductEntitlement(
+        subjectId,
+        client.record.productId,
+        client.record.consumerClientId,
+      ))
+    ) {
       throw new ConsumerProductAccessDeniedError();
     }
     const codeId = newConsumerAuthorizationCodeId();
@@ -430,7 +518,7 @@ export async function exchangeConsumerAuthorizationCode(
       !productStateSubject ||
       productStateSubject.status !== "active" ||
       productStateSubject.authVersion !== authorization.record.authVersion ||
-      productState?.status !== "active" ||
+      !productState ||
       productState.sessionVersion !== authorization.record.productSessionVersion
     ) {
       throw new InvalidConsumerAuthorizationCodeError();
@@ -439,6 +527,7 @@ export async function exchangeConsumerAuthorizationCode(
       !(await hasActiveConsumerProductEntitlement(
         authorization.record.subjectId,
         client.record.productId,
+        client.record.consumerClientId,
       ))
     ) {
       throw new InvalidConsumerAuthorizationCodeError();
@@ -526,10 +615,13 @@ export async function getSessionFromToken(
       subject.record.status !== "active" ||
       subject.record.authVersion !== record.authVersion ||
       (!!record.productId &&
-        (consumerProductState(subject.record, record.productId).status !== "active" ||
-          consumerProductState(subject.record, record.productId).sessionVersion !==
+        (consumerProductState(subject.record, record.productId).sessionVersion !==
             (record.productSessionVersion ?? 1) ||
-          !(await hasActiveConsumerProductEntitlement(record.subjectId, record.productId))))
+          !(await hasActiveConsumerProductEntitlement(
+            record.subjectId,
+            record.productId,
+            record.applicationClientId,
+          ))))
     )
       return null;
     rememberSessionSubject(sessionId, record.subjectId);

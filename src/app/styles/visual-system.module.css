@@ -171,6 +171,41 @@
 :where(.appScope) :global(.auth-form) {
   gap: 15px;
 }
+:where(.appScope) :global(.login-provider-options) {
+  display: grid;
+  gap: 13px;
+  margin-top: 18px;
+}
+:where(.appScope) :global(.login-divider) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+:where(.appScope) :global(.login-divider::before), :where(.appScope) :global(.login-divider::after) {
+  height: 1px;
+  background: var(--line);
+  content: "";
+  flex: 1;
+}
+:where(.appScope) :global(.login-google-button) {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+:where(.appScope) :global(.login-google-button:hover) {
+  text-decoration: none;
+}
+:where(.appScope) :global(.auth-footnote) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+  text-align: center;
+}
 :where(.appScope) :global(.auth-form label), :where(.appScope) :global(.form-field-with-tooltip) {
   color: var(--ink-soft);
   font-size: 13px;
