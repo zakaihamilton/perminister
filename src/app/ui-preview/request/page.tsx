@@ -25,7 +25,10 @@ export default async function RequestShellPreview({
 }: {
   searchParams: Promise<{ scenario?: string }>;
 }) {
-  if (process.env.NODE_ENV !== "development" || process.env.PERMINISTER_UI_PREVIEW !== "1")
+  const isLocalPreview =
+    process.env.NODE_ENV === "development" && process.env.PERMINISTER_UI_PREVIEW === "1";
+  const isVercelPreview = process.env.VERCEL_ENV === "preview";
+  if (!isLocalPreview && !isVercelPreview)
     notFound();
   const params = await searchParams;
   const scenario = params.scenario === "pending" ? "pending" : "empty";
