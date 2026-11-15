@@ -243,7 +243,7 @@ export async function createConsumerSession(
     const subject = await loadSubjectUnlocked(subjectId);
     requireVerifiedActiveSubject(subject);
     if (consumerProductState(subject, normalizedProductId).status !== "active") {
-      throw new ConsumerProductAccessDeniedError();
+      throw new ConsumerProductAccessDeniedError("This account is disabled for the application.");
     }
     if (!(await hasActiveConsumerProductEntitlement(subjectId, normalizedProductId))) {
       throw new ConsumerProductAccessDeniedError();
@@ -301,8 +301,8 @@ export class InvalidConsumerAuthorizationCodeError extends Error {
 }
 
 export class ConsumerProductAccessDeniedError extends Error {
-  constructor() {
-    super("This account is not authorized to use the application.");
+  constructor(message = "This account is not authorized to use the application.") {
+    super(message);
     this.name = "ConsumerProductAccessDeniedError";
   }
 }
@@ -337,7 +337,7 @@ export async function createConsumerAuthorizationCode(
     requireVerifiedActiveSubject(subject);
     const productState = consumerProductState(subject, client.record.productId);
     if (productState.status !== "active") {
-      throw new ConsumerProductAccessDeniedError();
+      throw new ConsumerProductAccessDeniedError("This account is disabled for the application.");
     }
     if (!(await hasActiveConsumerProductEntitlement(subjectId, client.record.productId))) {
       throw new ConsumerProductAccessDeniedError();
