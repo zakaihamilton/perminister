@@ -334,6 +334,9 @@ export async function createConsumerSession(
     if (
       !(await hasActiveConsumerProductEntitlement(subjectId, normalizedProductId, clientId))
     ) {
+      if (consumerProductState(subject, normalizedProductId).status !== "active") {
+        throw new Error("This account is disabled for the application.");
+      }
       throw new ConsumerProductAccessDeniedError();
     }
     return createConsumerSessionUnlocked(
