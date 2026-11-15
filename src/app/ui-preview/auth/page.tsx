@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { isUiPreviewAllowed } from "@/lib/ui-preview-access";
 import { AuthorizationView } from "@/components/authorization-view";
 import { InvitationView } from "@/components/invitation-view";
 import { PreviewGuard } from "../preview-guard";
@@ -8,11 +9,7 @@ export default async function AuthPreview({
 }: {
   searchParams: Promise<{ view?: string; state?: string; product?: string }>;
 }) {
-  const isLocalPreview =
-    process.env.NODE_ENV === "development" && process.env.PERMINISTER_UI_PREVIEW === "1";
-  const isVercelPreview = process.env.VERCEL_ENV === "preview";
-  if (!isLocalPreview && !isVercelPreview)
-    notFound();
+  if (!isUiPreviewAllowed()) notFound();
   const query = await searchParams;
   const view = query.view === "invitation" ? "invitation" : "authorization";
   const productIds = ["postparticle", "visitoring", "nanogres"] as const;

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { isUiPreviewAllowed } from "@/lib/ui-preview-access";
 import { DashboardShell, DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { OrganizationOverviewMetrics } from "@/components/organization-overview-metrics";
 import { OrganizationPeopleMemberList } from "@/components/people-member-lists";
@@ -251,11 +252,7 @@ export default async function PreviewPage({
 }: {
   searchParams: Promise<{ scenario?: string; screen?: string }>;
 }) {
-  const isLocalPreview =
-    process.env.NODE_ENV === "development" && process.env.PERMINISTER_UI_PREVIEW === "1";
-  const isVercelPreview = process.env.VERCEL_ENV === "preview";
-  if (!isLocalPreview && !isVercelPreview)
-    notFound();
+  if (!isUiPreviewAllowed()) notFound();
   const params = await searchParams;
   const screen =
     params.screen && previewScreens.includes(params.screen) ? params.screen : "overview";
