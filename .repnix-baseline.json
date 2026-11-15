@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-13T10:31:08.489Z",
+  "generatedAt": "2026-11-15T07:54:58.655Z",
   "entries": [
     {
       "fingerprint": "cc57e3209cba4ae71bb44289",
@@ -226,6 +226,24 @@
       "scope": ".",
       "file": "lib/auth/service/organizations-and-products.ts",
       "line": 1744
+    },
+    {
+      "fingerprint": "f766a61095687cd58dc066cb",
+      "provider": "Knip",
+      "category": "dead-code",
+      "type": "unused-export",
+      "scope": ".",
+      "file": "src/lib/auth/oidc.ts",
+      "line": 167
+    },
+    {
+      "fingerprint": "cc62816631d9abb4c7a62889",
+      "provider": "jscpd",
+      "category": "duplication",
+      "type": "duplication",
+      "scope": ".",
+      "file": "app/oauth/authorize/action.ts",
+      "line": 36
     }
   ]
 }
