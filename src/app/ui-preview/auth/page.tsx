@@ -8,7 +8,10 @@ export default async function AuthPreview({
 }: {
   searchParams: Promise<{ view?: string; state?: string; product?: string }>;
 }) {
-  if (process.env.NODE_ENV !== "development" || process.env.PERMINISTER_UI_PREVIEW !== "1")
+  const isLocalPreview =
+    process.env.NODE_ENV === "development" && process.env.PERMINISTER_UI_PREVIEW === "1";
+  const isVercelPreview = process.env.VERCEL_ENV === "preview";
+  if (!isLocalPreview && !isVercelPreview)
     notFound();
   const query = await searchParams;
   const view = query.view === "invitation" ? "invitation" : "authorization";
