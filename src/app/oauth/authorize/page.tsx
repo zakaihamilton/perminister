@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AuthorizationView } from "@/components/authorization-view";
 import { getConsumerClientRecord, getCurrentSession } from "@/lib/auth/service";
+import { completeConsumerAuthorization } from "@/lib/auth/complete-consumer-authorization";
 import {
   consumerAuthorizationQuery,
   legacyConsumerAuthorizationEnabled,
@@ -50,19 +51,25 @@ export default async function ConsumerAuthorizationPage({
     allowLegacy: legacyConsumerAuthorizationEnabled(),
   });
   const current = authorization ? await getCurrentSession() : null;
-  if (authorization && client && (!current || authorization.prompt === "login")) {
+  const error = singleValue(values.error);
+
+  if (authorization && client && error !== "unavailable") {
+    if (!current || authorization.prompt === "login") {
+      const returnTo = safeConsumerAuthorizationReturnTo(
+        `/oauth/authorize?${consumerAuthorizationQuery(authorization)}`,
+      );
+      redirect(returnTo ? `/login?next=${encodeURIComponent(returnTo)}` : "/login?error=sso");
+    }
+
+    await completeConsumerAuthorization(current.subject.subjectId, authorization);
+  }
+
+  if (authorization && client && error === "unavailable" && !current) {
     const returnTo = safeConsumerAuthorizationReturnTo(
       `/oauth/authorize?${consumerAuthorizationQuery(authorization)}`,
     );
     redirect(returnTo ? `/login?next=${encodeURIComponent(returnTo)}` : "/login?error=sso");
   }
 
-  return (
-    <AuthorizationView
-      authorization={authorization}
-      client={client}
-      current={current}
-      error={singleValue(values.error)}
-    />
-  );
+  return <AuthorizationView error={error} />;
 }

@@ -41,6 +41,23 @@ function loginPath(error: string, invitationToken: string, next: string | null):
   return `/login?${query.toString()}`;
 }
 
+function authorizationReturnAfterLogin(next: string | null): string | null {
+  if (!next) return null;
+
+  try {
+    const target = new URL(next, "https://perminister.invalid");
+    if (target.origin !== "https://perminister.invalid" || target.pathname !== "/oauth/authorize") {
+      return next;
+    }
+
+    target.searchParams.delete("prompt");
+    if (target.searchParams.get("error") === "unavailable") target.searchParams.delete("error");
+    return `${target.pathname}${target.search}`;
+  } catch {
+    return next;
+  }
+}
+
 export async function handleLoginPost(request: Request): Promise<Response> {
   if (!isSameOriginBrowserRequest(request)) {
     return publicRedirectResponse(request, loginPath("request", "", null));
@@ -87,7 +104,7 @@ export async function handleLoginPost(request: Request): Promise<Response> {
 
   return publicRedirectResponse(
     request,
-    next ??
+    authorizationReturnAfterLogin(next) ??
       (invitationToken
         ? `/accept-invitation?token=${encodeURIComponent(invitationToken)}`
         : "/dashboard"),

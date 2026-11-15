@@ -9,37 +9,18 @@ vi.mock("@/components/theme-control", () => ({ ThemeControl: () => null }));
 import { AuthorizationView } from "@/components/authorization-view";
 import { InvitationView } from "@/components/invitation-view";
 
-const authorization = {
-  clientId: "preview",
-  redirectUri: "https://example.test/callback",
-  responseType: "code" as const,
-  state: "preview",
-  nonce: "preview-nonce",
-  scope: "openid profile email perminister_api" as const,
-  prompt: null,
-  codeChallenge: "preview",
-};
 describe("authorization and invitation views", () => {
-  it("renders ready authorization with the original action", () => {
-    render(
-      <AuthorizationView
-        authorization={authorization}
-        client={{ appName: "Example app" }}
-        current={{ subject: { primaryEmail: "alex@example.test" } }}
-        error=""
-      />,
-    );
-    expect(
-      screen
-        .getByRole("button", { name: "Continue to Example app" })
-        .closest("form")
-        ?.getAttribute("action"),
-    ).toBe("/actions/approveConsumerAuthorizationAction");
-  });
-  it("shows an invalid authorization without approval", () => {
-    render(<AuthorizationView authorization={null} client={null} current={null} error="" />);
-    expect(screen.getByRole("alert").textContent).toContain("invalid or expired");
+  it("does not render a separate authorization confirmation step", () => {
+    render(<AuthorizationView error="" />);
+    expect(screen.getByRole("heading", { name: "Sign-in request unavailable" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Continue to/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+    expect(screen.getByRole("alert").textContent).toContain("invalid or expired");
+  });
+  it("shows a useful error if Perminister cannot issue the authorization code", () => {
+    render(<AuthorizationView error="unavailable" />);
+    expect(screen.getByRole("heading", { name: "Sign-in temporarily unavailable" })).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("Return to the product and try again");
   });
   it("renders the signed-in invitation form and preserves its action", () => {
     render(

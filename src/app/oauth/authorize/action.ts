@@ -1,11 +1,8 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
-import {
-  getCurrentSession,
-  getConsumerClientRecord,
-  createConsumerAuthorizationCode,
-} from "@/lib/auth/service";
+import { getCurrentSession, getConsumerClientRecord } from "@/lib/auth/service";
+import { completeConsumerAuthorization } from "@/lib/auth/complete-consumer-authorization";
 import {
   consumerAuthorizationQuery,
   legacyConsumerAuthorizationEnabled,
@@ -52,25 +49,7 @@ export async function approveConsumerAuthorizationAction(formData: FormData): Pr
     redirect(returnTo ? `/login?next=${encodeURIComponent(returnTo)}` : "/login?error=sso");
   }
 
-  let code: string;
-  try {
-    code = await createConsumerAuthorizationCode(
-      current.subject.subjectId,
-      client.consumerClientId,
-      authorization.codeChallenge,
-      authorization.nonce,
-      authorization.redirectUri,
-      authorization.scope,
-    );
-  } catch {
-    const query = new URLSearchParams({ ...Object.fromEntries(params), error: "unavailable" });
-    redirect(`/oauth/authorize?${query.toString()}`);
-  }
-
-  const destination = new URL(authorization.redirectUri);
-  destination.searchParams.set("code", code);
-  destination.searchParams.set("state", authorization.state);
-  redirect(destination.toString());
+  await completeConsumerAuthorization(current.subject.subjectId, authorization);
 }
 
 export async function cancelConsumerAuthorizationAction(formData: FormData): Promise<void> {

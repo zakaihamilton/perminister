@@ -49,26 +49,22 @@ export default async function AuthPreview({
         </p>
       </div>
       {view === "authorization" ? (
-        <AuthorizationView
-          headerAuthenticated={!invalid}
-          authorization={
-            invalid
-              ? null
-              : {
-                  clientId: "preview-client",
-                  redirectUri: "https://example.test/callback",
-                  responseType: "code",
-                  state: "preview-state",
-                  nonce: "preview-nonce",
-                  scope: "openid profile email perminister_api",
-                  prompt: null,
-                  codeChallenge: "preview-challenge",
-                }
-          }
-          client={invalid ? null : { appName: productId ? productNames[productId] : "Example app", productId: productId ?? undefined }}
-          current={invalid ? null : { subject: { primaryEmail: "alex@example.test" } }}
-          error=""
-        />
+        invalid ? (
+          <AuthorizationView error="" />
+        ) : (
+          <main className="page-shell auth-page-shell">
+            <div className="container auth-page">
+              <header className="auth-heading">
+                <p className="eyebrow">Perminister identity</p>
+                <h1>Authorization completes automatically</h1>
+                <p>
+                  After you sign in, Perminister returns you directly to{" "}
+                  {productId ? productNames[productId] : "Example app"}.
+                </p>
+              </header>
+            </div>
+          </main>
+        )
       ) : (
         <InvitationView
           token={token}

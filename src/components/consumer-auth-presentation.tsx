@@ -13,7 +13,7 @@ function PostParticlePresentation(): ConsumerAuthPresentation {
     brand: (
       <div className={styles.brand}>
         <span className={styles.postMark} aria-hidden="true">
-          <svg width="31" height="33" viewBox="0 0 31 33" fill="none">
+          <svg aria-hidden="true" width="31" height="33" viewBox="0 0 31 33" fill="none">
             <path
               d="M10 27V12h6a5 5 0 0 1 0 10h-6"
               stroke="currentColor"
@@ -69,7 +69,7 @@ function VisitoringPresentation(): ConsumerAuthPresentation {
             <span>Visitors</span>
             <strong>1,284</strong>
           </div>
-          <svg viewBox="0 0 440 132" preserveAspectRatio="none">
+          <svg aria-hidden="true" viewBox="0 0 440 132" preserveAspectRatio="none">
             <path d="M0 104 C40 94 48 112 82 86 S135 91 165 68 214 82 250 48 290 62 323 32 368 52 400 24 423 37 440 8" />
             <path className={styles.analyticsFill} d="M0 104 C40 94 48 112 82 86 S135 91 165 68 214 82 250 48 290 62 323 32 368 52 400 24 423 37 440 8 V132 H0Z" />
           </svg>
