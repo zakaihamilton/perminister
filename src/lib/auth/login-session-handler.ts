@@ -22,6 +22,8 @@ import {
 
 const MAX_LOGIN_FORM_BYTES = 8 * 1024;
 const MAX_LOGIN_PASSWORD_LENGTH = 256;
+const CONSUMER_CLIENT_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 async function boundedLoginFormData(request: Request): Promise<FormData> {
   const bytes = await readBoundedRequestBody(request, MAX_LOGIN_FORM_BYTES);
@@ -51,6 +53,7 @@ async function productIdForLogin(next: string | null): Promise<string | undefine
   if (!next) return undefined;
   const authorizationUrl = new URL(next, "https://perminister.invalid");
   const clientId = authorizationUrl.searchParams.get("client_id") ?? "";
+  if (!CONSUMER_CLIENT_ID_PATTERN.test(clientId)) return undefined;
   const client = await getConsumerClientRecord(clientId);
   if (!client) return undefined;
   const authorization = parseConsumerAuthorizationRequest(authorizationUrl.searchParams, client, {
