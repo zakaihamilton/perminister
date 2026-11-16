@@ -320,12 +320,15 @@ export async function proxy(request: NextRequest): Promise<Response> {
     return errorResponse(403, "Mutations are disabled in UI preview mode.");
   }
   const hostedVercel = process.env.VERCEL === "1" && process.env.VERCEL_ENV !== "development";
-  const hasLocalProxyConfiguration =
-    process.env.PERMINISTER_WRITE_PROXY_URL || process.env.PERMINISTER_WRITE_PROXY_SECRET;
+  const hasLocalProxyConfiguration = Boolean(
+    process.env.PERMINISTER_WRITE_PROXY_URL || process.env.PERMINISTER_WRITE_PROXY_SECRET,
+  );
+  const shouldUseLocalWriteProxy =
+    !hostedVercel && !isWriterRuntime() && hasLocalProxyConfiguration;
   if (request.nextUrl.pathname === "/oauth/authorize" && request.method === "GET") {
     if (
       (hostedVercel && process.env.VERCEL_ENV === "production") ||
-      (!hostedVercel && hasLocalProxyConfiguration)
+      shouldUseLocalWriteProxy
     ) {
       return proxyWrite(request, "GET");
     }
@@ -340,7 +343,7 @@ export async function proxy(request: NextRequest): Promise<Response> {
 
   const googleOAuthCallback =
     request.nextUrl.pathname === GOOGLE_LOGIN_CALLBACK_PATH && request.method === "GET";
-  if (googleOAuthCallback && (hostedVercel || hasLocalProxyConfiguration)) {
+  if (googleOAuthCallback && (hostedVercel || shouldUseLocalWriteProxy)) {
     return proxyWrite(request, "POST");
   }
 
@@ -367,7 +370,7 @@ export async function proxy(request: NextRequest): Promise<Response> {
   if (isWriterRuntime()) return writerRequest(request);
 
   if (!isReadMethod(request.method)) {
-    if (hasLocalProxyConfiguration) return proxyWrite(request);
+    if (shouldUseLocalWriteProxy) return proxyWrite(request);
   }
 
   return NextResponse.next();
