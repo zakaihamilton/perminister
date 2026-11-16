@@ -108,9 +108,11 @@ would leave the gallery are disabled.
 | `/`, `/privacy`, `/developers` and its `getting-started`, `api-keys`, `permissions`, `storage` pages | Direct public routes on the preview server.                                                                                                                                                                                                                                                             |
 | `/login`, `/register`, `/forgot-password`                                                            | Direct public routes; submissions are blocked in preview mode.                                                                                                                                                                                                                                          |
 | `/accept-invitation`, `/verify-email`, `/reset-password`                                             | Direct routes can show missing/invalid-token states. `auth-verify` and `auth-reset` show token-present production forms with a nonfunctional synthetic token; no successful redemption is simulated. `/ui-preview/auth?view=invitation` shows signed-in ready and invalid states with synthetic inputs. |
-| `/oauth/authorize`                                                                                   | `/ui-preview/auth?view=authorization` shows ready and invalid forms with fictional inputs; it does not validate a client or perform a callback.                                                                                                                                                         |
+| `/oauth/authorize`                                                                                   | `/ui-preview/auth?view=authorization` shows ready and invalid states, and `&state=loading` shows its loading screen; it does not validate a client or perform a callback.                                                                                                                                 |
 
-API endpoints and action handlers are not gallery pages. Loading files are
-transient route fallbacks and are not individually selectable. Successful writes,
-email delivery, one-time secrets and OAuth callbacks require real service state
-and are deliberately not exercised by this isolated gallery.
+API endpoints and action handlers are not gallery pages. Next.js loading files
+are transient route fallbacks; the authorization loading component can be
+inspected with synthetic data at
+`/ui-preview/auth?view=authorization&state=loading`. Successful writes, email
+delivery, one-time secrets and OAuth callbacks require real service state and
+are deliberately not exercised by this isolated gallery.

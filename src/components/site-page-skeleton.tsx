@@ -1,4 +1,5 @@
 import { skeletonClasses } from "@/components/skeleton-classnames";
+import { BrandContent } from "@/components/site-shell";
 
 type SitePageSkeletonVariant = "marketing" | "document" | "auth" | "authorization";
 
@@ -40,6 +41,42 @@ function AuthPageSkeleton() {
         </div>
       </main>
     </>
+  );
+}
+
+function AuthorizationPageSkeleton() {
+  return (
+    <main aria-hidden="true" className={skeletonClasses("site-skeleton-authorization")}>
+      <header className={skeletonClasses("site-skeleton-authorization-header")}>
+        <BrandContent />
+      </header>
+      <div className={skeletonClasses("site-skeleton-authorization-main")}>
+        <section className={skeletonClasses("site-skeleton-authorization-card")}>
+          <div className={skeletonClasses("site-skeleton-authorization-loader")}>
+            <span className={skeletonClasses("site-skeleton-authorization-icon")}>
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M12 3.5 19 6v5.2c0 4.2-2.9 7.6-7 9.3-4.1-1.7-7-5.1-7-9.3V6l7-2.5Z" />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
+            </span>
+            <span className={skeletonClasses("site-skeleton-authorization-orbit")} />
+          </div>
+          <p className={skeletonClasses("site-skeleton-authorization-eyebrow")}>
+            Perminister identity
+          </p>
+          <h1>Checking your access</h1>
+          <p className={skeletonClasses("site-skeleton-authorization-description")}>
+            We’re finishing your sign-in and getting your app ready.
+          </p>
+          <p className={skeletonClasses("site-skeleton-authorization-note")}>
+            You’ll be returned to your app automatically.
+          </p>
+        </section>
+      </div>
+      <footer className={skeletonClasses("site-skeleton-authorization-footer")}>
+        Secure access for all your apps
+      </footer>
+    </main>
   );
 }
 
@@ -106,12 +143,18 @@ export function SitePageSkeleton({ variant }: { variant: SitePageSkeletonVariant
   return (
     <div
       aria-busy="true"
-      aria-label="Loading page"
+      aria-label={variant === "authorization" ? "Checking your access" : "Loading page"}
       className={skeletonClasses("site-page-skeleton")}
       role="status"
     >
-      <span className="visually-hidden">Loading page content</span>
-      {variant === "auth" || variant === "authorization" ? (
+      <span className="visually-hidden">
+        {variant === "authorization"
+          ? "Perminister is finishing your sign-in and getting your app ready."
+          : "Loading page content"}
+      </span>
+      {variant === "authorization" ? (
+        <AuthorizationPageSkeleton />
+      ) : variant === "auth" ? (
         <AuthPageSkeleton />
       ) : variant === "document" ? (
         <DocumentPageSkeleton />
