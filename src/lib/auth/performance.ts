@@ -10,6 +10,11 @@ type StoragePerformanceSpan = {
   retries: number;
 };
 
+type RequestPerformanceSpan = {
+  calls: number;
+  durationMs: number;
+};
+
 type RequestPerformance = {
   storageCalls: number;
   storageMs: number;
@@ -18,6 +23,7 @@ type RequestPerformance = {
   storageByOperation: Record<StorageOperation, number>;
   storageMsByOperation: Record<StorageOperation, number>;
   storageBySpan: Record<string, StoragePerformanceSpan>;
+  spans: Record<string, RequestPerformanceSpan>;
   cacheEvents: Record<string, number>;
 };
 
@@ -66,8 +72,34 @@ export function withRequestPerformanceSpan<Result>(
   span: string,
   work: () => Promise<Result>,
 ): Promise<Result> {
-  if (!requestPerformance.getStore()) return work();
-  return requestPerformanceSpan.run(span, work);
+  const metrics = requestPerformance.getStore();
+  const startedAt = performance.now();
+  return requestPerformanceSpan.run(span, async () => {
+    let failed = false;
+    try {
+      return await work();
+    } catch (error) {
+      failed = true;
+      throw error;
+    } finally {
+      const durationMs = Math.max(0, performance.now() - startedAt);
+      if (metrics) {
+        const metric = (metrics.spans[span] ??= { calls: 0, durationMs: 0 });
+        metric.calls += 1;
+        metric.durationMs += durationMs;
+      } else {
+        console.info(
+          JSON.stringify({
+            event: "perminister.operation.performance",
+            span,
+            failed,
+            durationMs: Math.round(durationMs),
+            ...(process.env.VERCEL_REGION ? { region: process.env.VERCEL_REGION } : {}),
+          }),
+        );
+      }
+    }
+  });
 }
 
 export async function withRequestPerformance<Result>(
@@ -84,6 +116,7 @@ export async function withRequestPerformance<Result>(
     storageByOperation: { get: 0, list: 0, put: 0, delete: 0 },
     storageMsByOperation: { get: 0, list: 0, put: 0, delete: 0 },
     storageBySpan: {},
+    spans: {},
     cacheEvents: {},
   };
   return requestPerformanceSpan.run(null, () =>
@@ -119,6 +152,12 @@ export async function withRequestPerformance<Result>(
             ),
             storageBySpan: Object.fromEntries(
               Object.entries(metrics.storageBySpan).map(([span, metric]) => [
+                span,
+                { ...metric, durationMs: Math.round(metric.durationMs) },
+              ]),
+            ),
+            spans: Object.fromEntries(
+              Object.entries(metrics.spans).map(([span, metric]) => [
                 span,
                 { ...metric, durationMs: Math.round(metric.durationMs) },
               ]),

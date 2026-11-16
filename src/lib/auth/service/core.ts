@@ -40,7 +40,7 @@ import {
   type ServicePrincipalId,
 } from "../domain";
 import { createSpacesAuthStoreFromEnv, type VersionedRecord } from "../storage/spaces";
-import { recordAuthCacheEvent } from "../performance";
+import { recordAuthCacheEvent, withRequestPerformanceSpan } from "../performance";
 
 const SCRYPT_OPTIONS = { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 const SESSION_SUBJECT_CACHE_MAX_ENTRIES = 512;
@@ -709,57 +709,61 @@ export async function hasActiveConsumerProductEntitlement(
   subjectId: SubjectId,
   productId: string,
   clientId?: string,
+  subjectRecord?: SubjectRecord,
 ): Promise<boolean> {
-  const normalizedProductId = validateProductId(productId);
-  const subject = await loadSubjectUnlocked(subjectId);
-  if (!subject || subject.status !== "active") return false;
+  return withRequestPerformanceSpan("auth.consumer-entitlement", async () => {
+    const normalizedProductId = validateProductId(productId);
+    const subject = subjectRecord ?? (await loadSubjectUnlocked(subjectId));
+    if (!subject || subject.subjectId !== subjectId || subject.status !== "active") return false;
 
-  const client = clientId ? await loadRecord("consumer-client", clientId) : null;
-  if (
-    client &&
-    (client.record.status !== "active" ||
-      client.record.productId.trim().toLowerCase() !== normalizedProductId)
-  ) {
-    return false;
-  }
+    const client = clientId ? await loadRecord("consumer-client", clientId) : null;
+    if (
+      client &&
+      (client.record.status !== "active" ||
+        client.record.productId.trim().toLowerCase() !== normalizedProductId)
+    ) {
+      return false;
+    }
 
-  const systemAdministrator = isAdministrator(subject);
-  let organizationOwner = false;
-  const organizationId = client?.record.organizationId;
-  if (organizationId && (await loadApprovedOrganizationUnlocked(organizationId))) {
-    const organizationMembership = await store().readOrganizationMembership(
-      organizationId,
-      subjectId,
+    const systemAdministrator = isAdministrator(subject);
+    let organizationOwner = false;
+    const organizationId = client?.record.organizationId;
+    if (organizationId && (await loadApprovedOrganizationUnlocked(organizationId))) {
+      const organizationMembership = await store().readOrganizationMembership(
+        organizationId,
+        subjectId,
+      );
+      organizationOwner =
+        organizationMembership?.status === "active" && organizationMembership.role === "owner";
+    }
+
+    if (
+      consumerProductState(subject, normalizedProductId).status !== "active" &&
+      !systemAdministrator &&
+      !organizationOwner
+    ) {
+      return false;
+    }
+    if (systemAdministrator || client?.record.selfRegistrationEnabled || organizationOwner) {
+      return true;
+    }
+
+    const memberships = (await store().listMembershipsForSubject(subjectId)).filter(
+      (membership) =>
+        membership.subjectId === subjectId &&
+        membership.status === "active" &&
+        membership.productId?.trim().toLowerCase() === normalizedProductId,
     );
-    organizationOwner =
-      organizationMembership?.status === "active" && organizationMembership.role === "owner";
-  }
+    if (memberships.length === 0) return false;
 
-  if (
-    consumerProductState(subject, normalizedProductId).status !== "active" &&
-    !systemAdministrator &&
-    !organizationOwner
-  ) {
-    return false;
-  }
-  if (systemAdministrator || client?.record.selfRegistrationEnabled || organizationOwner) {
-    return true;
-  }
-
-  const memberships = (await store().listMembershipsForSubject(subjectId)).filter(
-    (membership) =>
-      membership.subjectId === subjectId &&
-      membership.status === "active" &&
-      membership.productId?.trim().toLowerCase() === normalizedProductId,
-  );
-  if (memberships.length === 0) return false;
-
-  const organizationIds = [...new Set(memberships.map((membership) => membership.organizationId))];
-  const approvedOrganizations = await mapWithConcurrency(
-    organizationIds,
-    (organizationId) => loadApprovedOrganizationUnlocked(organizationId),
-  );
-  return approvedOrganizations.some(Boolean);
+    const organizationIds = [
+      ...new Set(memberships.map((membership) => membership.organizationId)),
+    ];
+    const approvedOrganizations = await mapWithConcurrency(organizationIds, (organizationId) =>
+      loadApprovedOrganizationUnlocked(organizationId),
+    );
+    return approvedOrganizations.some(Boolean);
+  });
 }
 
 export async function organizationMembershipUnlocked(

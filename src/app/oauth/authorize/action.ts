@@ -3,6 +3,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { getCurrentSession, getConsumerClientRecord } from "@/lib/auth/service";
 import { completeConsumerAuthorization } from "@/lib/auth/complete-consumer-authorization";
+import { withRequestPerformanceSpan } from "@/lib/auth/performance";
 import {
   consumerAuthorizationErrorCallback,
   consumerAuthorizationQuery,
@@ -36,7 +37,9 @@ function authorizationParamsFromFormData(formData: FormData): URLSearchParams {
 
 async function consumerAuthorizationFromFormData(formData: FormData) {
   const params = authorizationParamsFromFormData(formData);
-  const client = await getConsumerClientRecord(params.get("client_id") ?? "").catch(() => null);
+  const client = await withRequestPerformanceSpan("auth.oidc.authorization-client-lookup", () =>
+    getConsumerClientRecord(params.get("client_id") ?? "").catch(() => null),
+  );
   const authorization = parseConsumerAuthorizationRequest(params, client, {
     allowLegacy: legacyConsumerAuthorizationEnabled(),
   });
@@ -47,7 +50,9 @@ async function consumerAuthorizationFromFormData(formData: FormData) {
 export async function approveConsumerAuthorizationAction(formData: FormData): Promise<void> {
   const authorization = await consumerAuthorizationFromFormData(formData);
 
-  const current = await getCurrentSession();
+  const current = await withRequestPerformanceSpan("auth.oidc.browser-session-validation", () =>
+    getCurrentSession(),
+  );
   if (!current) {
     const returnTo = safeConsumerAuthorizationReturnTo(
       `/oauth/authorize?${consumerAuthorizationQuery(authorization)}`,
