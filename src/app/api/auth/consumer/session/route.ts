@@ -60,27 +60,33 @@ export const GET = withApiRoutePerformance(
       ) {
         return Response.json({ authenticated: false }, { status: 401, headers: NO_STORE_HEADERS });
       }
+      const sessionUrl = new URL(request.url);
       const selectedOrganizationId =
-        new URL(request.url).searchParams.get("organization_id") ?? undefined;
-      let organizations = await withRequestPerformanceSpan(
-        "auth.consumer-session.organization-enrichment",
-        () =>
-          listConsumerOrganizationsForSubject(
-            current.subject.subjectId,
-            client.productId,
-            selectedOrganizationId,
-          ),
-      );
-      if (
-        selectedOrganizationId &&
-        !organizations.some(
-          (organization) => organization.organizationId === selectedOrganizationId.toLowerCase(),
-        )
-      ) {
+        sessionUrl.searchParams.get("organization_id") ?? undefined;
+      const includeOrganizations = sessionUrl.searchParams.get("include_organizations") !== "false";
+      let organizations: Awaited<ReturnType<typeof listConsumerOrganizationsForSubject>> = [];
+      if (includeOrganizations) {
         organizations = await withRequestPerformanceSpan(
-          "auth.consumer-session.organization-fallback",
-          () => listConsumerOrganizationsForSubject(current.subject.subjectId, client.productId),
+          "auth.consumer-session.organization-enrichment",
+          () =>
+            listConsumerOrganizationsForSubject(
+              current.subject.subjectId,
+              client.productId,
+              selectedOrganizationId,
+            ),
         );
+        if (
+          selectedOrganizationId &&
+          !organizations.some(
+            (organization) =>
+              organization.organizationId === selectedOrganizationId.toLowerCase(),
+          )
+        ) {
+          organizations = await withRequestPerformanceSpan(
+            "auth.consumer-session.organization-fallback",
+            () => listConsumerOrganizationsForSubject(current.subject.subjectId, client.productId),
+          );
+        }
       }
       return Response.json(
         {
