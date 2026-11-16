@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 import { authMutationQueue } from "../mutation-queue";
 import { processLocalLoginThrottle } from "../login-throttle";
+import { withRequestPerformanceSpan } from "../performance";
 import {
   assertOpaqueId,
   newConsumerAuthorizationCodeId,
@@ -169,10 +170,7 @@ export async function signInWithGoogle(input: {
       if (existingSubject.status !== "active" || existingSubject.deletedAt) {
         throw new Error("This Perminister account cannot sign in.");
       }
-      if (
-        !existingSubject.primaryEmail ||
-        canonicalEmail(existingSubject.primaryEmail) !== email
-      ) {
+      if (!existingSubject.primaryEmail || canonicalEmail(existingSubject.primaryEmail) !== email) {
         throw new GoogleAccountLinkRequiredError();
       }
       if (existingSubject.externalIdentities?.some(({ provider }) => provider === "google")) {
@@ -258,20 +256,33 @@ export async function authenticate(
   );
   try {
     if (attempt.delayMs > 0) {
-      await new Promise<void>((resolve) => setTimeout(resolve, attempt.delayMs));
+      await withRequestPerformanceSpan(
+        "auth.password.throttle-delay",
+        () => new Promise<void>((resolve) => setTimeout(resolve, attempt.delayMs)),
+      );
     }
-    const subject = await authMutationQueue.run(async () => {
-      if (!productId) return loadSubjectByEmailUnlocked(identifier);
-      const emailSubject = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)
-        ? await loadSubjectByEmailUnlocked(identifier)
-        : null;
-      const usernameSubject = await loadSubjectByUsernameUnlocked(productId, identifier);
-      if (emailSubject && usernameSubject && emailSubject.subjectId !== usernameSubject.subjectId) {
-        return null;
-      }
-      return emailSubject ?? usernameSubject;
-    });
-    const matched = await verifyPassword(password, subject?.passwordCredential ?? null);
+    const subject = await withRequestPerformanceSpan("auth.password.account-lookup", () =>
+      authMutationQueue.run(async () => {
+        if (!productId) return loadSubjectByEmailUnlocked(identifier);
+        const [emailSubject, usernameSubject] = await Promise.all([
+          /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)
+            ? loadSubjectByEmailUnlocked(identifier)
+            : Promise.resolve(null),
+          loadSubjectByUsernameUnlocked(productId, identifier),
+        ]);
+        if (
+          emailSubject &&
+          usernameSubject &&
+          emailSubject.subjectId !== usernameSubject.subjectId
+        ) {
+          return null;
+        }
+        return emailSubject ?? usernameSubject;
+      }),
+    );
+    const matched = await withRequestPerformanceSpan("auth.password.verification", () =>
+      verifyPassword(password, subject?.passwordCredential ?? null),
+    );
     if (
       !subject ||
       subject.status !== "active" ||
@@ -282,7 +293,9 @@ export async function authenticate(
       throw new Error("Email or password is incorrect.");
     }
     attempt.recordSuccess();
-    await rehashAfterLogin(subject, password);
+    await withRequestPerformanceSpan("auth.password.rehash", () =>
+      rehashAfterLogin(subject, password),
+    );
     return subject;
   } catch (error) {
     attempt.release();
@@ -319,27 +332,35 @@ export async function changePasswordForSubject(
 export async function createSession(
   subjectId: SubjectId,
 ): Promise<{ session: SessionRecord; token: string }> {
-  return authMutationQueue.run(async () => {
-    const subject = await loadSubjectUnlocked(subjectId);
-    if (!subject || subject.status !== "active") throw new Error("This account cannot sign in.");
-    const sessionId = newSessionId();
-    const secret = randomBytes(32).toString("base64url");
-    const token = `${sessionId}.${secret}`;
-    const now = new Date();
-    const session: SessionRecord = {
-      kind: "session",
-      schemaVersion: 1,
-      sessionId,
-      subjectId,
-      verifierDigestHex: hashHex(token),
-      authVersion: subject.authVersion,
-      createdAt: now.toISOString(),
-      expiresAt: new Date(now.getTime() + SESSION_LIFETIME_MS).toISOString(),
-      revokedAt: null,
-    };
-    await persistRecord(session, "session.created", { kind: "subject", subjectId });
-    return { session, token };
-  });
+  return withRequestPerformanceSpan("auth.session.create", () =>
+    authMutationQueue.run(async () => {
+      const subject = await withRequestPerformanceSpan("auth.session.subject-lookup", () =>
+        loadSubjectUnlocked(subjectId),
+      );
+      if (!subject || subject.status !== "active") {
+        throw new Error("This account cannot sign in.");
+      }
+      const sessionId = newSessionId();
+      const secret = randomBytes(32).toString("base64url");
+      const token = `${sessionId}.${secret}`;
+      const now = new Date();
+      const session: SessionRecord = {
+        kind: "session",
+        schemaVersion: 1,
+        sessionId,
+        subjectId,
+        verifierDigestHex: hashHex(token),
+        authVersion: subject.authVersion,
+        createdAt: now.toISOString(),
+        expiresAt: new Date(now.getTime() + SESSION_LIFETIME_MS).toISOString(),
+        revokedAt: null,
+      };
+      await withRequestPerformanceSpan("auth.session.persist", () =>
+        persistRecord(session, "session.created", { kind: "subject", subjectId }),
+      );
+      return { session, token };
+    }),
+  );
 }
 
 export async function createConsumerSession(
@@ -359,33 +380,42 @@ export async function createConsumerSession(
     throw new Error("Choose a valid consumer session lifetime.");
   }
   const effectiveLifetimeMs = effectiveConsumerSessionLifetimeMs(sessionLifetimeMs);
-  return authMutationQueue.run(async () => {
-    const subject = await loadSubjectUnlocked(subjectId);
-    requireVerifiedActiveSubject(subject, normalizedProductId);
-    if (
-      !(await hasActiveConsumerProductEntitlement(subjectId, normalizedProductId, clientId))
-    ) {
-      if (consumerProductState(subject, normalizedProductId).status !== "active") {
-        throw new Error("This account is disabled for the application.");
+  return withRequestPerformanceSpan("auth.consumer-session.create", () =>
+    authMutationQueue.run(async () => {
+      const subject = await withRequestPerformanceSpan("auth.consumer-session.subject-lookup", () =>
+        loadSubjectUnlocked(subjectId),
+      );
+      requireVerifiedActiveSubject(subject, normalizedProductId);
+      if (
+        !(await hasActiveConsumerProductEntitlement(
+          subjectId,
+          normalizedProductId,
+          clientId,
+          subject,
+        ))
+      ) {
+        if (consumerProductState(subject, normalizedProductId).status !== "active") {
+          throw new Error("This account is disabled for the application.");
+        }
+        throw new ConsumerProductAccessDeniedError();
       }
-      throw new ConsumerProductAccessDeniedError();
-    }
-    return createConsumerSessionUnlocked(
-      subjectId,
-      clientId,
-      normalizedProductId,
-      effectiveLifetimeMs,
-    );
-  });
+      return createConsumerSessionUnlocked(
+        subject,
+        clientId,
+        normalizedProductId,
+        effectiveLifetimeMs,
+      );
+    }),
+  );
 }
 
 async function createConsumerSessionUnlocked(
-  subjectId: SubjectId,
+  subject: SubjectRecord,
   clientId: string,
   productId: string,
   sessionLifetimeMs: number,
 ): Promise<{ session: SessionRecord; token: string }> {
-  const subject = await loadSubjectUnlocked(subjectId);
+  const subjectId = subject.subjectId;
   requireVerifiedActiveSubject(subject, productId);
   const productState = consumerProductState(subject, productId);
   const sessionId = newSessionId();
@@ -405,10 +435,12 @@ async function createConsumerSessionUnlocked(
     expiresAt: new Date(now.getTime() + sessionLifetimeMs).toISOString(),
     revokedAt: null,
   };
-  await persistRecord(session, "session.consumer-created", {
-    kind: "subject",
-    subjectId,
-  });
+  await withRequestPerformanceSpan("auth.consumer-session.persist", () =>
+    persistRecord(session, "session.consumer-created", {
+      kind: "subject",
+      subjectId,
+    }),
+  );
   return { session, token };
 }
 
@@ -448,11 +480,15 @@ export async function createConsumerAuthorizationCode(
     throw new Error("Choose a valid OpenID Connect authorization request.");
   }
   return authMutationQueue.run(async () => {
-    const client = await loadRecord("consumer-client", clientId);
+    const client = await withRequestPerformanceSpan("auth.oidc.client-lookup", () =>
+      loadRecord("consumer-client", clientId),
+    );
     if (!client || client.record.status !== "active" || !client.record.appOrigin) {
       throw new Error("Choose an active application client with an app origin.");
     }
-    const subject = await loadSubjectUnlocked(subjectId);
+    const subject = await withRequestPerformanceSpan("auth.oidc.authorizing-subject-lookup", () =>
+      loadSubjectUnlocked(subjectId),
+    );
     requireVerifiedActiveSubject(subject, client.record.productId);
     const productState = consumerProductState(subject, client.record.productId);
     if (
@@ -460,6 +496,7 @@ export async function createConsumerAuthorizationCode(
         subjectId,
         client.record.productId,
         client.record.consumerClientId,
+        subject,
       ))
     ) {
       throw new ConsumerProductAccessDeniedError();
@@ -484,10 +521,12 @@ export async function createConsumerAuthorizationCode(
       expiresAt: new Date(now.getTime() + 5 * 60 * 1000).toISOString(),
       consumedAt: null,
     };
-    await persistRecord(record, "consumer-authorization-code.issued", {
-      kind: "subject",
-      subjectId,
-    });
+    await withRequestPerformanceSpan("auth.oidc.authorization-code.persist", () =>
+      persistRecord(record, "consumer-authorization-code.issued", {
+        kind: "subject",
+        subjectId,
+      }),
+    );
     return code;
   });
 }
@@ -513,10 +552,14 @@ export async function exchangeConsumerAuthorizationCode(
   if (!match) throw new InvalidConsumerAuthorizationCodeError();
   const codeChallenge = createHash("sha256").update(codeVerifier, "utf8").digest("base64url");
   return authMutationQueue.run(async () => {
-    const [authorization, client] = await Promise.all([
-      loadRecord("consumer-authorization-code", match[1]),
-      loadRecord("consumer-client", clientId),
-    ]);
+    const [authorization, client] = await withRequestPerformanceSpan(
+      "auth.oidc.exchange-record-lookup",
+      () =>
+        Promise.all([
+          loadRecord("consumer-authorization-code", match[1]),
+          loadRecord("consumer-client", clientId),
+        ]),
+    );
     if (
       !authorization ||
       !client ||
@@ -544,7 +587,10 @@ export async function exchangeConsumerAuthorizationCode(
     ) {
       throw new InvalidConsumerAuthorizationCodeError();
     }
-    const productStateSubject = await loadSubjectUnlocked(authorization.record.subjectId);
+    const productStateSubject = await withRequestPerformanceSpan(
+      "auth.oidc.exchange-subject-lookup",
+      () => loadSubjectUnlocked(authorization.record.subjectId),
+    );
     const productState = productStateSubject
       ? consumerProductState(productStateSubject, client.record.productId)
       : null;
@@ -562,18 +608,21 @@ export async function exchangeConsumerAuthorizationCode(
         authorization.record.subjectId,
         client.record.productId,
         client.record.consumerClientId,
+        productStateSubject,
       ))
     ) {
       throw new InvalidConsumerAuthorizationCodeError();
     }
     const consumedAt = new Date().toISOString();
-    await persistRecord(
-      { ...authorization.record, consumedAt },
-      "consumer-authorization-code.consumed",
-      { kind: "subject", subjectId: authorization.record.subjectId },
+    await withRequestPerformanceSpan("auth.oidc.code-consume.persist", () =>
+      persistRecord(
+        { ...authorization.record, consumedAt },
+        "consumer-authorization-code.consumed",
+        { kind: "subject", subjectId: authorization.record.subjectId },
+      ),
     );
     const created = await createConsumerSessionUnlocked(
-      authorization.record.subjectId,
+      productStateSubject,
       client.record.consumerClientId,
       client.record.productId,
       effectiveConsumerSessionLifetimeMs(client.record.sessionLifetimeMs),
@@ -625,42 +674,45 @@ export async function getSessionFromToken(
   } catch {
     return null;
   }
-  return authMutationQueue.read(async () => {
-    const sessionId = match[1] as SessionId;
-    const knownSubjectId = sessionSubjectCache.get(sessionId);
-    const [session, knownSubject] = await Promise.all([
-      loadRecord("session", sessionId),
-      knownSubjectId ? loadRecord("subject", knownSubjectId) : Promise.resolve(null),
-    ]);
-    if (!session) return null;
-    const record = session.record;
-    if (
-      record.revokedAt ||
-      hasSessionExpired(record, Date.now()) ||
-      !equalHex(record.verifierDigestHex, hashHex(token))
-    )
-      return null;
-    const subject =
-      knownSubjectId === record.subjectId
-        ? knownSubject
-        : await loadRecord("subject", record.subjectId);
-    if (
-      !subject ||
-      subject.record.status !== "active" ||
-      subject.record.authVersion !== record.authVersion ||
-      (!!record.productId &&
-        (consumerProductState(subject.record, record.productId).sessionVersion !==
+  return withRequestPerformanceSpan("auth.session.validate", () =>
+    authMutationQueue.read(async () => {
+      const sessionId = match[1] as SessionId;
+      const knownSubjectId = sessionSubjectCache.get(sessionId);
+      const [session, knownSubject] = await Promise.all([
+        loadRecord("session", sessionId),
+        knownSubjectId ? loadRecord("subject", knownSubjectId) : Promise.resolve(null),
+      ]);
+      if (!session) return null;
+      const record = session.record;
+      if (
+        record.revokedAt ||
+        hasSessionExpired(record, Date.now()) ||
+        !equalHex(record.verifierDigestHex, hashHex(token))
+      )
+        return null;
+      const subject =
+        knownSubjectId === record.subjectId
+          ? knownSubject
+          : await loadRecord("subject", record.subjectId);
+      if (
+        !subject ||
+        subject.record.status !== "active" ||
+        subject.record.authVersion !== record.authVersion ||
+        (!!record.productId &&
+          (consumerProductState(subject.record, record.productId).sessionVersion !==
             (record.productSessionVersion ?? 1) ||
-          !(await hasActiveConsumerProductEntitlement(
-            record.subjectId,
-            record.productId,
-            record.applicationClientId,
-          ))))
-    )
-      return null;
-    rememberSessionSubject(sessionId, record.subjectId);
-    return { session: record, subject: subject.record };
-  });
+            !(await hasActiveConsumerProductEntitlement(
+              record.subjectId,
+              record.productId,
+              record.applicationClientId,
+              subject.record,
+            ))))
+      )
+        return null;
+      rememberSessionSubject(sessionId, record.subjectId);
+      return { session: record, subject: subject.record };
+    }),
+  );
 }
 
 export const getCurrentSession = cache(

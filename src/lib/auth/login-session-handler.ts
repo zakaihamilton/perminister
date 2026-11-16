@@ -15,6 +15,7 @@ import {
   createSession,
   setSessionCookie,
 } from "@/lib/auth/service";
+import { withRequestPerformanceSpan } from "@/lib/auth/performance";
 
 const MAX_LOGIN_FORM_BYTES = 8 * 1024;
 const MAX_LOGIN_PASSWORD_LENGTH = 256;
@@ -82,10 +83,18 @@ export async function handleLoginPost(request: Request): Promise<Response> {
   }
 
   try {
-    const productId = await productIdForLogin(next);
-    const subject = await authenticate(identifier, password, productId);
-    const session = await createSession(subject.subjectId);
-    await setSessionCookie(session.token);
+    const productId = await withRequestPerformanceSpan("auth.password.client-context", () =>
+      productIdForLogin(next),
+    );
+    const subject = await withRequestPerformanceSpan("auth.password.authenticate", () =>
+      authenticate(identifier, password, productId),
+    );
+    const session = await withRequestPerformanceSpan("auth.password.create-session", () =>
+      createSession(subject.subjectId),
+    );
+    await withRequestPerformanceSpan("auth.password.set-cookie", () =>
+      setSessionCookie(session.token),
+    );
   } catch (error) {
     const code =
       error instanceof Error && error.message === "Email or password is incorrect."

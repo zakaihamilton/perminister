@@ -1,4 +1,4 @@
-import { withApiRoutePerformance } from "@/lib/auth/performance";
+import { withApiRoutePerformance, withRequestPerformanceSpan } from "@/lib/auth/performance";
 import { authenticateConsumerClient } from "@/lib/auth/consumer-clients";
 import { bearerToken, NO_STORE_HEADERS } from "@/lib/auth/http";
 import {
@@ -23,7 +23,9 @@ async function getConsumerSessionContext(
   let current: Awaited<ReturnType<typeof getSessionFromToken>>;
   try {
     [client, current] = await Promise.all([
-      authenticateConsumerClient(request),
+      withRequestPerformanceSpan("auth.consumer-session.client-authentication", () =>
+        authenticateConsumerClient(request),
+      ),
       token ? getSessionFromToken(token) : Promise.resolve(null),
     ]);
   } catch {
@@ -58,23 +60,33 @@ export const GET = withApiRoutePerformance(
       ) {
         return Response.json({ authenticated: false }, { status: 401, headers: NO_STORE_HEADERS });
       }
+      const sessionUrl = new URL(request.url);
       const selectedOrganizationId =
-        new URL(request.url).searchParams.get("organization_id") ?? undefined;
-      let organizations = await listConsumerOrganizationsForSubject(
-        current.subject.subjectId,
-        client.productId,
-        selectedOrganizationId,
-      );
-      if (
-        selectedOrganizationId &&
-        !organizations.some(
-          (organization) => organization.organizationId === selectedOrganizationId.toLowerCase(),
-        )
-      ) {
-        organizations = await listConsumerOrganizationsForSubject(
-          current.subject.subjectId,
-          client.productId,
+        sessionUrl.searchParams.get("organization_id") ?? undefined;
+      const includeOrganizations = sessionUrl.searchParams.get("include_organizations") !== "false";
+      let organizations: Awaited<ReturnType<typeof listConsumerOrganizationsForSubject>> = [];
+      if (includeOrganizations) {
+        organizations = await withRequestPerformanceSpan(
+          "auth.consumer-session.organization-enrichment",
+          () =>
+            listConsumerOrganizationsForSubject(
+              current.subject.subjectId,
+              client.productId,
+              selectedOrganizationId,
+            ),
         );
+        if (
+          selectedOrganizationId &&
+          !organizations.some(
+            (organization) =>
+              organization.organizationId === selectedOrganizationId.toLowerCase(),
+          )
+        ) {
+          organizations = await withRequestPerformanceSpan(
+            "auth.consumer-session.organization-fallback",
+            () => listConsumerOrganizationsForSubject(current.subject.subjectId, client.productId),
+          );
+        }
       }
       return Response.json(
         {
@@ -87,8 +99,9 @@ export const GET = withApiRoutePerformance(
                 ?.value ?? null,
             legacyAccountId:
               client.productId === "system-concepts"
-                ? current.subject.legacySources?.find((source) => source.source === "systemconcepts")
-                    ?.accountId ?? null
+                ? (current.subject.legacySources?.find(
+                    (source) => source.source === "systemconcepts",
+                  )?.accountId ?? null)
                 : null,
             firstName: current.subject.firstName ?? null,
             lastName: current.subject.lastName ?? null,

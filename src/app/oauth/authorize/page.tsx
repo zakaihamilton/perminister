@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { AuthorizationView } from "@/components/authorization-view";
 import { getConsumerClientRecord, getCurrentSession } from "@/lib/auth/service";
 import { completeConsumerAuthorization } from "@/lib/auth/complete-consumer-authorization";
+import { withRequestPerformanceSpan } from "@/lib/auth/performance";
 import {
   consumerAuthorizationQuery,
   legacyConsumerAuthorizationEnabled,
@@ -46,11 +47,17 @@ export default async function ConsumerAuthorizationPage({
     if (value) params.set(key, value);
   }
 
-  const client = await getConsumerClientRecord(params.get("client_id") ?? "").catch(() => null);
+  const client = await withRequestPerformanceSpan("auth.oidc.authorization-client-lookup", () =>
+    getConsumerClientRecord(params.get("client_id") ?? "").catch(() => null),
+  );
   const authorization = parseConsumerAuthorizationRequest(params, client, {
     allowLegacy: legacyConsumerAuthorizationEnabled(),
   });
-  const current = authorization ? await getCurrentSession() : null;
+  const current = authorization
+    ? await withRequestPerformanceSpan("auth.oidc.browser-session-validation", () =>
+        getCurrentSession(),
+      )
+    : null;
   const error = singleValue(values.error);
 
   if (authorization && client && error !== "unavailable") {

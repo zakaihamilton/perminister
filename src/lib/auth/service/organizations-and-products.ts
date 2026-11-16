@@ -3,6 +3,7 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { cache } from "react";
 import { mapWithConcurrency } from "../concurrency";
+import { withRequestPerformanceSpan } from "../performance";
 import { authMutationQueue } from "../mutation-queue";
 import { withOrganizationMutationLock } from "../coordination";
 import {
@@ -84,10 +85,12 @@ export interface ProductAccessSummary {
 }
 
 const listMembershipsForSubjectDuringRender = cache((subjectId: SubjectId) =>
-  store().listMembershipsForSubject(subjectId),
+  withRequestPerformanceSpan("dashboard.memberships", () =>
+    store().listMembershipsForSubject(subjectId),
+  ),
 );
 const listProductsForOrganizationDuringRender = cache((organizationId: string) =>
-  store().listProducts(organizationId),
+  withRequestPerformanceSpan("dashboard.products", () => store().listProducts(organizationId)),
 );
 
 async function listOrganizationRequestsForSubjectUnlocked(
@@ -150,53 +153,97 @@ export async function createOrganization(
   });
 }
 
+function organizationSummaryFromMemberships(
+  organization: OrganizationRecord,
+  memberships: readonly OrganizationMembershipRecord[],
+): OrganizationSummary | null {
+  const catalogManager = memberships.find((membership) => !membership.productId);
+  if (catalogManager) {
+    return { organization, membership: catalogManager, catalogManager: true };
+  }
+  const productMember = memberships.find((membership) => !!membership.productId);
+  if (!productMember) return null;
+  return {
+    organization,
+    membership: {
+      ...productMember,
+      role: "member",
+      productId: undefined,
+      permissionGrants: undefined,
+    },
+    catalogManager: false,
+  };
+}
+
+function groupActiveMembershipsByOrganization(
+  memberships: readonly OrganizationMembershipRecord[],
+): Map<string, OrganizationMembershipRecord[]> {
+  const byOrganization = new Map<string, OrganizationMembershipRecord[]>();
+  for (const membership of memberships) {
+    if (membership.status !== "active") continue;
+    const entries = byOrganization.get(membership.organizationId) ?? [];
+    entries.push(membership);
+    byOrganization.set(membership.organizationId, entries);
+  }
+  return byOrganization;
+}
+
+function sortOrganizationSummaries(
+  summaries: (OrganizationSummary | null)[],
+): OrganizationSummary[] {
+  return summaries
+    .filter((summary): summary is OrganizationSummary => summary !== null)
+    .sort((left, right) => left.organization.name.localeCompare(right.organization.name));
+}
+
+async function loadOrganizationSummaries(
+  byOrganization: Map<string, OrganizationMembershipRecord[]>,
+  preferredOrganization?: OrganizationSummary,
+): Promise<OrganizationSummary[]> {
+  const summaries = await mapWithConcurrency<
+    [string, OrganizationMembershipRecord[]],
+    OrganizationSummary | null
+  >([...byOrganization.entries()], async ([organizationId, memberships]) => {
+    if (preferredOrganization?.organization.organizationId === organizationId) {
+      return preferredOrganization;
+    }
+    const organization = await withRequestPerformanceSpan("dashboard.organization-summaries", () =>
+      loadRecord("organization", organizationId),
+    );
+    if (!organization || organizationApprovalStatus(organization.record) !== "approved") {
+      return null;
+    }
+    return organizationSummaryFromMemberships(organization.record, memberships);
+  });
+  return sortOrganizationSummaries(summaries);
+}
+
 export const listOrganizationsForSubject = cache(async function listOrganizationsForSubject(
   subjectId: SubjectId,
 ): Promise<OrganizationSummary[]> {
   return authMutationQueue.read(async () => {
-    const memberships = (await store().listMembershipsForSubject(subjectId)).filter(
-      (record) => record.status === "active",
-    );
-    const byOrganization = new Map<string, OrganizationMembershipRecord[]>();
-    for (const membership of memberships) {
-      const entries = byOrganization.get(membership.organizationId) ?? [];
-      entries.push(membership);
-      byOrganization.set(membership.organizationId, entries);
+    const memberships = await listMembershipsForSubjectDuringRender(subjectId);
+    return loadOrganizationSummaries(groupActiveMembershipsByOrganization(memberships));
+  });
+});
+
+export const listOrganizationSwitcherData = cache(async function listOrganizationSwitcherData(
+  subjectId: SubjectId,
+  currentOrganizationId: string,
+): Promise<OrganizationSummary[]> {
+  assertOpaqueId(currentOrganizationId);
+  return authMutationQueue.read(async () => {
+    const [memberships, currentOrganization] = await Promise.all([
+      listMembershipsForSubjectDuringRender(subjectId),
+      withRequestPerformanceSpan("dashboard.selected-organization", () =>
+        getOrganizationForSubject(subjectId, currentOrganizationId),
+      ),
+    ]);
+    const byOrganization = groupActiveMembershipsByOrganization(memberships);
+    if (!byOrganization.has(currentOrganizationId)) {
+      byOrganization.set(currentOrganizationId, [currentOrganization.membership]);
     }
-    const summaries = await mapWithConcurrency<
-      [string, OrganizationMembershipRecord[]],
-      OrganizationSummary | null
-    >([...byOrganization.entries()], async ([organizationId, entries]) => {
-      const organization = await loadRecord("organization", organizationId);
-      if (!organization || organizationApprovalStatus(organization.record) !== "approved") {
-        return null;
-      }
-      const catalogManager = entries.find((membership) => !membership.productId);
-      const productMember = entries.find((membership) => membership.productId);
-      if (catalogManager) {
-        return {
-          organization: organization.record,
-          membership: catalogManager,
-          catalogManager: true,
-        } satisfies OrganizationSummary;
-      }
-      if (productMember) {
-        return {
-          organization: organization.record,
-          membership: {
-            ...productMember,
-            role: "member",
-            productId: undefined,
-            permissionGrants: undefined,
-          },
-          catalogManager: false,
-        } satisfies OrganizationSummary;
-      }
-      return null;
-    });
-    return summaries
-      .filter((summary): summary is OrganizationSummary => summary !== null)
-      .sort((left, right) => left.organization.name.localeCompare(right.organization.name));
+    return loadOrganizationSummaries(byOrganization, currentOrganization);
   });
 });
 
@@ -382,8 +429,12 @@ export const getOrganizationForSubject = cache(async function getOrganizationFor
 ): Promise<OrganizationSummary> {
   return authMutationQueue.read(async () => {
     const [catalogManager, organization] = await Promise.all([
-      organizationMembershipUnlocked(organizationId, subjectId),
-      loadRecord("organization", organizationId),
+      withRequestPerformanceSpan("dashboard.selected-membership", () =>
+        organizationMembershipUnlocked(organizationId, subjectId),
+      ),
+      withRequestPerformanceSpan("dashboard.selected-organization", () =>
+        loadRecord("organization", organizationId),
+      ),
     ]);
     const productMembership = catalogManager
       ? null
@@ -920,6 +971,38 @@ async function withOrganizationMutationLocks<Result>(
       ? operation()
       : withOrganizationMutationLock(ordered[index], () => lockAt(index + 1));
   return lockAt(0);
+}
+
+async function withOrganizationProductMutation<Result>(
+  actorId: SubjectId,
+  organizationId: string,
+  productRecordId: string,
+  lockIdsForProduct: (
+    product: ProductRecord,
+  ) => readonly string[] | Promise<readonly string[]>,
+  operation: (
+    actor: OrganizationMembershipRecord,
+    current: { record: ProductRecord },
+  ) => Result | Promise<Result>,
+): Promise<Result> {
+  return authMutationQueue.run(async () => {
+    const initial = await loadRecord("product", productRecordId);
+    if (!initial || initial.record.organizationId !== organizationId) {
+      throw new Error("Product not found.");
+    }
+    const lockIds = await lockIdsForProduct(initial.record);
+    return withOrganizationMutationLocks(lockIds, async () => {
+      const actor = await requireOrganizationRoleUnlocked(actorId, organizationId, [
+        "owner",
+        "admin",
+      ]);
+      const current = await loadRecord("product", productRecordId);
+      if (!current || current.record.organizationId !== organizationId) {
+        throw new Error("Product not found.");
+      }
+      return operation(actor, current);
+    });
+  });
 }
 
 async function assignSharedProductOwnerUnlocked(
@@ -1725,77 +1808,41 @@ async function revokeDetachedProductDataUnlocked(
   }
 }
 
-export async function archiveOrganizationProduct(
+async function setOrganizationProductArchivedState(
   actorId: SubjectId,
   organizationId: string,
   productRecordId: string,
+  action: "archive" | "restore",
 ): Promise<ProductRecord> {
   assertOpaqueId(productRecordId);
-  return authMutationQueue.run(async () => {
-    const initial = await loadRecord("product", productRecordId);
-    if (!initial || initial.record.organizationId !== organizationId) {
-      throw new Error("Product not found.");
-    }
-    const lockIds = [
+  return withOrganizationProductMutation(
+    actorId,
+    organizationId,
+    productRecordId,
+    (product) => [
       organizationId,
-      ...(initial.record.sharedProductRef
-        ? [initial.record.sharedProductRef.sourceOrganizationId]
-        : []),
-    ];
-    return withOrganizationMutationLocks(lockIds, async () => {
-      const actor = await requireOrganizationRoleUnlocked(actorId, organizationId, [
-        "owner",
-        "admin",
-      ]);
-      const current = await loadRecord("product", productRecordId);
-      if (!current || current.record.organizationId !== organizationId) {
-        throw new Error("Product not found.");
-      }
+      ...(product.sharedProductRef ? [product.sharedProductRef.sourceOrganizationId] : []),
+    ],
+    async (actor, current) => {
       if (current.record.deletionStartedAt || current.record.deletedAt) {
-        throw new Error("This product is already being deleted.");
+        throw new Error(
+          action === "archive"
+            ? "This product is already being deleted."
+            : "A product being deleted cannot be restored.",
+        );
       }
-      if (current.record.archivedAt) return current.record;
+      if (action === "archive") {
+        if (current.record.archivedAt) return current.record;
 
-      const now = new Date().toISOString();
-      const archived = { ...current.record, archivedAt: now, updatedAt: now };
-      await persistRecord(archived, "product.archived", {
-        kind: "subject",
-        subjectId: actor.subjectId,
-      });
-      return archived;
-    });
-  });
-}
+        const now = new Date().toISOString();
+        const archived = { ...current.record, archivedAt: now, updatedAt: now };
+        await persistRecord(archived, "product.archived", {
+          kind: "subject",
+          subjectId: actor.subjectId,
+        });
+        return archived;
+      }
 
-export async function restoreOrganizationProduct(
-  actorId: SubjectId,
-  organizationId: string,
-  productRecordId: string,
-): Promise<ProductRecord> {
-  assertOpaqueId(productRecordId);
-  return authMutationQueue.run(async () => {
-    const initial = await loadRecord("product", productRecordId);
-    if (!initial || initial.record.organizationId !== organizationId) {
-      throw new Error("Product not found.");
-    }
-    const lockIds = [
-      organizationId,
-      ...(initial.record.sharedProductRef
-        ? [initial.record.sharedProductRef.sourceOrganizationId]
-        : []),
-    ];
-    return withOrganizationMutationLocks(lockIds, async () => {
-      const actor = await requireOrganizationRoleUnlocked(actorId, organizationId, [
-        "owner",
-        "admin",
-      ]);
-      const current = await loadRecord("product", productRecordId);
-      if (!current || current.record.organizationId !== organizationId) {
-        throw new Error("Product not found.");
-      }
-      if (current.record.deletionStartedAt || current.record.deletedAt) {
-        throw new Error("A product being deleted cannot be restored.");
-      }
       if (!current.record.archivedAt) return current.record;
 
       if (current.record.sharedProductRef) {
@@ -1825,8 +1872,24 @@ export async function restoreOrganizationProduct(
         subjectId: actor.subjectId,
       });
       return restored;
-    });
-  });
+    },
+  );
+}
+
+export function archiveOrganizationProduct(
+  actorId: SubjectId,
+  organizationId: string,
+  productRecordId: string,
+): Promise<ProductRecord> {
+  return setOrganizationProductArchivedState(actorId, organizationId, productRecordId, "archive");
+}
+
+export function restoreOrganizationProduct(
+  actorId: SubjectId,
+  organizationId: string,
+  productRecordId: string,
+): Promise<ProductRecord> {
+  return setOrganizationProductArchivedState(actorId, organizationId, productRecordId, "restore");
 }
 
 export async function listArchivedProductsForOrganization(
@@ -1866,51 +1929,47 @@ export async function deleteOrganizationProduct(
   confirmedRemoval = false,
 ): Promise<ProductDeletionResult> {
   assertOpaqueId(productRecordId);
-  return authMutationQueue.run(async () => {
-    const initial = await loadRecord("product", productRecordId);
-    if (!initial || initial.record.organizationId !== organizationId) {
-      throw new Error("Product not found.");
-    }
-    const isSharedInstallation = !!initial.record.sharedProductRef;
-    const initialProducts = isSharedInstallation
-      ? [initial.record]
-      : await store().listProductsByProductId(initial.record.productId);
-    const initialInstallations = isSharedInstallation
-      ? [initial.record]
-      : sharedInstallationsForSource(initial.record, initialProducts);
-    const lockIds = [
-      organizationId,
-      ...(isSharedInstallation
-        ? [initial.record.sharedProductRef!.sourceOrganizationId]
-        : initialInstallations.map((installation) => installation.organizationId)),
-    ];
-
-    return withOrganizationMutationLocks(lockIds, async () => {
-      const actor = await requireOrganizationRoleUnlocked(actorId, organizationId, [
-        "owner",
-        "admin",
-      ]);
-      let current = await loadRecord("product", productRecordId);
-      if (!current || current.record.organizationId !== organizationId) {
-        throw new Error("Product not found.");
-      }
-      if (current.record.deletedAt) {
+  let isSharedInstallation = false;
+  let lockIds: string[] = [];
+  return withOrganizationProductMutation(
+    actorId,
+    organizationId,
+    productRecordId,
+    async (initial) => {
+      isSharedInstallation = !!initial.sharedProductRef;
+      const initialProducts = isSharedInstallation
+        ? [initial]
+        : await store().listProductsByProductId(initial.productId);
+      const initialInstallations = isSharedInstallation
+        ? [initial]
+        : sharedInstallationsForSource(initial, initialProducts);
+      lockIds = [
+        organizationId,
+        ...(isSharedInstallation
+          ? [initial.sharedProductRef!.sourceOrganizationId]
+          : initialInstallations.map((installation) => installation.organizationId)),
+      ];
+      return lockIds;
+    },
+    async (actor, current) => {
+      let currentRecord = current;
+      if (currentRecord.record.deletedAt) {
         return {
-          productId: current.record.productId,
+          productId: currentRecord.record.productId,
           affectedOrganizationIds: lockIds,
           removedSharedInstallation: isSharedInstallation,
         };
       }
-      if (!current.record.archivedAt) {
+      if (!currentRecord.record.archivedAt) {
         throw new Error("Archive this product before deleting it.");
       }
 
       const latestProducts = isSharedInstallation
-        ? [current.record]
-        : await store().listProductsByProductId(current.record.productId);
+        ? [currentRecord.record]
+        : await store().listProductsByProductId(currentRecord.record.productId);
       const installations = isSharedInstallation
-        ? [current.record]
-        : sharedInstallationsForSource(current.record, latestProducts);
+        ? [currentRecord.record]
+        : sharedInstallationsForSource(currentRecord.record, latestProducts);
       const unheldOrganizations = installations
         .filter((installation) => !installation.sharedProductRef?.detachedAt)
         .map((installation) => installation.organizationId)
@@ -1926,13 +1985,13 @@ export async function deleteOrganizationProduct(
       }
 
       const now = new Date().toISOString();
-      if (!current.record.deletionStartedAt) {
-        const started = { ...current.record, deletionStartedAt: now, updatedAt: now };
+      if (!currentRecord.record.deletionStartedAt) {
+        const started = { ...currentRecord.record, deletionStartedAt: now, updatedAt: now };
         await persistRecord(started, "product.deletion-started", {
           kind: "subject",
           subjectId: actor.subjectId,
         });
-        current = { ...current, record: started };
+        currentRecord = { ...currentRecord, record: started };
       }
 
       const affectedOrganizationIds = [
@@ -1942,8 +2001,8 @@ export async function deleteOrganizationProduct(
         ]),
       ];
       const cleanupTargets = isSharedInstallation
-        ? [current.record]
-        : [current.record, ...installations];
+        ? [currentRecord.record]
+        : [currentRecord.record, ...installations];
       for (const target of cleanupTargets) {
         await revokeDetachedProductDataUnlocked(
           actor.subjectId,
@@ -1967,11 +2026,11 @@ export async function deleteOrganizationProduct(
             { kind: "subject", subjectId: actor.subjectId },
           );
         }
-      } else if (!current.record.sharedProductRef?.detachedAt) {
+      } else if (!currentRecord.record.sharedProductRef?.detachedAt) {
         await persistRecord(
           {
-            ...current.record,
-            sharedProductRef: { ...current.record.sharedProductRef!, detachedAt: now },
+            ...currentRecord.record,
+            sharedProductRef: { ...currentRecord.record.sharedProductRef!, detachedAt: now },
             deletedAt: now,
             updatedAt: now,
           },
@@ -1993,12 +2052,12 @@ export async function deleteOrganizationProduct(
         );
       }
       return {
-        productId: current.record.productId,
+        productId: currentRecord.record.productId,
         affectedOrganizationIds,
         removedSharedInstallation: isSharedInstallation,
       };
-    });
-  });
+    },
+  );
 }
 
 export async function setOrganizationProductVisibility(
@@ -2012,31 +2071,18 @@ export async function setOrganizationProductVisibility(
   if (visibility !== "public" && visibility !== "private") {
     throw new Error("Choose public or private product visibility.");
   }
-  return authMutationQueue.run(async () => {
-    const initial = await loadRecord("product", productRecordId);
-    if (
-      !initial ||
-      initial.record.organizationId !== organizationId ||
-      initial.record.sharedProductRef
-    ) {
-      throw new Error("Product not found.");
-    }
-    const initialProducts = await store().listProductsByProductId(initial.record.productId);
-    const initialInstallations = sharedInstallationsForSource(initial.record, initialProducts);
-    const lockIds = [organizationId, ...initialInstallations.map((entry) => entry.organizationId)];
-    return withOrganizationMutationLocks(lockIds, async () => {
-      const actor = await requireOrganizationRoleUnlocked(actorId, organizationId, [
-        "owner",
-        "admin",
-      ]);
-      const current = await loadRecord("product", productRecordId);
-      if (
-        !current ||
-        current.record.organizationId !== organizationId ||
-        current.record.sharedProductRef
-      ) {
-        throw new Error("Product not found.");
-      }
+  return withOrganizationProductMutation(
+    actorId,
+    organizationId,
+    productRecordId,
+    async (initial) => {
+      if (initial.sharedProductRef) throw new Error("Product not found.");
+      const initialProducts = await store().listProductsByProductId(initial.productId);
+      const initialInstallations = sharedInstallationsForSource(initial, initialProducts);
+      return [organizationId, ...initialInstallations.map((entry) => entry.organizationId)];
+    },
+    async (actor, current) => {
+      if (current.record.sharedProductRef) throw new Error("Product not found.");
       if (
         current.record.archivedAt ||
         current.record.deletionStartedAt ||
@@ -2100,8 +2146,8 @@ export async function setOrganizationProductVisibility(
         subjectId: actor.subjectId,
       });
       return next;
-    });
-  });
+    },
+  );
 }
 
 export async function createProductAccessRole(
@@ -2195,15 +2241,15 @@ export const listProductsForOrganization = cache(async function listProductsForO
   organizationId: string,
 ): Promise<ProductRecord[]> {
   return authMutationQueue.read(async () => {
-    const [organization, catalogManager] = await Promise.all([
-      loadApprovedOrganizationUnlocked(organizationId),
-      organizationMembershipUnlocked(organizationId, subjectId),
-    ]);
-    if (!organization) throw new Error("Organization not found.");
-    const [memberRows, products] = await Promise.all([
-      catalogManager ? Promise.resolve([]) : listMembershipsForSubjectDuringRender(subjectId),
+    const [organization, products] = await Promise.all([
+      withRequestPerformanceSpan("dashboard.selected-organization", () =>
+        getOrganizationForSubject(subjectId, organizationId),
+      ),
       listProductsForOrganizationDuringRender(organizationId),
     ]);
+    const memberRows = organization.catalogManager
+      ? []
+      : await listMembershipsForSubjectDuringRender(subjectId);
     const allowedProducts = new Set(
       memberRows
         .filter(
@@ -2212,14 +2258,16 @@ export const listProductsForOrganization = cache(async function listProductsForO
         )
         .map((row) => row.productId!),
     );
-    if (!catalogManager && allowedProducts.size === 0) throw new Error("Organization not found.");
+    if (!organization.catalogManager && allowedProducts.size === 0) {
+      throw new Error("Organization not found.");
+    }
     return products
       .filter(
         (product) =>
           !product.archivedAt &&
           !product.deletionStartedAt &&
           !product.deletedAt &&
-          (!!catalogManager || allowedProducts.has(product.productId)),
+          (organization.catalogManager || allowedProducts.has(product.productId)),
       )
       .sort((left, right) => left.name.localeCompare(right.name));
   });
@@ -2233,107 +2281,62 @@ export const getOrganizationDashboardData = cache(async function getOrganization
     assertOpaqueId(organizationId);
     const cached = getCachedOrganizationDashboardData(subjectId, organizationId);
     if (cached) {
-      const [organizationRecord, catalogMembershipRecord] = await Promise.all([
-        loadRecord("organization", organizationId),
-        store().readOrganizationMembership(organizationId, subjectId),
+      const [organizationRecord, membership] = await Promise.all([
+        withRequestPerformanceSpan("dashboard.selected-organization", () =>
+          loadRecord("organization", organizationId),
+        ),
+        withRequestPerformanceSpan("dashboard.membership-validation", () =>
+          store().readOrganizationMembership(
+            organizationId,
+            subjectId,
+            cached.membership.productId,
+          ),
+        ),
       ]);
       const organization = organizationRecord?.record;
-      if (!organization || organizationApprovalStatus(organization) !== "approved") {
+      const activeMembership = membership?.status === "active" ? membership : null;
+      if (
+        !organization ||
+        organizationApprovalStatus(organization) !== "approved" ||
+        !activeMembership
+      ) {
         throw new Error("Organization not found.");
       }
-      const catalogMembership =
-        catalogMembershipRecord?.status === "active" ? catalogMembershipRecord : null;
-      const productMembership = cached.memberships.find(
-        (membership) =>
-          membership.organizationId === organizationId &&
-          !!membership.productId &&
-          membership.status === "active",
-      );
-      if (!catalogMembership && !productMembership) throw new Error("Organization not found.");
-      const currentMembership = catalogMembership ?? {
-        ...productMembership!,
-        role: "member" as const,
-        productId: undefined,
-        permissionGrants: undefined,
-      };
-      const organizationSummary = {
-        organization,
-        membership: currentMembership,
-        catalogManager: !!catalogMembership,
-      } satisfies OrganizationSummary;
-      const data: OrganizationDashboardData = {
-        ...cached.data,
-        organization: organizationSummary,
-        organizations: cached.data.organizations.map((summary) =>
-          summary.organization.organizationId === organizationId ? organizationSummary : summary,
-        ),
-      };
-      return data;
-    }
-
-    const [organizationRecord, catalogMembershipRecord, memberships, allProducts] =
-      await Promise.all([
-        loadRecord("organization", organizationId),
-        store().readOrganizationMembership(organizationId, subjectId),
-        listMembershipsForSubjectDuringRender(subjectId),
-        listProductsForOrganizationDuringRender(organizationId),
-      ]);
-    const organization = organizationRecord?.record;
-    if (!organization || organizationApprovalStatus(organization) !== "approved") {
-      throw new Error("Organization not found.");
-    }
-
-    const catalogMembership =
-      catalogMembershipRecord?.status === "active" ? catalogMembershipRecord : null;
-    const activeMemberships = memberships.filter((membership) => membership.status === "active");
-    const productMembership = activeMemberships.find(
-      (membership) => membership.organizationId === organizationId && !!membership.productId,
-    );
-    if (!catalogMembership && !productMembership) throw new Error("Organization not found.");
-    const currentMembership = catalogMembership ?? {
-      ...productMembership!,
-      role: "member" as const,
-      productId: undefined,
-      permissionGrants: undefined,
-    };
-
-    const membershipsByOrganization = new Map<string, OrganizationMembershipRecord[]>();
-    for (const membership of activeMemberships) {
-      const entries = membershipsByOrganization.get(membership.organizationId) ?? [];
-      entries.push(membership);
-      membershipsByOrganization.set(membership.organizationId, entries);
-    }
-    const organizationSummaries = await mapWithConcurrency<
-      [string, OrganizationMembershipRecord[]],
-      OrganizationSummary | null
-    >([...membershipsByOrganization.entries()], async ([memberOrganizationId, entries]) => {
-      const record =
-        memberOrganizationId === organizationId
-          ? organizationRecord
-          : await loadRecord("organization", memberOrganizationId);
-      if (!record || organizationApprovalStatus(record.record) !== "approved") return null;
-      const organizationCatalogMembership = entries.find((membership) => !membership.productId);
-      const organizationProductMembership = entries.find((membership) => !!membership.productId);
-      if (organizationCatalogMembership) {
-        return {
-          organization: record.record,
-          membership: organizationCatalogMembership,
-          catalogManager: true,
-        } satisfies OrganizationSummary;
-      }
-      if (!organizationProductMembership) return null;
+      const currentMembership = cached.membership.productId
+        ? {
+            ...activeMembership,
+            role: "member" as const,
+            productId: undefined,
+            permissionGrants: undefined,
+          }
+        : activeMembership;
       return {
-        organization: record.record,
-        membership: {
-          ...organizationProductMembership,
-          role: "member",
-          productId: undefined,
-          permissionGrants: undefined,
+        ...cached.data,
+        organization: {
+          organization,
+          membership: currentMembership,
+          catalogManager: !cached.membership.productId,
         },
-        catalogManager: false,
-      } satisfies OrganizationSummary;
-    });
+      };
+    }
 
+    const [organization, allProducts] = await Promise.all([
+      withRequestPerformanceSpan("dashboard.selected-organization", () =>
+        getOrganizationForSubject(subjectId, organizationId),
+      ),
+      listProductsForOrganizationDuringRender(organizationId),
+    ]);
+    const activeMemberships = organization.catalogManager
+      ? []
+      : (await listMembershipsForSubjectDuringRender(subjectId)).filter(
+          (membership) => membership.status === "active",
+        );
+    const currentMembership = organization.catalogManager
+      ? organization.membership
+      : activeMemberships.find(
+        (membership) => membership.organizationId === organizationId && !!membership.productId,
+      );
+    if (!currentMembership) throw new Error("Organization not found.");
     const allowedProductIds = new Set(
       activeMemberships
         .filter(
@@ -2341,29 +2344,22 @@ export const getOrganizationDashboardData = cache(async function getOrganization
         )
         .map((membership) => membership.productId!),
     );
-    if (!catalogMembership && allowedProductIds.size === 0) {
+    if (!organization.catalogManager && allowedProductIds.size === 0) {
       throw new Error("Organization not found.");
     }
     const data: OrganizationDashboardData = {
-      organization: {
-        organization,
-        membership: currentMembership,
-        catalogManager: !!catalogMembership,
-      },
-      organizations: organizationSummaries
-        .filter((summary): summary is OrganizationSummary => summary !== null)
-        .sort((left, right) => left.organization.name.localeCompare(right.organization.name)),
+      organization,
       products: allProducts
         .filter(
           (product) =>
             !product.archivedAt &&
             !product.deletionStartedAt &&
             !product.deletedAt &&
-            (!!catalogMembership || allowedProductIds.has(product.productId)),
+            (organization.catalogManager || allowedProductIds.has(product.productId)),
         )
         .sort((left, right) => left.name.localeCompare(right.name)),
     };
-    setCachedOrganizationDashboardData(subjectId, organizationId, data, memberships);
+    setCachedOrganizationDashboardData(subjectId, organizationId, data, currentMembership);
     return data;
   });
 });

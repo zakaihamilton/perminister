@@ -7,14 +7,17 @@ import { OrganizationSwitcher } from "@/components/organization-switcher";
 import { DashboardLayoutSkeleton } from "@/components/dashboard-layout-skeleton";
 import {
   getCurrentSession,
-  getOrganizationDashboardData,
   getOrganizationForSubject,
   isAdministrator,
+  listOrganizationSwitcherData,
+  listProductsForOrganization,
 } from "@/lib/auth/service";
-import type { OrganizationDashboardData } from "@/lib/auth/service";
+import type { OrganizationSummary } from "@/lib/auth/service";
+import type { ProductRecord } from "@/lib/auth/domain";
 import { withRequestPerformance } from "@/lib/auth/performance";
 
-type OrganizationDashboardDataPromise = Promise<OrganizationDashboardData>;
+type OrganizationSwitcherDataPromise = Promise<OrganizationSummary[]>;
+type BreadcrumbProductsPromise = Promise<ProductRecord[]>;
 
 export default function OrganizationDashboardLayout({
   children,
@@ -42,9 +45,6 @@ async function LoadedOrganizationDashboardLayout({
   const [current, { organizationId }] = await Promise.all([getCurrentSession(), params]);
   if (!current) redirect("/login");
 
-  const dashboardData = withRequestPerformance("dashboard.organization-navigation-data", () =>
-    getOrganizationDashboardData(current.subject.subjectId, organizationId),
-  );
   let organization: Awaited<ReturnType<typeof getOrganizationForSubject>>;
   try {
     organization = await withRequestPerformance("dashboard.organization-access", () =>
@@ -53,6 +53,14 @@ async function LoadedOrganizationDashboardLayout({
   } catch {
     redirect("/dashboard");
   }
+  const organizationSwitcherData = withRequestPerformance(
+    "dashboard.organization-switcher-data",
+    () => listOrganizationSwitcherData(current.subject.subjectId, organizationId),
+  );
+  const breadcrumbProducts = withRequestPerformance(
+    "dashboard.organization-breadcrumb-products",
+    () => listProductsForOrganization(current.subject.subjectId, organizationId),
+  );
 
   return (
     <DashboardShell
@@ -66,7 +74,7 @@ async function LoadedOrganizationDashboardLayout({
           }
         >
           <OrganizationSwitcherFromDashboard
-            dashboardData={dashboardData}
+            organizationSwitcherData={organizationSwitcherData}
             organizationId={organizationId}
           />
         </Suspense>
@@ -78,7 +86,7 @@ async function LoadedOrganizationDashboardLayout({
           }
         >
           <BreadcrumbsFromDashboard
-            dashboardData={dashboardData}
+            breadcrumbProducts={breadcrumbProducts}
             organizationId={organizationId}
             organizationName={organization.organization.name}
           />
@@ -97,31 +105,29 @@ async function LoadedOrganizationDashboardLayout({
 }
 
 async function OrganizationSwitcherFromDashboard({
-  dashboardData,
+  organizationSwitcherData,
   organizationId,
 }: {
-  dashboardData: OrganizationDashboardDataPromise;
+  organizationSwitcherData: OrganizationSwitcherDataPromise;
   organizationId: string;
 }) {
-  const data = await dashboardData.catch(() => null);
-  if (!data) return null;
-  return (
-    <OrganizationSwitcher organizations={data.organizations} organizationId={organizationId} />
-  );
+  const organizations = await organizationSwitcherData.catch(() => null);
+  if (!organizations) return null;
+  return <OrganizationSwitcher organizations={organizations} organizationId={organizationId} />;
 }
 
 async function BreadcrumbsFromDashboard({
-  dashboardData,
+  breadcrumbProducts,
   organizationId,
   organizationName,
 }: {
-  dashboardData: OrganizationDashboardDataPromise;
+  breadcrumbProducts: BreadcrumbProductsPromise;
   organizationId: string;
   organizationName: string;
 }) {
-  let products: OrganizationDashboardData["products"] = [];
+  let products: ProductRecord[] = [];
   try {
-    ({ products } = await dashboardData);
+    products = await breadcrumbProducts;
   } catch {
     // The current organization name still provides useful breadcrumbs if the catalog read fails.
   }

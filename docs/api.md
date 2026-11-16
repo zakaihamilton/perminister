@@ -175,8 +175,13 @@ Use `GET /api/auth/consumer/session` with the client headers and session bearer 
 session. A successful response contains `authenticated: true`, the same `account` and organization
 context data as login, and a `session` object with `createdAt` and `expiresAt`; it does not return the
 token again. The organization list is context, not an authorization decision; use
-`POST /api/authorize` for protected operations. Missing, invalid, expired, or revoked sessions
-return `401` with `{"authenticated":false}`. A service error returns `503`.
+`POST /api/authorize` for protected operations. For identity-only checks, pass
+`include_organizations=false`; the response keeps the same account and session fields and returns an
+empty `organizations` array without loading organization memberships or grants. When an app needs
+organization choices and access for the currently selected organization, pass
+`organization_id=<ORGANIZATION_ID>`; Perminister returns lightweight choices for the other
+organizations and full access details only for the selected one. Missing, invalid, expired, or
+revoked sessions return `401` with `{"authenticated":false}`. A service error returns `503`.
 
 Use `DELETE /api/auth/consumer/session` with the client headers and current session bearer token to
 revoke it. A completed request returns `{"signedOut":true}`. The response is also returned when the

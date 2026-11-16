@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/performance", () => ({
   withApiRoutePerformance: (_label: string, handler: (request: Request) => unknown) => handler,
+  withRequestPerformanceSpan: (_span: string, work: () => Promise<unknown>) => work(),
 }));
 vi.mock("@/lib/auth/consumer-clients", () => ({
   authenticateConsumerClientBasic: mocks.authenticateClient,
