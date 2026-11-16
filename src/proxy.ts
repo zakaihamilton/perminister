@@ -250,7 +250,8 @@ function writerRequest(request: NextRequest): Response {
 }
 
 async function proxyWrite(request: NextRequest, method = request.method): Promise<Response> {
-  if (!WRITE_METHODS.has(method)) {
+  const authorizationRead = method === "GET" && request.nextUrl.pathname === "/oauth/authorize";
+  if (!WRITE_METHODS.has(method) && !authorizationRead) {
     return errorResponse(405, "Method not allowed.");
   }
 
@@ -266,7 +267,10 @@ async function proxyWrite(request: NextRequest, method = request.method): Promis
   }
 
   const destination = new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, writerOrigin);
-  const body = method === "POST" && request.method === "GET" ? undefined : await request.arrayBuffer();
+  const body =
+    isReadMethod(method) || (method === "POST" && request.method === "GET")
+      ? undefined
+      : await request.arrayBuffer();
 
   try {
     const upstream = await fetch(destination, {
@@ -315,7 +319,17 @@ export async function proxy(request: NextRequest): Promise<Response> {
   ) {
     return errorResponse(403, "Mutations are disabled in UI preview mode.");
   }
+  const hostedVercel = process.env.VERCEL === "1" && process.env.VERCEL_ENV !== "development";
+  const hasLocalProxyConfiguration =
+    process.env.PERMINISTER_WRITE_PROXY_URL || process.env.PERMINISTER_WRITE_PROXY_SECRET;
   if (request.nextUrl.pathname === "/oauth/authorize" && request.method === "GET") {
+    if (
+      (hostedVercel && process.env.VERCEL_ENV === "production") ||
+      (!hostedVercel && hasLocalProxyConfiguration)
+    ) {
+      return proxyWrite(request, "GET");
+    }
+
     const response = NextResponse.next();
     const contentSecurityPolicy = await consumerAuthorizationPolicy(request);
     if (contentSecurityPolicy) {
@@ -326,9 +340,6 @@ export async function proxy(request: NextRequest): Promise<Response> {
 
   const googleOAuthCallback =
     request.nextUrl.pathname === GOOGLE_LOGIN_CALLBACK_PATH && request.method === "GET";
-  const hostedVercel = process.env.VERCEL === "1" && process.env.VERCEL_ENV !== "development";
-  const hasLocalProxyConfiguration =
-    process.env.PERMINISTER_WRITE_PROXY_URL || process.env.PERMINISTER_WRITE_PROXY_SECRET;
   if (googleOAuthCallback && (hostedVercel || hasLocalProxyConfiguration)) {
     return proxyWrite(request, "POST");
   }
