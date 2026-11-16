@@ -130,7 +130,7 @@ export async function registerAccount(
 
 export class GoogleAccountLinkRequiredError extends Error {
   constructor() {
-    super("Sign in to your existing account and verify its email before linking Google.");
+    super("Sign in with the existing Perminister account before linking Google.");
     this.name = "GoogleAccountLinkRequiredError";
   }
 }
@@ -169,17 +169,22 @@ export async function signInWithGoogle(input: {
       if (existingSubject.status !== "active" || existingSubject.deletedAt) {
         throw new Error("This Perminister account cannot sign in.");
       }
-      if (existingSubject.primaryEmail !== email || !existingSubject.emailVerifiedAt) {
+      if (
+        !existingSubject.primaryEmail ||
+        canonicalEmail(existingSubject.primaryEmail) !== email
+      ) {
         throw new GoogleAccountLinkRequiredError();
       }
       if (existingSubject.externalIdentities?.some(({ provider }) => provider === "google")) {
         throw new GoogleAccountLinkRequiredError();
       }
 
+      const now = new Date().toISOString();
       const linked: SubjectRecord = {
         ...existingSubject,
+        emailVerifiedAt: existingSubject.emailVerifiedAt ?? now,
         externalIdentities: [...(existingSubject.externalIdentities ?? []), identity],
-        updatedAt: new Date().toISOString(),
+        updatedAt: now,
       };
       await persistRecord(linked, "identity.google-linked", {
         kind: "subject",
@@ -356,7 +361,7 @@ export async function createConsumerSession(
   const effectiveLifetimeMs = effectiveConsumerSessionLifetimeMs(sessionLifetimeMs);
   return authMutationQueue.run(async () => {
     const subject = await loadSubjectUnlocked(subjectId);
-    requireVerifiedActiveSubject(subject);
+    requireVerifiedActiveSubject(subject, normalizedProductId);
     if (
       !(await hasActiveConsumerProductEntitlement(subjectId, normalizedProductId, clientId))
     ) {
@@ -381,7 +386,7 @@ async function createConsumerSessionUnlocked(
   sessionLifetimeMs: number,
 ): Promise<{ session: SessionRecord; token: string }> {
   const subject = await loadSubjectUnlocked(subjectId);
-  requireVerifiedActiveSubject(subject);
+  requireVerifiedActiveSubject(subject, productId);
   const productState = consumerProductState(subject, productId);
   const sessionId = newSessionId();
   const token = `${sessionId}.${randomBytes(32).toString("base64url")}`;
@@ -448,7 +453,7 @@ export async function createConsumerAuthorizationCode(
       throw new Error("Choose an active application client with an app origin.");
     }
     const subject = await loadSubjectUnlocked(subjectId);
-    requireVerifiedActiveSubject(subject);
+    requireVerifiedActiveSubject(subject, client.record.productId);
     const productState = consumerProductState(subject, client.record.productId);
     if (
       !(await hasActiveConsumerProductEntitlement(

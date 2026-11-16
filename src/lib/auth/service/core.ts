@@ -106,6 +106,20 @@ export function isEmailVerifiedOrExempt(subject: SubjectRecord): boolean {
   );
 }
 
+export function isEmailVerifiedOrExemptForProduct(
+  subject: SubjectRecord,
+  productId: string,
+): boolean {
+  const importedSystemConceptsAccount =
+    productId === "system-concepts" &&
+    subject.legacySources?.some((source) => source.source === "systemconcepts") === true;
+  return (
+    isEmailVerifiedOrExempt(subject) ||
+    subject.emailVerificationExemptProducts?.includes(productId) === true ||
+    importedSystemConceptsAccount
+  );
+}
+
 export function consumerProductState(
   subject: SubjectRecord,
   productId: string,
@@ -648,8 +662,15 @@ export function rememberSessionSubject(sessionId: string, subjectId: SubjectId):
 
 export function requireVerifiedActiveSubject(
   subject: SubjectRecord | null,
+  productId?: string,
 ): asserts subject is SubjectRecord {
-  if (!subject || subject.status !== "active" || !isEmailVerifiedOrExempt(subject)) {
+  if (
+    !subject ||
+    subject.status !== "active" ||
+    !(productId
+      ? isEmailVerifiedOrExemptForProduct(subject, productId)
+      : isEmailVerifiedOrExempt(subject))
+  ) {
     throw new Error("An active account with a verified email is required.");
   }
 }
