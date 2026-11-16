@@ -25,6 +25,7 @@ import {
   deleteAccountForAdministrator,
   deletePermissionGrant,
   getCurrentSession,
+  getConsumerClientRecord,
   getOrganizationForSubject,
   isAdministrator,
   installPublicProduct,
@@ -69,11 +70,17 @@ import {
   consumeProductLookupRateLimit,
   passwordRecoveryRequesterKey,
 } from "@/lib/auth/coordination";
+import {
+  legacyConsumerAuthorizationEnabled,
+  parseConsumerAuthorizationRequest,
+  safeConsumerAuthorizationReturnTo,
+} from "@/lib/auth/consumer-sso";
 
 function publicActionError(error: unknown): string {
   if (!(error instanceof Error)) return "Perminister could not complete that request.";
   const safePrefixes = [
     "An account with this email address already exists.",
+    "That System Concepts ID is already in use.",
     "Email or password is incorrect.",
     "Use a password",
     "Password must be",
@@ -278,32 +285,55 @@ export async function registerAction(formData: FormData): Promise<void> {
   const email = firstValue(formData, "email");
   const password = firstValue(formData, "password");
   const invitationToken = firstValue(formData, "invitationToken");
+  const next = safeConsumerAuthorizationReturnTo(firstValue(formData, "next"));
   const invitationQuery = invitationToken
     ? `&invitationToken=${encodeURIComponent(invitationToken)}`
     : "";
+  const nextQuery = next ? `&next=${encodeURIComponent(next)}` : "";
+  let consumerLoginIdentifier: { productId: string; username: string } | undefined;
+  if (next) {
+    const authorizeUrl = new URL(next, "https://perminister.invalid");
+    const clientId = authorizeUrl.searchParams.get("client_id") ?? "";
+    const client = await getConsumerClientRecord(clientId).catch(() => null);
+    const authorization = parseConsumerAuthorizationRequest(authorizeUrl.searchParams, client, {
+      allowLegacy: legacyConsumerAuthorizationEnabled(),
+    });
+    if (authorization && client?.productId.trim().toLowerCase() === "system-concepts") {
+      if (!client.selfRegistrationEnabled) {
+        redirect(`/register?error=registration-unavailable${invitationQuery}${nextQuery}`);
+      }
+      const username = firstValue(formData, "systemConceptsId").trim().toLowerCase();
+      if (!/^[a-z0-9_-]{1,254}$/.test(username)) {
+        redirect(`/register?error=invalid-systemconcepts-id${invitationQuery}${nextQuery}`);
+      }
+      consumerLoginIdentifier = { productId: client.productId, username };
+    }
+  }
   if (password !== firstValue(formData, "confirmPassword"))
-    redirect(`/register?error=password-mismatch${invitationQuery}`);
+    redirect(`/register?error=password-mismatch${invitationQuery}${nextQuery}`);
   let subject;
   try {
     subject = await registerAccount(email, password, {
       firstName: firstValue(formData, "firstName"),
       lastName: firstValue(formData, "lastName"),
-    });
+    }, consumerLoginIdentifier);
   } catch (error) {
     const message = publicActionError(error);
     if (message.startsWith("An account with") && !invitationToken) {
-      redirect("/register?notice=registration-requested");
+      redirect(`/register?notice=registration-requested${invitationQuery}${nextQuery}`);
     }
     const code = message.startsWith("An account with")
       ? "account-exists"
-      : message.startsWith("Enter a valid email")
-        ? "invalid-email"
-        : message.startsWith("First name") || message.startsWith("Last name")
-          ? "invalid-name"
-          : message.startsWith("Use a password") || message.startsWith("Password must")
-            ? "password-policy"
-            : "registration-unavailable";
-    redirect(`/register?error=${code}${invitationQuery}`);
+      : message.startsWith("That System Concepts ID")
+        ? "systemconcepts-id-in-use"
+        : message.startsWith("Enter a valid email")
+          ? "invalid-email"
+          : message.startsWith("First name") || message.startsWith("Last name")
+            ? "invalid-name"
+            : message.startsWith("Use a password") || message.startsWith("Password must")
+              ? "password-policy"
+              : "registration-unavailable";
+    redirect(`/register?error=${code}${invitationQuery}${nextQuery}`);
   }
 
   if (invitationToken) {
@@ -340,7 +370,7 @@ export async function registerAction(formData: FormData): Promise<void> {
       }
     });
   }
-  redirect(`/register?notice=registration-requested${invitationQuery}`);
+  redirect(`/register?notice=registration-requested${invitationQuery}${nextQuery}`);
 }
 
 export async function requestVerificationAction(formData: FormData): Promise<void> {

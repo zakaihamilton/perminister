@@ -67,14 +67,30 @@ export async function registerAccount(
   emailInput: string,
   password: string,
   profile: { firstName?: string; lastName?: string } = {},
+  consumerLoginIdentifier?: { productId: string; username: string },
 ): Promise<SubjectRecord> {
   const email = canonicalEmail(emailInput);
   const firstName = normalizedPersonName(profile.firstName, "First");
   const lastName = normalizedPersonName(profile.lastName, "Last");
   const passwordCredential = await createPasswordCredential(password);
+  const username = consumerLoginIdentifier
+    ? normalizeProductUsername(consumerLoginIdentifier.username, consumerLoginIdentifier.productId)
+    : null;
+  if (
+    consumerLoginIdentifier &&
+    consumerLoginIdentifier.productId.trim().toLowerCase() !== "system-concepts"
+  ) {
+    throw new Error("Product-specific self-registration is not enabled for this application.");
+  }
   return authMutationQueue.run(async () => {
     if (await loadSubjectByEmailUnlocked(email)) {
       throw new Error("An account with this email address already exists.");
+    }
+    if (
+      username &&
+      (await loadSubjectByUsernameUnlocked(consumerLoginIdentifier!.productId, username))
+    ) {
+      throw new Error("That System Concepts ID is already in use.");
     }
     const now = new Date().toISOString();
     const subject: SubjectRecord = {
@@ -87,7 +103,17 @@ export async function registerAccount(
       primaryEmail: email,
       emailVerifiedAt: null,
       emailVerificationExempt: false,
-      loginIdentifiers: [],
+      loginIdentifiers:
+        consumerLoginIdentifier && username
+          ? [
+              {
+                kind: "username",
+                productId: consumerLoginIdentifier.productId,
+                value: username,
+                normalizedValue: username,
+              },
+            ]
+          : [],
       legacySources: [],
       passwordCredential,
       authVersion: 1,
@@ -220,7 +246,7 @@ export async function authenticate(
   productId?: string,
 ): Promise<SubjectRecord> {
   const identifier = productId
-    ? normalizeProductUsername(identifierInput)
+    ? normalizeProductUsername(identifierInput, productId)
     : canonicalEmail(identifierInput);
   const attempt = processLocalLoginThrottle.beginAttempt(
     productId ? `${productId}:${identifier}` : identifier,

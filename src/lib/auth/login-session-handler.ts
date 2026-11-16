@@ -1,6 +1,10 @@
 import "server-only";
 
-import { safeConsumerAuthorizationReturnTo } from "@/lib/auth/consumer-sso";
+import {
+  legacyConsumerAuthorizationEnabled,
+  parseConsumerAuthorizationRequest,
+  safeConsumerAuthorizationReturnTo,
+} from "@/lib/auth/consumer-sso";
 import { postLoginDestination } from "@/lib/auth/login-redirect";
 import { passwordRecoveryRequesterKey } from "@/lib/auth/coordination";
 import {
@@ -12,6 +16,7 @@ import {
   authenticate,
   consumeLoginRequestRateLimit,
   createSession,
+  getConsumerClientRecord,
   setSessionCookie,
 } from "@/lib/auth/service";
 
@@ -42,6 +47,18 @@ function loginPath(error: string, invitationToken: string, next: string | null):
   return `/login?${query.toString()}`;
 }
 
+async function productIdForLogin(next: string | null): Promise<string | undefined> {
+  if (!next) return undefined;
+  const authorizationUrl = new URL(next, "https://perminister.invalid");
+  const clientId = authorizationUrl.searchParams.get("client_id") ?? "";
+  const client = await getConsumerClientRecord(clientId);
+  if (!client) return undefined;
+  const authorization = parseConsumerAuthorizationRequest(authorizationUrl.searchParams, client, {
+    allowLegacy: legacyConsumerAuthorizationEnabled(),
+  });
+  return authorization ? client.productId : undefined;
+}
+
 export async function handleLoginPost(request: Request): Promise<Response> {
   if (!isSameOriginBrowserRequest(request)) {
     return publicRedirectResponse(request, loginPath("request", "", null));
@@ -65,7 +82,7 @@ export async function handleLoginPost(request: Request): Promise<Response> {
     return publicRedirectResponse(request, loginPath("request", "", null));
   }
 
-  const email = formValue(formData, "email");
+  const identifier = formValue(formData, "identifier") || formValue(formData, "email");
   const password = formValue(formData, "password");
   const invitationToken = formValue(formData, "invitationToken");
   const next = safeConsumerAuthorizationReturnTo(formValue(formData, "next"));
@@ -75,7 +92,8 @@ export async function handleLoginPost(request: Request): Promise<Response> {
   }
 
   try {
-    const subject = await authenticate(email, password);
+    const productId = await productIdForLogin(next);
+    const subject = await authenticate(identifier, password, productId);
     const session = await createSession(subject.subjectId);
     await setSessionCookie(session.token);
   } catch (error) {

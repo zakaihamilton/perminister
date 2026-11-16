@@ -51,6 +51,7 @@ export default async function LoginPage({
   const params = await searchParams;
   const next = safeConsumerAuthorizationReturnTo(params.next ?? "");
   let presentation = null;
+  let consumerLogin = false;
   if (next) {
     const authorizeUrl = new URL(next, "https://perminister.invalid");
     const clientId = authorizeUrl.searchParams.get("client_id") ?? "";
@@ -58,7 +59,10 @@ export default async function LoginPage({
     const authorization = parseConsumerAuthorizationRequest(authorizeUrl.searchParams, client, {
       allowLegacy: legacyConsumerAuthorizationEnabled(),
     });
-    if (authorization && client) presentation = getConsumerAuthPresentation(client.productId);
+    if (authorization && client) {
+      consumerLogin = true;
+      presentation = getConsumerAuthPresentation(client.productId);
+    }
   }
   const current = await getCurrentSession();
   const promptLogin = Boolean(
@@ -73,6 +77,9 @@ export default async function LoginPage({
     );
   const invitationToken = params.invitationToken ?? "";
   const googleLoginEnabled = Boolean(process.env.GOOGLE_CLIENT_ID?.trim());
+  const registerParams = new URLSearchParams();
+  if (next) registerParams.set("next", next);
+  if (invitationToken) registerParams.set("invitationToken", invitationToken);
   const googleLoginParams = new URLSearchParams();
   if (next) googleLoginParams.set("next", next);
   if (invitationToken) googleLoginParams.set("invitationToken", invitationToken);
@@ -102,8 +109,14 @@ export default async function LoginPage({
             <input type="hidden" name="invitationToken" value={invitationToken} />
           ) : null}
           <label>
-            Email address
-            <input name="email" type="email" autoComplete="username" maxLength={254} required />
+            {consumerLogin ? "Email or username" : "Email address"}
+            <input
+              name={consumerLogin ? "identifier" : "email"}
+              type={consumerLogin ? "text" : "email"}
+              autoComplete="username"
+              maxLength={consumerLogin ? 320 : 254}
+              required
+            />
           </label>
           <PasswordField label="Password" name="password" autoComplete="current-password" />
           <button className="button button-primary form-submit" type="submit">
@@ -134,9 +147,7 @@ export default async function LoginPage({
             New here?{" "}
             <Link
               href={
-                invitationToken
-                  ? `/register?invitationToken=${encodeURIComponent(invitationToken)}`
-                  : "/register"
+                `/register${registerParams.size ? `?${registerParams.toString()}` : ""}`
               }
             >
               Create an account
