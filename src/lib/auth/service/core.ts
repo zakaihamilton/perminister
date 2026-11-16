@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createHash, randomBytes, timingSafeEqual, scrypt as scryptCallback } from "node:crypto";
+import { compare as bcryptCompare } from "bcryptjs";
 import { verify as verifyArgon2id } from "@node-rs/argon2";
 import { cache } from "react";
 import { authMutationQueue } from "../mutation-queue";
@@ -42,6 +43,7 @@ import { createSpacesAuthStoreFromEnv, type VersionedRecord } from "../storage/s
 
 const SCRYPT_OPTIONS = { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 const SESSION_SUBJECT_CACHE_MAX_ENTRIES = 512;
+const LEGACY_BCRYPT_CREDENTIAL_FORMAT = ["legacy", "bcrypt", "v1"].join("-");
 
 export const sessionSubjectCache = new Map<string, SubjectId>();
 
@@ -195,6 +197,10 @@ function legacySaltedScrypt(password: string, salt: string): Promise<Buffer> {
 
 export async function createPasswordCredential(password: string): Promise<PasswordCredential> {
   validatePassword(password);
+  return createScryptPasswordCredential(password);
+}
+
+async function createScryptPasswordCredential(password: string): Promise<PasswordCredential> {
   const salt = randomBytes(16);
   const digest = await scrypt(password, salt);
   return {
@@ -240,6 +246,20 @@ export async function verifyPassword(
   if (!credential) {
     await scrypt(password, Buffer.alloc(16, 4));
     return false;
+  }
+  if (credential.algorithm === "bcrypt") {
+    if (
+      credential.format !== LEGACY_BCRYPT_CREDENTIAL_FORMAT ||
+      !/^\$2[aby]\$(?:0[4-9]|1[0-6])\$[./A-Za-z0-9]{53}$/.test(credential.encodedVerifier)
+    ) {
+      await scrypt(password, Buffer.alloc(16, 4));
+      return false;
+    }
+    try {
+      return await bcryptCompare(password, credential.encodedVerifier);
+    } catch {
+      return false;
+    }
   }
   if (credential.algorithm === "argon2id") {
     if (!/^\$argon2id\$v=\d+\$/.test(credential.encodedVerifier)) {
@@ -453,9 +473,12 @@ export async function loadSubjectByUsernameUnlocked(
   return subjectId ? loadSubjectUnlocked(subjectId) : null;
 }
 
-export function normalizeProductUsername(value: string): string {
+export function normalizeProductUsername(value: string, productId?: string): string {
   const username = value.trim().toLowerCase();
-  const validUsername = /^[a-z0-9][a-z0-9_-]{0,79}$/.test(username);
+  const isSystemConceptsId = productId?.trim().toLowerCase() === "system-concepts";
+  const validUsername = isSystemConceptsId
+    ? /^[a-z0-9_-]{1,254}$/.test(username)
+    : /^[a-z0-9][a-z0-9_-]{0,79}$/.test(username);
   const validEmail =
     username.length <= 254 &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username) &&
@@ -478,7 +501,11 @@ export async function rehashAfterLogin(
   verifiedPassword: string,
 ): Promise<void> {
   if (!needsPasswordRehash(subject.passwordCredential)) return;
-  const passwordCredential = await createPasswordCredential(verifiedPassword);
+  const passwordCredential =
+    subject.passwordCredential?.algorithm === "bcrypt" &&
+    subject.passwordCredential.format === LEGACY_BCRYPT_CREDENTIAL_FORMAT
+      ? await createScryptPasswordCredential(verifiedPassword)
+      : await createPasswordCredential(verifiedPassword);
   await authMutationQueue.run(async () => {
     const current = await loadSubjectUnlocked(subject.subjectId);
     if (

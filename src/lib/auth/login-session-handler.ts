@@ -1,6 +1,7 @@
 import "server-only";
 
 import { safeConsumerAuthorizationReturnTo } from "@/lib/auth/consumer-sso";
+import { consumerAuthRequestContext } from "@/lib/auth/consumer-auth-request-context";
 import { postLoginDestination } from "@/lib/auth/login-redirect";
 import { passwordRecoveryRequesterKey } from "@/lib/auth/coordination";
 import {
@@ -42,6 +43,12 @@ function loginPath(error: string, invitationToken: string, next: string | null):
   return `/login?${query.toString()}`;
 }
 
+async function productIdForLogin(next: string | null): Promise<string | undefined> {
+  if (!next) return undefined;
+  const { client, authorization } = await consumerAuthRequestContext(next);
+  return client && authorization ? client.productId : undefined;
+}
+
 export async function handleLoginPost(request: Request): Promise<Response> {
   if (!isSameOriginBrowserRequest(request)) {
     return publicRedirectResponse(request, loginPath("request", "", null));
@@ -65,7 +72,7 @@ export async function handleLoginPost(request: Request): Promise<Response> {
     return publicRedirectResponse(request, loginPath("request", "", null));
   }
 
-  const email = formValue(formData, "email");
+  const identifier = formValue(formData, "identifier") || formValue(formData, "email");
   const password = formValue(formData, "password");
   const invitationToken = formValue(formData, "invitationToken");
   const next = safeConsumerAuthorizationReturnTo(formValue(formData, "next"));
@@ -75,7 +82,8 @@ export async function handleLoginPost(request: Request): Promise<Response> {
   }
 
   try {
-    const subject = await authenticate(email, password);
+    const productId = await productIdForLogin(next);
+    const subject = await authenticate(identifier, password, productId);
     const session = await createSession(subject.subjectId);
     await setSessionCookie(session.token);
   } catch (error) {

@@ -14,6 +14,12 @@ export {
 } from "./service/core";
 
 export {
+  importSystemConceptsLegacyIdentities,
+  type SystemConceptsImportSummary,
+  type SystemConceptsLegacyIdentity,
+} from "./service/systemconcepts-migration";
+
+export {
   ConsumerProductAccessDeniedError,
   InvalidConsumerAuthorizationCodeError,
   authenticate,

@@ -5,6 +5,8 @@ import { PasswordField } from "@/components/password-field";
 import { AuthCard } from "panel-frame-ui";
 import { AuthPageFrame } from "@/components/auth-page-frame";
 import { getCurrentSession } from "@/lib/auth/service";
+import { authPageContext, type AuthPageProps } from "@/lib/auth/auth-page-context";
+import { postLoginDestination } from "@/lib/auth/login-redirect";
 
 const errorText: Record<string, string> = {
   "account-exists": "An account with this email address already exists. Sign in instead.",
@@ -12,24 +14,25 @@ const errorText: Record<string, string> = {
   "invalid-name": "Names must be 80 characters or fewer.",
   "password-policy": "Use a password with at least 15 characters.",
   "password-mismatch": "The passwords do not match.",
+  "invalid-systemconcepts-id": "Use 1 to 254 letters, numbers, underscores, or hyphens for your System Concepts ID.",
+  "systemconcepts-id-in-use": "That System Concepts ID is already in use.",
   "registration-unavailable":
     "Account creation is unavailable right now. Check the Spaces configuration and try again.",
 };
 
-export default async function RegisterPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string; notice?: string; invitationToken?: string }>;
-}) {
-  const params = await searchParams;
+export default async function RegisterPage({ searchParams }: AuthPageProps) {
+  const { params, next, client, authorization } = await authPageContext(searchParams);
+  const systemConceptsRegistration = Boolean(
+    authorization &&
+      client?.productId.trim().toLowerCase() === "system-concepts" &&
+      client.selfRegistrationEnabled,
+  );
   const current = await getCurrentSession();
-  if (current)
-    redirect(
-      params.invitationToken
-        ? `/accept-invitation?token=${encodeURIComponent(params.invitationToken)}`
-        : "/dashboard",
-    );
+  if (current) redirect(postLoginDestination(next, params.invitationToken ?? ""));
   const invitationToken = params.invitationToken ?? "";
+  const signInParams = new URLSearchParams();
+  if (next) signInParams.set("next", next);
+  if (invitationToken) signInParams.set("invitationToken", invitationToken);
   return (
     <AuthPageFrame>
       <header className="auth-heading">
@@ -55,6 +58,7 @@ export default async function RegisterPage({
           }
         />
         <form action="/actions/registerAction" method="post" className="auth-form">
+          {next ? <input type="hidden" name="next" value={next} /> : null}
           {invitationToken ? (
             <input type="hidden" name="invitationToken" value={invitationToken} />
           ) : null}
@@ -72,6 +76,22 @@ export default async function RegisterPage({
             Email address
             <input name="email" type="email" autoComplete="email" maxLength={254} required />
           </label>
+          {systemConceptsRegistration ? (
+            <label>
+              System Concepts ID
+              <input
+                name="systemConceptsId"
+                type="text"
+                autoComplete="username"
+                maxLength={254}
+                pattern="[A-Za-z0-9_-]{1,254}"
+                required
+              />
+              <span className="auth-footnote">
+                Sign in to System Concepts with this ID or your email address.
+              </span>
+            </label>
+          ) : null}
           <PasswordField
             label="Password"
             name="password"
@@ -94,9 +114,7 @@ export default async function RegisterPage({
             Already have an account?{" "}
             <Link
               href={
-                invitationToken
-                  ? `/login?invitationToken=${encodeURIComponent(invitationToken)}`
-                  : "/login"
+                `/login${signInParams.size ? `?${signInParams.toString()}` : ""}`
               }
             >
               Sign in

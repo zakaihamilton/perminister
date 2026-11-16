@@ -188,6 +188,9 @@ importers:
       '@node-rs/argon2':
         specifier: ^2.2.2
         version: 2.2.2
+      bcryptjs:
+        specifier: ^3.0.3
+        version: 3.0.3
       jose:
         specifier: ^6.2.17
         version: 6.2.17
@@ -1644,6 +1647,10 @@ packages:
   basic-ftp@6.2.1:
     resolution: {integrity: sha512-bK67isD+lKq46AU8vNtjvMaT2ZqAOAmNCbxUHlFBRD4k15NWxyEjmaKtZPlgce58So4BNTjITGQOVTjL9y0ECA==}
     engines: {node: '>=10.0.0'}
+
+  bcryptjs@3.0.3:
+    resolution: {integrity: sha512-GlF5wPWnSa/X5LKM1o0wz0suXIINz1iHRLvTS+sLyi7XPbe5ycmYI3DlZqVGZZtDgl4DmasFg7gOB3JYbphV5g==}
+    hasBin: true
 
   body-parser@1.20.9:
     resolution: {integrity: sha512-FISIQxV5u91Y9gvuFq3q/tA/qTqLJn3AhRcEvyozyhJTh5OBFFtv827AdHU7Rbyct4r+Ba1/99oFa1Y3yuFsdw==}
@@ -5244,6 +5251,8 @@ snapshots:
   baseline-browser-mapping@2.11.27: {}
 
   basic-ftp@6.2.1: {}
+
+  bcryptjs@3.0.3: {}
 
   body-parser@1.20.9(supports-color@10.2.2):
     dependencies:

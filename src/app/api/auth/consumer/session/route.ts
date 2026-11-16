@@ -85,6 +85,11 @@ export const GET = withApiRoutePerformance(
             username:
               current.subject.loginIdentifiers?.find((item) => item.productId === client.productId)
                 ?.value ?? null,
+            legacyAccountId:
+              client.productId === "system-concepts"
+                ? current.subject.legacySources?.find((source) => source.source === "systemconcepts")
+                    ?.accountId ?? null
+                : null,
             firstName: current.subject.firstName ?? null,
             lastName: current.subject.lastName ?? null,
           },

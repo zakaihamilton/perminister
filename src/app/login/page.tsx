@@ -4,13 +4,10 @@ import { AuthPageFeedback } from "@/components/auth-page-feedback";
 import { PasswordField } from "@/components/password-field";
 import { AuthCard } from "panel-frame-ui";
 import { AuthPageFrame } from "@/components/auth-page-frame";
-import { getCurrentSession, getConsumerClientRecord } from "@/lib/auth/service";
-import {
-  legacyConsumerAuthorizationEnabled,
-  parseConsumerAuthorizationRequest,
-  safeConsumerAuthorizationReturnTo,
-} from "@/lib/auth/consumer-sso";
+import { getCurrentSession } from "@/lib/auth/service";
+import { authPageContext, type AuthPageProps } from "@/lib/auth/auth-page-context";
 import { getConsumerAuthPresentation } from "@/components/consumer-auth-presentation";
+import { postLoginDestination } from "@/lib/auth/login-redirect";
 
 const errorText: Record<string, string> = {
   credentials: "Email or password is incorrect.",
@@ -38,41 +35,21 @@ const noticeText: Record<string, string> = {
     "Your invitation was accepted. Sign in to continue to the organization.",
 };
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{
-    error?: string;
-    notice?: string;
-    invitationToken?: string;
-    next?: string;
-  }>;
-}) {
-  const params = await searchParams;
-  const next = safeConsumerAuthorizationReturnTo(params.next ?? "");
-  let presentation = null;
-  if (next) {
-    const authorizeUrl = new URL(next, "https://perminister.invalid");
-    const clientId = authorizeUrl.searchParams.get("client_id") ?? "";
-    const client = await getConsumerClientRecord(clientId).catch(() => null);
-    const authorization = parseConsumerAuthorizationRequest(authorizeUrl.searchParams, client, {
-      allowLegacy: legacyConsumerAuthorizationEnabled(),
-    });
-    if (authorization && client) presentation = getConsumerAuthPresentation(client.productId);
-  }
+export default async function LoginPage({ searchParams }: AuthPageProps) {
+  const { params, next, client, authorization } = await authPageContext(searchParams);
+  const consumerLogin = Boolean(authorization && client);
+  const presentation = consumerLogin && client ? getConsumerAuthPresentation(client.productId) : null;
   const current = await getCurrentSession();
   const promptLogin = Boolean(
     next && new URL(next, "https://perminister.invalid").searchParams.get("prompt") === "login",
   );
   if (current && !promptLogin)
-    redirect(
-      next ??
-        (params.invitationToken
-          ? `/accept-invitation?token=${encodeURIComponent(params.invitationToken)}`
-          : "/dashboard"),
-    );
+    redirect(postLoginDestination(next, params.invitationToken ?? ""));
   const invitationToken = params.invitationToken ?? "";
   const googleLoginEnabled = Boolean(process.env.GOOGLE_CLIENT_ID?.trim());
+  const registerParams = new URLSearchParams();
+  if (next) registerParams.set("next", next);
+  if (invitationToken) registerParams.set("invitationToken", invitationToken);
   const googleLoginParams = new URLSearchParams();
   if (next) googleLoginParams.set("next", next);
   if (invitationToken) googleLoginParams.set("invitationToken", invitationToken);
@@ -102,8 +79,14 @@ export default async function LoginPage({
             <input type="hidden" name="invitationToken" value={invitationToken} />
           ) : null}
           <label>
-            Email address
-            <input name="email" type="email" autoComplete="username" maxLength={254} required />
+            {consumerLogin ? "Email or username" : "Email address"}
+            <input
+              name={consumerLogin ? "identifier" : "email"}
+              type={consumerLogin ? "text" : "email"}
+              autoComplete="username"
+              maxLength={consumerLogin ? 320 : 254}
+              required
+            />
           </label>
           <PasswordField label="Password" name="password" autoComplete="current-password" />
           <button className="button button-primary form-submit" type="submit">
@@ -134,9 +117,7 @@ export default async function LoginPage({
             New here?{" "}
             <Link
               href={
-                invitationToken
-                  ? `/register?invitationToken=${encodeURIComponent(invitationToken)}`
-                  : "/register"
+                `/register${registerParams.size ? `?${registerParams.toString()}` : ""}`
               }
             >
               Create an account
