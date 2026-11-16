@@ -1808,10 +1808,11 @@ async function revokeDetachedProductDataUnlocked(
   }
 }
 
-export async function archiveOrganizationProduct(
+async function setOrganizationProductArchivedState(
   actorId: SubjectId,
   organizationId: string,
   productRecordId: string,
+  action: "archive" | "restore",
 ): Promise<ProductRecord> {
   assertOpaqueId(productRecordId);
   return withOrganizationProductMutation(
@@ -1824,39 +1825,24 @@ export async function archiveOrganizationProduct(
     ],
     async (actor, current) => {
       if (current.record.deletionStartedAt || current.record.deletedAt) {
-        throw new Error("This product is already being deleted.");
+        throw new Error(
+          action === "archive"
+            ? "This product is already being deleted."
+            : "A product being deleted cannot be restored.",
+        );
       }
-      if (current.record.archivedAt) return current.record;
+      if (action === "archive") {
+        if (current.record.archivedAt) return current.record;
 
-      const now = new Date().toISOString();
-      const archived = { ...current.record, archivedAt: now, updatedAt: now };
-      await persistRecord(archived, "product.archived", {
-        kind: "subject",
-        subjectId: actor.subjectId,
-      });
-      return archived;
-    },
-  );
-}
-
-export async function restoreOrganizationProduct(
-  actorId: SubjectId,
-  organizationId: string,
-  productRecordId: string,
-): Promise<ProductRecord> {
-  assertOpaqueId(productRecordId);
-  return withOrganizationProductMutation(
-    actorId,
-    organizationId,
-    productRecordId,
-    (product) => [
-      organizationId,
-      ...(product.sharedProductRef ? [product.sharedProductRef.sourceOrganizationId] : []),
-    ],
-    async (actor, current) => {
-      if (current.record.deletionStartedAt || current.record.deletedAt) {
-        throw new Error("A product being deleted cannot be restored.");
+        const now = new Date().toISOString();
+        const archived = { ...current.record, archivedAt: now, updatedAt: now };
+        await persistRecord(archived, "product.archived", {
+          kind: "subject",
+          subjectId: actor.subjectId,
+        });
+        return archived;
       }
+
       if (!current.record.archivedAt) return current.record;
 
       if (current.record.sharedProductRef) {
@@ -1888,6 +1874,22 @@ export async function restoreOrganizationProduct(
       return restored;
     },
   );
+}
+
+export function archiveOrganizationProduct(
+  actorId: SubjectId,
+  organizationId: string,
+  productRecordId: string,
+): Promise<ProductRecord> {
+  return setOrganizationProductArchivedState(actorId, organizationId, productRecordId, "archive");
+}
+
+export function restoreOrganizationProduct(
+  actorId: SubjectId,
+  organizationId: string,
+  productRecordId: string,
+): Promise<ProductRecord> {
+  return setOrganizationProductArchivedState(actorId, organizationId, productRecordId, "restore");
 }
 
 export async function listArchivedProductsForOrganization(
