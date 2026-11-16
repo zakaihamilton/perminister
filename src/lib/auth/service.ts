@@ -62,6 +62,7 @@ export {
   decideOrganizationRequest,
   getOrganizationDashboardData,
   getOrganizationForSubject,
+  listOrganizationSwitcherData,
   getOwnedPublicProductTransferOptions,
   getProductAccessForSubject,
   getProductForOrganization,

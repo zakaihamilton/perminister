@@ -16,13 +16,16 @@ import {
   getOrganizationDashboardRequestContext,
   type OrganizationDashboardPageProps,
 } from "@/lib/auth/organization-dashboard-context";
+import { withRequestPerformance } from "@/lib/auth/performance";
 
 export default async function OrganizationOverview(
   props: OrganizationDashboardPageProps<{ notice?: string }>,
 ) {
   const { current, organizationId, query } = await getOrganizationDashboardRequestContext(props);
   const [dashboardData, apiKeys] = await Promise.all([
-    getOrganizationDashboardData(current.subject.subjectId, organizationId),
+    withRequestPerformance("dashboard.organization-overview-data", () =>
+      getOrganizationDashboardData(current.subject.subjectId, organizationId),
+    ),
     listApiKeysForSubject(current.subject.subjectId),
   ]);
   const { organization, products } = dashboardData;

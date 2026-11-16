@@ -15,14 +15,15 @@ import {
   getOrganizationDashboardRequestContext,
   type OrganizationDashboardPageProps,
 } from "@/lib/auth/organization-dashboard-context";
+import { withRequestPerformance } from "@/lib/auth/performance";
 
 export default async function ProductsPage(
   props: OrganizationDashboardPageProps<{ error?: string; notice?: string; reason?: string }>,
 ) {
   const { current, organizationId, query } = await getOrganizationDashboardRequestContext(props);
-  const dashboardData = await getOrganizationDashboardData(
-    current.subject.subjectId,
-    organizationId,
+  const dashboardData = await withRequestPerformance(
+    "dashboard.organization-products-page-data",
+    () => getOrganizationDashboardData(current.subject.subjectId, organizationId),
   );
   const { organization, products } = dashboardData;
   const canManage =

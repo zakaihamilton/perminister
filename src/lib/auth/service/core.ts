@@ -40,6 +40,7 @@ import {
   type ServicePrincipalId,
 } from "../domain";
 import { createSpacesAuthStoreFromEnv, type VersionedRecord } from "../storage/spaces";
+import { recordAuthCacheEvent } from "../performance";
 
 const SCRYPT_OPTIONS = { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 const SESSION_SUBJECT_CACHE_MAX_ENTRIES = 512;
@@ -591,13 +592,12 @@ export interface OrganizationSummary {
 
 export interface OrganizationDashboardData {
   organization: OrganizationSummary;
-  organizations: OrganizationSummary[];
   products: ProductRecord[];
 }
 
 type OrganizationDashboardCacheEntry = {
   data: OrganizationDashboardData;
-  memberships: OrganizationMembershipRecord[];
+  membership: OrganizationMembershipRecord;
   expiresAt: number;
 };
 
@@ -615,13 +615,18 @@ export function getCachedOrganizationDashboardData(
 ): OrganizationDashboardCacheEntry | null {
   const key = organizationDashboardCacheKey(subjectId, organizationId);
   const entry = organizationDashboardDataCache.get(key);
-  if (!entry) return null;
+  if (!entry) {
+    recordAuthCacheEvent("organization-dashboard", "miss");
+    return null;
+  }
   if (entry.expiresAt <= Date.now()) {
     organizationDashboardDataCache.delete(key);
+    recordAuthCacheEvent("organization-dashboard", "miss");
     return null;
   }
   organizationDashboardDataCache.delete(key);
   organizationDashboardDataCache.set(key, entry);
+  recordAuthCacheEvent("organization-dashboard", "hit");
   return entry;
 }
 
@@ -629,7 +634,7 @@ export function setCachedOrganizationDashboardData(
   subjectId: SubjectId,
   organizationId: string,
   data: OrganizationDashboardData,
-  memberships: OrganizationMembershipRecord[],
+  membership: OrganizationMembershipRecord,
 ): void {
   const key = organizationDashboardCacheKey(subjectId, organizationId);
   if (
@@ -642,7 +647,7 @@ export function setCachedOrganizationDashboardData(
   organizationDashboardDataCache.delete(key);
   organizationDashboardDataCache.set(key, {
     data,
-    memberships,
+    membership,
     expiresAt: Date.now() + ORGANIZATION_DASHBOARD_CACHE_TTL_MS,
   });
 }

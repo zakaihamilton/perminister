@@ -127,6 +127,16 @@ function safeSegment(value: string): string {
   return value;
 }
 
+function storageAttempts(value: unknown): number {
+  if (typeof value !== "object" || value === null) return 1;
+  const metadata = (value as { $metadata?: unknown }).$metadata;
+  if (typeof metadata !== "object" || metadata === null) return 1;
+  const attempts = (metadata as { attempts?: unknown }).attempts;
+  return typeof attempts === "number" && Number.isSafeInteger(attempts) && attempts > 0
+    ? attempts
+    : 1;
+}
+
 function recordKey(record: AuthRecord): string {
   switch (record.kind) {
     case "subject":
@@ -1165,17 +1175,20 @@ export class SpacesAuthStore {
 
   private async readJson<Value>(key: string): Promise<Value | null> {
     const startedAt = performance.now();
+    let attempts = 1;
     try {
       const result = await this.client.send(
         new GetObjectCommand({ Bucket: this.bucket, Key: key }),
       );
+      attempts = storageAttempts(result);
       if (!result.Body) throw new Error(`Object body is missing at ${key}`);
       return JSON.parse(await result.Body.transformToString()) as Value;
     } catch (error) {
+      attempts = Math.max(attempts, storageAttempts(error));
       if (isMissingObject(error)) return null;
       throw error;
     } finally {
-      recordAuthStorageOperation("get", performance.now() - startedAt);
+      recordAuthStorageOperation("get", performance.now() - startedAt, attempts);
     }
   }
 
@@ -1261,6 +1274,7 @@ export class SpacesAuthStore {
     do {
       const startedAt = performance.now();
       let page: ListObjectsV2CommandOutput;
+      let attempts = 1;
       try {
         page = await this.client.send(
           new ListObjectsV2Command({
@@ -1271,8 +1285,12 @@ export class SpacesAuthStore {
             MaxKeys: 1000,
           }),
         );
+        attempts = storageAttempts(page);
+      } catch (error) {
+        attempts = storageAttempts(error);
+        throw error;
       } finally {
-        recordAuthStorageOperation("list", performance.now() - startedAt);
+        recordAuthStorageOperation("list", performance.now() - startedAt, attempts);
       }
       keys.push(...(page.Contents ?? []).flatMap((item) => (item.Key ? [item.Key] : [])));
       prefixes.push(
