@@ -45,6 +45,24 @@ const deploymentId =
   process.env.VERCEL_GIT_COMMIT_SHA ??
   process.env.RAILWAY_GIT_COMMIT_SHA;
 
+const railwayPublicDomain = process.env.RAILWAY_PUBLIC_DOMAIN?.trim();
+let railwayAssetPrefix: string | undefined;
+if (process.env.VERCEL !== "1" && railwayPublicDomain) {
+  try {
+    const url = new URL(`https://${railwayPublicDomain}`);
+    if (
+      url.host === railwayPublicDomain.toLowerCase() &&
+      url.pathname === "/" &&
+      !url.search &&
+      !url.hash
+    ) {
+      railwayAssetPrefix = url.origin;
+    }
+  } catch {
+    railwayAssetPrefix = undefined;
+  }
+}
+
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
@@ -61,6 +79,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   ...(deploymentId ? { deploymentId } : {}),
+  ...(railwayAssetPrefix ? { assetPrefix: railwayAssetPrefix } : {}),
   // Stable across dashboard-only builds, but changes when writer code or dependencies change.
   env: { PERMINISTER_WRITER_REVISION: writerRevision },
   headers() {

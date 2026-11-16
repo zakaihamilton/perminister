@@ -17,7 +17,7 @@ const errorText: Record<string, string> = {
   sso: "This product sign-in request is invalid or has expired. Return to the product and try again.",
   google_cancelled: "Google sign-in was cancelled.",
   google_link_required:
-    "This email already has a Perminister account. Sign in and verify its email before linking Google.",
+    "This Google account could not be linked automatically. Sign in with the existing Perminister account, then try again.",
   google_account: "This Perminister account cannot sign in. Contact your organization administrator.",
   google_request: "Your Google sign-in request could not be verified. Start again from this page.",
   google_unavailable: "Google sign-in is unavailable right now. Try again later.",

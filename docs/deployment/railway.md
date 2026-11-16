@@ -43,6 +43,8 @@ and uploads that commit with `railway up`. Its path filter mirrors the writer in
 - Configure the service variables from `.env.example` in Railway. Keep credentials and secrets out
   of this repository.
 - Set the deployment health check path to `/api/ready` after the Spaces variables are configured.
+- Railway-rendered pages use `RAILWAY_PUBLIC_DOMAIN` as their Next.js asset prefix so their styles and
+  scripts load from the same deployment that rendered the page.
 
 ## Vercel read and Railway write split
 

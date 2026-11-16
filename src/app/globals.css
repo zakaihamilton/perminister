@@ -1,5 +1,19 @@
 @import "panel-frame-ui/styles.css";
 
+@media (max-width: 780px) {
+  .pf-auth-layout {
+    grid-template-areas: "main" "aside";
+  }
+
+  .pf-auth-main {
+    grid-area: main;
+  }
+
+  .pf-auth-aside {
+    grid-area: aside;
+  }
+}
+
 :root {
   --pf-background: var(--paper);
   --pf-surface: var(--surface);

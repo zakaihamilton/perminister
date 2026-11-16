@@ -213,6 +213,8 @@ export interface SubjectRecord {
   emailVerifiedAt: string | null;
   /** Allows imported or admin-provisioned legacy accounts to retain their prior login behavior. */
   emailVerificationExempt?: boolean;
+  /** Product-scoped legacy login exemptions that do not claim the email itself is verified. */
+  emailVerificationExemptProducts?: string[];
   /** Product-scoped usernames, used by consumer apps that do not use email as the login ID. */
   loginIdentifiers?: ConsumerLoginIdentifier[];
   /** Stable references used to make legacy imports idempotent and auditable. */

@@ -4,6 +4,7 @@ import {
   consumeConsumerLoginRequestRateLimit,
   ConsumerProductAccessDeniedError,
   createConsumerSession,
+  isEmailVerifiedOrExemptForProduct,
   listConsumerOrganizationsForSubject,
 } from "@/lib/auth/service";
 import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
@@ -76,7 +77,7 @@ export const POST = withApiRoutePerformance(
     try {
       const identifier = body.identifier ?? body.email!;
       const subject = await authenticate(identifier, body.password, client.productId);
-      if (subject.primaryEmail && !subject.emailVerifiedAt && !subject.emailVerificationExempt) {
+      if (!isEmailVerifiedOrExemptForProduct(subject, client.productId)) {
         return Response.json(
           { error: "email_verification_required" },
           {

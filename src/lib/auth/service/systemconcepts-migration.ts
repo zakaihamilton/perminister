@@ -153,7 +153,9 @@ export async function importSystemConceptsLegacyIdentities(
         if (
           subject.legacySources?.some(
             (source) => source.source === SOURCE_ID && source.accountId === sourceId,
-          ) && existingIdentifier
+          ) &&
+          existingIdentifier &&
+          subject.emailVerificationExemptProducts?.includes(PRODUCT_ID)
         ) {
           summary.skipped += 1;
           continue;
@@ -179,6 +181,9 @@ export async function importSystemConceptsLegacyIdentities(
           legacySources: priorSource
             ? subject.legacySources
             : [...(subject.legacySources ?? []), { source: SOURCE_ID, accountId: sourceId }],
+          emailVerificationExemptProducts: Array.from(
+            new Set([...(subject.emailVerificationExemptProducts ?? []), PRODUCT_ID]),
+          ),
           updatedAt: now,
         };
         pendingWrites.push({
@@ -200,6 +205,7 @@ export async function importSystemConceptsLegacyIdentities(
         lastName: importedName(identity.lastName),
         primaryEmail: email,
         emailVerifiedAt: null,
+        emailVerificationExemptProducts: [PRODUCT_ID],
         loginIdentifiers: [
           {
             kind: "username",

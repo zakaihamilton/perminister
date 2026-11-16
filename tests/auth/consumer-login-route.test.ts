@@ -17,6 +17,7 @@ vi.mock("@/lib/auth/service", () => ({
   authenticate: mocks.authenticate,
   consumeConsumerLoginRequestRateLimit: mocks.consumeConsumerLoginRequestRateLimit,
   createConsumerSession: mocks.createConsumerSession,
+  isEmailVerifiedOrExemptForProduct: vi.fn(() => true),
   listConsumerOrganizationsForSubject: mocks.listConsumerOrganizationsForSubject,
 }));
 vi.mock("@/lib/auth/consumer-route", () => ({

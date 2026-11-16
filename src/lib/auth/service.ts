@@ -8,6 +8,7 @@ export {
   consumeConsumerLoginRequestRateLimit,
   consumeLoginRequestRateLimit,
   isAdministrator,
+  isEmailVerifiedOrExemptForProduct,
   type OrganizationDashboardData,
   type OrganizationSummary,
   type ProductDetailsInput,
