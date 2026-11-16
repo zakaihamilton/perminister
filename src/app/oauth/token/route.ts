@@ -1,4 +1,4 @@
-import { withApiRoutePerformance } from "@/lib/auth/performance";
+import { withApiRoutePerformance, withRequestPerformanceSpan } from "@/lib/auth/performance";
 import { authenticateConsumerClientBasic } from "@/lib/auth/consumer-clients";
 import { NO_STORE_HEADERS, readBoundedRequestBody } from "@/lib/auth/http";
 import {
@@ -26,13 +26,17 @@ function invalidRequest(error: string, status = 400): Response {
 
 function uniqueValue(params: URLSearchParams, name: string): string | null {
   const values = params.getAll(name);
-  return values.length === 1 ? values[0] ?? null : null;
+  return values.length === 1 ? (values[0] ?? null) : null;
 }
 
 export const POST = withApiRoutePerformance(
   "POST /oauth/token",
   async function POST(request: Request): Promise<Response> {
-    if (new URL(request.url).search || request.headers.has("x-perminister-client-id") || request.headers.has("x-perminister-client-secret")) {
+    if (
+      new URL(request.url).search ||
+      request.headers.has("x-perminister-client-id") ||
+      request.headers.has("x-perminister-client-secret")
+    ) {
       return invalidRequest("invalid_request");
     }
     if (
@@ -62,16 +66,18 @@ export const POST = withApiRoutePerformance(
       body.getAll("grant_type").length !== 1 ||
       body.getAll("code").length !== 1 ||
       body.getAll("code_verifier").length !== 1 ||
-      body.getAll("redirect_uri").length !== 1
-      || body.has("client_secret")
-      || body.has("scope")
+      body.getAll("redirect_uri").length !== 1 ||
+      body.has("client_secret") ||
+      body.has("scope")
     ) {
       return invalidRequest("invalid_request");
     }
 
     let client;
     try {
-      client = await authenticateConsumerClientBasic(request);
+      client = await withRequestPerformanceSpan("auth.oidc.client-authentication", () =>
+        authenticateConsumerClientBasic(request),
+      );
     } catch {
       return invalidRequest("temporarily_unavailable", 503);
     }
@@ -83,22 +89,23 @@ export const POST = withApiRoutePerformance(
 
     try {
       assertOidcSigningKeyReady();
-      const exchanged = await exchangeConsumerAuthorizationCode(
-        code,
-        client.clientId,
-        verifier,
-        redirectUri,
+      const exchanged = await withRequestPerformanceSpan(
+        "auth.oidc.authorization-code-exchange",
+        () => exchangeConsumerAuthorizationCode(code, client.clientId, verifier, redirectUri),
       );
-      if (!exchanged.nonce || exchanged.scope !== "openid profile email perminister_api") {
+      const nonce = exchanged.nonce;
+      if (!nonce || exchanged.scope !== "openid profile email perminister_api") {
         return invalidRequest("invalid_grant");
       }
       const expiresIn = Math.floor((Date.parse(exchanged.session.expiresAt) - Date.now()) / 1000);
       if (expiresIn <= 0) return invalidRequest("invalid_grant");
-      const idToken = signOidcIdToken({
-        clientId: client.clientId,
-        nonce: exchanged.nonce,
-        subject: exchanged.subject,
-      });
+      const idToken = await withRequestPerformanceSpan("auth.oidc.id-token-signing", async () =>
+        signOidcIdToken({
+          clientId: client.clientId,
+          nonce,
+          subject: exchanged.subject,
+        }),
+      );
       return Response.json(
         {
           access_token: exchanged.token,

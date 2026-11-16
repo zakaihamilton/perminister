@@ -1,4 +1,4 @@
-import { withApiRoutePerformance } from "@/lib/auth/performance";
+import { withApiRoutePerformance, withRequestPerformanceSpan } from "@/lib/auth/performance";
 import { authenticateConsumerClient } from "@/lib/auth/consumer-clients";
 import { bearerToken, NO_STORE_HEADERS } from "@/lib/auth/http";
 import {
@@ -23,7 +23,9 @@ async function getConsumerSessionContext(
   let current: Awaited<ReturnType<typeof getSessionFromToken>>;
   try {
     [client, current] = await Promise.all([
-      authenticateConsumerClient(request),
+      withRequestPerformanceSpan("auth.consumer-session.client-authentication", () =>
+        authenticateConsumerClient(request),
+      ),
       token ? getSessionFromToken(token) : Promise.resolve(null),
     ]);
   } catch {
@@ -60,10 +62,14 @@ export const GET = withApiRoutePerformance(
       }
       const selectedOrganizationId =
         new URL(request.url).searchParams.get("organization_id") ?? undefined;
-      let organizations = await listConsumerOrganizationsForSubject(
-        current.subject.subjectId,
-        client.productId,
-        selectedOrganizationId,
+      let organizations = await withRequestPerformanceSpan(
+        "auth.consumer-session.organization-enrichment",
+        () =>
+          listConsumerOrganizationsForSubject(
+            current.subject.subjectId,
+            client.productId,
+            selectedOrganizationId,
+          ),
       );
       if (
         selectedOrganizationId &&
@@ -71,9 +77,9 @@ export const GET = withApiRoutePerformance(
           (organization) => organization.organizationId === selectedOrganizationId.toLowerCase(),
         )
       ) {
-        organizations = await listConsumerOrganizationsForSubject(
-          current.subject.subjectId,
-          client.productId,
+        organizations = await withRequestPerformanceSpan(
+          "auth.consumer-session.organization-fallback",
+          () => listConsumerOrganizationsForSubject(current.subject.subjectId, client.productId),
         );
       }
       return Response.json(
@@ -87,8 +93,9 @@ export const GET = withApiRoutePerformance(
                 ?.value ?? null,
             legacyAccountId:
               client.productId === "system-concepts"
-                ? current.subject.legacySources?.find((source) => source.source === "systemconcepts")
-                    ?.accountId ?? null
+                ? (current.subject.legacySources?.find(
+                    (source) => source.source === "systemconcepts",
+                  )?.accountId ?? null)
                 : null,
             firstName: current.subject.firstName ?? null,
             lastName: current.subject.lastName ?? null,
