@@ -156,6 +156,7 @@
 }
 :where(.appScope) :global(.login-heading > p:last-child) {
   max-width: none;
+  white-space: normal;
 }
 :where(.appScope) :global(.auth-card) {
   border: 1px solid var(--line);
@@ -1062,6 +1063,9 @@
   }
   :where(.appScope) :global(.auth-card) {
     padding: 19px;
+  }
+  :where(.appScope) :global(.login-heading > p:last-child) {
+    white-space: normal;
   }
   :where(.appScope) :global(.auth-heading h1), :where(.appScope) :global(.auth-card h1) {
     font-size: 38px;

@@ -25,7 +25,6 @@ import {
   deleteAccountForAdministrator,
   deletePermissionGrant,
   getCurrentSession,
-  getConsumerClientRecord,
   getOrganizationForSubject,
   isAdministrator,
   installPublicProduct,
@@ -70,11 +69,7 @@ import {
   consumeProductLookupRateLimit,
   passwordRecoveryRequesterKey,
 } from "@/lib/auth/coordination";
-import {
-  legacyConsumerAuthorizationEnabled,
-  parseConsumerAuthorizationRequest,
-  safeConsumerAuthorizationReturnTo,
-} from "@/lib/auth/consumer-sso";
+import { consumerAuthRequestContext } from "@/lib/auth/consumer-auth-request-context";
 
 function publicActionError(error: unknown): string {
   if (!(error instanceof Error)) return "Perminister could not complete that request.";
@@ -285,29 +280,24 @@ export async function registerAction(formData: FormData): Promise<void> {
   const email = firstValue(formData, "email");
   const password = firstValue(formData, "password");
   const invitationToken = firstValue(formData, "invitationToken");
-  const next = safeConsumerAuthorizationReturnTo(firstValue(formData, "next"));
+  const { next, client, authorization } = await consumerAuthRequestContext(
+    firstValue(formData, "next"),
+    { ignoreLookupErrors: true },
+  );
   const invitationQuery = invitationToken
     ? `&invitationToken=${encodeURIComponent(invitationToken)}`
     : "";
   const nextQuery = next ? `&next=${encodeURIComponent(next)}` : "";
   let consumerLoginIdentifier: { productId: string; username: string } | undefined;
-  if (next) {
-    const authorizeUrl = new URL(next, "https://perminister.invalid");
-    const clientId = authorizeUrl.searchParams.get("client_id") ?? "";
-    const client = await getConsumerClientRecord(clientId).catch(() => null);
-    const authorization = parseConsumerAuthorizationRequest(authorizeUrl.searchParams, client, {
-      allowLegacy: legacyConsumerAuthorizationEnabled(),
-    });
-    if (authorization && client?.productId.trim().toLowerCase() === "system-concepts") {
-      if (!client.selfRegistrationEnabled) {
-        redirect(`/register?error=registration-unavailable${invitationQuery}${nextQuery}`);
-      }
-      const username = firstValue(formData, "systemConceptsId").trim().toLowerCase();
-      if (!/^[a-z0-9_-]{1,254}$/.test(username)) {
-        redirect(`/register?error=invalid-systemconcepts-id${invitationQuery}${nextQuery}`);
-      }
-      consumerLoginIdentifier = { productId: client.productId, username };
+  if (authorization && client?.productId.trim().toLowerCase() === "system-concepts") {
+    if (!client.selfRegistrationEnabled) {
+      redirect(`/register?error=registration-unavailable${invitationQuery}${nextQuery}`);
     }
+    const username = firstValue(formData, "systemConceptsId").trim().toLowerCase();
+    if (!/^[a-z0-9_-]{1,254}$/.test(username)) {
+      redirect(`/register?error=invalid-systemconcepts-id${invitationQuery}${nextQuery}`);
+    }
+    consumerLoginIdentifier = { productId: client.productId, username };
   }
   if (password !== firstValue(formData, "confirmPassword"))
     redirect(`/register?error=password-mismatch${invitationQuery}${nextQuery}`);

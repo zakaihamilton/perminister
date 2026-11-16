@@ -4,12 +4,9 @@ import { AuthPageFeedback } from "@/components/auth-page-feedback";
 import { PasswordField } from "@/components/password-field";
 import { AuthCard } from "panel-frame-ui";
 import { AuthPageFrame } from "@/components/auth-page-frame";
-import { getCurrentSession, getConsumerClientRecord } from "@/lib/auth/service";
-import {
-  legacyConsumerAuthorizationEnabled,
-  parseConsumerAuthorizationRequest,
-  safeConsumerAuthorizationReturnTo,
-} from "@/lib/auth/consumer-sso";
+import { getCurrentSession } from "@/lib/auth/service";
+import { authPageContext, type AuthPageProps } from "@/lib/auth/auth-page-context";
+import { postLoginDestination } from "@/lib/auth/login-redirect";
 
 const errorText: Record<string, string> = {
   "account-exists": "An account with this email address already exists. Sign in instead.",
@@ -23,39 +20,15 @@ const errorText: Record<string, string> = {
     "Account creation is unavailable right now. Check the Spaces configuration and try again.",
 };
 
-export default async function RegisterPage({
-  searchParams,
-}: {
-  searchParams: Promise<{
-    error?: string;
-    notice?: string;
-    invitationToken?: string;
-    next?: string;
-  }>;
-}) {
-  const params = await searchParams;
-  const next = safeConsumerAuthorizationReturnTo(params.next ?? "");
-  let systemConceptsRegistration = false;
-  if (next) {
-    const authorizeUrl = new URL(next, "https://perminister.invalid");
-    const clientId = authorizeUrl.searchParams.get("client_id") ?? "";
-    const client = await getConsumerClientRecord(clientId).catch(() => null);
-    const authorization = parseConsumerAuthorizationRequest(authorizeUrl.searchParams, client, {
-      allowLegacy: legacyConsumerAuthorizationEnabled(),
-    });
-    systemConceptsRegistration = Boolean(
-      authorization &&
-        client?.productId.trim().toLowerCase() === "system-concepts" &&
-        client.selfRegistrationEnabled,
-    );
-  }
+export default async function RegisterPage({ searchParams }: AuthPageProps) {
+  const { params, next, client, authorization } = await authPageContext(searchParams);
+  const systemConceptsRegistration = Boolean(
+    authorization &&
+      client?.productId.trim().toLowerCase() === "system-concepts" &&
+      client.selfRegistrationEnabled,
+  );
   const current = await getCurrentSession();
-  if (current)
-    redirect(
-      next ?? (params.invitationToken
-        ? `/accept-invitation?token=${encodeURIComponent(params.invitationToken)}`
-        : "/dashboard"),
-    );
+  if (current) redirect(postLoginDestination(next, params.invitationToken ?? ""));
   const invitationToken = params.invitationToken ?? "";
   const signInParams = new URLSearchParams();
   if (next) signInParams.set("next", next);

@@ -1,10 +1,7 @@
 import "server-only";
 
-import {
-  legacyConsumerAuthorizationEnabled,
-  parseConsumerAuthorizationRequest,
-  safeConsumerAuthorizationReturnTo,
-} from "@/lib/auth/consumer-sso";
+import { safeConsumerAuthorizationReturnTo } from "@/lib/auth/consumer-sso";
+import { consumerAuthRequestContext } from "@/lib/auth/consumer-auth-request-context";
 import { postLoginDestination } from "@/lib/auth/login-redirect";
 import { passwordRecoveryRequesterKey } from "@/lib/auth/coordination";
 import {
@@ -16,14 +13,11 @@ import {
   authenticate,
   consumeLoginRequestRateLimit,
   createSession,
-  getConsumerClientRecord,
   setSessionCookie,
 } from "@/lib/auth/service";
 
 const MAX_LOGIN_FORM_BYTES = 8 * 1024;
 const MAX_LOGIN_PASSWORD_LENGTH = 256;
-const CONSUMER_CLIENT_ID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 async function boundedLoginFormData(request: Request): Promise<FormData> {
   const bytes = await readBoundedRequestBody(request, MAX_LOGIN_FORM_BYTES);
@@ -51,15 +45,8 @@ function loginPath(error: string, invitationToken: string, next: string | null):
 
 async function productIdForLogin(next: string | null): Promise<string | undefined> {
   if (!next) return undefined;
-  const authorizationUrl = new URL(next, "https://perminister.invalid");
-  const clientId = authorizationUrl.searchParams.get("client_id") ?? "";
-  if (!CONSUMER_CLIENT_ID_PATTERN.test(clientId)) return undefined;
-  const client = await getConsumerClientRecord(clientId);
-  if (!client) return undefined;
-  const authorization = parseConsumerAuthorizationRequest(authorizationUrl.searchParams, client, {
-    allowLegacy: legacyConsumerAuthorizationEnabled(),
-  });
-  return authorization ? client.productId : undefined;
+  const { client, authorization } = await consumerAuthRequestContext(next);
+  return client && authorization ? client.productId : undefined;
 }
 
 export async function handleLoginPost(request: Request): Promise<Response> {
