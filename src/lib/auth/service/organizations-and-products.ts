@@ -973,6 +973,38 @@ async function withOrganizationMutationLocks<Result>(
   return lockAt(0);
 }
 
+async function withOrganizationProductMutation<Result>(
+  actorId: SubjectId,
+  organizationId: string,
+  productRecordId: string,
+  lockIdsForProduct: (
+    product: ProductRecord,
+  ) => readonly string[] | Promise<readonly string[]>,
+  operation: (
+    actor: OrganizationMembershipRecord,
+    current: { record: ProductRecord },
+  ) => Result | Promise<Result>,
+): Promise<Result> {
+  return authMutationQueue.run(async () => {
+    const initial = await loadRecord("product", productRecordId);
+    if (!initial || initial.record.organizationId !== organizationId) {
+      throw new Error("Product not found.");
+    }
+    const lockIds = await lockIdsForProduct(initial.record);
+    return withOrganizationMutationLocks(lockIds, async () => {
+      const actor = await requireOrganizationRoleUnlocked(actorId, organizationId, [
+        "owner",
+        "admin",
+      ]);
+      const current = await loadRecord("product", productRecordId);
+      if (!current || current.record.organizationId !== organizationId) {
+        throw new Error("Product not found.");
+      }
+      return operation(actor, current);
+    });
+  });
+}
+
 async function assignSharedProductOwnerUnlocked(
   actorId: SubjectId,
   organizationId: string,
@@ -1782,26 +1814,15 @@ export async function archiveOrganizationProduct(
   productRecordId: string,
 ): Promise<ProductRecord> {
   assertOpaqueId(productRecordId);
-  return authMutationQueue.run(async () => {
-    const initial = await loadRecord("product", productRecordId);
-    if (!initial || initial.record.organizationId !== organizationId) {
-      throw new Error("Product not found.");
-    }
-    const lockIds = [
+  return withOrganizationProductMutation(
+    actorId,
+    organizationId,
+    productRecordId,
+    (product) => [
       organizationId,
-      ...(initial.record.sharedProductRef
-        ? [initial.record.sharedProductRef.sourceOrganizationId]
-        : []),
-    ];
-    return withOrganizationMutationLocks(lockIds, async () => {
-      const actor = await requireOrganizationRoleUnlocked(actorId, organizationId, [
-        "owner",
-        "admin",
-      ]);
-      const current = await loadRecord("product", productRecordId);
-      if (!current || current.record.organizationId !== organizationId) {
-        throw new Error("Product not found.");
-      }
+      ...(product.sharedProductRef ? [product.sharedProductRef.sourceOrganizationId] : []),
+    ],
+    async (actor, current) => {
       if (current.record.deletionStartedAt || current.record.deletedAt) {
         throw new Error("This product is already being deleted.");
       }
@@ -1814,8 +1835,8 @@ export async function archiveOrganizationProduct(
         subjectId: actor.subjectId,
       });
       return archived;
-    });
-  });
+    },
+  );
 }
 
 export async function restoreOrganizationProduct(
@@ -1824,26 +1845,15 @@ export async function restoreOrganizationProduct(
   productRecordId: string,
 ): Promise<ProductRecord> {
   assertOpaqueId(productRecordId);
-  return authMutationQueue.run(async () => {
-    const initial = await loadRecord("product", productRecordId);
-    if (!initial || initial.record.organizationId !== organizationId) {
-      throw new Error("Product not found.");
-    }
-    const lockIds = [
+  return withOrganizationProductMutation(
+    actorId,
+    organizationId,
+    productRecordId,
+    (product) => [
       organizationId,
-      ...(initial.record.sharedProductRef
-        ? [initial.record.sharedProductRef.sourceOrganizationId]
-        : []),
-    ];
-    return withOrganizationMutationLocks(lockIds, async () => {
-      const actor = await requireOrganizationRoleUnlocked(actorId, organizationId, [
-        "owner",
-        "admin",
-      ]);
-      const current = await loadRecord("product", productRecordId);
-      if (!current || current.record.organizationId !== organizationId) {
-        throw new Error("Product not found.");
-      }
+      ...(product.sharedProductRef ? [product.sharedProductRef.sourceOrganizationId] : []),
+    ],
+    async (actor, current) => {
       if (current.record.deletionStartedAt || current.record.deletedAt) {
         throw new Error("A product being deleted cannot be restored.");
       }
@@ -1876,8 +1886,8 @@ export async function restoreOrganizationProduct(
         subjectId: actor.subjectId,
       });
       return restored;
-    });
-  });
+    },
+  );
 }
 
 export async function listArchivedProductsForOrganization(
@@ -1917,51 +1927,47 @@ export async function deleteOrganizationProduct(
   confirmedRemoval = false,
 ): Promise<ProductDeletionResult> {
   assertOpaqueId(productRecordId);
-  return authMutationQueue.run(async () => {
-    const initial = await loadRecord("product", productRecordId);
-    if (!initial || initial.record.organizationId !== organizationId) {
-      throw new Error("Product not found.");
-    }
-    const isSharedInstallation = !!initial.record.sharedProductRef;
-    const initialProducts = isSharedInstallation
-      ? [initial.record]
-      : await store().listProductsByProductId(initial.record.productId);
-    const initialInstallations = isSharedInstallation
-      ? [initial.record]
-      : sharedInstallationsForSource(initial.record, initialProducts);
-    const lockIds = [
-      organizationId,
-      ...(isSharedInstallation
-        ? [initial.record.sharedProductRef!.sourceOrganizationId]
-        : initialInstallations.map((installation) => installation.organizationId)),
-    ];
-
-    return withOrganizationMutationLocks(lockIds, async () => {
-      const actor = await requireOrganizationRoleUnlocked(actorId, organizationId, [
-        "owner",
-        "admin",
-      ]);
-      let current = await loadRecord("product", productRecordId);
-      if (!current || current.record.organizationId !== organizationId) {
-        throw new Error("Product not found.");
-      }
-      if (current.record.deletedAt) {
+  let isSharedInstallation = false;
+  let lockIds: string[] = [];
+  return withOrganizationProductMutation(
+    actorId,
+    organizationId,
+    productRecordId,
+    async (initial) => {
+      isSharedInstallation = !!initial.sharedProductRef;
+      const initialProducts = isSharedInstallation
+        ? [initial]
+        : await store().listProductsByProductId(initial.productId);
+      const initialInstallations = isSharedInstallation
+        ? [initial]
+        : sharedInstallationsForSource(initial, initialProducts);
+      lockIds = [
+        organizationId,
+        ...(isSharedInstallation
+          ? [initial.sharedProductRef!.sourceOrganizationId]
+          : initialInstallations.map((installation) => installation.organizationId)),
+      ];
+      return lockIds;
+    },
+    async (actor, current) => {
+      let currentRecord = current;
+      if (currentRecord.record.deletedAt) {
         return {
-          productId: current.record.productId,
+          productId: currentRecord.record.productId,
           affectedOrganizationIds: lockIds,
           removedSharedInstallation: isSharedInstallation,
         };
       }
-      if (!current.record.archivedAt) {
+      if (!currentRecord.record.archivedAt) {
         throw new Error("Archive this product before deleting it.");
       }
 
       const latestProducts = isSharedInstallation
-        ? [current.record]
-        : await store().listProductsByProductId(current.record.productId);
+        ? [currentRecord.record]
+        : await store().listProductsByProductId(currentRecord.record.productId);
       const installations = isSharedInstallation
-        ? [current.record]
-        : sharedInstallationsForSource(current.record, latestProducts);
+        ? [currentRecord.record]
+        : sharedInstallationsForSource(currentRecord.record, latestProducts);
       const unheldOrganizations = installations
         .filter((installation) => !installation.sharedProductRef?.detachedAt)
         .map((installation) => installation.organizationId)
@@ -1977,13 +1983,13 @@ export async function deleteOrganizationProduct(
       }
 
       const now = new Date().toISOString();
-      if (!current.record.deletionStartedAt) {
-        const started = { ...current.record, deletionStartedAt: now, updatedAt: now };
+      if (!currentRecord.record.deletionStartedAt) {
+        const started = { ...currentRecord.record, deletionStartedAt: now, updatedAt: now };
         await persistRecord(started, "product.deletion-started", {
           kind: "subject",
           subjectId: actor.subjectId,
         });
-        current = { ...current, record: started };
+        currentRecord = { ...currentRecord, record: started };
       }
 
       const affectedOrganizationIds = [
@@ -1993,8 +1999,8 @@ export async function deleteOrganizationProduct(
         ]),
       ];
       const cleanupTargets = isSharedInstallation
-        ? [current.record]
-        : [current.record, ...installations];
+        ? [currentRecord.record]
+        : [currentRecord.record, ...installations];
       for (const target of cleanupTargets) {
         await revokeDetachedProductDataUnlocked(
           actor.subjectId,
@@ -2018,11 +2024,11 @@ export async function deleteOrganizationProduct(
             { kind: "subject", subjectId: actor.subjectId },
           );
         }
-      } else if (!current.record.sharedProductRef?.detachedAt) {
+      } else if (!currentRecord.record.sharedProductRef?.detachedAt) {
         await persistRecord(
           {
-            ...current.record,
-            sharedProductRef: { ...current.record.sharedProductRef!, detachedAt: now },
+            ...currentRecord.record,
+            sharedProductRef: { ...currentRecord.record.sharedProductRef!, detachedAt: now },
             deletedAt: now,
             updatedAt: now,
           },
@@ -2044,12 +2050,12 @@ export async function deleteOrganizationProduct(
         );
       }
       return {
-        productId: current.record.productId,
+        productId: currentRecord.record.productId,
         affectedOrganizationIds,
         removedSharedInstallation: isSharedInstallation,
       };
-    });
-  });
+    },
+  );
 }
 
 export async function setOrganizationProductVisibility(
@@ -2063,31 +2069,18 @@ export async function setOrganizationProductVisibility(
   if (visibility !== "public" && visibility !== "private") {
     throw new Error("Choose public or private product visibility.");
   }
-  return authMutationQueue.run(async () => {
-    const initial = await loadRecord("product", productRecordId);
-    if (
-      !initial ||
-      initial.record.organizationId !== organizationId ||
-      initial.record.sharedProductRef
-    ) {
-      throw new Error("Product not found.");
-    }
-    const initialProducts = await store().listProductsByProductId(initial.record.productId);
-    const initialInstallations = sharedInstallationsForSource(initial.record, initialProducts);
-    const lockIds = [organizationId, ...initialInstallations.map((entry) => entry.organizationId)];
-    return withOrganizationMutationLocks(lockIds, async () => {
-      const actor = await requireOrganizationRoleUnlocked(actorId, organizationId, [
-        "owner",
-        "admin",
-      ]);
-      const current = await loadRecord("product", productRecordId);
-      if (
-        !current ||
-        current.record.organizationId !== organizationId ||
-        current.record.sharedProductRef
-      ) {
-        throw new Error("Product not found.");
-      }
+  return withOrganizationProductMutation(
+    actorId,
+    organizationId,
+    productRecordId,
+    async (initial) => {
+      if (initial.sharedProductRef) throw new Error("Product not found.");
+      const initialProducts = await store().listProductsByProductId(initial.productId);
+      const initialInstallations = sharedInstallationsForSource(initial, initialProducts);
+      return [organizationId, ...initialInstallations.map((entry) => entry.organizationId)];
+    },
+    async (actor, current) => {
+      if (current.record.sharedProductRef) throw new Error("Product not found.");
       if (
         current.record.archivedAt ||
         current.record.deletionStartedAt ||
@@ -2151,8 +2144,8 @@ export async function setOrganizationProductVisibility(
         subjectId: actor.subjectId,
       });
       return next;
-    });
-  });
+    },
+  );
 }
 
 export async function createProductAccessRole(
