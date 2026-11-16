@@ -54,7 +54,7 @@ function AuthorizationPageSkeleton() {
         <section className={skeletonClasses("site-skeleton-authorization-card")}>
           <div className={skeletonClasses("site-skeleton-authorization-loader")}>
             <span className={skeletonClasses("site-skeleton-authorization-icon")}>
-              <svg viewBox="0 0 24 24" fill="none">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
                 <path d="M12 3.5 19 6v5.2c0 4.2-2.9 7.6-7 9.3-4.1-1.7-7-5.1-7-9.3V6l7-2.5Z" />
                 <path d="m9 12 2 2 4-4" />
               </svg>
