@@ -920,6 +920,9 @@
   color: var(--ink);
   background: var(--surface-2);
 }
+:global(html[data-theme="dark"]) :where(.appScope) :global(.developer-nav a[aria-current="page"]) {
+  color: var(--ink);
+}
 :global(html[data-theme="dark"]) :where(.appScope) :global(.theme-trigger) {
   border-color: var(--line);
   color: var(--ink-soft);
