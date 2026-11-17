@@ -41,7 +41,7 @@ describe("Perminister OpenID provider", () => {
       jwks_uri: "https://perminister.example/.well-known/jwks.json",
       response_types_supported: ["code"],
       id_token_signing_alg_values_supported: ["RS256"],
-      token_endpoint_auth_methods_supported: ["client_secret_basic"],
+      token_endpoint_auth_methods_supported: ["none", "client_secret_basic"],
       code_challenge_methods_supported: ["S256"],
     });
   });

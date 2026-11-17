@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
     throw new Error(`redirect:${destination}`);
   }),
   createConsumerAuthorizationCode: vi.fn(),
-  getConsumerClientRecord: vi.fn(),
+  getOAuthAuthorizationClient: vi.fn(),
   getCurrentSession: vi.fn(),
 }));
 
@@ -13,7 +13,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/lib/auth/service", () => ({
   createConsumerAuthorizationCode: mocks.createConsumerAuthorizationCode,
-  getConsumerClientRecord: mocks.getConsumerClientRecord,
+  getOAuthAuthorizationClient: mocks.getOAuthAuthorizationClient,
   getCurrentSession: mocks.getCurrentSession,
 }));
 
@@ -27,9 +27,21 @@ const state = "s".repeat(43);
 const client = {
   consumerClientId: clientId,
   productId: "postparticle",
+  appName: "PostParticle",
   appOrigin: "https://postparticle.example",
   status: "active",
 };
+
+function oauthAuthorizationClient(profile = client) {
+  return {
+    oauthClientId: profile.consumerClientId,
+    oauthClientType: "confidential" as const,
+    clientName: profile.appName,
+    profile,
+    redirectUris: [new URL("/auth/perminister/callback", profile.appOrigin).toString()],
+    registrationScopes: null,
+  };
+}
 
 function authorizationForm() {
   const form = new FormData();
@@ -58,7 +70,7 @@ function legacyAuthorizationForm() {
 describe("consumer authorization cancellation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getConsumerClientRecord.mockResolvedValue(client);
+    mocks.getOAuthAuthorizationClient.mockResolvedValue(oauthAuthorizationClient(client));
   });
 
   afterEach(() => vi.unstubAllEnvs());
@@ -67,16 +79,16 @@ describe("consumer authorization cancellation", () => {
     await expect(cancelConsumerAuthorizationAction(authorizationForm())).rejects.toThrow(
       `redirect:https://postparticle.example/auth/perminister/callback?error=access_denied&state=${state}`,
     );
-    expect(mocks.getConsumerClientRecord).toHaveBeenCalledWith(clientId);
+    expect(mocks.getOAuthAuthorizationClient).toHaveBeenCalledWith(clientId, null);
   });
 
   it("cancels a legacy request when compatibility is enabled", async () => {
     vi.stubEnv("PERMINISTER_ENABLE_LEGACY_CONSUMER_OAUTH", "true");
-    mocks.getConsumerClientRecord.mockResolvedValue({
+    mocks.getOAuthAuthorizationClient.mockResolvedValue(oauthAuthorizationClient({
       ...client,
       productId: "visitoring",
       appOrigin: "https://visitoring.example",
-    });
+    }));
 
     await expect(cancelConsumerAuthorizationAction(legacyAuthorizationForm())).rejects.toThrow(
       `redirect:https://visitoring.example/auth/perminister/callback?error=access_denied&state=${state}`,
@@ -85,11 +97,11 @@ describe("consumer authorization cancellation", () => {
 
   it("issues a code for a legacy request without adding empty OIDC fields", async () => {
     vi.stubEnv("PERMINISTER_ENABLE_LEGACY_CONSUMER_OAUTH", "true");
-    mocks.getConsumerClientRecord.mockResolvedValue({
+    mocks.getOAuthAuthorizationClient.mockResolvedValue(oauthAuthorizationClient({
       ...client,
       productId: "visitoring",
       appOrigin: "https://visitoring.example",
-    });
+    }));
     mocks.getCurrentSession.mockResolvedValue({
       subject: { subjectId: "22222222-2222-4222-8222-222222222222" },
     });
