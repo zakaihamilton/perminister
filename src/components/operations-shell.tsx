@@ -1,40 +1,45 @@
 import type { ReactNode } from "react";
-import { redirect } from "next/navigation";
 import { BreadcrumbBar } from "@/components/dashboard-breadcrumbs";
 import { DashboardLayoutFrame, type DashboardSidebarProps } from "@/components/dashboard-shell";
-import type { DashboardBreadcrumbItem } from "@/lib/dashboard-breadcrumbs";
+import { OrganizationSwitcher } from "@/components/organization-switcher";
 import {
-  countPendingOrganizationsForAdministrator,
-  getCurrentSession,
-  isAdministrator,
-  listOrganizationsForSubject,
-} from "@/lib/auth/service";
+  getOperationsPageContext,
+  type OperationsPageContext,
+} from "@/lib/auth/operations-page-context";
+import { countPendingOrganizationsForAdministrator } from "@/lib/auth/service";
+import type { DashboardBreadcrumbItem } from "@/lib/dashboard-breadcrumbs";
 
 export async function OperationsShell({
   breadcrumbs,
   children,
+  context,
 }: {
   breadcrumbs: readonly DashboardBreadcrumbItem[];
   children: ReactNode;
+  context?: OperationsPageContext;
 }) {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  if (!isAdministrator(current.subject)) redirect("/dashboard");
+  const pageContext = context ?? (await getOperationsPageContext());
+  const { current, organizations, organizationId, selectedOrganization } = pageContext;
 
-  const [organizations, pendingOrganizationRequestCount] = await Promise.all([
-    listOrganizationsForSubject(current.subject.subjectId),
-    countPendingOrganizationsForAdministrator(current.subject.subjectId).catch(() => null),
-  ]);
-  const organization = organizations[0];
+  const pendingOrganizationRequestCount = await countPendingOrganizationsForAdministrator(
+    current.subject.subjectId,
+  ).catch(() => null);
   const sidebarProps: DashboardSidebarProps = {
     organizations,
-    organizationId: organization?.organization.organizationId,
-    role: organization?.membership.role,
+    organizationId,
+    role: selectedOrganization?.membership.role,
     isPlatformAdministrator: true,
     pendingOrganizationRequestCount,
     email: current.subject.primaryEmail,
     firstName: current.subject.firstName ?? null,
     lastName: current.subject.lastName ?? null,
+    organizationSwitcher: (
+      <OrganizationSwitcher
+        organizations={organizations}
+        organizationId={organizationId}
+        keepOperationsContext
+      />
+    ),
   };
 
   return (

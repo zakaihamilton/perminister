@@ -1,75 +1,76 @@
 import "server-only";
 
+import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
-import { revalidatePath } from "next/cache";
-import {
-  acceptOrganizationInvitation,
-  completeEmailAction,
-  completeOrganizationInvitationResend,
-  createApiKeyForSubject,
-  createConsumerClient,
-  updateConsumerClient,
-  createOrganization,
-  createOrganizationInvitation,
-  createOrganizationProduct,
-  archiveOrganizationProduct,
-  deleteOrganizationProduct,
-  restoreOrganizationProduct,
-  getProductShareInfo,
-  createProductAccessRole,
-  createProductInvitation,
-  createPermissionGrant,
-  createSession,
-  deleteAccountForAdministrator,
-  deletePermissionGrant,
-  getCurrentSession,
-  getOrganizationForSubject,
-  isAdministrator,
-  installPublicProduct,
-  decideOrganizationRequest,
-  issueEmailAction,
-  issueRecoveryAction,
-  registerAccount,
-  removeOrganizationMember,
-  prepareOrganizationInvitationResend,
-  revokeOrganizationInvitation,
-  revokeProductInvitation,
-  retireLegacyAccess,
-  revokeApiKeyForSubject,
-  revokeConsumerClient,
-  revokeSession,
-  setSessionCookie,
-  updateAccountStatus,
-  updateAccountProfile,
-  updateGrantStatus,
-  updateOrganizationMemberRole,
-  updateOrganizationName,
-  updateOrganizationProduct,
-  transferPublicProductForAdministrator,
-  transferPublicProductForOrganizationOwner,
-  setOrganizationProductVisibility,
-  updateProductMemberRole,
-  removeProductMember,
-  removeProductAccessRole,
-  rotateConsumerClient,
-} from "@/lib/auth/service";
-import type { ProductVisibility, ResourceScope, SubjectId } from "@/lib/auth/domain";
-import {
-  browserOriginFromHeaders,
-  isMailDeliveryConfigured,
-  sendRecoveryEmail,
-  sendOrganizationInvitationEmail,
-  sendProductInvitationEmail,
-  sendVerificationEmail,
-} from "@/lib/auth/mail";
+import { consumerAuthRequestContext } from "@/lib/auth/consumer-auth-request-context";
 import {
   consumePasswordRecoveryRateLimit,
   consumeProductLookupRateLimit,
   passwordRecoveryRequesterKey,
 } from "@/lib/auth/coordination";
-import { consumerAuthRequestContext } from "@/lib/auth/consumer-auth-request-context";
+import type { ProductVisibility, ResourceScope, SubjectId } from "@/lib/auth/domain";
+import {
+  browserOriginFromHeaders,
+  isMailDeliveryConfigured,
+  sendOrganizationInvitationEmail,
+  sendProductInvitationEmail,
+  sendRecoveryEmail,
+  sendVerificationEmail,
+} from "@/lib/auth/mail";
+import {
+  acceptOrganizationInvitation,
+  archiveOrganizationProduct,
+  completeEmailAction,
+  completeOrganizationInvitationResend,
+  createApiKeyForSubject,
+  createConsumerClient,
+  createOrganization,
+  createOrganizationInvitation,
+  createOrganizationProduct,
+  createPermissionGrant,
+  createProductAccessRole,
+  createProductInvitation,
+  createSession,
+  decideOrganizationRequest,
+  deleteAccountForAdministrator,
+  deleteOrganizationProduct,
+  deletePermissionGrant,
+  getCurrentSession,
+  getOrganizationForSubject,
+  getProductShareInfo,
+  installPublicProduct,
+  isAdministrator,
+  issueEmailAction,
+  issueRecoveryAction,
+  prepareOrganizationInvitationResend,
+  registerAccount,
+  removeOrganizationMember,
+  removeProductAccessRole,
+  removeProductMember,
+  restoreOrganizationProduct,
+  retireLegacyAccess,
+  revokeApiKeyForSubject,
+  revokeConsumerClient,
+  revokeOrganizationInvitation,
+  revokeProductInvitation,
+  revokeSession,
+  rotateConsumerClient,
+  setOrganizationProductVisibility,
+  setSessionCookie,
+  transferPublicProductForAdministrator,
+  transferPublicProductForOrganizationOwner,
+  updateAccountProfile,
+  updateAccountStatus,
+  updateConsumerClient,
+  updateGrantStatus,
+  updateOrganizationMemberRole,
+  updateOrganizationName,
+  updateOrganizationProduct,
+  updateProductMemberRole,
+} from "@/lib/auth/service";
+import { operationsHref } from "@/lib/operations-navigation";
 
 function publicActionError(error: unknown): string {
   if (!(error instanceof Error)) return "Perminister could not complete that request.";
@@ -194,6 +195,61 @@ function firstValue(data: FormData, name: string): string {
   return typeof value === "string" ? value : "";
 }
 
+async function requireOperationsAdministratorContext(
+  formData: FormData,
+  administratorRequiredPath = "/dashboard",
+) {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  if (!isAdministrator(current.subject)) redirect(administratorRequiredPath);
+  return {
+    current,
+    organizationId: firstValue(formData, "operationsOrganizationId"),
+  };
+}
+
+async function updateOrganizationProductArchivedState(
+  actorId: SubjectId,
+  organizationId: string,
+  productRecordId: string,
+  productId: string,
+  updateState: typeof archiveOrganizationProduct,
+): Promise<void> {
+  let affectedOrganizationIds = [organizationId];
+  try {
+    const shareInfo = await getProductShareInfo(actorId, organizationId, productRecordId).catch(
+      () => null,
+    );
+    await updateState(actorId, organizationId, productRecordId);
+    affectedOrganizationIds = [
+      organizationId,
+      ...(shareInfo?.adopterOrganizations.map((entry) => entry.organizationId) ?? []),
+    ];
+  } catch (error) {
+    redirect(
+      `/dashboard/${encodeURIComponent(organizationId)}/products?error=product-lifecycle&reason=${encodeURIComponent(publicActionError(error))}`,
+    );
+  }
+  revalidateProductLifecyclePaths(affectedOrganizationIds, productId);
+}
+
+async function updateOrganizationProductArchivedStateAction(
+  formData: FormData,
+  updateState: typeof archiveOrganizationProduct,
+  notice: string,
+): Promise<void> {
+  const { current, organizationId, productRecordId, productId } =
+    await organizationProductActionContext(formData);
+  await updateOrganizationProductArchivedState(
+    current.subject.subjectId,
+    organizationId,
+    productRecordId,
+    productId,
+    updateState,
+  );
+  redirect(`/dashboard/${encodeURIComponent(organizationId)}/products?notice=${notice}`);
+}
+
 function parseScope(data: FormData): ResourceScope {
   const kind = firstValue(data, "scopeKind");
   const organizationId = firstValue(data, "organizationId").toLowerCase();
@@ -233,7 +289,12 @@ function dashboardReturnTo(data: FormData): string {
 async function organizationProductActionContext(formData: FormData) {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
-  return { current, organizationId: firstValue(formData, "organizationId") };
+  return {
+    current,
+    organizationId: firstValue(formData, "organizationId"),
+    productRecordId: firstValue(formData, "productRecordId"),
+    productId: firstValue(formData, "productId"),
+  };
 }
 
 async function productPeopleActionContext(formData: FormData) {
@@ -586,12 +647,16 @@ export async function createOrganizationAction(formData: FormData): Promise<void
 }
 
 export async function reviewOrganizationRequestAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  if (!isAdministrator(current.subject)) redirect("/dashboard?notice=admin-required");
+  const { current, organizationId: operationsOrganizationId } =
+    await requireOperationsAdministratorContext(formData, "/dashboard?notice=admin-required");
   const approvalStatus = firstValue(formData, "approvalStatus");
   if (approvalStatus !== "approved" && approvalStatus !== "rejected") {
-    redirect("/dashboard/operations/organization-requests?error=organization-review");
+    redirect(
+      operationsHref(
+        "/dashboard/operations/organization-requests?error=organization-review",
+        operationsOrganizationId,
+      ),
+    );
   }
   try {
     await decideOrganizationRequest(
@@ -600,10 +665,20 @@ export async function reviewOrganizationRequestAction(formData: FormData): Promi
       approvalStatus,
     );
   } catch {
-    redirect("/dashboard/operations/organization-requests?error=organization-review");
+    redirect(
+      operationsHref(
+        "/dashboard/operations/organization-requests?error=organization-review",
+        operationsOrganizationId,
+      ),
+    );
   }
   revalidatePath("/dashboard", "layout");
-  redirect(`/dashboard/operations/organization-requests?notice=organization-${approvalStatus}`);
+  redirect(
+    operationsHref(
+      `/dashboard/operations/organization-requests?notice=organization-${approvalStatus}`,
+      operationsOrganizationId,
+    ),
+  );
 }
 
 export async function createOrganizationProductAction(formData: FormData): Promise<void> {
@@ -674,9 +749,8 @@ export async function addPublicProductAction(formData: FormData): Promise<void> 
 }
 
 export async function transferPublicProductAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  if (!isAdministrator(current.subject)) redirect("/dashboard");
+  const { current, organizationId: operationsOrganizationId } =
+    await requireOperationsAdministratorContext(formData);
 
   let transfer: Awaited<ReturnType<typeof transferPublicProductForAdministrator>>;
   try {
@@ -687,11 +761,21 @@ export async function transferPublicProductAction(formData: FormData): Promise<v
     );
   } catch (error) {
     const message = encodeURIComponent(publicActionError(error));
-    redirect(`/dashboard/operations/shared-products?error=product-transfer&reason=${message}`);
+    redirect(
+      operationsHref(
+        `/dashboard/operations/shared-products?error=product-transfer&reason=${message}`,
+        operationsOrganizationId,
+      ),
+    );
   }
 
   revalidateTransferredProductPaths(transfer);
-  redirect("/dashboard/operations/shared-products?notice=product-transferred");
+  redirect(
+    operationsHref(
+      "/dashboard/operations/shared-products?notice=product-transferred",
+      operationsOrganizationId,
+    ),
+  );
 }
 
 export async function transferOwnedPublicProductAction(formData: FormData): Promise<void> {
@@ -724,57 +808,19 @@ export async function transferOwnedPublicProductAction(formData: FormData): Prom
 }
 
 export async function archiveOrganizationProductAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const organizationId = firstValue(formData, "organizationId");
-  const productRecordId = firstValue(formData, "productRecordId");
-  const productId = firstValue(formData, "productId");
-  let affectedOrganizationIds = [organizationId];
-  try {
-    const shareInfo = await getProductShareInfo(
-      current.subject.subjectId,
-      organizationId,
-      productRecordId,
-    ).catch(() => null);
-    await archiveOrganizationProduct(current.subject.subjectId, organizationId, productRecordId);
-    affectedOrganizationIds = [
-      organizationId,
-      ...(shareInfo?.adopterOrganizations.map((entry) => entry.organizationId) ?? []),
-    ];
-  } catch (error) {
-    redirect(
-      `/dashboard/${encodeURIComponent(organizationId)}/products?error=product-lifecycle&reason=${encodeURIComponent(publicActionError(error))}`,
-    );
-  }
-  revalidateProductLifecyclePaths(affectedOrganizationIds, productId);
-  redirect(`/dashboard/${encodeURIComponent(organizationId)}/products?notice=product-archived`);
+  await updateOrganizationProductArchivedStateAction(
+    formData,
+    archiveOrganizationProduct,
+    "product-archived",
+  );
 }
 
 export async function restoreOrganizationProductAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const organizationId = firstValue(formData, "organizationId");
-  const productRecordId = firstValue(formData, "productRecordId");
-  const productId = firstValue(formData, "productId");
-  let affectedOrganizationIds = [organizationId];
-  try {
-    const shareInfo = await getProductShareInfo(
-      current.subject.subjectId,
-      organizationId,
-      productRecordId,
-    ).catch(() => null);
-    await restoreOrganizationProduct(current.subject.subjectId, organizationId, productRecordId);
-    affectedOrganizationIds = [
-      organizationId,
-      ...(shareInfo?.adopterOrganizations.map((entry) => entry.organizationId) ?? []),
-    ];
-  } catch (error) {
-    redirect(
-      `/dashboard/${encodeURIComponent(organizationId)}/products?error=product-lifecycle&reason=${encodeURIComponent(publicActionError(error))}`,
-    );
-  }
-  revalidateProductLifecyclePaths(affectedOrganizationIds, productId);
-  redirect(`/dashboard/${encodeURIComponent(organizationId)}/products?notice=product-restored`);
+  await updateOrganizationProductArchivedStateAction(
+    formData,
+    restoreOrganizationProduct,
+    "product-restored",
+  );
 }
 
 export async function deleteOrganizationProductAction(formData: FormData): Promise<void> {
@@ -802,11 +848,8 @@ export async function deleteOrganizationProductAction(formData: FormData): Promi
 }
 
 export async function setOrganizationProductVisibilityAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const organizationId = firstValue(formData, "organizationId");
-  const productRecordId = firstValue(formData, "productRecordId");
-  const productId = firstValue(formData, "productId");
+  const { current, organizationId, productRecordId, productId } =
+    await organizationProductActionContext(formData);
   const visibilityValue = firstValue(formData, "visibility");
   const returnTo = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}`;
   if (visibilityValue !== "private" && visibilityValue !== "public") {
@@ -1181,18 +1224,27 @@ export async function updateAccountProfileAction(formData: FormData): Promise<vo
   redirect(`${returnTo}?notice=profile-saved`);
 }
 
-export async function retireLegacyAccessAction(): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  if (!isAdministrator(current.subject)) redirect("/dashboard");
+export async function retireLegacyAccessAction(formData: FormData): Promise<void> {
+  const { current, organizationId: operationsOrganizationId } =
+    await requireOperationsAdministratorContext(formData);
   let retired: { grants: number; keys: number };
   try {
     retired = await retireLegacyAccess(current.subject.subjectId);
   } catch {
-    redirect("/dashboard/operations/legacy-access?error=migration");
+    redirect(
+      operationsHref(
+        "/dashboard/operations/legacy-access?error=migration",
+        operationsOrganizationId,
+      ),
+    );
   }
   revalidatePath("/dashboard/operations/legacy-access");
-  redirect(`/dashboard/operations/legacy-access?retired=${retired.grants},${retired.keys}`);
+  redirect(
+    operationsHref(
+      `/dashboard/operations/legacy-access?retired=${retired.grants},${retired.keys}`,
+      operationsOrganizationId,
+    ),
+  );
 }
 
 export async function revokeApiKeyAction(formData: FormData): Promise<void> {
@@ -1312,25 +1364,35 @@ export async function deletePermissionGrantAction(formData: FormData): Promise<v
 }
 
 export async function updateAccountStatusAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  if (!isAdministrator(current.subject)) redirect("/dashboard?notice=admin-required");
+  const { current, organizationId: operationsOrganizationId } =
+    await requireOperationsAdministratorContext(formData, "/dashboard?notice=admin-required");
   const status = firstValue(formData, "status");
   if (status !== "active" && status !== "disabled")
-    redirect("/dashboard/operations/accounts?error=account-update-failed");
+    redirect(
+      operationsHref(
+        "/dashboard/operations/accounts?error=account-update-failed",
+        operationsOrganizationId,
+      ),
+    );
   try {
     await updateAccountStatus(current.subject.subjectId, firstValue(formData, "subjectId"), status);
   } catch {
-    redirect("/dashboard/operations/accounts?error=account-update-failed");
+    redirect(
+      operationsHref(
+        "/dashboard/operations/accounts?error=account-update-failed",
+        operationsOrganizationId,
+      ),
+    );
   }
   revalidatePath("/dashboard/operations/accounts");
-  redirect("/dashboard/operations/accounts?notice=account-updated");
+  redirect(
+    operationsHref("/dashboard/operations/accounts?notice=account-updated", operationsOrganizationId),
+  );
 }
 
 export async function deleteAccountAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  if (!isAdministrator(current.subject)) redirect("/dashboard?notice=admin-required");
+  const { current, organizationId: operationsOrganizationId } =
+    await requireOperationsAdministratorContext(formData, "/dashboard?notice=admin-required");
   try {
     await deleteAccountForAdministrator(
       current.subject.subjectId,
@@ -1341,10 +1403,17 @@ export async function deleteAccountAction(formData: FormData): Promise<void> {
       error instanceof Error && error.message.startsWith("Transfer organization and product")
         ? "account-delete-owner"
         : "account-delete-failed";
-    redirect(`/dashboard/operations/accounts?error=${errorCode}`);
+    redirect(
+      operationsHref(
+        `/dashboard/operations/accounts?error=${errorCode}`,
+        operationsOrganizationId,
+      ),
+    );
   }
   revalidatePath("/dashboard/operations/accounts");
-  redirect("/dashboard/operations/accounts?notice=account-deleted");
+  redirect(
+    operationsHref("/dashboard/operations/accounts?notice=account-deleted", operationsOrganizationId),
+  );
 }
 
 export async function revokeSessionAction(formData: FormData): Promise<void> {

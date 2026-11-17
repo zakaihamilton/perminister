@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { operationsHref } from "@/lib/operations-navigation";
 
 type NavigationItem = { label: string; href: string; key: string };
 
@@ -85,7 +86,7 @@ export function DashboardNavigation({
           <p className="dashboard-nav-label platform-nav-label pf-sidebar-group-label">Platform</p>
           <Link
             className="dashboard-nav-link pf-sidebar-link"
-            href="/dashboard/operations"
+            href={operationsHref("/dashboard/operations", organizationId)}
             aria-label={
               pendingOrganizationRequestCount
                 ? `Platform admin, ${pendingOrganizationRequestCount} pending organization requests`

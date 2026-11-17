@@ -7,6 +7,7 @@ import { ActivityPagination } from "@/components/activity-pagination";
 const mocks = vi.hoisted(() => ({
   getCurrentSession: vi.fn(),
   isAdministrator: vi.fn(),
+  listOrganizationsForSubject: vi.fn(),
   listPlatformAudit: vi.fn(),
   redirect: vi.fn((destination: string) => {
     throw new Error(`redirect:${destination}`);
@@ -16,6 +17,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/auth/service", () => ({
   getCurrentSession: mocks.getCurrentSession,
   isAdministrator: mocks.isAdministrator,
+  listOrganizationsForSubject: mocks.listOrganizationsForSubject,
   listPlatformAudit: mocks.listPlatformAudit,
 }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
@@ -272,6 +274,8 @@ describe("platform activity page access and query handling", () => {
   beforeEach(() => {
     mocks.getCurrentSession.mockReset();
     mocks.isAdministrator.mockReset();
+    mocks.listOrganizationsForSubject.mockReset();
+    mocks.listOrganizationsForSubject.mockResolvedValue([]);
     mocks.listPlatformAudit.mockReset();
     mocks.redirect.mockClear();
     mocks.listPlatformAudit.mockResolvedValue({

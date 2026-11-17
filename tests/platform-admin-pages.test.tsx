@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getCurrentSession: vi.fn(),
   isAdministrator: vi.fn(),
+  listOrganizationsForSubject: vi.fn(),
   listAccountsForAdministrator: vi.fn(),
   listPendingOrganizationsForAdministrator: vi.fn(),
   listPublicProductsForAdministrator: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/lib/auth/service", () => ({
   getCurrentSession: mocks.getCurrentSession,
   isAdministrator: mocks.isAdministrator,
+  listOrganizationsForSubject: mocks.listOrganizationsForSubject,
   listAccountsForAdministrator: mocks.listAccountsForAdministrator,
   listPendingOrganizationsForAdministrator: mocks.listPendingOrganizationsForAdministrator,
   listPublicProductsForAdministrator: mocks.listPublicProductsForAdministrator,
@@ -69,10 +71,10 @@ vi.mock("@/components/operations-sections", () => ({
   ),
 }));
 
-import OperationsPage from "@/app/dashboard/operations/page";
 import PlatformAccountsPage from "@/app/dashboard/operations/accounts/page";
 import LegacyAccessPage from "@/app/dashboard/operations/legacy-access/page";
 import OrganizationRequestsPage from "@/app/dashboard/operations/organization-requests/page";
+import OperationsPage from "@/app/dashboard/operations/page";
 import SharedProductsPage from "@/app/dashboard/operations/shared-products/page";
 
 const subjectId = "33333333-3333-4333-8333-333333333333";
@@ -109,6 +111,7 @@ describe("platform admin pages", () => {
   beforeEach(() => {
     mocks.getCurrentSession.mockResolvedValue({ subject: { subjectId } });
     mocks.isAdministrator.mockReturnValue(true);
+    mocks.listOrganizationsForSubject.mockResolvedValue([]);
     mocks.listAccountsForAdministrator.mockResolvedValue([]);
     mocks.listPendingOrganizationsForAdministrator.mockResolvedValue([]);
     mocks.listPublicProductsForAdministrator.mockResolvedValue([]);
@@ -116,7 +119,7 @@ describe("platform admin pages", () => {
   });
 
   it("lists every section and activity history from the landing page", async () => {
-    const markup = renderToStaticMarkup(await OperationsPage());
+    const markup = renderToStaticMarkup(await OperationsPage({}));
 
     expect(markup).toContain('aria-label="Platform admin sections"');
     for (const [href, title] of [

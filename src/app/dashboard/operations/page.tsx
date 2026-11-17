@@ -1,20 +1,28 @@
 import { DashboardHeading } from "@/components/dashboard-shell";
 import { OperationsShell } from "@/components/operations-shell";
 import { PlatformAdminSectionLinks } from "@/components/platform-admin-section-links";
-import { getCurrentSession, isAdministrator } from "@/lib/auth/service";
-import { redirect } from "next/navigation";
+import { getOperationsPageContext } from "@/lib/auth/operations-page-context";
+import type { OperationsQuery } from "@/components/operations-types";
+import { organizationDashboardHref } from "@/lib/operations-navigation";
 
-export default async function OperationsPage() {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  if (!isAdministrator(current.subject)) redirect("/dashboard");
+export default async function OperationsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<OperationsQuery>;
+}) {
+  const query = (await searchParams) ?? {};
+  const context = await getOperationsPageContext(query.organizationId);
 
   return (
     <OperationsShell
-      breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Platform admin" }]}
+      context={context}
+      breadcrumbs={[
+        { label: "Dashboard", href: organizationDashboardHref(context.organizationId) },
+        { label: "Platform admin" },
+      ]}
     >
-      <DashboardHeading description="Manage shared products, organization requests, older access, accounts, and platform activity." />
-      <PlatformAdminSectionLinks />
+      <DashboardHeading description="Manage shared products, organization requests, older access, and accounts." />
+      <PlatformAdminSectionLinks organizationId={context.organizationId} />
     </OperationsShell>
   );
 }

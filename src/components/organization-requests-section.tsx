@@ -1,9 +1,39 @@
 import type { OrganizationReviewRequest } from "@/lib/auth/service";
 
+function OrganizationRequestDecisionForm({
+  organization,
+  operationsOrganizationId,
+  decision,
+}: {
+  organization: OrganizationReviewRequest;
+  operationsOrganizationId?: string;
+  decision: "approved" | "rejected";
+}) {
+  const approved = decision === "approved";
+  return (
+    <form action="/actions/reviewOrganizationRequestAction" method="post">
+      <input type="hidden" name="organizationId" value={organization.organizationId} />
+      {operationsOrganizationId ? (
+        <input
+          type="hidden"
+          name="operationsOrganizationId"
+          value={operationsOrganizationId}
+        />
+      ) : null}
+      <input type="hidden" name="approvalStatus" value={decision} />
+      <button className={`button ${approved ? "button-primary" : "button-secondary"}`} type="submit">
+        {approved ? "Approve" : "Reject"}
+      </button>
+    </form>
+  );
+}
+
 export function OrganizationRequestsSection({
   organizations,
+  operationsOrganizationId,
 }: {
   organizations: OrganizationReviewRequest[];
+  operationsOrganizationId?: string;
 }) {
   return (
     <section className="dashboard-card operations-organizations">
@@ -28,20 +58,16 @@ export function OrganizationRequestsSection({
                 <span className="record-badge pending">Pending</span>
               </div>
               <div className="record-actions">
-                <form action="/actions/reviewOrganizationRequestAction" method="post">
-                  <input type="hidden" name="organizationId" value={organization.organizationId} />
-                  <input type="hidden" name="approvalStatus" value="approved" />
-                  <button className="button button-primary" type="submit">
-                    Approve
-                  </button>
-                </form>
-                <form action="/actions/reviewOrganizationRequestAction" method="post">
-                  <input type="hidden" name="organizationId" value={organization.organizationId} />
-                  <input type="hidden" name="approvalStatus" value="rejected" />
-                  <button className="button button-secondary" type="submit">
-                    Reject
-                  </button>
-                </form>
+                <OrganizationRequestDecisionForm
+                  organization={organization}
+                  operationsOrganizationId={operationsOrganizationId}
+                  decision="approved"
+                />
+                <OrganizationRequestDecisionForm
+                  organization={organization}
+                  operationsOrganizationId={operationsOrganizationId}
+                  decision="rejected"
+                />
               </div>
             </article>
           ))}

@@ -31,7 +31,8 @@ export function ActivityPagination({
 }) {
   if (totalPages <= 1) return null;
 
-  const pageHref = (targetPage: number) => `${hrefBase}?page=${targetPage}`;
+  const separator = hrefBase.includes("?") ? "&" : "?";
+  const pageHref = (targetPage: number) => `${hrefBase}${separator}page=${targetPage}`;
 
   return (
     <nav className="activity-pagination" aria-label="Activity history pages">

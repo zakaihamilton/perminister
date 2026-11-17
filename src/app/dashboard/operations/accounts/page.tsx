@@ -1,33 +1,31 @@
 import { DashboardHeading } from "@/components/dashboard-shell";
 import { AccountsSection, OperationsFeedback } from "@/components/operations-sections";
 import { OperationsShell } from "@/components/operations-shell";
-import { listAccountsForAdministrator } from "@/lib/auth/service";
-import { getOperationsPageContext } from "@/lib/auth/operations-page-context";
 import type { OperationsQuery } from "@/components/operations-types";
+import { getOperationsPageContext } from "@/lib/auth/operations-page-context";
+import { listAccountsForAdministrator } from "@/lib/auth/service";
+import { operationsBreadcrumbs } from "@/lib/operations-navigation";
 
 export default async function PlatformAccountsPage({
   searchParams,
 }: {
   searchParams: Promise<OperationsQuery>;
 }) {
-  const current = await getOperationsPageContext();
-
-  const [accounts, query] = await Promise.all([
-    listAccountsForAdministrator(current.subject.subjectId),
-    searchParams,
-  ]);
+  const query = await searchParams;
+  const context = await getOperationsPageContext(query.organizationId);
+  const accounts = await listAccountsForAdministrator(context.current.subject.subjectId);
 
   return (
     <OperationsShell
-      breadcrumbs={[
-        { label: "Dashboard", href: "/dashboard" },
-        { label: "Platform admin", href: "/dashboard/operations" },
-        { label: "Accounts" },
-      ]}
+      context={context}
+      breadcrumbs={operationsBreadcrumbs(context.organizationId, "Accounts")}
     >
       <DashboardHeading description="View registered accounts and manage their status or access." />
       <OperationsFeedback query={query} />
-      <AccountsSection accounts={accounts} />
+      <AccountsSection
+        accounts={accounts}
+        operationsOrganizationId={context.organizationId}
+      />
     </OperationsShell>
   );
 }

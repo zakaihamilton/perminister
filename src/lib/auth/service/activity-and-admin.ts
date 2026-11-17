@@ -674,15 +674,30 @@ export async function listProductAudit(
 export async function listPlatformAudit(
   actorId: SubjectId,
   requestedPage = 1,
+  organizationId?: string,
 ): Promise<PlatformAuditPage> {
   return authMutationQueue.read(async () => {
     await requireAdministrator(actorId);
     const activityStore = store();
-    const events = (
-      typeof activityStore.listRecentEvents === "function"
-        ? await activityStore.listRecentEvents(PLATFORM_AUDIT_MAX_EVENTS)
-        : await activityStore.listAllEvents()
-    ).slice(0, PLATFORM_AUDIT_MAX_EVENTS);
+    let events: AuthEvent[];
+    if (organizationId !== undefined) {
+      assertOpaqueId(organizationId);
+      const organization = await loadApprovedOrganizationUnlocked(organizationId);
+      if (!organization) throw new Error("Organization not found.");
+      events = (await activityStore.listOrganizationEvents(
+        organizationId,
+        undefined,
+        PLATFORM_AUDIT_MAX_EVENTS,
+      ))
+        .filter((event) => activityBelongsToOrganization(event, organizationId))
+        .slice(0, PLATFORM_AUDIT_MAX_EVENTS);
+    } else {
+      events = (
+        typeof activityStore.listRecentEvents === "function"
+          ? await activityStore.listRecentEvents(PLATFORM_AUDIT_MAX_EVENTS)
+          : await activityStore.listAllEvents()
+      ).slice(0, PLATFORM_AUDIT_MAX_EVENTS);
+    }
     const totalItems = events.length;
     const totalPages = Math.ceil(totalItems / PLATFORM_AUDIT_PAGE_SIZE);
     const validPage = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;

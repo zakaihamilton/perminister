@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { operationsHref } from "@/lib/operations-navigation";
 
 const sections = [
   {
@@ -24,17 +25,20 @@ const sections = [
   {
     href: "/dashboard/operations/activity",
     title: "Activity history",
-    description: "Review recent changes across Perminister.",
+    description: "Review recent changes across Perminister or filter by organization.",
   },
 ] as const;
 
-export function PlatformAdminSectionLinks() {
+export function PlatformAdminSectionLinks({ organizationId }: { organizationId?: string }) {
   return (
     <nav aria-label="Platform admin sections" className="operations-section-nav">
       <ul className="operations-section-links">
         {sections.map((section) => (
           <li key={section.href}>
-            <Link className="dashboard-card operations-section-link" href={section.href}>
+            <Link
+              className="dashboard-card operations-section-link"
+              href={operationsHref(section.href, organizationId)}
+            >
               <h2>{section.title}</h2>
               <p>{section.description}</p>
               <span className="operations-section-link-action">

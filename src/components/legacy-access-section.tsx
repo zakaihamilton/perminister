@@ -1,6 +1,12 @@
 import { ConfirmationActionControl } from "@/components/confirmation-action-control";
 
-export function LegacyAccessSection({ legacy }: { legacy: { grants: number; keys: number } }) {
+export function LegacyAccessSection({
+  legacy,
+  operationsOrganizationId,
+}: {
+  legacy: { grants: number; keys: number };
+  operationsOrganizationId?: string;
+}) {
   return (
     <section className="dashboard-card operations-migration">
       <div>
@@ -21,7 +27,11 @@ export function LegacyAccessSection({ legacy }: { legacy: { grants: number; keys
       {legacy.grants || legacy.keys ? (
         <ConfirmationActionControl
           action="/actions/retireLegacyAccessAction"
-          fields={[]}
+          fields={
+            operationsOrganizationId
+              ? [{ name: "operationsOrganizationId", value: operationsOrganizationId }]
+              : []
+          }
           triggerLabel="Remove older access"
           triggerClassName="button button-primary"
           title="Remove older access?"

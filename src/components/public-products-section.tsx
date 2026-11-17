@@ -3,8 +3,10 @@ import type { AdministratorPublicProductTransferEntry } from "@/lib/auth/service
 
 export function PublicProductsSection({
   products,
+  operationsOrganizationId,
 }: {
   products: AdministratorPublicProductTransferEntry[];
+  operationsOrganizationId?: string;
 }) {
   return (
     <section className="dashboard-card operations-public-products">
@@ -37,6 +39,7 @@ export function PublicProductsSection({
                 productName={entry.product.name}
                 destinations={entry.destinations}
                 pendingDestinationOrganizationId={entry.pendingDestinationOrganizationId}
+                operationsOrganizationId={operationsOrganizationId}
               />
             </article>
           ))}

@@ -1,8 +1,10 @@
-import { redirect } from "next/navigation";
 import { ActivityFeed } from "@/components/activity-feed";
 import { ActivityPagination } from "@/components/activity-pagination";
 import { OperationsShell } from "@/components/operations-shell";
-import { getCurrentSession, isAdministrator, listPlatformAudit } from "@/lib/auth/service";
+import type { OperationsQuery } from "@/components/operations-types";
+import { getOperationsPageContext } from "@/lib/auth/operations-page-context";
+import { listPlatformAudit } from "@/lib/auth/service";
+import { operationsBreadcrumbs, operationsHref } from "@/lib/operations-navigation";
 
 function parseRequestedPage(value: string | string[] | undefined): number {
   if (typeof value !== "string" || !/^\d+$/.test(value)) return 1;
@@ -13,37 +15,42 @@ function parseRequestedPage(value: string | string[] | undefined): number {
 export default async function PlatformActivityPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string | string[] }>;
+  searchParams: Promise<OperationsQuery>;
 }) {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  if (!isAdministrator(current.subject)) redirect("/dashboard");
-
   const query = await searchParams;
-  const activity = await listPlatformAudit(
-    current.subject.subjectId,
-    parseRequestedPage(query.page),
-  );
+  const context = await getOperationsPageContext(query.organizationId);
+  const activity = context.organizationId
+    ? await listPlatformAudit(
+        context.current.subject.subjectId,
+        parseRequestedPage(query.page),
+        context.organizationId,
+      )
+    : await listPlatformAudit(context.current.subject.subjectId, parseRequestedPage(query.page));
 
   return (
     <OperationsShell
-      breadcrumbs={[
-        { label: "Dashboard", href: "/dashboard" },
-        { label: "Platform admin", href: "/dashboard/operations" },
-        { label: "Activity history" },
-      ]}
+      context={context}
+      breadcrumbs={operationsBreadcrumbs(context.organizationId, "Activity history")}
     >
       <ActivityFeed
         entries={activity.entries}
-        emptyMessage="No platform activity has been recorded yet."
+        emptyMessage={
+          context.organizationId
+            ? "No organization activity has been recorded yet."
+            : "No platform activity has been recorded yet."
+        }
         showPlatformContext
         title="Activity history"
-        description="Recent events across Perminister, including legacy access history."
+        description={
+          context.selectedOrganization
+            ? `Recent changes to ${context.selectedOrganization.organization.name}.`
+            : "Recent changes across Perminister, including platform-wide activity."
+        }
       />
       <ActivityPagination
         page={activity.page}
         totalPages={activity.totalPages}
-        hrefBase="/dashboard/operations/activity"
+        hrefBase={operationsHref("/dashboard/operations/activity", context.organizationId)}
       />
     </OperationsShell>
   );
