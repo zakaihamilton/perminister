@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ContextSwitcher } from "panel-frame-ui";
 import type { OrganizationSummary } from "@/lib/auth/service";
+import { operationsHref } from "@/lib/operations-navigation";
 
 const requestOrganizationValue = "__request-organization__";
 
@@ -13,11 +14,13 @@ export function OrganizationSwitcher({
   organizationId,
   preview = false,
   onOrganizationChange,
+  keepOperationsContext = false,
 }: {
   organizations: OrganizationSummary[];
   organizationId: string;
   preview?: boolean;
   onOrganizationChange?: (organizationId: string) => void;
+  keepOperationsContext?: boolean;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +57,9 @@ export function OrganizationSwitcher({
     }
     setError(null);
     router.push(
-      `/dashboard/${encodeURIComponent(selectedOrganization.organization.organizationId)}`,
+      keepOperationsContext
+        ? operationsHref("/dashboard/operations", selectedOrganization.organization.organizationId)
+        : `/dashboard/${encodeURIComponent(selectedOrganization.organization.organizationId)}`,
     );
   }
 
