@@ -116,7 +116,7 @@ describe("platform admin pages", () => {
   });
 
   it("lists every section and activity history from the landing page", async () => {
-    const markup = renderToStaticMarkup(await OperationsPage());
+    const markup = renderToStaticMarkup(await OperationsPage({}));
 
     expect(markup).toContain('aria-label="Platform admin sections"');
     for (const [href, title] of [

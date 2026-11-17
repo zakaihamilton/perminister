@@ -9,7 +9,7 @@ export default async function OperationsPage({
   searchParams,
 }: {
   searchParams?: Promise<OperationsQuery>;
-} = {}) {
+}) {
   const query = (await searchParams) ?? {};
   const context = await getOperationsPageContext(query.organizationId);
 
