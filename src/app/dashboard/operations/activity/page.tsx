@@ -1,13 +1,10 @@
 import { ActivityFeed } from "@/components/activity-feed";
 import { ActivityPagination } from "@/components/activity-pagination";
 import { OperationsShell } from "@/components/operations-shell";
+import type { OperationsQuery } from "@/components/operations-types";
 import { getOperationsPageContext } from "@/lib/auth/operations-page-context";
 import { listPlatformAudit } from "@/lib/auth/service";
-import {
-  operationsHref,
-  organizationDashboardHref,
-} from "@/lib/operations-navigation";
-import type { OperationsQuery } from "@/components/operations-types";
+import { operationsBreadcrumbs, operationsHref } from "@/lib/operations-navigation";
 
 function parseRequestedPage(value: string | string[] | undefined): number {
   if (typeof value !== "string" || !/^\d+$/.test(value)) return 1;
@@ -33,14 +30,7 @@ export default async function PlatformActivityPage({
   return (
     <OperationsShell
       context={context}
-      breadcrumbs={[
-        { label: "Dashboard", href: organizationDashboardHref(context.organizationId) },
-        {
-          label: "Platform admin",
-          href: operationsHref("/dashboard/operations", context.organizationId),
-        },
-        { label: "Activity history" },
-      ]}
+      breadcrumbs={operationsBreadcrumbs(context.organizationId, "Activity history")}
     >
       <ActivityFeed
         entries={activity.entries}

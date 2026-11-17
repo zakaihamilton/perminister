@@ -195,6 +195,61 @@ function firstValue(data: FormData, name: string): string {
   return typeof value === "string" ? value : "";
 }
 
+async function requireOperationsAdministratorContext(
+  formData: FormData,
+  administratorRequiredPath = "/dashboard",
+) {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  if (!isAdministrator(current.subject)) redirect(administratorRequiredPath);
+  return {
+    current,
+    organizationId: firstValue(formData, "operationsOrganizationId"),
+  };
+}
+
+async function updateOrganizationProductArchivedState(
+  actorId: SubjectId,
+  organizationId: string,
+  productRecordId: string,
+  productId: string,
+  updateState: typeof archiveOrganizationProduct,
+): Promise<void> {
+  let affectedOrganizationIds = [organizationId];
+  try {
+    const shareInfo = await getProductShareInfo(actorId, organizationId, productRecordId).catch(
+      () => null,
+    );
+    await updateState(actorId, organizationId, productRecordId);
+    affectedOrganizationIds = [
+      organizationId,
+      ...(shareInfo?.adopterOrganizations.map((entry) => entry.organizationId) ?? []),
+    ];
+  } catch (error) {
+    redirect(
+      `/dashboard/${encodeURIComponent(organizationId)}/products?error=product-lifecycle&reason=${encodeURIComponent(publicActionError(error))}`,
+    );
+  }
+  revalidateProductLifecyclePaths(affectedOrganizationIds, productId);
+}
+
+async function updateOrganizationProductArchivedStateAction(
+  formData: FormData,
+  updateState: typeof archiveOrganizationProduct,
+  notice: string,
+): Promise<void> {
+  const { current, organizationId, productRecordId, productId } =
+    await organizationProductActionContext(formData);
+  await updateOrganizationProductArchivedState(
+    current.subject.subjectId,
+    organizationId,
+    productRecordId,
+    productId,
+    updateState,
+  );
+  redirect(`/dashboard/${encodeURIComponent(organizationId)}/products?notice=${notice}`);
+}
+
 function parseScope(data: FormData): ResourceScope {
   const kind = firstValue(data, "scopeKind");
   const organizationId = firstValue(data, "organizationId").toLowerCase();
@@ -234,7 +289,12 @@ function dashboardReturnTo(data: FormData): string {
 async function organizationProductActionContext(formData: FormData) {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
-  return { current, organizationId: firstValue(formData, "organizationId") };
+  return {
+    current,
+    organizationId: firstValue(formData, "organizationId"),
+    productRecordId: firstValue(formData, "productRecordId"),
+    productId: firstValue(formData, "productId"),
+  };
 }
 
 async function productPeopleActionContext(formData: FormData) {
@@ -587,10 +647,8 @@ export async function createOrganizationAction(formData: FormData): Promise<void
 }
 
 export async function reviewOrganizationRequestAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  if (!isAdministrator(current.subject)) redirect("/dashboard?notice=admin-required");
-  const operationsOrganizationId = firstValue(formData, "operationsOrganizationId");
+  const { current, organizationId: operationsOrganizationId } =
+    await requireOperationsAdministratorContext(formData, "/dashboard?notice=admin-required");
   const approvalStatus = firstValue(formData, "approvalStatus");
   if (approvalStatus !== "approved" && approvalStatus !== "rejected") {
     redirect(
@@ -691,10 +749,8 @@ export async function addPublicProductAction(formData: FormData): Promise<void> 
 }
 
 export async function transferPublicProductAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  if (!isAdministrator(current.subject)) redirect("/dashboard");
-  const operationsOrganizationId = firstValue(formData, "operationsOrganizationId");
+  const { current, organizationId: operationsOrganizationId } =
+    await requireOperationsAdministratorContext(formData);
 
   let transfer: Awaited<ReturnType<typeof transferPublicProductForAdministrator>>;
   try {
@@ -752,57 +808,19 @@ export async function transferOwnedPublicProductAction(formData: FormData): Prom
 }
 
 export async function archiveOrganizationProductAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const organizationId = firstValue(formData, "organizationId");
-  const productRecordId = firstValue(formData, "productRecordId");
-  const productId = firstValue(formData, "productId");
-  let affectedOrganizationIds = [organizationId];
-  try {
-    const shareInfo = await getProductShareInfo(
-      current.subject.subjectId,
-      organizationId,
-      productRecordId,
-    ).catch(() => null);
-    await archiveOrganizationProduct(current.subject.subjectId, organizationId, productRecordId);
-    affectedOrganizationIds = [
-      organizationId,
-      ...(shareInfo?.adopterOrganizations.map((entry) => entry.organizationId) ?? []),
-    ];
-  } catch (error) {
-    redirect(
-      `/dashboard/${encodeURIComponent(organizationId)}/products?error=product-lifecycle&reason=${encodeURIComponent(publicActionError(error))}`,
-    );
-  }
-  revalidateProductLifecyclePaths(affectedOrganizationIds, productId);
-  redirect(`/dashboard/${encodeURIComponent(organizationId)}/products?notice=product-archived`);
+  await updateOrganizationProductArchivedStateAction(
+    formData,
+    archiveOrganizationProduct,
+    "product-archived",
+  );
 }
 
 export async function restoreOrganizationProductAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const organizationId = firstValue(formData, "organizationId");
-  const productRecordId = firstValue(formData, "productRecordId");
-  const productId = firstValue(formData, "productId");
-  let affectedOrganizationIds = [organizationId];
-  try {
-    const shareInfo = await getProductShareInfo(
-      current.subject.subjectId,
-      organizationId,
-      productRecordId,
-    ).catch(() => null);
-    await restoreOrganizationProduct(current.subject.subjectId, organizationId, productRecordId);
-    affectedOrganizationIds = [
-      organizationId,
-      ...(shareInfo?.adopterOrganizations.map((entry) => entry.organizationId) ?? []),
-    ];
-  } catch (error) {
-    redirect(
-      `/dashboard/${encodeURIComponent(organizationId)}/products?error=product-lifecycle&reason=${encodeURIComponent(publicActionError(error))}`,
-    );
-  }
-  revalidateProductLifecyclePaths(affectedOrganizationIds, productId);
-  redirect(`/dashboard/${encodeURIComponent(organizationId)}/products?notice=product-restored`);
+  await updateOrganizationProductArchivedStateAction(
+    formData,
+    restoreOrganizationProduct,
+    "product-restored",
+  );
 }
 
 export async function deleteOrganizationProductAction(formData: FormData): Promise<void> {
@@ -830,11 +848,8 @@ export async function deleteOrganizationProductAction(formData: FormData): Promi
 }
 
 export async function setOrganizationProductVisibilityAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const organizationId = firstValue(formData, "organizationId");
-  const productRecordId = firstValue(formData, "productRecordId");
-  const productId = firstValue(formData, "productId");
+  const { current, organizationId, productRecordId, productId } =
+    await organizationProductActionContext(formData);
   const visibilityValue = firstValue(formData, "visibility");
   const returnTo = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}`;
   if (visibilityValue !== "private" && visibilityValue !== "public") {
@@ -1210,10 +1225,8 @@ export async function updateAccountProfileAction(formData: FormData): Promise<vo
 }
 
 export async function retireLegacyAccessAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  if (!isAdministrator(current.subject)) redirect("/dashboard");
-  const operationsOrganizationId = firstValue(formData, "operationsOrganizationId");
+  const { current, organizationId: operationsOrganizationId } =
+    await requireOperationsAdministratorContext(formData);
   let retired: { grants: number; keys: number };
   try {
     retired = await retireLegacyAccess(current.subject.subjectId);
@@ -1351,10 +1364,8 @@ export async function deletePermissionGrantAction(formData: FormData): Promise<v
 }
 
 export async function updateAccountStatusAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  if (!isAdministrator(current.subject)) redirect("/dashboard?notice=admin-required");
-  const operationsOrganizationId = firstValue(formData, "operationsOrganizationId");
+  const { current, organizationId: operationsOrganizationId } =
+    await requireOperationsAdministratorContext(formData, "/dashboard?notice=admin-required");
   const status = firstValue(formData, "status");
   if (status !== "active" && status !== "disabled")
     redirect(
@@ -1380,10 +1391,8 @@ export async function updateAccountStatusAction(formData: FormData): Promise<voi
 }
 
 export async function deleteAccountAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  if (!isAdministrator(current.subject)) redirect("/dashboard?notice=admin-required");
-  const operationsOrganizationId = firstValue(formData, "operationsOrganizationId");
+  const { current, organizationId: operationsOrganizationId } =
+    await requireOperationsAdministratorContext(formData, "/dashboard?notice=admin-required");
   try {
     await deleteAccountForAdministrator(
       current.subject.subjectId,

@@ -4,10 +4,7 @@ import { OperationsShell } from "@/components/operations-shell";
 import type { OperationsQuery } from "@/components/operations-types";
 import { getOperationsPageContext } from "@/lib/auth/operations-page-context";
 import { listAccountsForAdministrator } from "@/lib/auth/service";
-import {
-  operationsHref,
-  organizationDashboardHref,
-} from "@/lib/operations-navigation";
+import { operationsBreadcrumbs } from "@/lib/operations-navigation";
 
 export default async function PlatformAccountsPage({
   searchParams,
@@ -21,14 +18,7 @@ export default async function PlatformAccountsPage({
   return (
     <OperationsShell
       context={context}
-      breadcrumbs={[
-        { label: "Dashboard", href: organizationDashboardHref(context.organizationId) },
-        {
-          label: "Platform admin",
-          href: operationsHref("/dashboard/operations", context.organizationId),
-        },
-        { label: "Accounts" },
-      ]}
+      breadcrumbs={operationsBreadcrumbs(context.organizationId, "Accounts")}
     >
       <DashboardHeading description="View registered accounts and manage their status or access." />
       <OperationsFeedback query={query} />

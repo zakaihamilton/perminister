@@ -4,10 +4,7 @@ import { OperationsShell } from "@/components/operations-shell";
 import type { OperationsQuery } from "@/components/operations-types";
 import { getOperationsPageContext } from "@/lib/auth/operations-page-context";
 import { previewLegacyAccessRetirement } from "@/lib/auth/service";
-import {
-  operationsHref,
-  organizationDashboardHref,
-} from "@/lib/operations-navigation";
+import { operationsBreadcrumbs } from "@/lib/operations-navigation";
 
 export default async function LegacyAccessPage({
   searchParams,
@@ -21,14 +18,7 @@ export default async function LegacyAccessPage({
   return (
     <OperationsShell
       context={context}
-      breadcrumbs={[
-        { label: "Dashboard", href: organizationDashboardHref(context.organizationId) },
-        {
-          label: "Platform admin",
-          href: operationsHref("/dashboard/operations", context.organizationId),
-        },
-        { label: "Remove older access" },
-      ]}
+      breadcrumbs={operationsBreadcrumbs(context.organizationId, "Remove older access")}
     >
       <DashboardHeading description="Review and remove permissions and API keys that are not linked to an organization." />
       <OperationsFeedback query={query} />

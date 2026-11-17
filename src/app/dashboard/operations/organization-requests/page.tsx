@@ -4,10 +4,7 @@ import { OperationsShell } from "@/components/operations-shell";
 import type { OperationsQuery } from "@/components/operations-types";
 import { getOperationsPageContext } from "@/lib/auth/operations-page-context";
 import { listPendingOrganizationsForAdministrator } from "@/lib/auth/service";
-import {
-  operationsHref,
-  organizationDashboardHref,
-} from "@/lib/operations-navigation";
+import { operationsBreadcrumbs } from "@/lib/operations-navigation";
 
 export default async function OrganizationRequestsPage({
   searchParams,
@@ -23,14 +20,7 @@ export default async function OrganizationRequestsPage({
   return (
     <OperationsShell
       context={context}
-      breadcrumbs={[
-        { label: "Dashboard", href: organizationDashboardHref(context.organizationId) },
-        {
-          label: "Platform admin",
-          href: operationsHref("/dashboard/operations", context.organizationId),
-        },
-        { label: "Organization requests" },
-      ]}
+      breadcrumbs={operationsBreadcrumbs(context.organizationId, "Organization requests")}
     >
       <DashboardHeading description="Review pending requests to create an organization." />
       <OperationsFeedback query={query} />
