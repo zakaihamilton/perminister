@@ -1,25 +1,14 @@
 import { authenticateConsumerClientBasic } from "@/lib/auth/consumer-clients";
 import { withApiRoutePerformance } from "@/lib/auth/performance";
 import { getSessionFromToken } from "@/lib/auth/service";
-import { NO_STORE_HEADERS, readBoundedRequestBody } from "@/lib/auth/http";
+import { NO_STORE_HEADERS, noStoreJsonResponse, readBoundedRequestBody, uniqueFormValue } from "@/lib/auth/http";
 import { getOidcIssuer } from "@/lib/auth/oidc";
 import { normalizeOAuthUri } from "@/lib/auth/oauth-uris";
 
 export const runtime = "nodejs";
 
 function response(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: {
-      ...NO_STORE_HEADERS,
-      ...(status === 401 ? { "WWW-Authenticate": 'Basic realm="Perminister token introspection"' } : {}),
-    },
-  });
-}
-
-function uniqueValue(params: URLSearchParams, name: string): string | null {
-  const values = params.getAll(name);
-  return values.length === 1 ? (values[0] ?? null) : null;
+  return noStoreJsonResponse(body, status, 'Basic realm="Perminister token introspection"');
 }
 
 export const POST = withApiRoutePerformance(
@@ -54,8 +43,8 @@ export const POST = withApiRoutePerformance(
       return response({ error: "temporarily_unavailable" }, 503);
     }
     if (!client) return response({ error: "invalid_client" }, 401);
-    const token = uniqueValue(body, "token") ?? "";
-    const suppliedResource = uniqueValue(body, "resource");
+    const token = uniqueFormValue(body, "token") ?? "";
+    const suppliedResource = uniqueFormValue(body, "resource");
     let resource: string | null = null;
     try {
       if (suppliedResource) resource = normalizeOAuthUri(suppliedResource, "resource URI");

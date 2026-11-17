@@ -1,6 +1,6 @@
 import { withApiRoutePerformance, withRequestPerformanceSpan } from "@/lib/auth/performance";
 import { authenticateConsumerClientBasic } from "@/lib/auth/consumer-clients";
-import { NO_STORE_HEADERS, readBoundedRequestBody } from "@/lib/auth/http";
+import { NO_STORE_HEADERS, noStoreJsonResponse, readBoundedRequestBody, uniqueFormValue } from "@/lib/auth/http";
 import {
   exchangeConsumerAuthorizationCode,
   getOAuthClientRegistration,
@@ -12,23 +12,7 @@ import { assertOidcSigningKeyReady, signOidcIdToken } from "@/lib/auth/oidc";
 export const runtime = "nodejs";
 
 function invalidRequest(error: string, status = 400): Response {
-  return Response.json(
-    { error },
-    {
-      status,
-      headers: {
-        ...NO_STORE_HEADERS,
-        ...(status === 401
-          ? { "WWW-Authenticate": 'Basic realm="Perminister OIDC token endpoint"' }
-          : {}),
-      },
-    },
-  );
-}
-
-function uniqueValue(params: URLSearchParams, name: string): string | null {
-  const values = params.getAll(name);
-  return values.length === 1 ? (values[0] ?? null) : null;
+  return noStoreJsonResponse({ error }, status, 'Basic realm="Perminister OIDC token endpoint"');
 }
 
 export const POST = withApiRoutePerformance(
@@ -56,13 +40,13 @@ export const POST = withApiRoutePerformance(
       return invalidRequest("invalid_request");
     }
 
-    const grantType = uniqueValue(body, "grant_type");
-    const code = uniqueValue(body, "code");
-    const verifier = uniqueValue(body, "code_verifier");
-    const redirectUri = uniqueValue(body, "redirect_uri");
-    const suppliedClientId = uniqueValue(body, "client_id");
-    const resource = uniqueValue(body, "resource");
-    const requestedScope = uniqueValue(body, "scope");
+    const grantType = uniqueFormValue(body, "grant_type");
+    const code = uniqueFormValue(body, "code");
+    const verifier = uniqueFormValue(body, "code_verifier");
+    const redirectUri = uniqueFormValue(body, "redirect_uri");
+    const suppliedClientId = uniqueFormValue(body, "client_id");
+    const resource = uniqueFormValue(body, "resource");
+    const requestedScope = uniqueFormValue(body, "scope");
     if (
       grantType !== "authorization_code" ||
       !code ||
