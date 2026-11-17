@@ -543,9 +543,19 @@ function consumerClientSettings(formData: FormData) {
   return {
     appName: firstValue(formData, "appName"),
     appOrigin: firstValue(formData, "appOrigin"),
+    redirectUris: formLines(formData, "redirectUris"),
+    resourceUris: formLines(formData, "resourceUris"),
+    oauthScopes: formLines(formData, "oauthScopes").flatMap((line) => line.split(/\s+/)),
     sessionLifetimeSeconds: Math.round(sessionLifetimeHours * 60 * 60),
     selfRegistrationEnabled: registrationSetting === "true",
   };
+}
+
+function formLines(formData: FormData, name: string): string[] {
+  return firstValue(formData, name)
+    .split(/\r?\n/)
+    .map((value) => value.trim())
+    .filter(Boolean);
 }
 
 async function manageConsumerClientAction(

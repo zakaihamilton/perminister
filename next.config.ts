@@ -16,6 +16,11 @@ const writerSourceFiles = [
   "src/app/auth/google/callback/route.ts",
   "src/app/logout/submit/route.ts",
   "src/app/oauth/authorize/action.ts",
+  "src/app/oauth/authorize/page.tsx",
+  "src/app/oauth/token/route.ts",
+  "src/app/oauth/register/route.ts",
+  "src/app/oauth/introspect/route.ts",
+  "src/components/authorization-view.tsx",
   "src/proxy.ts",
 ];
 

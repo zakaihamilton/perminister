@@ -5,6 +5,7 @@ import {
 } from "@/lib/auth/service";
 import { authenticateConsumerClient } from "@/lib/auth/consumer-clients";
 import { withRequestPerformance } from "@/lib/auth/performance";
+import { normalizeOAuthUri } from "@/lib/auth/oauth-uris";
 import {
   bearerToken,
   isJsonRequest,
@@ -18,6 +19,16 @@ const noStoreHeaders = {
   "Cache-Control": "no-store",
   Vary: "Authorization, X-Perminister-Client-Id",
 };
+
+function isValidResourceUri(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try {
+    normalizeOAuthUri(value, "resource URI");
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function isAuthorizationRequest(value: unknown): value is AuthorizationRequest {
   if (typeof value !== "object" || value === null) return false;
@@ -37,7 +48,8 @@ function isAuthorizationRequest(value: unknown): value is AuthorizationRequest {
     (candidate.resourceKind === "product" ||
       (typeof candidate.resourceId === "string" && resourcePart.test(candidate.resourceId))) &&
     typeof candidate.action === "string" &&
-    /^[A-Za-z][A-Za-z0-9._:-]{0,63}$/.test(candidate.action)
+    /^[A-Za-z][A-Za-z0-9._:-]{0,63}$/.test(candidate.action) &&
+    (candidate.resource === undefined || isValidResourceUri(candidate.resource))
   );
 }
 
@@ -112,6 +124,9 @@ async function authorizePost(request: Request): Promise<Response> {
     organizationId: body.organizationId.toLowerCase(),
     productId: body.productId.toLowerCase(),
     ...(body.resourceId === undefined ? {} : { resourceId: body.resourceId.toLowerCase() }),
+    ...(body.resource === undefined
+      ? {}
+      : { resource: normalizeOAuthUri(body.resource, "resource URI") }),
   };
   try {
     const isApiKey = /^pmk_[0-9a-f-]{36}_/i.test(token);
@@ -129,7 +144,10 @@ async function authorizePost(request: Request): Promise<Response> {
       !session ||
       client.productId !== normalizedBody.productId ||
       session.session.applicationClientId !== client.clientId ||
-      session.session.productId !== client.productId
+      session.session.productId !== client.productId ||
+      (session.session.resource &&
+        (!client.resourceUris.includes(session.session.resource) ||
+          session.session.oauthScopes?.some((scope) => !client.oauthScopes.includes(scope))))
     ) {
       return Response.json({ authorized: false }, { status: 403, headers: noStoreHeaders });
     }

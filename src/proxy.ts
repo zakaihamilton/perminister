@@ -7,7 +7,7 @@ import {
   legacyConsumerAuthorizationEnabled,
   parseConsumerAuthorizationRequest,
 } from "@/lib/auth/consumer-sso";
-import { getConsumerClientRecord } from "@/lib/auth/service";
+import { getOAuthAuthorizationClient } from "@/lib/auth/service";
 import {
   getConfiguredWriteProxySecret,
   matchesWriteProxySecret,
@@ -113,7 +113,9 @@ async function consumerAuthorizationPolicy(request: NextRequest): Promise<string
 
   const params = request.nextUrl.searchParams;
   const clientId = params.get("client_id") ?? "";
-  const client = await getConsumerClientRecord(clientId).catch(() => null);
+  const client = await getOAuthAuthorizationClient(clientId, params.get("resource")).catch(
+    () => null,
+  );
   const authorization = parseConsumerAuthorizationRequest(params, client, {
     allowLegacy: legacyConsumerAuthorizationEnabled(),
   });
@@ -384,6 +386,8 @@ export const config = {
     "/auth/google/:path*",
     "/oauth/authorize",
     "/oauth/token",
+    "/oauth/register",
+    "/oauth/introspect",
     "/accept-invitation",
     "/dashboard/:path*",
     "/forgot-password",

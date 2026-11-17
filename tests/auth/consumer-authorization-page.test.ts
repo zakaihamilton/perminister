@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
     throw new Error(`redirect:${destination}`);
   }),
   createConsumerAuthorizationCode: vi.fn(),
-  getConsumerClientRecord: vi.fn(),
+  getOAuthAuthorizationClient: vi.fn(),
   getCurrentSession: vi.fn(),
 }));
 
@@ -13,7 +13,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/lib/auth/service", () => ({
   createConsumerAuthorizationCode: mocks.createConsumerAuthorizationCode,
-  getConsumerClientRecord: mocks.getConsumerClientRecord,
+  getOAuthAuthorizationClient: mocks.getOAuthAuthorizationClient,
   getCurrentSession: mocks.getCurrentSession,
 }));
 vi.mock("@/components/authorization-view", () => ({
@@ -31,9 +31,21 @@ const redirectUri = "https://postparticle.example/auth/perminister/callback";
 const client = {
   consumerClientId: clientId,
   productId: "postparticle",
+  appName: "PostParticle",
   appOrigin: "https://postparticle.example",
   status: "active",
 };
+
+function oauthAuthorizationClient(profile = client) {
+  return {
+    oauthClientId: profile.consumerClientId,
+    oauthClientType: "confidential" as const,
+    clientName: profile.appName,
+    profile,
+    redirectUris: [new URL("/auth/perminister/callback", profile.appOrigin).toString()],
+    registrationScopes: null,
+  };
+}
 
 function request(prompt?: string) {
   return {
@@ -52,7 +64,7 @@ function request(prompt?: string) {
 describe("consumer authorization page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getConsumerClientRecord.mockResolvedValue(client);
+    mocks.getOAuthAuthorizationClient.mockResolvedValue(oauthAuthorizationClient(client));
     mocks.getCurrentSession.mockResolvedValue({ subject: { subjectId } });
     mocks.createConsumerAuthorizationCode.mockResolvedValue("issued-code");
   });

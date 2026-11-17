@@ -161,6 +161,8 @@ function recordKey(record: AuthRecord): string {
       return `${OBJECT_PREFIX}api-keys/${record.apiKeyId}.json`;
     case "consumer-client":
       return `${OBJECT_PREFIX}consumer-clients/${record.consumerClientId}.json`;
+    case "oauth-client-registration":
+      return `${OBJECT_PREFIX}oauth-client-registrations/${record.oauthClientId}.json`;
     case "consumer-authorization-code":
       return `${OBJECT_PREFIX}consumer-authorization-codes/${record.consumerAuthorizationCodeId}.json`;
     case "session":
@@ -237,6 +239,8 @@ function isRecordListCandidate(kind: AuthRecordKind, key: string): boolean {
       return /^orgs\/[^/]+\/products\/[^/]+\/members\/[^/]+(?:\/grants\/[^/]+)?\.json$/.test(
         relativeKey,
       );
+    case "oauth-client-registration":
+      return /^oauth-client-registrations\/[^/]+\.json$/.test(relativeKey);
     default:
       return true;
   }
@@ -995,6 +999,7 @@ export class SpacesAuthStore {
       "service-principal": [`${OBJECT_PREFIX}service-principals/`],
       "api-key": [`${OBJECT_PREFIX}api-keys/`],
       "consumer-client": [`${OBJECT_PREFIX}consumer-clients/`],
+      "oauth-client-registration": [`${OBJECT_PREFIX}oauth-client-registrations/`],
       "consumer-authorization-code": [`${OBJECT_PREFIX}consumer-authorization-codes/`],
       session: [`${OBJECT_PREFIX}sessions/`],
       "email-action": [`${OBJECT_PREFIX}email-actions/`],
@@ -1024,6 +1029,7 @@ export class SpacesAuthStore {
       organization: `${OBJECT_PREFIX}orgs/${id}/organization.json`,
       "api-key": `${OBJECT_PREFIX}api-keys/${id}.json`,
       "consumer-client": `${OBJECT_PREFIX}consumer-clients/${id}.json`,
+      "oauth-client-registration": `${OBJECT_PREFIX}oauth-client-registrations/${id}.json`,
       "consumer-authorization-code": `${OBJECT_PREFIX}consumer-authorization-codes/${id}.json`,
       session: `${OBJECT_PREFIX}sessions/${id}.json`,
       "email-action": `${OBJECT_PREFIX}email-actions/${id}.json`,
@@ -1044,6 +1050,8 @@ export class SpacesAuthStore {
         return `${OBJECT_PREFIX}api-keys/${id}.json`;
       case "consumer-client":
         return `${OBJECT_PREFIX}consumer-clients/${id}.json`;
+      case "oauth-client-registration":
+        return `${OBJECT_PREFIX}oauth-client-registrations/${id}.json`;
       case "consumer-authorization-code":
         return `${OBJECT_PREFIX}consumer-authorization-codes/${id}.json`;
       case "session":

@@ -11,6 +11,7 @@ import {
   newInvitationId,
   newMembershipId,
   newOrganizationMembershipId,
+  type OAuthClientRegistrationRecord,
   type ConsumerClientRecord,
   MAX_CONSUMER_SESSION_LIFETIME_MS,
   MIN_CONSUMER_SESSION_LIFETIME_MS,
@@ -65,6 +66,7 @@ import {
   isSharedProductSource,
   requireProductRoleUnlocked,
 } from "./organizations-and-products";
+import { normalizeOAuthUri, normalizeOAuthUriList, parseOAuthScopeList } from "../oauth-uris";
 
 const ORGANIZATION_INVITATION_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -73,6 +75,9 @@ export interface ConsumerClientSummary {
   productId: string;
   appName: string;
   appOrigin: string | null;
+  redirectUris: readonly string[];
+  resourceUris: readonly string[];
+  oauthScopes: readonly string[];
   sessionLifetimeMs: number;
   selfRegistrationEnabled: boolean;
   status: ConsumerClientRecord["status"];
@@ -89,6 +94,9 @@ export interface ConsumerClientCredential {
 export interface CreateConsumerClientOptions {
   appName: string;
   appOrigin: string;
+  redirectUris?: readonly string[];
+  resourceUris?: readonly string[];
+  oauthScopes?: readonly string[];
   sessionLifetimeSeconds: number;
   selfRegistrationEnabled: boolean;
 }
@@ -99,6 +107,9 @@ function consumerClientSummary(record: ConsumerClientRecord): ConsumerClientSumm
     productId: record.productId,
     appName: record.appName,
     appOrigin: record.appOrigin,
+    redirectUris: record.redirectUris ?? [],
+    resourceUris: record.resourceUris ?? [],
+    oauthScopes: record.oauthScopes ?? [],
     sessionLifetimeMs: effectiveConsumerSessionLifetimeMs(record.sessionLifetimeMs),
     selfRegistrationEnabled: record.selfRegistrationEnabled,
     status: record.status,
@@ -224,7 +235,31 @@ function validateConsumerClientOptions(productId: string, options: CreateConsume
   if (typeof options.selfRegistrationEnabled !== "boolean") {
     throw new Error("Choose whether self-registration is enabled.");
   }
-  return { appName, appOrigin };
+  const redirectUris = normalizeOAuthUriList(options.redirectUris ?? [], "redirect URIs");
+  const resourceUris = normalizeOAuthUriList(options.resourceUris ?? [], "resource URIs");
+  const oauthScopes = parseOAuthScopeList((options.oauthScopes ?? []).join(" "));
+  if ((resourceUris.length === 0) !== (oauthScopes.length === 0)) {
+    throw new Error("Configure both resource URIs and OAuth scopes, or leave both empty.");
+  }
+  if (oauthScopes.some((scope) => ["openid", "profile", "email", "perminister_api"].includes(scope))) {
+    throw new Error("OpenID identity scopes are reserved and cannot be configured as permission actions.");
+  }
+  return { appName, appOrigin, redirectUris, resourceUris, oauthScopes };
+}
+
+async function assertOAuthResourcesAvailable(
+  consumerClientId: string | null,
+  resourceUris: readonly string[],
+): Promise<void> {
+  if (!resourceUris.length) return;
+  const requested = new Set(resourceUris);
+  const conflict = (await listRecordsWithRecovery("consumer-client")).some(
+    ({ record }) =>
+      record.consumerClientId !== consumerClientId &&
+      record.status === "active" &&
+      (record.resourceUris ?? []).some((resource) => requested.has(resource)),
+  );
+  if (conflict) throw new Error("Each OAuth resource URI can be assigned to only one active client.");
 }
 
 export async function getConsumerClientRecord(
@@ -235,6 +270,131 @@ export async function getConsumerClientRecord(
     const found = await loadRecord("consumer-client", clientId);
     return found?.record ?? null;
   });
+}
+
+export interface ConsumerOAuthAuthorizationClient {
+  oauthClientId: string;
+  oauthClientType: "confidential" | "public";
+  clientName: string;
+  profile: ConsumerClientRecord;
+  redirectUris: readonly string[];
+  registrationScopes: readonly string[] | null;
+}
+
+export async function getOAuthClientRegistration(
+  clientId: string,
+): Promise<OAuthClientRegistrationRecord | null> {
+  assertOpaqueId(clientId);
+  return authMutationQueue.read(async () => {
+    const found = await loadRecord("oauth-client-registration", clientId);
+    return found?.record ?? null;
+  });
+}
+
+export async function findConsumerClientForResource(
+  resourceUri: string,
+): Promise<ConsumerClientRecord | null> {
+  const normalized = normalizeOAuthUri(resourceUri, "resource URI");
+  return authMutationQueue.read(async () => {
+    const matches = (await listRecordsWithRecovery("consumer-client"))
+      .map(({ record }) => record)
+      .filter(
+        (record) =>
+          record.status === "active" && (record.resourceUris ?? []).includes(normalized),
+      );
+    return matches.length === 1 ? matches[0] : null;
+  });
+}
+
+export async function getOAuthAuthorizationClient(
+  clientId: string,
+  resourceUri: string | null,
+): Promise<ConsumerOAuthAuthorizationClient | null> {
+  assertOpaqueId(clientId);
+  let normalizedResourceUri: string | null = null;
+  try {
+    if (resourceUri) normalizedResourceUri = normalizeOAuthUri(resourceUri, "resource URI");
+  } catch {
+    return null;
+  }
+  const confidential = await getConsumerClientRecord(clientId);
+  if (confidential?.status === "active") {
+    if (
+      (confidential.resourceUris?.length &&
+        (!normalizedResourceUri || !confidential.resourceUris.includes(normalizedResourceUri))) ||
+      (normalizedResourceUri && !confidential.resourceUris?.includes(normalizedResourceUri))
+    ) {
+      return null;
+    }
+    const legacyRedirect = confidential.appOrigin
+      ? new URL("/auth/perminister/callback", confidential.appOrigin).toString()
+      : null;
+    const redirectUris = confidential.redirectUris?.length
+      ? confidential.redirectUris
+      : legacyRedirect
+        ? [legacyRedirect]
+        : [];
+    if (!redirectUris.length) return null;
+    return {
+      oauthClientId: clientId,
+      oauthClientType: "confidential",
+      clientName: confidential.appName,
+      profile: confidential,
+      redirectUris,
+      registrationScopes: null,
+    };
+  }
+
+  const registration = await getOAuthClientRegistration(clientId);
+  if (
+    !registration ||
+    registration.status !== "active" ||
+    !normalizedResourceUri ||
+    !registration.redirectUris.length
+  ) {
+    return null;
+  }
+  const profile = await findConsumerClientForResource(normalizedResourceUri);
+  if (!profile) return null;
+  return {
+    oauthClientId: clientId,
+    oauthClientType: "public",
+    clientName: registration.clientName,
+    profile,
+    redirectUris: registration.redirectUris,
+    registrationScopes: registration.scopes ?? null,
+  };
+}
+
+export async function registerOAuthClient(
+  clientNameInput: string,
+  redirectUrisInput: readonly string[],
+  scopesInput?: readonly string[],
+): Promise<OAuthClientRegistrationRecord> {
+  const clientName = clientNameInput.trim().replace(/\s+/g, " ") || "OAuth client";
+  if (clientName.length > 80 || /[\u0000-\u001f\u007f]/.test(clientName)) {
+    throw new Error("Enter a client name up to 80 characters.");
+  }
+  const redirectUris = normalizeOAuthUriList(redirectUrisInput, "redirect URIs");
+  if (!redirectUris.length) throw new Error("Register at least one redirect URI.");
+  const scopes = scopesInput ? parseOAuthScopeList(scopesInput.join(" ")) : [];
+  const now = new Date().toISOString();
+  const record: OAuthClientRegistrationRecord = {
+    kind: "oauth-client-registration",
+    schemaVersion: 1,
+    oauthClientId: newConsumerClientId(),
+    clientName,
+    redirectUris,
+    ...(scopes.length ? { scopes } : {}),
+    createdAt: now,
+    updatedAt: now,
+    status: "active",
+    revokedAt: null,
+  };
+  await authMutationQueue.run(() =>
+    persistRecord(record, "oauth-client-registration.created", { kind: "system" }),
+  );
+  return record;
 }
 
 export async function listConsumerClientsForProduct(
@@ -307,6 +467,7 @@ export async function createConsumerClient(
     productId,
     async (actor, normalizedProductId) => {
       const validated = validateConsumerClientOptions(normalizedProductId, options);
+      await assertOAuthResourcesAvailable(null, validated.resourceUris);
       const consumerClientId = newConsumerClientId();
       const secret = `pmc_${consumerClientId}_${randomBytes(32).toString("base64url")}`;
       const now = new Date().toISOString();
@@ -318,6 +479,9 @@ export async function createConsumerClient(
         productId: normalizedProductId,
         appName: validated.appName,
         appOrigin: validated.appOrigin,
+        redirectUris: validated.redirectUris,
+        resourceUris: validated.resourceUris,
+        oauthScopes: validated.oauthScopes,
         sessionLifetimeMs: options.sessionLifetimeSeconds * 1000,
         selfRegistrationEnabled: options.selfRegistrationEnabled,
         verifier: { algorithm: "sha256", digestHex: hashHex(secret) },
@@ -357,10 +521,14 @@ export async function updateConsumerClient(
         true,
         "Choose an active application client for this product.",
       );
+      await assertOAuthResourcesAvailable(found.record.consumerClientId, validated.resourceUris);
       const next: ConsumerClientRecord = {
         ...found.record,
         appName: validated.appName,
         appOrigin: validated.appOrigin,
+        redirectUris: validated.redirectUris,
+        resourceUris: validated.resourceUris,
+        oauthScopes: validated.oauthScopes,
         sessionLifetimeMs: options.sessionLifetimeSeconds * 1000,
         selfRegistrationEnabled: options.selfRegistrationEnabled,
         updatedAt: new Date().toISOString(),

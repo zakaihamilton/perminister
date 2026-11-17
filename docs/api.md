@@ -20,8 +20,9 @@ Perminister returns each client ID and secret once; copy them into the correspon
 backend’s environment. Rotating a secret immediately invalidates the previous one, and revoking a
 client stops its credentials from working. Set the product origin to enable Sign in with
 Perminister. HTTPS origins are required, with HTTP allowed for `localhost` and `127.0.0.1`
-development origins. Register the exact app origin, including its development port. The callback
-URL is that origin plus `/auth/perminister/callback`, and must match exactly. The application backend sends these headers when
+development origins. The legacy callback is that origin plus `/auth/perminister/callback`. For
+OAuth clients, configure exact redirect URIs directly; when none are configured, Perminister uses
+the legacy callback derived from the app origin. The application backend sends these headers when
 calling consumer endpoints:
 
 ```http
@@ -101,6 +102,51 @@ the account has no qualifying access, Perminister redirects to the exact registe
 callbacks should handle this error and show the user how to request access. If product membership is
 removed later, consumer session validation returns `401` with `{"authenticated":false}`. If access is
 removed after code issuance but before exchange, `/oauth/token` returns `invalid_grant`.
+
+## Generic OAuth resource clients
+
+Application clients can also define generic resource audiences and OAuth scopes. Configure one or
+more exact **Resource URIs** and **Allowed OAuth scopes** in the client settings. Each scope is an
+action name used by `POST /api/authorize`; the two lists must both be configured, and a resource URI
+can belong to only one active client. Redirect URIs can be configured directly. Perminister uses the
+legacy app-origin callback only when the client has no explicit redirect URI list.
+
+Remote OAuth clients can register as public PKCE clients at `POST /oauth/register` using RFC 7591
+metadata. The request accepts `redirect_uris`, an optional `client_name`, optional `scope`, and the
+authorization-code grant with the `none` token authentication method. Perminister returns a public
+`client_id` and no client secret. The registered callbacks are exact allowlist entries. Any requested
+scope is later limited by the resource profile and the user's current Perminister grants.
+
+The OAuth authorization-server metadata is published at
+`/.well-known/oauth-authorization-server`; OpenID Provider metadata remains at
+`/.well-known/openid-configuration`. Both advertise S256 PKCE and issuer identification. The
+authorization request must include the exact `resource` URI and requested `scope`; the same
+`resource` value must be sent to `POST /oauth/token`. Perminister returns the configured issuer as
+`iss` on successful and denied authorization callbacks. A signed-in user explicitly approves
+resource-scoped requests before Perminister issues a code.
+
+The protected resource server publishes its own RFC 9728 metadata document at
+`/.well-known/oauth-protected-resource`. It names its canonical resource URI, Perminister's issuer
+in `authorization_servers`, and its available scopes. Perminister remains the authorization server
+and does not host or hard-code resource-server metadata.
+
+The returned access token is opaque and revocable. A resource server validates it through
+`POST /oauth/introspect`, authenticated with its confidential Perminister app-client credentials:
+
+```http
+POST /oauth/introspect
+Authorization: Basic <BASE64_CLIENT_ID_AND_SECRET>
+Content-Type: application/x-www-form-urlencoded
+
+token=<ACCESS_TOKEN>&resource=https%3A%2F%2Fmcp.example.com
+```
+
+An active response contains `sub`, `aud`, `scope`, `client_id`, `iss`, `iat`, and `exp`. An invalid,
+expired, revoked, or mismatched token returns `{"active":false}`. Keep the app-client secret on the
+resource server. Before each protected operation, also call `POST /api/authorize` with the exact
+resource URI and action. This enforces both the token's granted scopes and the user's current
+organization, product, project, or workspace grants. Perminister does not fetch resource data. No
+refresh token is issued; a client can start a new authorization flow after the access token expires.
 
 Registration accepts `email` and `password`; the password must be 15–256 characters. Optional
 `firstName` and `lastName` fields may each contain up to 80 characters. The names are available in
@@ -357,7 +403,9 @@ Invalid JSON or fields return `400`, oversized bodies return `413`, and a non-JS
 returns `415`. A temporary service failure returns `503`.
 
 For app session tokens, Perminister checks session or account validity, current app entitlement, and
-current grants on each request. App entitlement follows the client's registration policy and
+current grants on each request. When the session came from a resource-scoped OAuth request, also
+include its exact `resource` URI; the requested `action` must be present in the token's granted OAuth
+scopes and in the current user grants. App entitlement follows the client's registration policy and
 includes active product membership, public registration, the owning organization's active owner, or
 a configured system administrator. For user-owned API keys, Perminister checks an active product
 membership and current grants; keys also require an active, verified account. Product membership

@@ -80,6 +80,12 @@ describe("OIDC token endpoint", () => {
       clientId,
       "v".repeat(43),
       callback,
+      null,
+      undefined,
+      expect.objectContaining({
+        requireOAuthTokenResponse: true,
+        beforeConsume: expect.any(Function),
+      }),
     );
     expect(mocks.signIdToken).toHaveBeenCalledWith(
       expect.objectContaining({ clientId, nonce: "n".repeat(43) }),

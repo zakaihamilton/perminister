@@ -1,32 +1,18 @@
 import { withApiRoutePerformance, withRequestPerformanceSpan } from "@/lib/auth/performance";
 import { authenticateConsumerClientBasic } from "@/lib/auth/consumer-clients";
-import { NO_STORE_HEADERS, readBoundedRequestBody } from "@/lib/auth/http";
+import { NO_STORE_HEADERS, noStoreJsonResponse, readBoundedRequestBody, uniqueFormValue } from "@/lib/auth/http";
 import {
   exchangeConsumerAuthorizationCode,
+  getOAuthClientRegistration,
   InvalidConsumerAuthorizationCodeError,
+  InvalidConsumerAuthorizationScopeError,
 } from "@/lib/auth/service";
 import { assertOidcSigningKeyReady, signOidcIdToken } from "@/lib/auth/oidc";
 
 export const runtime = "nodejs";
 
 function invalidRequest(error: string, status = 400): Response {
-  return Response.json(
-    { error },
-    {
-      status,
-      headers: {
-        ...NO_STORE_HEADERS,
-        ...(status === 401
-          ? { "WWW-Authenticate": 'Basic realm="Perminister OIDC token endpoint"' }
-          : {}),
-      },
-    },
-  );
-}
-
-function uniqueValue(params: URLSearchParams, name: string): string | null {
-  const values = params.getAll(name);
-  return values.length === 1 ? (values[0] ?? null) : null;
+  return noStoreJsonResponse({ error }, status, 'Basic realm="Perminister OIDC token endpoint"');
 }
 
 export const POST = withApiRoutePerformance(
@@ -54,10 +40,13 @@ export const POST = withApiRoutePerformance(
       return invalidRequest("invalid_request");
     }
 
-    const grantType = uniqueValue(body, "grant_type");
-    const code = uniqueValue(body, "code");
-    const verifier = uniqueValue(body, "code_verifier");
-    const redirectUri = uniqueValue(body, "redirect_uri");
+    const grantType = uniqueFormValue(body, "grant_type");
+    const code = uniqueFormValue(body, "code");
+    const verifier = uniqueFormValue(body, "code_verifier");
+    const redirectUri = uniqueFormValue(body, "redirect_uri");
+    const suppliedClientId = uniqueFormValue(body, "client_id");
+    const resource = uniqueFormValue(body, "resource");
+    const requestedScope = uniqueFormValue(body, "scope");
     if (
       grantType !== "authorization_code" ||
       !code ||
@@ -68,57 +57,94 @@ export const POST = withApiRoutePerformance(
       body.getAll("code_verifier").length !== 1 ||
       body.getAll("redirect_uri").length !== 1 ||
       body.has("client_secret") ||
-      body.has("scope")
+      body.getAll("client_id").length > 1 ||
+      body.getAll("resource").length > 1 ||
+      body.getAll("scope").length > 1
     ) {
       return invalidRequest("invalid_request");
     }
 
-    let client;
-    try {
-      client = await withRequestPerformanceSpan("auth.oidc.client-authentication", () =>
-        authenticateConsumerClientBasic(request),
-      );
-    } catch {
-      return invalidRequest("temporarily_unavailable", 503);
+    let oauthClientId: string | null = null;
+    const authorizationHeader = request.headers.get("authorization");
+    if (authorizationHeader) {
+      let client;
+      try {
+        client = await withRequestPerformanceSpan("auth.oidc.client-authentication", () =>
+          authenticateConsumerClientBasic(request),
+        );
+      } catch {
+        return invalidRequest("temporarily_unavailable", 503);
+      }
+      if (!client) return invalidRequest("invalid_client", 401);
+      oauthClientId = client.clientId;
+    } else if (suppliedClientId) {
+      let registration;
+      try {
+        registration = await withRequestPerformanceSpan("auth.oidc.public-client-lookup", () =>
+          getOAuthClientRegistration(suppliedClientId),
+        );
+      } catch {
+        return invalidRequest("temporarily_unavailable", 503);
+      }
+      if (!registration || registration.status !== "active") {
+        return invalidRequest("invalid_client", 401);
+      }
+      oauthClientId = suppliedClientId;
+    } else {
+      return invalidRequest("invalid_client", 401);
     }
-    if (!client) return invalidRequest("invalid_client", 401);
-    const suppliedClientId = uniqueValue(body, "client_id");
-    if (body.has("client_id") && suppliedClientId !== client.clientId) {
+    if (body.has("client_id") && suppliedClientId !== oauthClientId) {
       return invalidRequest("invalid_client", 401);
     }
 
     try {
-      assertOidcSigningKeyReady();
       const exchanged = await withRequestPerformanceSpan(
         "auth.oidc.authorization-code-exchange",
-        () => exchangeConsumerAuthorizationCode(code, client.clientId, verifier, redirectUri),
+        () =>
+          exchangeConsumerAuthorizationCode(
+            code,
+            oauthClientId!,
+            verifier,
+            redirectUri,
+            resource,
+            body.has("scope") ? requestedScope ?? "" : undefined,
+            {
+              requireOAuthTokenResponse: true,
+              beforeConsume: ({ nonce }) => {
+                if (nonce) assertOidcSigningKeyReady();
+              },
+            },
+          ),
       );
       const nonce = exchanged.nonce;
-      if (!nonce || exchanged.scope !== "openid profile email perminister_api") {
-        return invalidRequest("invalid_grant");
-      }
       const expiresIn = Math.floor((Date.parse(exchanged.session.expiresAt) - Date.now()) / 1000);
       if (expiresIn <= 0) return invalidRequest("invalid_grant");
-      const idToken = await withRequestPerformanceSpan("auth.oidc.id-token-signing", async () =>
-        signOidcIdToken({
-          clientId: client.clientId,
-          nonce,
-          subject: exchanged.subject,
-        }),
-      );
+      const idToken = nonce
+        ? await withRequestPerformanceSpan("auth.oidc.id-token-signing", async () => {
+            return signOidcIdToken({
+              clientId: oauthClientId!,
+              nonce,
+              scopes: exchanged.scope?.split(" ").filter(Boolean) ?? [],
+              subject: exchanged.subject,
+            });
+          })
+        : undefined;
       return Response.json(
         {
           access_token: exchanged.token,
           token_type: "Bearer",
           expires_in: expiresIn,
           scope: exchanged.scope,
-          id_token: idToken,
+          ...(idToken ? { id_token: idToken } : {}),
         },
         { headers: NO_STORE_HEADERS },
       );
     } catch (error) {
       if (error instanceof InvalidConsumerAuthorizationCodeError) {
         return invalidRequest("invalid_grant");
+      }
+      if (error instanceof InvalidConsumerAuthorizationScopeError) {
+        return invalidRequest("invalid_scope");
       }
       return invalidRequest("temporarily_unavailable", 503);
     }

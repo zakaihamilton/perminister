@@ -1,7 +1,8 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
-import { getCurrentSession, getConsumerClientRecord } from "@/lib/auth/service";
+import { getCurrentSession } from "@/lib/auth/service";
+import { getConsumerOAuthAuthorizationClient } from "@/lib/auth/consumer-oauth-client";
 import { completeConsumerAuthorization } from "@/lib/auth/complete-consumer-authorization";
 import { withRequestPerformanceSpan } from "@/lib/auth/performance";
 import {
@@ -11,6 +12,7 @@ import {
   parseConsumerAuthorizationRequest,
   safeConsumerAuthorizationReturnTo,
 } from "@/lib/auth/consumer-sso";
+import { getConfiguredOidcIssuer } from "@/lib/auth/oidc";
 
 function firstValue(data: FormData, name: string): string {
   const value = data.get(name);
@@ -26,7 +28,7 @@ function authorizationParamsFromFormData(formData: FormData): URLSearchParams {
     code_challenge: firstValue(formData, "code_challenge"),
     code_challenge_method: firstValue(formData, "code_challenge_method"),
   });
-  for (const name of ["nonce", "scope"] as const) {
+  for (const name of ["nonce", "scope", "resource"] as const) {
     const value = firstValue(formData, name);
     if (value) params.set(name, value);
   }
@@ -38,7 +40,10 @@ function authorizationParamsFromFormData(formData: FormData): URLSearchParams {
 async function consumerAuthorizationFromFormData(formData: FormData) {
   const params = authorizationParamsFromFormData(formData);
   const client = await withRequestPerformanceSpan("auth.oidc.authorization-client-lookup", () =>
-    getConsumerClientRecord(params.get("client_id") ?? "").catch(() => null),
+    getConsumerOAuthAuthorizationClient(
+      params.get("client_id") ?? "",
+      params.get("resource"),
+    ).catch(() => null),
   );
   const authorization = parseConsumerAuthorizationRequest(params, client, {
     allowLegacy: legacyConsumerAuthorizationEnabled(),
@@ -65,5 +70,11 @@ export async function approveConsumerAuthorizationAction(formData: FormData): Pr
 
 export async function cancelConsumerAuthorizationAction(formData: FormData): Promise<void> {
   const authorization = await consumerAuthorizationFromFormData(formData);
-  redirect(consumerAuthorizationErrorCallback(authorization, "access_denied"));
+  redirect(
+    consumerAuthorizationErrorCallback(
+      authorization,
+      "access_denied",
+      getConfiguredOidcIssuer() ?? undefined,
+    ),
+  );
 }

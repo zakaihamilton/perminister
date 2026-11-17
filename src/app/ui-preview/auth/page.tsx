@@ -3,6 +3,7 @@ import { isUiPreviewAllowed } from "@/lib/ui-preview-access";
 import { AuthorizationView } from "@/components/authorization-view";
 import { InvitationView } from "@/components/invitation-view";
 import { SitePageSkeleton } from "@/components/site-page-skeleton";
+import { consumerAuthorization } from "../fixtures";
 import { PreviewGuard } from "../preview-guard";
 
 export default async function AuthPreview({
@@ -16,6 +17,7 @@ export default async function AuthPreview({
   const productIds = ["postparticle", "visitoring", "nanogres"] as const;
   const productId = productIds.find((id) => id === query.product) ?? null;
   const loading = query.state === "loading";
+  const consent = query.state === "consent";
   const productNames = {
     postparticle: "PostParticle",
     visitoring: "Visitoring",
@@ -43,6 +45,8 @@ export default async function AuthPreview({
           {" · "}
           <a href={`/ui-preview/auth?view=authorization&state=loading${productQuery}`}>Loading</a>
           {" · "}
+          <a href={`/ui-preview/auth?view=authorization&state=consent${productQuery}`}>Consent</a>
+          {" · "}
           <a href={`/ui-preview/auth?view=invitation${productQuery}`}>Invitation</a>
           {" · "}
           <a href={`/ui-preview/auth?view=${view}&state=invalid${productQuery}`}>Invalid</a>
@@ -57,6 +61,12 @@ export default async function AuthPreview({
       ) : view === "authorization" ? (
         invalid ? (
           <AuthorizationView error="" />
+        ) : consent ? (
+          <AuthorizationView
+            authorization={consumerAuthorization}
+            error=""
+            signedInAs="alex@example.test"
+          />
         ) : (
           <main className="page-shell auth-page-shell">
             <div className="container auth-page">

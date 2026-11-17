@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ConsumerClientActionState } from "@/app/actions";
 import { CustomDropdown } from "@/components/custom-dropdown";
+import {
+  ConsumerClientMultilineField,
+  ConsumerClientOriginField,
+} from "@/components/consumer-client-form-fields";
 import type { ConsumerClientSummary } from "@/lib/auth/service";
 import { submitStableAction } from "@/lib/action-client";
 import { ConsumerClientFormContextFields } from "@/components/consumer-client-form-context-fields";
@@ -61,7 +65,7 @@ export function ConsumerClientSettingsForm({
         action="/actions/updateConsumerClientAction"
         method="post"
         onSubmit={handleSubmit}
-        className="auth-form"
+        className="auth-form consumer-client-form"
       >
         <ConsumerClientFormContextFields
           organizationId={organizationId}
@@ -81,17 +85,34 @@ export function ConsumerClientSettingsForm({
               defaultValue={client.appName}
             />
           </label>
-          <label htmlFor="app-client-origin">
-            Allowed app origin
-            <input
-              id="app-client-origin"
-              maxLength={300}
-              name="appOrigin"
-              type="url"
-              defaultValue={client.appOrigin ?? ""}
-              placeholder="https://app.example.com"
-            />
-          </label>
+          <ConsumerClientOriginField
+            defaultValue={client.appOrigin ?? ""}
+            id="app-client-origin"
+          />
+          <ConsumerClientMultilineField
+            defaultValue={client.redirectUris.join("\n")}
+            hint="One exact callback URL per line."
+            id="app-client-redirect-uris"
+            label="OAuth redirect URIs"
+            name="redirectUris"
+            placeholder="https://app.example.com/auth/callback"
+          />
+          <ConsumerClientMultilineField
+            defaultValue={client.resourceUris.join("\n")}
+            hint="One protected resource URL per line."
+            id="app-client-resource-uris"
+            label="Resource URIs"
+            name="resourceUris"
+            placeholder="https://mcp.example.com"
+          />
+          <ConsumerClientMultilineField
+            defaultValue={client.oauthScopes.join("\n")}
+            hint="One action name per line. Configure scopes for the resources above."
+            id="app-client-oauth-scopes"
+            label="Allowed OAuth scopes"
+            name="oauthScopes"
+            placeholder={'knowledge.read\nknowledge.write'}
+          />
           <label htmlFor="app-client-session-lifetime">
             Session lifetime (hours)
             <input
@@ -122,10 +143,8 @@ export function ConsumerClientSettingsForm({
         </div>
         <p className="form-hint">
           Session lifetime is capped at 30 days. Choose the shortest duration your app supports.
-          Public registration lets any verified Perminister account sign in to this app. Invite-only
-          apps require product membership. Organization owners and system administrators can sign
-          in either way. Set the exact origin, including the port used in development. Callback URLs
-          must match exactly.
+          Public registration allows any verified account to sign in; invite only requires product
+          membership. Owners and administrators can always sign in.
         </p>
         {state.error ? (
           <p className="form-error" role="alert">

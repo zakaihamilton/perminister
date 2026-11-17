@@ -3,6 +3,27 @@ export const NO_STORE_HEADERS = {
   Pragma: "no-cache",
 };
 
+export function noStoreJsonResponse(
+  body: unknown,
+  status = 200,
+  unauthorizedChallenge?: string,
+): Response {
+  return Response.json(body, {
+    status,
+    headers: {
+      ...NO_STORE_HEADERS,
+      ...(status === 401 && unauthorizedChallenge
+        ? { "WWW-Authenticate": unauthorizedChallenge }
+        : {}),
+    },
+  });
+}
+
+export function uniqueFormValue(params: URLSearchParams, name: string): string | null {
+  const values = params.getAll(name);
+  return values.length === 1 ? (values[0] ?? null) : null;
+}
+
 const PUBLIC_ORIGIN_HOST_HEADER = "x-perminister-public-host";
 const PUBLIC_ORIGIN_PROTOCOL_HEADER = "x-perminister-public-proto";
 
