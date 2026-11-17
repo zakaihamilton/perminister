@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
 import { AuthLinkContent } from "@/components/auth-link-pages";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+
+afterEach(cleanup);
 
 describe("authentication link content", () => {
   it("shows the verification form when a token is present", () => {
