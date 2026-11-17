@@ -156,13 +156,13 @@ describe("platform admin action destinations", () => {
   });
 
   it("returns legacy access cleanup results and errors to Remove older access", async () => {
-    await expect(retireLegacyAccessAction()).rejects.toThrow(
+    await expect(retireLegacyAccessAction(formData({}))).rejects.toThrow(
       "redirect:/dashboard/operations/legacy-access?retired=2,3",
     );
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/dashboard/operations/legacy-access");
 
     mocks.retireLegacyAccess.mockRejectedValueOnce(new Error("storage failure"));
-    await expect(retireLegacyAccessAction()).rejects.toThrow(
+    await expect(retireLegacyAccessAction(formData({}))).rejects.toThrow(
       "redirect:/dashboard/operations/legacy-access?error=migration",
     );
   });

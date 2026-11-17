@@ -2,8 +2,10 @@ import type { OrganizationReviewRequest } from "@/lib/auth/service";
 
 export function OrganizationRequestsSection({
   organizations,
+  operationsOrganizationId,
 }: {
   organizations: OrganizationReviewRequest[];
+  operationsOrganizationId?: string;
 }) {
   return (
     <section className="dashboard-card operations-organizations">
@@ -30,6 +32,13 @@ export function OrganizationRequestsSection({
               <div className="record-actions">
                 <form action="/actions/reviewOrganizationRequestAction" method="post">
                   <input type="hidden" name="organizationId" value={organization.organizationId} />
+                  {operationsOrganizationId ? (
+                    <input
+                      type="hidden"
+                      name="operationsOrganizationId"
+                      value={operationsOrganizationId}
+                    />
+                  ) : null}
                   <input type="hidden" name="approvalStatus" value="approved" />
                   <button className="button button-primary" type="submit">
                     Approve
@@ -37,6 +46,13 @@ export function OrganizationRequestsSection({
                 </form>
                 <form action="/actions/reviewOrganizationRequestAction" method="post">
                   <input type="hidden" name="organizationId" value={organization.organizationId} />
+                  {operationsOrganizationId ? (
+                    <input
+                      type="hidden"
+                      name="operationsOrganizationId"
+                      value={operationsOrganizationId}
+                    />
+                  ) : null}
                   <input type="hidden" name="approvalStatus" value="rejected" />
                   <button className="button button-secondary" type="submit">
                     Reject

@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { ContextSwitcher } from "panel-frame-ui";
+import { useState } from "react";
 import type { OrganizationSummary } from "@/lib/auth/service";
 import { operationsHref } from "@/lib/operations-navigation";
 
 const requestOrganizationValue = "__request-organization__";
+const allOrganizationsValue = "__all-organizations__";
 
 export function OrganizationSwitcher({
   organizations,
@@ -17,7 +18,7 @@ export function OrganizationSwitcher({
   keepOperationsContext = false,
 }: {
   organizations: OrganizationSummary[];
-  organizationId: string;
+  organizationId?: string;
   preview?: boolean;
   onOrganizationChange?: (organizationId: string) => void;
   keepOperationsContext?: boolean;
@@ -25,6 +26,15 @@ export function OrganizationSwitcher({
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const options = [
+    ...(keepOperationsContext
+      ? [
+          {
+            value: allOrganizationsValue,
+            label: "All organizations",
+            description: "Platform-wide view",
+          },
+        ]
+      : []),
     ...organizations.map(({ organization }) => ({
       value: organization.organizationId,
       label: organization.name,
@@ -47,6 +57,12 @@ export function OrganizationSwitcher({
       router.push("/dashboard/new-organization");
       return;
     }
+    if (keepOperationsContext && nextOrganizationId === allOrganizationsValue) {
+      if (!organizationId) return;
+      setError(null);
+      router.push("/dashboard/operations");
+      return;
+    }
     if (nextOrganizationId === organizationId) return;
     const selectedOrganization = organizations.find(
       ({ organization }) => organization.organizationId === nextOrganizationId,
@@ -63,7 +79,10 @@ export function OrganizationSwitcher({
     );
   }
 
-  if (!organizations.some(({ organization }) => organization.organizationId === organizationId)) {
+  if (
+    !keepOperationsContext &&
+    !organizations.some(({ organization }) => organization.organizationId === organizationId)
+  ) {
     return (
       <div className="org-switcher">
         <span>Organization</span>
@@ -78,7 +97,11 @@ export function OrganizationSwitcher({
     <div className="org-switcher">
       <span>Organization</span>
       <ContextSwitcher
-        aria-label="Choose an organization or request one"
+        aria-label={
+          keepOperationsContext
+            ? "Choose an operations scope or request an organization"
+            : "Choose an organization or request one"
+        }
         className="org-switcher-dropdown"
         footer={
           <Link className="pf-select-footer-link" href="/organizations">
@@ -89,7 +112,11 @@ export function OrganizationSwitcher({
         label="Organization"
         onValueChange={(value) => void selectOrganization(value)}
         options={options}
-        value={organizationId}
+        value={
+          keepOperationsContext
+            ? organizationId ?? allOrganizationsValue
+            : organizationId ?? ""
+        }
       />
       {error ? (
         <span className="org-switcher-error" role="alert">

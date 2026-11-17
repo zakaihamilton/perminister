@@ -1,9 +1,9 @@
 import { DashboardHeading } from "@/components/dashboard-shell";
 import { LegacyAccessSection, OperationsFeedback } from "@/components/operations-sections";
 import { OperationsShell } from "@/components/operations-shell";
-import { previewLegacyAccessRetirement } from "@/lib/auth/service";
-import { getOperationsPageContext } from "@/lib/auth/operations-page-context";
 import type { OperationsQuery } from "@/components/operations-types";
+import { getOperationsPageContext } from "@/lib/auth/operations-page-context";
+import { previewLegacyAccessRetirement } from "@/lib/auth/service";
 import {
   operationsHref,
   organizationDashboardHref,
@@ -32,7 +32,10 @@ export default async function LegacyAccessPage({
     >
       <DashboardHeading description="Review and remove permissions and API keys that are not linked to an organization." />
       <OperationsFeedback query={query} />
-      <LegacyAccessSection legacy={legacy} />
+      <LegacyAccessSection
+        legacy={legacy}
+        operationsOrganizationId={context.organizationId}
+      />
     </OperationsShell>
   );
 }

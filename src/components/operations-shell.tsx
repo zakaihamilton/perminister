@@ -1,13 +1,13 @@
 import type { ReactNode } from "react";
 import { BreadcrumbBar } from "@/components/dashboard-breadcrumbs";
 import { DashboardLayoutFrame, type DashboardSidebarProps } from "@/components/dashboard-shell";
-import type { DashboardBreadcrumbItem } from "@/lib/dashboard-breadcrumbs";
 import { OrganizationSwitcher } from "@/components/organization-switcher";
-import { countPendingOrganizationsForAdministrator } from "@/lib/auth/service";
 import {
   getOperationsPageContext,
   type OperationsPageContext,
 } from "@/lib/auth/operations-page-context";
+import { countPendingOrganizationsForAdministrator } from "@/lib/auth/service";
+import type { DashboardBreadcrumbItem } from "@/lib/dashboard-breadcrumbs";
 
 export async function OperationsShell({
   breadcrumbs,
@@ -33,13 +33,13 @@ export async function OperationsShell({
     email: current.subject.primaryEmail,
     firstName: current.subject.firstName ?? null,
     lastName: current.subject.lastName ?? null,
-    organizationSwitcher: organizationId ? (
+    organizationSwitcher: (
       <OrganizationSwitcher
         organizations={organizations}
         organizationId={organizationId}
         keepOperationsContext
       />
-    ) : undefined,
+    ),
   };
 
   return (

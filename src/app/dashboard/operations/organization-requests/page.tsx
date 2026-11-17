@@ -1,9 +1,9 @@
 import { DashboardHeading } from "@/components/dashboard-shell";
 import { OperationsFeedback, OrganizationRequestsSection } from "@/components/operations-sections";
 import { OperationsShell } from "@/components/operations-shell";
-import { listPendingOrganizationsForAdministrator } from "@/lib/auth/service";
-import { getOperationsPageContext } from "@/lib/auth/operations-page-context";
 import type { OperationsQuery } from "@/components/operations-types";
+import { getOperationsPageContext } from "@/lib/auth/operations-page-context";
+import { listPendingOrganizationsForAdministrator } from "@/lib/auth/service";
 import {
   operationsHref,
   organizationDashboardHref,
@@ -34,7 +34,10 @@ export default async function OrganizationRequestsPage({
     >
       <DashboardHeading description="Review pending requests to create an organization." />
       <OperationsFeedback query={query} />
-      <OrganizationRequestsSection organizations={organizations} />
+      <OrganizationRequestsSection
+        organizations={organizations}
+        operationsOrganizationId={context.organizationId}
+      />
     </OperationsShell>
   );
 }

@@ -25,7 +25,7 @@ const sections = [
   {
     href: "/dashboard/operations/activity",
     title: "Activity history",
-    description: "Review recent changes to the selected organization.",
+    description: "Review recent changes across Perminister or filter by organization.",
   },
 ] as const;
 

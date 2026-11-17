@@ -1,7 +1,13 @@
 import { AdminAccountActions } from "@/components/admin-account-actions";
 import type { PublicAccount } from "@/lib/auth/service";
 
-export function AccountsSection({ accounts }: { accounts: PublicAccount[] }) {
+export function AccountsSection({
+  accounts,
+  operationsOrganizationId,
+}: {
+  accounts: PublicAccount[];
+  operationsOrganizationId?: string;
+}) {
   return (
     <section className="dashboard-card operations-accounts">
       <div className="dashboard-card-heading">
@@ -26,6 +32,7 @@ export function AccountsSection({ accounts }: { accounts: PublicAccount[] }) {
                 subjectId={account.subjectId}
                 email={account.email}
                 status={account.status}
+                operationsOrganizationId={operationsOrganizationId}
               />
             ) : (
               <span className="record-badge active">Platform administrator</span>

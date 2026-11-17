@@ -7,10 +7,12 @@ export function AdminAccountActions({
   subjectId,
   email,
   status,
+  operationsOrganizationId,
 }: {
   subjectId: string;
   email: string | null;
   status: "active" | "disabled";
+  operationsOrganizationId?: string;
 }) {
   const { isOpen, openDialog, closeDialog } = useModalDialog();
 
@@ -18,6 +20,13 @@ export function AdminAccountActions({
     <div className="admin-account-actions">
       <form action="/actions/updateAccountStatusAction" method="post">
         <input type="hidden" name="subjectId" value={subjectId} />
+        {operationsOrganizationId ? (
+          <input
+            type="hidden"
+            name="operationsOrganizationId"
+            value={operationsOrganizationId}
+          />
+        ) : null}
         <input type="hidden" name="status" value={status === "active" ? "disabled" : "active"} />
         <button className="button button-secondary" type="submit">
           {status === "active" ? "Disable account" : "Enable account"}
@@ -44,6 +53,13 @@ export function AdminAccountActions({
               </button>
               <form action="/actions/deleteAccountAction" method="post">
                 <input type="hidden" name="subjectId" value={subjectId} />
+                {operationsOrganizationId ? (
+                  <input
+                    type="hidden"
+                    name="operationsOrganizationId"
+                    value={operationsOrganizationId}
+                  />
+                ) : null}
                 <button className="button button-danger" type="submit">
                   Permanently delete account
                 </button>

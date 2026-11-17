@@ -20,7 +20,6 @@ export async function getOperationsPageContext(requestedOrganizationId?: string 
           ({ organization }) => organization.organizationId === requestedOrganizationId,
         )
       : undefined) ??
-    organizations[0] ??
     null;
 
   return {

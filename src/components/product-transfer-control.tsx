@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { AlertDialog } from "panel-frame-ui";
+import { useState } from "react";
 import { CustomDropdown } from "@/components/custom-dropdown";
 import { useModalDialog } from "@/components/use-modal-dialog";
 
@@ -12,6 +12,7 @@ export function ProductTransferControl({
   destinations,
   pendingDestinationOrganizationId,
   sourceOrganizationId,
+  operationsOrganizationId,
 }: {
   productRecordId: string;
   productId: string;
@@ -24,6 +25,7 @@ export function ProductTransferControl({
   }>;
   pendingDestinationOrganizationId?: string;
   sourceOrganizationId?: string;
+  operationsOrganizationId?: string;
 }) {
   const [destinationOrganizationId, setDestinationOrganizationId] = useState(
     pendingDestinationOrganizationId ?? "",
@@ -44,6 +46,13 @@ export function ProductTransferControl({
   return (
     <form action="/actions/transferProductAction" method="post" className="product-transfer-form">
       <input type="hidden" name="productRecordId" value={productRecordId} />
+      {operationsOrganizationId ? (
+        <input
+          type="hidden"
+          name="operationsOrganizationId"
+          value={operationsOrganizationId}
+        />
+      ) : null}
       {sourceOrganizationId ? (
         <input type="hidden" name="sourceOrganizationId" value={sourceOrganizationId} />
       ) : null}
