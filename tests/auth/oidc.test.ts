@@ -55,6 +55,7 @@ describe("Perminister OpenID provider", () => {
     const idToken = signOidcIdToken({
       clientId: "11111111-1111-4111-8111-111111111111",
       nonce: "n".repeat(43),
+      scopes: ["openid", "profile", "email", "perminister_api"],
       subject: {
         subjectId: "22222222-2222-4222-8222-222222222222",
         primaryEmail: "person@example.com",

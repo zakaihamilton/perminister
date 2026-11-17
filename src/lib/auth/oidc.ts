@@ -236,6 +236,7 @@ export function getOAuthAuthorizationServerMetadata() {
 export function signOidcIdToken(input: {
   clientId: string;
   nonce: string;
+  scopes: readonly string[];
   subject: {
     subjectId: string;
     primaryEmail: string | null;
@@ -256,13 +257,14 @@ export function signOidcIdToken(input: {
     auth_time: now,
     nonce: input.nonce,
   };
-  if (input.subject.primaryEmail) {
+  const grantedScopes = new Set(input.scopes);
+  if (grantedScopes.has("email") && input.subject.primaryEmail) {
     payload.email = input.subject.primaryEmail;
     payload.email_verified =
       Boolean(input.subject.emailVerifiedAt) || input.subject.emailVerificationExempt === true;
   }
-  const givenName = input.subject.firstName?.trim();
-  const familyName = input.subject.lastName?.trim();
+  const givenName = grantedScopes.has("profile") ? input.subject.firstName?.trim() : undefined;
+  const familyName = grantedScopes.has("profile") ? input.subject.lastName?.trim() : undefined;
   if (givenName) payload.given_name = givenName;
   if (familyName) payload.family_name = familyName;
   if (givenName || familyName) payload.name = [givenName, familyName].filter(Boolean).join(" ");

@@ -140,6 +140,7 @@ export const POST = withApiRoutePerformance(
             return signOidcIdToken({
               clientId: oauthClientId!,
               nonce,
+              scopes: exchanged.scope?.split(" ").filter(Boolean) ?? [],
               subject: exchanged.subject,
             });
           })
