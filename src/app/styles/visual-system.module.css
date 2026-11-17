@@ -915,7 +915,7 @@
   background: var(--surface-inset);
 }
 
-:global(html[data-theme="dark"]) :where(.appScope) :global(.product-placeholder), :global(html[data-theme="dark"]) :where(.appScope) :global(.people-avatar), :global(html[data-theme="dark"]) :where(.appScope) :global(.product-nav-link:hover), :global(html[data-theme="dark"]) :where(.appScope) :global(.product-nav-link[aria-current="page"]), :global(html[data-theme="dark"]) :where(.appScope) :global(.developer-nav a:hover), :global(html[data-theme="dark"]) :where(.appScope) :global(.developer-nav a[aria-current="page"]) {
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-placeholder), :global(html[data-theme="dark"]) :where(.appScope) :global(.people-avatar), :global(html[data-theme="dark"]) :where(.appScope) :global(.product-nav-link:hover), :global(html[data-theme="dark"]) :where(.appScope) :global(.product-nav-link[aria-current="page"]), :global(html[data-theme="dark"]) :where(.appScope) :global(.developer-nav a:hover) {
   border-color: var(--line);
   color: var(--ink);
   background: var(--surface-2);
