@@ -508,6 +508,8 @@ export interface AuthorizationRequest {
   resourceKind: "product" | "project" | "workspace";
   resourceId?: string;
   action: string;
+  /** OAuth resource audience, required to match when the supplied session is resource-bound. */
+  resource?: string;
 }
 
 function requestScope(input: AuthorizationRequest): ResourceScope {
@@ -569,6 +571,14 @@ export async function authorizeApiKey(
       !applicationClientId ||
       currentSession.session.applicationClientId !== applicationClientId ||
       currentSession.session.productId !== scope.productId
+    ) {
+      return { authorized: false };
+    }
+    if (
+      (currentSession.session.resource &&
+        (input.resource !== currentSession.session.resource ||
+          !currentSession.session.oauthScopes?.includes(action))) ||
+      (!currentSession.session.resource && input.resource)
     ) {
       return { authorized: false };
     }

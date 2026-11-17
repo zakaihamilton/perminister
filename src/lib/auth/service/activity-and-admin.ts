@@ -332,6 +332,8 @@ function activityTargetLabel(
         return `${record.keyClass.replaceAll("-", " ")} API key`;
       case "consumer-client":
         return record.appName;
+      case "oauth-client-registration":
+        return record.clientName;
       case "consumer-authorization-code":
         return "Authorization code";
       case "session":

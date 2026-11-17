@@ -10,6 +10,8 @@ export interface ConsumerClient {
   productId: string;
   secretDigestHex: string;
   appOrigin: string | null;
+  resourceUris: readonly string[];
+  oauthScopes: readonly string[];
   sessionLifetimeMs: number;
   selfRegistrationEnabled: boolean;
 }
@@ -26,6 +28,8 @@ export async function getConsumerClient(clientId: string): Promise<ConsumerClien
     productId: record.productId,
     secretDigestHex: record.verifier.digestHex,
     appOrigin: record.appOrigin,
+    resourceUris: record.resourceUris ?? [],
+    oauthScopes: record.oauthScopes ?? [],
     sessionLifetimeMs: effectiveConsumerSessionLifetimeMs(record.sessionLifetimeMs),
     selfRegistrationEnabled: record.selfRegistrationEnabled,
   };

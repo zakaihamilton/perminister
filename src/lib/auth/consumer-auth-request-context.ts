@@ -7,7 +7,7 @@ import {
   safeConsumerAuthorizationReturnTo,
   type ConsumerAuthorizationRequest,
 } from "./consumer-sso";
-import { getConsumerClientRecord } from "./service";
+import { getConsumerOAuthAuthorizationClient } from "./consumer-oauth-client";
 
 export type ConsumerAuthRequestContext = {
   next: string | null;
@@ -24,22 +24,23 @@ export async function consumerAuthRequestContext(
 
   const searchParams = new URL(next, "https://perminister.invalid").searchParams;
   const clientId = searchParams.get("client_id") ?? "";
+  const resourceUri = searchParams.get("resource");
   try {
     assertOpaqueId(clientId);
   } catch {
     return { next, client: null, authorization: null };
   }
 
-  let client: ConsumerClientRecord | null;
+  let authorizationClient;
   try {
-    client = await getConsumerClientRecord(clientId.toLowerCase());
+    authorizationClient = await getConsumerOAuthAuthorizationClient(clientId.toLowerCase(), resourceUri);
   } catch (error) {
     if (!options.ignoreLookupErrors) throw error;
-    client = null;
+    authorizationClient = null;
   }
 
-  const authorization = parseConsumerAuthorizationRequest(searchParams, client, {
+  const authorization = parseConsumerAuthorizationRequest(searchParams, authorizationClient, {
     allowLegacy: legacyConsumerAuthorizationEnabled(),
   });
-  return { next, client, authorization };
+  return { next, client: authorizationClient?.profile ?? null, authorization };
 }

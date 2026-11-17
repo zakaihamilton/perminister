@@ -4,6 +4,7 @@ import type {
   OrganizationReviewRequest,
 } from "@/lib/auth/service";
 import type { ProductRecord, SessionRecord } from "@/lib/auth/domain";
+import type { ConsumerAuthorizationRequest } from "@/lib/auth/consumer-sso";
 
 export const organizationId = "preview-organization";
 export const productId = "example-product";
@@ -15,12 +16,31 @@ export const client: ConsumerClientSummary = {
   productId,
   appName: "Example app",
   appOrigin: "https://app.example.test",
+  redirectUris: ["https://app.example.test/auth/callback"],
+  resourceUris: ["https://mcp.example.test"],
+  oauthScopes: ["knowledge.read", "knowledge.write"],
   sessionLifetimeMs: 86400000,
   selfRegistrationEnabled: true,
   status: "active",
   createdAt,
   updatedAt: createdAt,
   revokedAt: null,
+};
+export const consumerAuthorization: ConsumerAuthorizationRequest = {
+  clientId: "00000000-0000-4000-8000-000000000011",
+  consumerClientId:
+    "00000000-0000-4000-8000-000000000012" as ConsumerAuthorizationRequest["consumerClientId"],
+  clientName: "Example knowledge app",
+  publicClient: true,
+  redirectUri: "https://app.example.test/auth/callback",
+  resource: "https://mcp.example.test",
+  responseType: "code",
+  state: "synthetic-preview-state",
+  nonce: null,
+  scope: "knowledge.read knowledge.write",
+  scopes: ["knowledge.read", "knowledge.write"],
+  prompt: null,
+  codeChallenge: "A".repeat(43),
 };
 export const sessions: SessionRecord[] = [
   {

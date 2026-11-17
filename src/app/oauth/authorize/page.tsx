@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AuthorizationView } from "@/components/authorization-view";
-import { getConsumerClientRecord, getCurrentSession } from "@/lib/auth/service";
+import { getCurrentSession } from "@/lib/auth/service";
+import { getConsumerOAuthAuthorizationClient } from "@/lib/auth/consumer-oauth-client";
 import { completeConsumerAuthorization } from "@/lib/auth/complete-consumer-authorization";
 import { withRequestPerformanceSpan } from "@/lib/auth/performance";
 import {
@@ -24,6 +25,7 @@ export default async function ConsumerAuthorizationPage({
     state?: string | string[];
     nonce?: string | string[];
     scope?: string | string[];
+    resource?: string | string[];
     prompt?: string | string[];
     code_challenge?: string | string[];
     code_challenge_method?: string | string[];
@@ -39,6 +41,7 @@ export default async function ConsumerAuthorizationPage({
     "state",
     "nonce",
     "scope",
+    "resource",
     "prompt",
     "code_challenge",
     "code_challenge_method",
@@ -48,7 +51,10 @@ export default async function ConsumerAuthorizationPage({
   }
 
   const client = await withRequestPerformanceSpan("auth.oidc.authorization-client-lookup", () =>
-    getConsumerClientRecord(params.get("client_id") ?? "").catch(() => null),
+    getConsumerOAuthAuthorizationClient(
+      params.get("client_id") ?? "",
+      params.get("resource"),
+    ).catch(() => null),
   );
   const authorization = parseConsumerAuthorizationRequest(params, client, {
     allowLegacy: legacyConsumerAuthorizationEnabled(),
@@ -68,6 +74,15 @@ export default async function ConsumerAuthorizationPage({
       redirect(returnTo ? `/login?next=${encodeURIComponent(returnTo)}` : "/login?error=sso");
     }
 
+    if (authorization.resource) {
+      return (
+        <AuthorizationView
+          authorization={authorization}
+          error=""
+          signedInAs={current.subject.primaryEmail ?? "your account"}
+        />
+      );
+    }
     await completeConsumerAuthorization(current.subject.subjectId, authorization);
   }
 

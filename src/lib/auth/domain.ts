@@ -292,6 +292,11 @@ export interface ConsumerClientRecord {
   productId: ProductId;
   appName: string;
   appOrigin: string | null;
+  /** Exact OAuth callback allowlist. Older clients fall back to appOrigin + the legacy callback. */
+  redirectUris?: readonly string[];
+  /** Resource audiences and permission scopes this client may request. */
+  resourceUris?: readonly string[];
+  oauthScopes?: readonly string[];
   sessionLifetimeMs: number;
   selfRegistrationEnabled: boolean;
   /** Hash of a high-entropy app credential. The plaintext secret is returned only once. */
@@ -300,6 +305,21 @@ export interface ConsumerClientRecord {
   createdBySubjectId: SubjectId;
   createdAt: string;
   updatedAt: string;
+  revokedAt: string | null;
+}
+
+/** Public OAuth clients registered through RFC 7591 dynamic client registration. */
+export interface OAuthClientRegistrationRecord {
+  kind: "oauth-client-registration";
+  schemaVersion: 1;
+  oauthClientId: ConsumerClientId;
+  clientName: string;
+  redirectUris: readonly string[];
+  /** Optional scope ceiling declared during registration. */
+  scopes?: readonly string[];
+  createdAt: string;
+  updatedAt: string;
+  status: "active" | "revoked";
   revokedAt: string | null;
 }
 
@@ -313,10 +333,16 @@ export interface SessionRecord {
   authVersion: number;
   /** Present when this session was created for a consumer application. */
   applicationClientId?: string;
+  /** OAuth client identity when a public client was dynamically registered. */
+  oauthClientId?: string;
   /** Product audience for consumer application sessions. */
   productId?: ProductId;
   /** Product-local revocation version for consumer sessions. */
   productSessionVersion?: number;
+  /** OAuth resource audience and granted OAuth scopes, when issued for a protected resource. */
+  resource?: string;
+  oauthScopes?: readonly string[];
+  oauthGrantScope?: string;
   createdAt: string;
   expiresAt: string;
   revokedAt: string | null;
@@ -327,6 +353,8 @@ export interface ConsumerAuthorizationCodeRecord {
   schemaVersion: 1;
   consumerAuthorizationCodeId: ConsumerAuthorizationCodeId;
   consumerClientId: ConsumerClientId;
+  /** Present when an authorization code belongs to a dynamically registered public client. */
+  oauthClientId?: ConsumerClientId;
   subjectId: SubjectId;
   authVersion: number;
   productSessionVersion: number;
@@ -335,6 +363,7 @@ export interface ConsumerAuthorizationCodeRecord {
   codeChallenge: string;
   nonce: string | null;
   redirectUri: string;
+  resource?: string;
   scope: string | null;
   createdAt: string;
   expiresAt: string;
@@ -364,6 +393,7 @@ export type AuthRecord =
   | ServicePrincipalRecord
   | ApiKeyRecord
   | ConsumerClientRecord
+  | OAuthClientRegistrationRecord
   | ConsumerAuthorizationCodeRecord
   | SessionRecord
   | EmailActionRecord;
@@ -390,6 +420,8 @@ export function authRecordId(record: AuthRecord): string {
       return record.apiKeyId;
     case "consumer-client":
       return record.consumerClientId;
+    case "oauth-client-registration":
+      return record.oauthClientId;
     case "consumer-authorization-code":
       return record.consumerAuthorizationCodeId;
     case "session":
@@ -409,6 +441,7 @@ export type AuthAggregate =
   | { kind: "service-principal"; id: ServicePrincipalId }
   | { kind: "api-key"; id: ApiKeyId }
   | { kind: "consumer-client"; id: ConsumerClientId }
+  | { kind: "oauth-client-registration"; id: ConsumerClientId }
   | { kind: "consumer-authorization-code"; id: ConsumerAuthorizationCodeId }
   | { kind: "session"; id: SessionId }
   | { kind: "email-action"; id: EmailActionId }

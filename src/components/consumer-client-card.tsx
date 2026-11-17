@@ -55,8 +55,20 @@ export function ConsumerClientCard({
       </div>
       <dl className="consumer-client-details-grid">
         <div>
-          <dt>Allowed origin</dt>
+          <dt>App origin</dt>
           <dd>{client.appOrigin ?? "Not set"}</dd>
+        </div>
+        <div>
+          <dt>Redirect URIs</dt>
+          <dd>{client.redirectUris.length ? client.redirectUris.join(", ") : "Legacy callback"}</dd>
+        </div>
+        <div>
+          <dt>Resource URIs</dt>
+          <dd>{client.resourceUris.length ? client.resourceUris.join(", ") : "Not configured"}</dd>
+        </div>
+        <div>
+          <dt>OAuth scopes</dt>
+          <dd>{client.oauthScopes.length ? client.oauthScopes.join(", ") : "Not configured"}</dd>
         </div>
         <div>
           <dt>Session lifetime</dt>

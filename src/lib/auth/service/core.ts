@@ -79,6 +79,17 @@ export async function consumeConsumerLoginRequestRateLimit(
   );
 }
 
+export async function consumeOAuthClientRegistrationRateLimit(
+  callerKey: string | null,
+): Promise<boolean> {
+  return store().consumeRateLimit(
+    "oauth-dcr",
+    callerKey ?? "unattributed",
+    50,
+    15 * 60 * 1000,
+  );
+}
+
 export class InvalidAuthActionError extends Error {
   constructor(message = "This link is invalid or expired.") {
     super(message);
@@ -345,6 +356,8 @@ function aggregateFor(kind: AuthRecordKind, id: string): AuthAggregate {
       return { kind, id: id as ApiKeyId };
     case "consumer-client":
       return { kind, id: id as ConsumerClientId };
+    case "oauth-client-registration":
+      return { kind, id: id as ConsumerClientId };
     case "consumer-authorization-code":
       return { kind, id: id as ConsumerAuthorizationCodeId };
     case "session":
@@ -398,6 +411,8 @@ function activityPayload(record: AuthRecord): AuthEvent["payload"] {
     if (record.organizationId) payload.organizationId = record.organizationId;
     payload.productId = record.productId;
     payload.subjectId = record.createdBySubjectId;
+  } else if (record.kind === "oauth-client-registration") {
+    payload.clientId = record.oauthClientId;
   } else if (record.kind === "session" || record.kind === "email-action") {
     payload.subjectId = record.subjectId;
   } else {

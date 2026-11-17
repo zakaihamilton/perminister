@@ -1,5 +1,9 @@
 import { useId, type FormEventHandler } from "react";
 import { CustomDropdown } from "@/components/custom-dropdown";
+import {
+  ConsumerClientMultilineField,
+  ConsumerClientOriginField,
+} from "@/components/consumer-client-form-fields";
 import { ConsumerClientFormContextFields } from "@/components/consumer-client-form-context-fields";
 
 interface ConsumerClientCreateFormProps {
@@ -27,7 +31,7 @@ export function ConsumerClientCreateForm({
         action="/actions/createOrRotateConsumerClientAction"
         method="post"
         onSubmit={onSubmit}
-        className="auth-form"
+        className="auth-form consumer-client-form"
       >
         <ConsumerClientFormContextFields
           organizationId={organizationId}
@@ -46,16 +50,28 @@ export function ConsumerClientCreateForm({
               placeholder={productName}
             />
           </label>
-          <label htmlFor={`${formId}-origin`}>
-            Allowed app origin
-            <input
-              id={`${formId}-origin`}
-              name="appOrigin"
-              type="url"
-              maxLength={300}
-              placeholder="https://app.example.com"
-            />
-          </label>
+          <ConsumerClientOriginField id={`${formId}-origin`} />
+          <ConsumerClientMultilineField
+            hint="One exact callback URL per line."
+            id={`${formId}-redirect-uris`}
+            label="OAuth redirect URIs"
+            name="redirectUris"
+            placeholder="https://app.example.com/auth/callback"
+          />
+          <ConsumerClientMultilineField
+            hint="One protected resource URL per line."
+            id={`${formId}-resource-uris`}
+            label="Resource URIs"
+            name="resourceUris"
+            placeholder="https://mcp.example.com"
+          />
+          <ConsumerClientMultilineField
+            hint="One action name per line. Configure scopes for the resources above."
+            id={`${formId}-oauth-scopes`}
+            label="Allowed OAuth scopes"
+            name="oauthScopes"
+            placeholder={'knowledge.read\nknowledge.write'}
+          />
           <label htmlFor={`${formId}-session-lifetime`}>
             Session lifetime (hours)
             <input
@@ -85,13 +101,10 @@ export function ConsumerClientCreateForm({
           </label>
         </div>
         <p className="form-hint">
-          Session lifetime defaults to 12 hours and can be set from 5 minutes to 30 days. Choose the
-          shortest duration your app supports. New clients default to invite only. Public
-          registration lets any verified Perminister account sign in to this app. Invite-only apps
-          require product membership. Organization owners and system administrators can sign in
-          either way. Set
-          an exact origin, including the port used in development. For example, use
-          http://localhost:3000 when the app runs on port 3000. Callback URLs must match exactly.
+          Session lifetime defaults to 12 hours (5 minutes to 30 days). Choose the shortest duration
+          your app supports. New clients default to invite only. Public registration allows any
+          verified account to sign in; invite only requires product membership. Owners and
+          administrators can always sign in.
         </p>
         <button className="button button-primary form-submit" disabled={pending} type="submit">
           {pending ? "Creating…" : "Create app client"}

@@ -110,6 +110,7 @@ async function main() {
     `${ROOT_PREFIX}service-principals/`,
     `${ROOT_PREFIX}api-keys/`,
     `${ROOT_PREFIX}consumer-clients/`,
+    `${ROOT_PREFIX}oauth-client-registrations/`,
     `${ROOT_PREFIX}sessions/`,
     `${ROOT_PREFIX}email-actions/`,
     `${ROOT_PREFIX}activity/events/`,
@@ -232,6 +233,14 @@ async function main() {
         add(
           indexes,
           `${ROOT_PREFIX}indexes/by-id/consumer-client/${record.consumerClientId}.json`,
+          { key },
+        );
+      } else if (prefix === `${ROOT_PREFIX}oauth-client-registrations/`) {
+        if (record.kind !== "oauth-client-registration" || !uuid(record.oauthClientId))
+          throw new Error(`Malformed OAuth client registration at ${key}`);
+        add(
+          indexes,
+          `${ROOT_PREFIX}indexes/by-id/oauth-client-registration/${record.oauthClientId}.json`,
           { key },
         );
       } else if (prefix === `${ROOT_PREFIX}sessions/`) {

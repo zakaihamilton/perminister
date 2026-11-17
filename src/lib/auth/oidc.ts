@@ -168,6 +168,14 @@ export function getOidcIssuer(): string {
   return safeIssuer();
 }
 
+export function getConfiguredOidcIssuer(): string | null {
+  try {
+    return safeIssuer();
+  } catch {
+    return null;
+  }
+}
+
 export function getOidcJwks(): { keys: PublicJwk[] } {
   return { keys: publicKeys() };
 }
@@ -178,14 +186,16 @@ export function getOidcDiscoveryDocument() {
     issuer,
     authorization_endpoint: new URL("/oauth/authorize", issuer).toString(),
     token_endpoint: new URL("/oauth/token", issuer).toString(),
+    registration_endpoint: new URL("/oauth/register", issuer).toString(),
     jwks_uri: new URL("/.well-known/jwks.json", issuer).toString(),
     response_types_supported: ["code"],
     response_modes_supported: ["query"],
     grant_types_supported: ["authorization_code"],
+    authorization_response_iss_parameter_supported: true,
     subject_types_supported: ["public"],
     id_token_signing_alg_values_supported: ["RS256"],
     scopes_supported: [...OIDC_SCOPES],
-    token_endpoint_auth_methods_supported: ["client_secret_basic"],
+    token_endpoint_auth_methods_supported: ["none", "client_secret_basic"],
     code_challenge_methods_supported: ["S256"],
     claims_supported: [
       "iss",
@@ -201,6 +211,25 @@ export function getOidcDiscoveryDocument() {
       "given_name",
       "family_name",
     ],
+  };
+}
+
+export function getOAuthAuthorizationServerMetadata() {
+  const issuer = safeIssuer();
+  return {
+    issuer,
+    authorization_endpoint: new URL("/oauth/authorize", issuer).toString(),
+    token_endpoint: new URL("/oauth/token", issuer).toString(),
+    introspection_endpoint: new URL("/oauth/introspect", issuer).toString(),
+    registration_endpoint: new URL("/oauth/register", issuer).toString(),
+    response_types_supported: ["code"],
+    grant_types_supported: ["authorization_code"],
+    token_endpoint_auth_methods_supported: ["none", "client_secret_basic"],
+    introspection_endpoint_auth_methods_supported: ["client_secret_basic"],
+    registration_endpoint_auth_methods_supported: ["none"],
+    code_challenge_methods_supported: ["S256"],
+    authorization_response_iss_parameter_supported: true,
+    resource_parameter_supported: true,
   };
 }
 
