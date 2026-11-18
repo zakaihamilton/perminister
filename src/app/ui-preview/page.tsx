@@ -134,6 +134,7 @@ const previewScreens = [
   "activity",
   "profile",
   "product-overview",
+  "product-move",
   "product-people",
   "product-access",
   "product-roles",
@@ -199,6 +200,7 @@ function previewPathForScreen(screen: string) {
     profile: `${organizationRoot}/profile`,
     sessions: `${organizationRoot}/sessions`,
     "product-overview": productRoot,
+    "product-move": productRoot,
     "product-people": `${productRoot}/people`,
     "product-invite": `${productRoot}/people/invite`,
     "product-access": `${productRoot}/access`,
@@ -550,28 +552,48 @@ export default async function PreviewPage({
             />
           </>
         )}
-        {screen === "product-overview" && (
+        {(screen === "product-overview" || screen === "product-move") && (
           <>
-            <DashboardHeading description={previewProducts[0].description} />
+            <DashboardHeading
+              description={
+                screen === "product-move"
+                  ? "Manage this private product and move it to another organization you own."
+                  : previewProducts[0].description
+              }
+            />
             <ProductDetailsCard
               canManageDetails={canManage}
               initialDialogOpen={false}
               organizationId={organizationId}
-              product={previewProducts[0]}
+              product={
+                screen === "product-move"
+                  ? {
+                      ...previewProducts[0],
+                      description: "A private application for Example Studio.",
+                      visibility: "private",
+                    }
+                  : previewProducts[0]
+              }
               canManageLifecycle={canManage}
               adopterOrganizations={[{ organizationId: "preview-adopter", name: "Another Studio" }]}
               shareInfo={{
-                visibility: "public",
+                visibility: screen === "product-move" ? "private" : "public",
                 adopterOrganizations: [
                   { organizationId: "preview-adopter", name: "Another Studio" },
                 ],
               }}
-              canTransferPublisher={isOwner}
+              canTransferPublisher={screen !== "product-move" && isOwner}
               transferOptions={{
                 destinations: [{ organizationId: "preview-destination", name: "Another Studio" }],
               }}
-              canMoveProduct={false}
-              moveOptions={{ sourceOrganizationId: organizationId, destinations: [] }}
+              canMoveProduct={screen === "product-move" && isOwner}
+              moveOptions={{
+                sourceOrganizationId: organizationId,
+                destinations:
+                  screen === "product-move"
+                    ? [{ organizationId: "preview-destination", name: "Another Studio" }]
+                    : [],
+              }}
             />
           </>
         )}
