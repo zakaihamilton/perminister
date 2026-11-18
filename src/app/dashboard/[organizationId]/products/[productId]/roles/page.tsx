@@ -38,6 +38,11 @@ export default async function ProductAccessRolesPage({
         organizationId={organizationId}
         productId={productId}
       />
+      <p>
+        <Link className="button button-secondary" href={`${rolesPath}/catalog`}>
+          Import roles from product
+        </Link>
+      </p>
       {query.notice === "access-role-created" ? (
         <DashboardNotice message="Permission set created." kind="success" />
       ) : null}

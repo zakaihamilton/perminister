@@ -20,7 +20,9 @@ export default async function NewProductAccessRolePage({ params }: ProductPagePa
       titleDescription="Save action names you can assign to product members as a group."
     >
       <CreateProductAccessRoleForm
-        accessRoleCount={(access.product.accessRoles ?? []).length}
+        accessRoleCount={
+          (access.product.accessRoles ?? []).filter((role) => !role.deprecated).length
+        }
         organizationId={organizationId}
         productId={productId}
       />
