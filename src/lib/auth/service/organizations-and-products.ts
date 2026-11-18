@@ -806,20 +806,24 @@ function hasAnotherPublicPublisher(
   );
 }
 
-function publicProductTransferTargetId(
-  sourceProductRecordId: ProductRecordId,
-  destinationOrganizationId: string,
-): ProductRecordId {
+function deterministicUuidFromSeed(seed: string): string {
   const bytes = createHash("sha256")
-    .update(
-      `perminister:public-product-transfer:v1:${sourceProductRecordId}:${destinationOrganizationId}`,
-    )
+    .update(seed)
     .digest()
     .subarray(0, 16);
   bytes[6] = (bytes[6] & 0x0f) | 0x50;
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
   const hex = bytes.toString("hex");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}` as ProductRecordId;
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function publicProductTransferTargetId(
+  sourceProductRecordId: ProductRecordId,
+  destinationOrganizationId: string,
+): ProductRecordId {
+  return deterministicUuidFromSeed(
+    `perminister:public-product-transfer:v1:${sourceProductRecordId}:${destinationOrganizationId}`,
+  ) as ProductRecordId;
 }
 
 async function completedProductTransferTargetsUnlocked(
@@ -1399,16 +1403,9 @@ function productMoveEventId(
   productRecordId: ProductRecordId,
   eventType: string,
 ): EventId {
-  const bytes = createHash("sha256")
-    .update(
-      `perminister:product-move-event:v1:${productRecordId}:${move.sourceOrganizationId}:${move.destinationOrganizationId}:${move.initiatedAt}:${eventType}`,
-    )
-    .digest()
-    .subarray(0, 16);
-  bytes[6] = (bytes[6] & 0x0f) | 0x50;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = bytes.toString("hex");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}` as EventId;
+  return deterministicUuidFromSeed(
+    `perminister:product-move-event:v1:${productRecordId}:${move.sourceOrganizationId}:${move.destinationOrganizationId}:${move.initiatedAt}:${eventType}`,
+  ) as EventId;
 }
 
 async function appendProductMoveActivity(

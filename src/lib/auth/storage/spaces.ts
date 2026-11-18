@@ -1246,11 +1246,22 @@ export class SpacesAuthStore {
     }
   }
 
-  private async writeJson(key: string, value: unknown): Promise<void> {
+  private async recordWriteOperation(
+    operation: "put" | "delete",
+    send: () => Promise<unknown>,
+  ): Promise<void> {
     this.assertWritable();
     const startedAt = performance.now();
     try {
-      await this.client.send(
+      await send();
+    } finally {
+      recordAuthStorageOperation(operation, performance.now() - startedAt);
+    }
+  }
+
+  private async writeJson(key: string, value: unknown): Promise<void> {
+    await this.recordWriteOperation("put", () =>
+      this.client.send(
         new PutObjectCommand({
           Bucket: this.bucket,
           Key: key,
@@ -1259,20 +1270,14 @@ export class SpacesAuthStore {
           ACL: "private",
           CacheControl: "no-store",
         }),
-      );
-    } finally {
-      recordAuthStorageOperation("put", performance.now() - startedAt);
-    }
+      ),
+    );
   }
 
   private async deleteObjectAtKey(key: string): Promise<void> {
-    this.assertWritable();
-    const startedAt = performance.now();
-    try {
-      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
-    } finally {
-      recordAuthStorageOperation("delete", performance.now() - startedAt);
-    }
+    await this.recordWriteOperation("delete", () =>
+      this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key })),
+    );
   }
 
   private async deleteSubjectLookupIndexes(subject: SubjectRecord): Promise<void> {
@@ -1302,12 +1307,7 @@ export class SpacesAuthStore {
       [...keys].map(async (key) => {
         const pointer = await this.readJson<{ subjectId?: unknown }>(key);
         if (pointer?.subjectId === subject.subjectId) {
-          const startedAt = performance.now();
-          try {
-            await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
-          } finally {
-            recordAuthStorageOperation("delete", performance.now() - startedAt);
-          }
+          await this.deleteObjectAtKey(key);
         }
       }),
     );

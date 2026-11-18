@@ -806,12 +806,20 @@ export async function transferPublicProductAction(formData: FormData): Promise<v
   );
 }
 
-export async function transferOwnedPublicProductAction(formData: FormData): Promise<void> {
+async function requireProductActionContext(formData: FormData) {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
-  const sourceOrganizationId = firstValue(formData, "sourceOrganizationId");
-  const productRecordId = firstValue(formData, "productRecordId");
-  const productId = firstValue(formData, "productId");
+  return {
+    current,
+    sourceOrganizationId: firstValue(formData, "sourceOrganizationId"),
+    productRecordId: firstValue(formData, "productRecordId"),
+    productId: firstValue(formData, "productId"),
+  };
+}
+
+export async function transferOwnedPublicProductAction(formData: FormData): Promise<void> {
+  const { current, sourceOrganizationId, productRecordId, productId } =
+    await requireProductActionContext(formData);
   const returnTo = `/dashboard/${encodeURIComponent(sourceOrganizationId)}/products/${encodeURIComponent(
     productId,
   )}`;
@@ -836,11 +844,8 @@ export async function transferOwnedPublicProductAction(formData: FormData): Prom
 }
 
 export async function movePrivateProductAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const sourceOrganizationId = firstValue(formData, "sourceOrganizationId");
-  const productRecordId = firstValue(formData, "productRecordId");
-  const productId = firstValue(formData, "productId");
+  const { current, sourceOrganizationId, productRecordId, productId } =
+    await requireProductActionContext(formData);
   const destinationOrganizationId = firstValue(formData, "destinationOrganizationId");
 
   let move: Awaited<ReturnType<typeof movePrivateProductForOrganizationOwner>>;
