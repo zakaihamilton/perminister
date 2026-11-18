@@ -21,6 +21,7 @@ import {
 } from "@/lib/auth/mail";
 import {
   acceptOrganizationInvitation,
+  addExistingProductMemberByEmail,
   applyProductAccessRoleCatalog,
   archiveOrganizationProduct,
   completeEmailAction,
@@ -1104,6 +1105,35 @@ export async function inviteProductMemberAction(formData: FormData): Promise<voi
   redirect(`${productPath}?notice=invite-sent`);
 }
 
+export async function addExistingProductMemberAction(formData: FormData): Promise<void> {
+  const { current, organizationId, productId, productPath } =
+    await productPeopleActionContext(formData);
+  let result: "added" | "updated" | "already-assigned";
+  try {
+    result = await addExistingProductMemberByEmail(
+      current.subject.subjectId,
+      organizationId,
+      productId,
+      firstValue(formData, "email"),
+      firstValue(formData, "accessRoleId"),
+      firstValue(formData, "membershipRole"),
+    );
+  } catch (error) {
+    console.error("Existing product member access grant failed", {
+      error: error instanceof Error ? error.message.slice(0, 240) : "Unknown error",
+    });
+    redirect(`${productPath}?error=existing-member-failed`);
+  }
+  revalidatePath(productPath);
+  const notice =
+    result === "added"
+      ? "existing-member-added"
+      : result === "updated"
+        ? "existing-member-updated"
+        : "existing-member-already-assigned";
+  redirect(`${productPath}?notice=${notice}`);
+}
+
 export async function acceptOrganizationInvitationAction(formData: FormData): Promise<void> {
   const current = await getCurrentSession();
   if (!current)
@@ -1405,37 +1435,47 @@ function productRoleCatalogPath(organizationId: string, productId: string) {
   return `/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(productId)}/roles/catalog`;
 }
 
-export async function fetchProductAccessRoleCatalogAction(formData: FormData): Promise<void> {
+async function runProductRoleCatalogAction(
+  formData: FormData,
+  error: "role-catalog-fetch" | "role-catalog-apply",
+  notice: "role-catalog-staged" | "role-catalog-applied",
+  mutation: (subjectId: SubjectId, organizationId: string, productId: string) => Promise<unknown>,
+  refreshAccess = false,
+): Promise<void> {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
   const organizationId = firstValue(formData, "organizationId");
   const productId = firstValue(formData, "productId");
   const catalogPath = productRoleCatalogPath(organizationId, productId);
   try {
-    await stageProductAccessRoleCatalog(current.subject.subjectId, organizationId, productId);
+    await mutation(current.subject.subjectId, organizationId, productId);
   } catch {
-    redirect(`${catalogPath}?error=role-catalog-fetch`);
+    redirect(`${catalogPath}?error=${error}`);
   }
   revalidatePath(catalogPath);
-  revalidatePath(`/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(productId)}/roles`);
-  redirect(`${catalogPath}?notice=role-catalog-staged`);
+  const encodedProductPath = `/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(productId)}`;
+  revalidatePath(`${encodedProductPath}/roles`);
+  if (refreshAccess) revalidatePath(`${encodedProductPath}/access`);
+  redirect(`${catalogPath}?notice=${notice}`);
+}
+
+export async function fetchProductAccessRoleCatalogAction(formData: FormData): Promise<void> {
+  await runProductRoleCatalogAction(
+    formData,
+    "role-catalog-fetch",
+    "role-catalog-staged",
+    stageProductAccessRoleCatalog,
+  );
 }
 
 export async function applyProductAccessRoleCatalogAction(formData: FormData): Promise<void> {
-  const current = await getCurrentSession();
-  if (!current) redirect("/login");
-  const organizationId = firstValue(formData, "organizationId");
-  const productId = firstValue(formData, "productId");
-  const catalogPath = productRoleCatalogPath(organizationId, productId);
-  try {
-    await applyProductAccessRoleCatalog(current.subject.subjectId, organizationId, productId);
-  } catch {
-    redirect(`${catalogPath}?error=role-catalog-apply`);
-  }
-  revalidatePath(catalogPath);
-  revalidatePath(`/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(productId)}/roles`);
-  revalidatePath(`/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(productId)}/access`);
-  redirect(`${catalogPath}?notice=role-catalog-applied`);
+  await runProductRoleCatalogAction(
+    formData,
+    "role-catalog-apply",
+    "role-catalog-applied",
+    applyProductAccessRoleCatalog,
+    true,
+  );
 }
 
 export async function updateGrantStatusAction(formData: FormData): Promise<void> {

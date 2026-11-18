@@ -2,7 +2,11 @@ import Link from "next/link";
 import { DashboardHeading } from "@/components/dashboard-shell";
 import { ProductPageNavigation } from "@/components/product-navigation";
 import { PendingInvitations } from "@/components/pending-invitations";
-import { ProductPeopleNotices, ProductPeopleSection } from "@/components/product-people-sections";
+import {
+  AddExistingProductMemberSection,
+  ProductPeopleNotices,
+  ProductPeopleSection,
+} from "@/components/product-people-sections";
 import { listProductInvitations, listProductMembers } from "@/lib/auth/service";
 import {
   getProductPageContext,
@@ -44,6 +48,12 @@ export default async function ProductPeoplePage({
         productId={productId}
       />
       <ProductPeopleNotices error={query.error} notice={query.notice} />
+      <AddExistingProductMemberSection
+        accessRoles={access.product.accessRoles ?? []}
+        organizationId={organizationId}
+        productId={productId}
+        isProductOwner={isOwner}
+      />
       <ProductPeopleSection
         isOwner={isOwner}
         members={members}

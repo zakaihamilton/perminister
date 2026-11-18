@@ -1,5 +1,6 @@
 import {
   acceptOrganizationInvitationAction,
+  addExistingProductMemberAction,
   addPublicProductAction,
   applyProductAccessRoleCatalogAction,
   archiveOrganizationProductAction,
@@ -68,6 +69,7 @@ type StableAction = (formData: FormData) => Promise<ActionResult>;
 
 const actions: Record<string, StableAction> = {
   acceptOrganizationInvitationAction,
+  addExistingProductMemberAction,
   addPublicProductAction,
   applyProductAccessRoleCatalogAction,
   archiveOrganizationProductAction,

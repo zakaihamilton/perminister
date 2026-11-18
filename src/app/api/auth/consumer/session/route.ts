@@ -98,7 +98,7 @@ export const GET = withApiRoutePerformance(
               current.subject.loginIdentifiers?.find((item) => item.productId === client.productId)
                 ?.value ?? null,
             legacyAccountId:
-              client.productId === "system-concepts"
+              ["system-concepts", "systemconcepts"].includes(client.productId)
                 ? (current.subject.legacySources?.find(
                     (source) => source.source === "systemconcepts",
                   )?.accountId ?? null)

@@ -2827,7 +2827,9 @@ describe("access grant role selector", () => {
       actions: ["telemetry.read", "telemetry.events.read"],
     };
 
-    const html = renderToStaticMarkup(createElement(AccessGrantActionsFields, { roles: [role] }));
+    const html = renderToStaticMarkup(
+      createElement(AccessGrantActionsFields, { roles: [role], scopeKind: "" }),
+    );
 
     expect(html).toContain("Telemetry viewer");
     expect(html).toContain("Custom permissions");
