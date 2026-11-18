@@ -41,6 +41,9 @@ export default async function ProductAccessRolesPage({
       {query.notice === "access-role-created" ? (
         <DashboardNotice message="Permission set created." kind="success" />
       ) : null}
+      {query.notice === "access-role-updated" ? (
+        <DashboardNotice message="Permission set updated." kind="success" />
+      ) : null}
       {query.notice === "access-role-removed" ? (
         <DashboardNotice message="Permission set removed." kind="success" />
       ) : null}

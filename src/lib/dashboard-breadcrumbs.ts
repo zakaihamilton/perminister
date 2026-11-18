@@ -162,6 +162,15 @@ export function buildDashboardBreadcrumbs(
         { label: "Create permission set" },
       ];
     }
+    if (segments[4] === "roles" && segments[6] === "edit") {
+      return [
+        organizationCrumb,
+        productsCrumb,
+        { label: productName, href: productHref },
+        { label: "Permission sets", href: `${productHref}/roles` },
+        { label: "Edit permission set" },
+      ];
+    }
     if (segments[4] === "people" && segments[5] === "invite") {
       return [
         organizationCrumb,

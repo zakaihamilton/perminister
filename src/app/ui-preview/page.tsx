@@ -26,7 +26,10 @@ import { ConsumerClientManager } from "@/components/consumer-client-manager";
 import { ProductPeopleSection } from "@/components/product-people-sections";
 import { ProductApiKeyRecords } from "@/components/product-api-key-sections";
 import { ProductSetupForm } from "@/components/product-setup-form";
-import { CreateProductAccessRoleForm } from "@/components/product-access-role-sections";
+import {
+  CreateProductAccessRoleForm,
+  EditProductAccessRoleForm,
+} from "@/components/product-access-role-sections";
 import { ConsumerClientCreationManager } from "@/components/consumer-client-creation-manager";
 import {
   AccessGrantCreationSection,
@@ -136,6 +139,7 @@ const previewScreens = [
   "product-activity",
   "product-new",
   "product-role-new",
+  "product-role-edit",
   "product-client-new",
   "product-invite",
   "product-access-new",
@@ -172,6 +176,7 @@ const scenarioOptions = [
   { value: "disabled-grant", label: "Disabled permission" },
   { value: "unverified-account", label: "Unverified account" },
   { value: "validation-errors", label: "Form validation" },
+  { value: "permission-set-error", label: "Permission set save error" },
   { value: "access-denied", label: "Access denied" },
   { value: "no-organizations", label: "No organizations" },
 ] as const;
@@ -197,6 +202,7 @@ function previewPathForScreen(screen: string) {
     "product-access-new": `${productRoot}/access/new`,
     "product-roles": `${productRoot}/roles`,
     "product-role-new": `${productRoot}/roles/new`,
+    "product-role-edit": `${productRoot}/roles/preview-editor/edit`,
     "product-clients": `${productRoot}/clients`,
     "product-client-new": `${productRoot}/clients/new`,
     "client-edit": `${productRoot}/clients/preview-client/edit`,
@@ -354,6 +360,7 @@ export default async function PreviewPage({
     "expired-invitation": "product-people",
     "pending-invitation": "product-people",
     "platform-admin": "operations",
+    "permission-set-error": "product-role-edit",
     "revoked-key": "product-keys",
     "unverified-account": "profile",
     "validation-errors": "product-new",
@@ -481,6 +488,28 @@ export default async function PreviewPage({
                 accessRoleCount={0}
                 organizationId={organizationId}
                 productId="field-notes"
+              />
+            </section>
+          </>
+        )}
+        {screen === "product-role-edit" && (
+          <>
+            <DashboardHeading description="Changes affect future assignments. Existing member permissions stay in place." />
+            <section className="dashboard-card access-role-catalog-card">
+              <div className="dashboard-card-heading">
+                <div>
+                  <h2>Edit Editor</h2>
+                </div>
+              </div>
+              <EditProductAccessRoleForm
+                accessRole={accessRoles[0]}
+                organizationId={organizationId}
+                productId="field-notes"
+                initialError={
+                  scenario === "permission-set-error"
+                    ? "A permission set with that name already exists. Choose another name."
+                    : undefined
+                }
               />
             </section>
           </>

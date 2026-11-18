@@ -19,6 +19,7 @@ Use the screen and scenario controls to inspect synthetic route states. The gall
 | Revoked key / disabled permission | Revoked API key and disabled access-grant states |
 | Unverified account | Profile verification prompt |
 | Form validation / access denied | Product setup form guidance and denied-access notice |
+| Permission set save error | Populated edit form with an inline save error and retained field values |
 | No organizations / pending request | Authenticated shell with no organization and request history |
 
 The gallery uses the application's production components:
@@ -29,7 +30,7 @@ The gallery uses the application's production components:
 | `settings`, `activity`, `profile`, `sessions`                                                   | Organization settings, activity, account details and signed-in devices     |
 | `product-overview`, `product-people`, `product-access`, `product-roles`                         | Product details, members, permissions and permission sets                  |
 | `product-clients`, `client-edit`, `product-keys`, `product-activity`                            | Populated/empty client list, client settings, keys and activity            |
-| `product-new`, `product-role-new`, `product-client-new`, `product-invite`, `product-access-new` | Product, permission set, app client, invitation and permission grant forms |
+| `product-new`, `product-role-new`, `product-role-edit`, `product-client-new`, `product-invite`, `product-access-new` | Product, permission set creation and editing, app client, invitation and permission grant forms |
 | `key-new`, `organization-new`                                                                   | API key and organization request forms                                     |
 | `operations`                                                                                    | Pending organization request and registered account controls               |
 
@@ -99,6 +100,7 @@ would leave the gallery are disabled.
 | `/dashboard/[organizationId]/products/[productId]/access/new`                                        | `product-access-new`: grant form with synthetic eligible members.                                                                                                                                                                                                                                       |
 | `/dashboard/[organizationId]/products/[productId]/roles`                                             | `product-roles`: synthetic roles and empty catalog.                                                                                                                                                                                                                                                     |
 | `/dashboard/[organizationId]/products/[productId]/roles/new`                                         | `product-role-new`: permission-set form.                                                                                                                                                                                                                                                                |
+| `/dashboard/[organizationId]/products/[productId]/roles/[accessRoleId]/edit`                         | `product-role-edit`: populated permission-set editing form; choose the `Permission set save error` scenario to inspect its inline error state.                                                                                                                                                            |
 | `/dashboard/[organizationId]/products/[productId]/clients`                                           | `product-clients`: synthetic app client list.                                                                                                                                                                                                                                                           |
 | `/dashboard/[organizationId]/products/[productId]/clients/new`                                       | `product-client-new`: creation form.                                                                                                                                                                                                                                                                    |
 | `/dashboard/[organizationId]/products/[productId]/clients/[clientId]/edit`                           | `client-edit`: populated settings form.                                                                                                                                                                                                                                                                 |

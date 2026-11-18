@@ -1,5 +1,7 @@
 import Image from "next/image";
+import Link from "next/link";
 import { ConfirmationActionControl } from "@/components/confirmation-action-control";
+import { EditProductAccessRoleFormClient } from "@/components/edit-product-access-role-form";
 import type { ProductAccessRole } from "@/lib/auth/access-roles";
 
 export function ProductAccessRoleCatalog({
@@ -33,7 +35,7 @@ export function ProductAccessRoleCatalog({
         <div className="access-role-list">
           {accessRoles.map((accessRole) => (
             <article className="access-role-item" key={accessRole.id}>
-              <div>
+              <div className="access-role-item-details">
                 <strong>{accessRole.name}</strong>
                 <span>
                   {accessRole.description || "No description"} · {accessRole.actions.length}{" "}
@@ -49,18 +51,28 @@ export function ProductAccessRoleCatalog({
                   ))}
                 </div>
               </div>
-              <ConfirmationActionControl
-                action="/actions/removeProductAccessRoleAction"
-                fields={[
-                  { name: "organizationId", value: organizationId },
-                  { name: "productId", value: productId },
-                  { name: "accessRoleId", value: accessRole.id },
-                ]}
-                triggerLabel="Remove permission set"
-                title={`Remove ${accessRole.name}?`}
-                description="This permission set will no longer be available for new assignments. Existing member permissions stay in place."
-                confirmLabel="Remove permission set"
-              />
+              <div className="access-role-item-actions">
+                <Link
+                  aria-label={`Edit ${accessRole.name} permission set`}
+                  className="button button-secondary"
+                  href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/roles/${encodeURIComponent(accessRole.id)}/edit`}
+                >
+                  Edit
+                </Link>
+                <ConfirmationActionControl
+                  action="/actions/removeProductAccessRoleAction"
+                  fields={[
+                    { name: "organizationId", value: organizationId },
+                    { name: "productId", value: productId },
+                    { name: "accessRoleId", value: accessRole.id },
+                  ]}
+                  triggerLabel="Remove permission set"
+                  triggerAriaLabel={`Remove ${accessRole.name} permission set`}
+                  title={`Remove ${accessRole.name}?`}
+                  description="This permission set will no longer be available for new assignments. Existing member permissions stay in place."
+                  confirmLabel="Remove permission set"
+                />
+              </div>
             </article>
           ))}
         </div>
@@ -68,8 +80,10 @@ export function ProductAccessRoleCatalog({
         <p className="form-hint">No permission sets yet. Create one to reuse app permissions.</p>
       )}
       <p className="access-role-catalog-note">
-        Use the exact action names your app checks. Removing a permission set stops new assignments;
-        existing permissions stay in place.
+        Use the exact action names your app checks.
+        {accessRoles.length > 0
+          ? " Editing or removing a permission set affects future assignments; existing member permissions stay in place."
+          : null}
       </p>
     </section>
   );
@@ -83,6 +97,51 @@ export function CreateProductAccessRoleForm({
   accessRoleCount: number;
   organizationId: string;
   productId: string;
+}) {
+  return (
+    <ProductAccessRoleForm
+      organizationId={organizationId}
+      productId={productId}
+      submitLabel="Create permission set"
+      disabled={accessRoleCount >= 32}
+    />
+  );
+}
+
+export function EditProductAccessRoleForm({
+  accessRole,
+  organizationId,
+  productId,
+  initialError,
+}: {
+  accessRole: ProductAccessRole;
+  organizationId: string;
+  productId: string;
+  initialError?: string;
+}) {
+  const rolesPath = `/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(productId)}/roles`;
+
+  return (
+    <EditProductAccessRoleFormClient
+      accessRole={accessRole}
+      organizationId={organizationId}
+      productId={productId}
+      rolesPath={rolesPath}
+      initialError={initialError}
+    />
+  );
+}
+
+function ProductAccessRoleForm({
+  organizationId,
+  productId,
+  submitLabel,
+  disabled = false,
+}: {
+  organizationId: string;
+  productId: string;
+  submitLabel: string;
+  disabled?: boolean;
 }) {
   return (
     <form
@@ -114,18 +173,18 @@ export function CreateProductAccessRoleForm({
         <textarea
           name="actions"
           required
-          maxLength={2048}
+          maxLength={2110}
           rows={2}
           placeholder="Enter exact action names, separated by commas"
           aria-describedby="access-role-actions-help"
         />
         <small className="access-form-field-help" id="access-role-actions-help">
-          Ask the app developer if you do not know the exact action names. You only need to define
-          this set once for this organization&apos;s product.
+          Ask the app developer if you do not know the exact action names.
+          You only need to define this set once for this organization&apos;s product.
         </small>
       </label>
-      <button className="button button-primary" type="submit" disabled={accessRoleCount >= 32}>
-        Create permission set
+      <button className="button button-primary" type="submit" disabled={disabled}>
+        {submitLabel}
       </button>
     </form>
   );
