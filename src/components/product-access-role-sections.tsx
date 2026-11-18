@@ -1,8 +1,59 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ConfirmationActionControl } from "@/components/confirmation-action-control";
+import { DashboardHeading } from "@/components/dashboard-shell";
 import { EditProductAccessRoleFormClient } from "@/components/edit-product-access-role-form";
+import { ProductPageNavigation } from "@/components/product-navigation";
 import type { ProductAccessRole } from "@/lib/auth/access-roles";
+import type { ProductAccessSummary } from "@/lib/auth/service";
+
+export function ProductAccessRoleFormPage({
+  access,
+  children,
+  description,
+  organizationId,
+  productId,
+  title,
+  titleDescription,
+}: {
+  access: Pick<ProductAccessSummary, "product" | "membership">;
+  children: ReactNode;
+  description: string;
+  organizationId: string;
+  productId: string;
+  title: string;
+  titleDescription?: string;
+}) {
+  const rolesPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/roles`;
+
+  return (
+    <>
+      <DashboardHeading
+        description={description}
+        action={
+          <Link className="button button-secondary" href={rolesPath}>
+            Back to permission sets
+          </Link>
+        }
+      />
+      <ProductPageNavigation
+        access={access}
+        organizationId={organizationId}
+        productId={productId}
+      />
+      <section className="dashboard-card access-role-catalog-card">
+        <div className="dashboard-card-heading">
+          <div>
+            <h2>{title}</h2>
+            {titleDescription ? <p>{titleDescription}</p> : null}
+          </div>
+        </div>
+        {children}
+      </section>
+    </>
+  );
+}
 
 export function ProductAccessRoleCatalog({
   accessRoles,

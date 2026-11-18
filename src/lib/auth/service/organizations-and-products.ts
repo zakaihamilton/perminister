@@ -2167,6 +2167,26 @@ function normalizeProductAccessRoleInput(input: {
   return { name, description, actions };
 }
 
+function withProductAccessRoleMutation<T>(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  mutation: (
+    manageableProduct: Awaited<ReturnType<typeof requireManageableProductUnlocked>>,
+  ) => Promise<T>,
+): Promise<T> {
+  return authMutationQueue.run(() =>
+    withOrganizationMutationLock(organizationId, async () => {
+      const manageableProduct = await requireManageableProductUnlocked(
+        actorId,
+        organizationId,
+        productId,
+      );
+      return mutation(manageableProduct);
+    }),
+  );
+}
+
 export async function createProductAccessRole(
   actorId: SubjectId,
   organizationId: string,
@@ -2174,13 +2194,11 @@ export async function createProductAccessRole(
   input: { name: string; description: string; actions: readonly string[] },
 ): Promise<ProductAccessRole> {
   const { name, description, actions } = normalizeProductAccessRoleInput(input);
-  return authMutationQueue.run(() =>
-    withOrganizationMutationLock(organizationId, async () => {
-      const { actor, product } = await requireManageableProductUnlocked(
-        actorId,
-        organizationId,
-        productId,
-      );
+  return withProductAccessRoleMutation(
+    actorId,
+    organizationId,
+    productId,
+    async ({ actor, product }) => {
       const roles = product.accessRoles ?? [];
       if (roles.length >= 32) throw new Error("A product can have up to 32 access roles.");
       if (roles.some((role) => role.name.toLowerCase() === name.toLowerCase())) {
@@ -2198,7 +2216,7 @@ export async function createProductAccessRole(
         { kind: "subject", subjectId: actor.subjectId },
       );
       return role;
-    }),
+    },
   );
 }
 
@@ -2211,13 +2229,11 @@ export async function updateProductAccessRole(
 ): Promise<ProductAccessRole> {
   if (!/^role-[0-9a-f]{32}$/.test(accessRoleId)) throw new Error("Choose an access role.");
   const { name, description, actions } = normalizeProductAccessRoleInput(input);
-  return authMutationQueue.run(() =>
-    withOrganizationMutationLock(organizationId, async () => {
-      const { actor, product } = await requireManageableProductUnlocked(
-        actorId,
-        organizationId,
-        productId,
-      );
+  return withProductAccessRoleMutation(
+    actorId,
+    organizationId,
+    productId,
+    async ({ actor, product }) => {
       const roles = product.accessRoles ?? [];
       const currentRole = roles.find((role) => role.id === accessRoleId);
       if (!currentRole) throw new Error("Access role not found.");
@@ -2253,7 +2269,7 @@ export async function updateProductAccessRole(
         },
       );
       return updatedRole;
-    }),
+    },
   );
 }
 
