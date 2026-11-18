@@ -38,7 +38,7 @@ import {
   equalHex,
   hashHex,
   invalidateOrganizationDashboardDataCache,
-  isEmailVerifiedOrExempt,
+  isEmailVerifiedOrExemptForProduct,
   listProductsByProductIdDuringRender,
   listRecordsWithRecovery,
   mapMembershipsToSubjectContact,
@@ -2409,6 +2409,181 @@ export const listOrganizationPermissionGrants = cache(
   },
 );
 
+export async function addExistingProductMemberByEmail(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+  emailInput: string,
+  accessRoleIdInput: string,
+  membershipRoleInput: string,
+): Promise<"added" | "updated" | "already-assigned"> {
+  const scope = validateScope({
+    kind: "product",
+    organizationId: organizationId as OrganizationId,
+    productId,
+  });
+  const email = canonicalEmail(emailInput);
+  const accessRoleId = accessRoleIdInput.trim();
+  const membershipRole = membershipRoleInput.trim();
+  if (!/^role-[0-9a-f]{32}$/.test(accessRoleId)) {
+    throw new Error("Choose a valid product access role.");
+  }
+  if (membershipRole !== "admin" && membershipRole !== "member") {
+    throw new Error("Choose a valid product membership role.");
+  }
+
+  return authMutationQueue.run(() =>
+    withOrganizationMutationLock(scope.organizationId, async () => {
+      const actorMembership = await requireProductRoleUnlocked(
+        actorId,
+        scope.organizationId,
+        scope.productId,
+        ["owner", "admin"],
+      );
+      if (membershipRole === "admin" && actorMembership.role !== "owner") {
+        throw new Error("Only the product owner can add a product administrator.");
+      }
+      const product = await store().readProduct(scope.organizationId, scope.productId);
+      if (!product) throw new Error("Choose a product in this organization.");
+      if (product.archivedAt || product.deletionStartedAt || product.deletedAt) {
+        throw new Error("This product is archived. Restore it before making changes.");
+      }
+      const role = product.accessRoles?.find((item) => item.id === accessRoleId);
+      if (!role) throw new Error("Choose an access role configured for this product.");
+      if (role.deprecated) {
+        throw new Error("This product permission set has been retired and cannot be assigned.");
+      }
+      if (role.scopeKinds && !role.scopeKinds.includes("product")) {
+        throw new Error("Choose a permission set that supports product access.");
+      }
+      const actions = validateActions(role.actions);
+      const target = await loadSubjectByEmailUnlocked(email);
+      if (
+        !target ||
+        target.status !== "active" ||
+        !isEmailVerifiedOrExemptForProduct(target, scope.productId)
+      ) {
+        throw new Error("No active, verified Perminister account was found. No invitation was sent.");
+      }
+
+      const productMembership = await store().readOrganizationMembership(
+        scope.organizationId,
+        target.subjectId,
+        scope.productId,
+      );
+      if (productMembership?.status === "disabled") {
+        throw new Error("This person's product membership is disabled. Reactivate it before assigning a role.");
+      }
+      if (
+        productMembership &&
+        productMembership.role !== "owner" &&
+        productMembership.role !== membershipRole &&
+        actorMembership.role !== "owner"
+      ) {
+        throw new Error("Only the product owner can change a member's Perminister product role.");
+      }
+
+      const productGrants = (productMembership?.permissionGrants ?? []).filter(
+        (grant) =>
+          grant.scope.kind === "product" &&
+          grant.scope.organizationId === scope.organizationId &&
+          grant.scope.productId === scope.productId,
+      );
+      const activeProductGrants = productGrants.filter((grant) => grant.status === "active");
+      if (activeProductGrants.length > 0) {
+        if (!activeProductGrants.every((grant) => grant.accessRole?.id === role.id)) {
+          throw new Error("This person already has a different product role. Review the existing permissions first.");
+        }
+      }
+      if (activeProductGrants.length === 0 && productGrants.length > 0) {
+        throw new Error("This person's product role is disabled. Restore it before assigning a role.");
+      }
+
+      const now = new Date().toISOString();
+      const actor = { kind: "subject" as const, subjectId: actorMembership.subjectId };
+      const grantExists = activeProductGrants.length > 0;
+      if (!grantExists) {
+        const permissionGrant: MembershipRecord = {
+          kind: "membership",
+          schemaVersion: 1,
+          membershipId: newMembershipId(),
+          subjectId: target.subjectId,
+          scope,
+          grants: [{ scope, actions }],
+          accessRole: {
+            id: role.id,
+            name: role.name,
+            ...(role.role ? { role: role.role } : {}),
+            ...(role.catalogSource ? { catalogVersion: role.catalogSource.version } : {}),
+          },
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        };
+        if (productMembership) {
+          await persistRecord(permissionGrant, "permission.granted", actor, {
+            accessRoleName: role.name,
+            changes: [{ field: "actions", before: [], after: actions }],
+          });
+        } else {
+          const membership: OrganizationMembershipRecord = {
+            kind: "organization-membership",
+            schemaVersion: 1,
+            organizationMembershipId: newOrganizationMembershipId(),
+            organizationId: scope.organizationId,
+            productId: scope.productId,
+            subjectId: target.subjectId,
+            role: membershipRole,
+            status: "active",
+            permissionGrants: [permissionGrant],
+            createdAt: now,
+            updatedAt: now,
+          };
+          await persistRecord(membership, "product.member-added", actor, {
+            accessRoleName: role.name,
+            changes: [
+              { field: "role", before: "None", after: membership.role },
+              { field: "actions", before: [], after: actions },
+            ],
+          });
+          await appendRecordActivityEvent(permissionGrant, "permission.granted", actor, {
+            accessRoleName: role.name,
+            changes: [{ field: "actions", before: [], after: actions }],
+          });
+        }
+      }
+
+      if (productMembership && productMembership.role !== "owner") {
+        const updatedMembership = await store().readOrganizationMembership(
+          scope.organizationId,
+          target.subjectId,
+          scope.productId,
+        );
+        if (!updatedMembership) throw new Error("Product membership not found.");
+        const nextMembershipRole = membershipRole;
+        if (updatedMembership.role !== nextMembershipRole) {
+          await persistRecord(
+            {
+              ...updatedMembership,
+              role: nextMembershipRole,
+              updatedAt: new Date().toISOString(),
+            },
+            "product.member-role-updated",
+            actor,
+            {
+              changes: [
+                { field: "role", before: updatedMembership.role, after: nextMembershipRole },
+              ],
+            },
+          );
+          return grantExists ? "updated" : "added";
+        }
+      }
+      return grantExists ? "already-assigned" : "added";
+    }),
+  );
+}
+
 export async function createPermissionGrant(
   actorId: SubjectId,
   targetSubjectId: string,
@@ -2448,7 +2623,11 @@ export async function createPermissionGrant(
       const actions = role ? validateActions(role.actions) : customActions;
       if (!actions) throw new Error("Enter 1 to 32 valid action names.");
       const target = await loadSubjectUnlocked(targetSubjectId);
-      if (!target || target.status !== "active" || !isEmailVerifiedOrExempt(target)) {
+      if (
+        !target ||
+        target.status !== "active" ||
+        !isEmailVerifiedOrExemptForProduct(target, scope.productId)
+      ) {
         throw new Error("Choose an active, email-verified account.");
       }
       const targetMembership = await store().readOrganizationMembership(
