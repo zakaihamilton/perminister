@@ -2104,10 +2104,16 @@
   padding: 13px;
   background: var(--surface-inset);
 }
-:where(.appScope) :global(.access-role-item > div) {
+:where(.appScope) :global(.access-role-item-details) {
   display: grid;
   gap: 5px;
   min-width: 0;
+}
+:where(.appScope) :global(.access-role-item-actions) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
 }
 :where(.appScope) :global(.access-role-item strong) {
   color: var(--ink);
@@ -2175,6 +2181,16 @@
   :where(.appScope) :global(.access-role-item) {
     align-items: flex-start;
     flex-direction: column;
+  }
+  :where(.appScope) :global(.access-role-item-actions) {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+  :where(.appScope) :global(.access-role-item-actions > .button),
+  :where(.appScope) :global(.access-role-item-actions form),
+  :where(.appScope) :global(.access-role-item-actions form .button) {
+    width: 100%;
   }
 }
 @media (max-width: 980px) {

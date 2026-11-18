@@ -85,6 +85,7 @@ export {
   setOrganizationProductVisibility,
   transferPublicProductForAdministrator,
   transferPublicProductForOrganizationOwner,
+  updateProductAccessRole,
   updateOrganizationMemberRole,
   updateOrganizationName,
   updateOrganizationProduct,

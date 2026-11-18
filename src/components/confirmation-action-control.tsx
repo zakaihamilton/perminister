@@ -16,6 +16,7 @@ interface ConfirmationActionControlProps {
   description: string;
   confirmLabel: string;
   triggerClassName?: string;
+  triggerAriaLabel?: string;
 }
 
 export function ConfirmationActionControl({
@@ -26,6 +27,7 @@ export function ConfirmationActionControl({
   description,
   confirmLabel,
   triggerClassName = "button button-secondary",
+  triggerAriaLabel,
 }: ConfirmationActionControlProps) {
   const formContents = (
     <>
@@ -84,6 +86,7 @@ export function ConfirmationActionControl({
     <ConfirmationDialog
       triggerClassName={triggerClassName}
       triggerLabel={triggerLabel}
+      triggerAriaLabel={triggerAriaLabel}
       title={title}
       description={description}
     >

@@ -121,6 +121,7 @@ const ACTIVITY_SUMMARIES: Readonly<Record<string, string>> = {
   "permission.deleted": "Deleted a disabled permission",
   "product.access-role-created": "Created a product access role",
   "product.access-role-removed": "Removed a product access role",
+  "product.access-role-updated": "Updated a product access role",
   "product.archived": "Archived a product",
   "product.created": "Created a product",
   "product.deleted": "Deleted a product",

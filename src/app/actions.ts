@@ -68,6 +68,7 @@ import {
   updateOrganizationMemberRole,
   updateOrganizationName,
   updateOrganizationProduct,
+  updateProductAccessRole,
   updateProductMemberRole,
 } from "@/lib/auth/service";
 import { operationsHref } from "@/lib/operations-navigation";
@@ -520,6 +521,11 @@ export async function createApiKeyAction(
 export interface ConsumerClientActionState {
   clientId?: string;
   secret?: string;
+  updated?: boolean;
+  error?: string;
+}
+
+export interface ProductAccessRoleActionState {
   updated?: boolean;
   error?: string;
 }
@@ -1321,6 +1327,62 @@ export async function createProductAccessRoleAction(formData: FormData): Promise
         actions: firstValue(formData, "actions").split(/[\n,]/),
       }),
   );
+}
+
+function productAccessRoleUpdateError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "This permission set could not be saved. Check your access and try again.";
+  }
+  if (error.message === "An access role with that name already exists.") {
+    return "A permission set with that name already exists. Choose another name.";
+  }
+  if (error.message === "Enter a role name up to 80 characters.") {
+    return "Enter a permission set name with 1–80 characters.";
+  }
+  if (error.message === "The role description must be 240 characters or fewer.") {
+    return "Keep the description within 240 characters.";
+  }
+  if (error.message === "Enter 1 to 32 valid action names.") return error.message;
+  if (error.message === "Access role not found.") {
+    return "This permission set is no longer available. Return to the list and reopen it.";
+  }
+  if (error.message === "You do not have permission to manage this product.") {
+    return "You do not have permission to edit this permission set.";
+  }
+  if (error.message === "Organization is busy. Try again shortly.") return error.message;
+  return "This permission set could not be saved. Check your access and try again.";
+}
+
+export async function updateProductAccessRoleAction(
+  formData: FormData,
+): Promise<ProductAccessRoleActionState> {
+  const current = await getCurrentSession();
+  if (!current) return { error: "Sign in again to update this permission set." };
+
+  const organizationId = firstValue(formData, "organizationId");
+  const productId = firstValue(formData, "productId");
+  const accessRoleId = firstValue(formData, "accessRoleId");
+  try {
+    await updateProductAccessRole(
+      current.subject.subjectId,
+      organizationId,
+      productId,
+      accessRoleId,
+      {
+        name: firstValue(formData, "roleName"),
+        description: firstValue(formData, "roleDescription"),
+        actions: firstValue(formData, "actions").split(/[\n,]/),
+      },
+    );
+  } catch (error) {
+    return { error: productAccessRoleUpdateError(error) };
+  }
+
+  const rolesPath = `/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(productId)}/roles`;
+  const editPath = `${rolesPath}/${encodeURIComponent(accessRoleId)}/edit`;
+  revalidatePath(rolesPath);
+  revalidatePath(editPath);
+  return { updated: true };
 }
 
 export async function removeProductAccessRoleAction(formData: FormData): Promise<void> {

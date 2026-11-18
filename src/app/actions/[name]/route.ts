@@ -40,10 +40,12 @@ import {
   updateOrganizationNameAction,
   updateOrganizationProductAction,
   updateConsumerClientAction,
+  updateProductAccessRoleAction,
   updateProductMemberRoleAction,
   verifyEmailAction,
   type CreateApiKeyState,
   type ConsumerClientActionState,
+  type ProductAccessRoleActionState,
   type ProductLookupState,
 } from "@/app/actions";
 import {
@@ -54,7 +56,12 @@ import { isSameOriginBrowserRequest, publicRedirectResponse } from "@/lib/auth/h
 
 export const runtime = "nodejs";
 
-type ActionResult = void | CreateApiKeyState | ConsumerClientActionState | ProductLookupState;
+type ActionResult =
+  | void
+  | CreateApiKeyState
+  | ConsumerClientActionState
+  | ProductAccessRoleActionState
+  | ProductLookupState;
 type StableAction = (formData: FormData) => Promise<ActionResult>;
 
 const actions: Record<string, StableAction> = {
@@ -104,6 +111,7 @@ const actions: Record<string, StableAction> = {
   updateOrganizationMemberRoleAction,
   updateOrganizationNameAction,
   updateOrganizationProductAction,
+  updateProductAccessRoleAction,
   updateProductMemberRoleAction,
   verifyEmailAction,
 };
