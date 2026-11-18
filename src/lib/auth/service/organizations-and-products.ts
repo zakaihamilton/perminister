@@ -11,11 +11,14 @@ import {
   newOrganizationId,
   newOrganizationMembershipId,
   newProductRecordId,
+  type AuthEvent,
+  type EventId,
   type MembershipRecord,
   type OrganizationId,
   type OrganizationMembershipRecord,
   type OrganizationRecord,
   type OrganizationRole,
+  type PendingProductMove,
   type PermissionGrant,
   type ProductId,
   type ProductRecord,
@@ -623,11 +626,19 @@ export async function createOrganizationProduct(
         "owner",
         "admin",
       ]);
-      const products = (await listRecordsWithRecovery("product"))
-        .map((item) => item.record)
-        .filter(
-          (product) => product.organizationId === organizationId && product.productId === productId,
-        );
+      const allProducts = (await listRecordsWithRecovery("product")).map((item) => item.record);
+      if (
+        allProducts.some(
+          (product) =>
+            product.productId === productId &&
+            product.pendingMove?.destinationOrganizationId === organizationId,
+        )
+      ) {
+        throw new Error("This product ID is reserved by an incomplete move. Resume it first.");
+      }
+      const products = allProducts.filter(
+        (product) => product.organizationId === organizationId && product.productId === productId,
+      );
       const prior = products.find((product) => !product.sharedProductRef?.detachedAt);
       const reusableTombstone = products.find((product) => !!product.sharedProductRef?.detachedAt);
       if (prior) {
@@ -705,6 +716,9 @@ export async function updateOrganizationProduct(
       if (current.record.sharedProductRef) {
         throw new Error("Shared product details are controlled by the publishing organization.");
       }
+      if (current.record.pendingMove) {
+        throw new Error("A product move is in progress. Resume it before making changes.");
+      }
       if (current.record.archivedAt) {
         throw new Error("This product is archived. Restore it before making changes.");
       }
@@ -760,6 +774,12 @@ export interface ProductTransferDestination {
 }
 
 export interface OrganizationProductTransferOptions {
+  destinations: ProductTransferDestination[];
+  pendingDestinationOrganizationId?: string;
+}
+
+export interface OrganizationProductMoveOptions {
+  sourceOrganizationId: string;
   destinations: ProductTransferDestination[];
   pendingDestinationOrganizationId?: string;
 }
@@ -992,6 +1012,9 @@ async function withOrganizationProductMutation<Result>(
     if (!initial || initial.record.organizationId !== organizationId) {
       throw new Error("Product not found.");
     }
+    if (initial.record.pendingMove) {
+      throw new Error("A product move is in progress. Resume it before making changes.");
+    }
     const lockIds = await lockIdsForProduct(initial.record);
     return withOrganizationMutationLocks(lockIds, async () => {
       const actor = await requireOrganizationRoleUnlocked(actorId, organizationId, [
@@ -1001,6 +1024,9 @@ async function withOrganizationProductMutation<Result>(
       const current = await loadRecord("product", productRecordId);
       if (!current || current.record.organizationId !== organizationId) {
         throw new Error("Product not found.");
+      }
+      if (current.record.pendingMove) {
+        throw new Error("A product move is in progress. Resume it before making changes.");
       }
       return operation(actor, current);
     });
@@ -1365,6 +1391,465 @@ export async function getOwnedPublicProductTransferOptions(
         ownedOrganizationIds.has(target.organizationId),
       )?.organizationId,
     };
+  });
+}
+
+function productMoveEventId(
+  move: PendingProductMove,
+  productRecordId: ProductRecordId,
+  eventType: string,
+): EventId {
+  const bytes = createHash("sha256")
+    .update(
+      `perminister:product-move-event:v1:${productRecordId}:${move.sourceOrganizationId}:${move.destinationOrganizationId}:${move.initiatedAt}:${eventType}`,
+    )
+    .digest()
+    .subarray(0, 16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x50;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}` as EventId;
+}
+
+async function appendProductMoveActivity(
+  move: PendingProductMove,
+  product: ProductRecord,
+): Promise<void> {
+  const entries: Array<{ organizationId: string; type: string }> = [
+    { organizationId: move.sourceOrganizationId, type: "product.moved-from" },
+    { organizationId: move.destinationOrganizationId, type: "product.moved" },
+  ];
+  for (const entry of entries) {
+    const event: AuthEvent = {
+      schemaVersion: 1,
+      eventId: productMoveEventId(move, product.productRecordId, entry.type),
+      aggregate: { kind: "product", id: product.productRecordId },
+      aggregateVersion: 1,
+      occurredAt: move.initiatedAt,
+      actor: { kind: "subject", subjectId: move.initiatedBySubjectId },
+      type: entry.type,
+      payload: {
+        organizationId: entry.organizationId,
+        productId: product.productId,
+        productName: product.name,
+        sourceOrganizationId: move.sourceOrganizationId,
+        destinationOrganizationId: move.destinationOrganizationId,
+      },
+    };
+    await store().appendEvent(event);
+  }
+}
+
+async function requireProductMoveOwner(
+  actorId: SubjectId,
+  organizationId: string,
+  allowPendingMoveRecovery: boolean,
+): Promise<OrganizationMembershipRecord> {
+  if (!allowPendingMoveRecovery) {
+    return requireOrganizationRoleUnlocked(actorId, organizationId, ["owner"]);
+  }
+
+  assertOpaqueId(organizationId);
+  const [actor, organization, membership] = await Promise.all([
+    loadSubjectUnlocked(actorId),
+    loadRecord("organization", organizationId),
+    store().readOrganizationMembership(organizationId, actorId),
+  ]);
+  requireVerifiedActiveSubject(actor);
+  if (
+    !organization ||
+    !membership ||
+    membership.status !== "active" ||
+    membership.role !== "owner"
+  ) {
+    throw new Error("You do not have permission to manage this organization.");
+  }
+  return membership;
+}
+
+export async function getOwnedProductMoveOptions(
+  actorId: SubjectId,
+  organizationId: string,
+  productRecordId: string,
+): Promise<OrganizationProductMoveOptions> {
+  assertOpaqueId(productRecordId);
+  return authMutationQueue.read(async () => {
+    const found = await loadRecord("product", productRecordId);
+    if (!found || found.record.sharedProductRef || found.record.deletedAt) {
+      return { sourceOrganizationId: organizationId, destinations: [] };
+    }
+
+    const product = found.record;
+    const pendingMove = product.pendingMove;
+    const sourceOrganizationId = pendingMove?.sourceOrganizationId ?? product.organizationId;
+    if (
+      organizationId !== product.organizationId &&
+      organizationId !== sourceOrganizationId
+    ) {
+      return { sourceOrganizationId, destinations: [] };
+    }
+
+    if (pendingMove) {
+      await requireProductMoveOwner(actorId, sourceOrganizationId, true);
+      await requireProductMoveOwner(actorId, pendingMove.destinationOrganizationId, true);
+      const destination = await loadRecord("organization", pendingMove.destinationOrganizationId);
+      return {
+        sourceOrganizationId,
+        pendingDestinationOrganizationId: pendingMove.destinationOrganizationId,
+        destinations: destination
+          ? [
+              {
+                organizationId: pendingMove.destinationOrganizationId,
+                name: destination.record.name,
+              },
+            ]
+          : [],
+      };
+    }
+
+    await requireOrganizationRoleUnlocked(actorId, sourceOrganizationId, ["owner"]);
+
+    if (
+      product.organizationId !== organizationId ||
+      product.visibility === "public" ||
+      product.archivedAt ||
+      product.deletionStartedAt
+    ) {
+      return { sourceOrganizationId, destinations: [] };
+    }
+
+    const ownedOrganizationIds = new Set(
+      (await store().listMembershipsForSubject(actorId))
+        .filter(
+          (membership) =>
+            !membership.productId && membership.role === "owner" && membership.status === "active",
+        )
+        .map((membership) => membership.organizationId),
+    );
+    const products = (await listRecordsWithRecovery("product")).map((entry) => entry.record);
+    const destinations = await Promise.all(
+      [...ownedOrganizationIds]
+        .filter((destinationId) => destinationId !== sourceOrganizationId)
+        .map(async (destinationId) => {
+          const organization = await loadRecord("organization", destinationId);
+          if (!organization) return null;
+          const status = organizationApprovalStatus(organization.record);
+          const hasProductConflict = products.some(
+            (candidate) =>
+              candidate.organizationId === destinationId &&
+              candidate.productId === product.productId,
+          );
+          return {
+            organizationId: destinationId,
+            name: organization.record.name,
+            disabledReason:
+              status === "approved"
+                ? hasProductConflict
+                  ? "A product with this ID already exists in the destination organization."
+                  : undefined
+                : status === "pending"
+                  ? "Waiting for organization approval"
+                  : "Organization is not approved",
+          } satisfies ProductTransferDestination;
+        }),
+    );
+    const availableDestinations: ProductTransferDestination[] = [];
+    for (const destination of destinations) {
+      if (destination) availableDestinations.push(destination);
+    }
+    return {
+      sourceOrganizationId,
+      destinations: availableDestinations.sort((left, right) =>
+        left.name.localeCompare(right.name),
+      ),
+    };
+  });
+}
+
+async function movePrivateProductDataUnlocked(
+  sourceOrganizationId: string,
+  destinationOrganizationId: string,
+  productId: string,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const productMemberships = await store().listOrganizationMemberships(
+    sourceOrganizationId,
+    productId,
+  );
+  for (const membership of productMemberships) {
+    const next: OrganizationMembershipRecord = {
+      ...membership,
+      organizationId: destinationOrganizationId as OrganizationId,
+      permissionGrants: (membership.permissionGrants ?? []).map((grant) => ({
+        ...grant,
+        scope: { ...grant.scope, organizationId: destinationOrganizationId as OrganizationId },
+      })),
+      updatedAt: now,
+    };
+    await store().moveRecord(membership, next);
+  }
+
+  const productInvitations = (await listRecordsWithRecovery("organization-invitation"))
+    .map((entry) => entry.record)
+    .filter(
+      (invitation) =>
+        invitation.organizationId === sourceOrganizationId && invitation.productId === productId,
+    );
+  for (const invitation of productInvitations) {
+    await store().moveRecord(invitation, {
+      ...invitation,
+      organizationId: destinationOrganizationId as OrganizationId,
+    });
+  }
+
+  const principals = (await listRecordsWithRecovery("service-principal"))
+    .map((entry) => entry.record)
+    .filter(
+      (principal) =>
+        principal.organizationId === sourceOrganizationId && principal.productId === productId,
+    );
+  for (const principal of principals) {
+    await store().writeRecord({
+      ...principal,
+      organizationId: destinationOrganizationId as OrganizationId,
+      updatedAt: now,
+    });
+  }
+
+  const productKeys = (await listRecordsWithRecovery("api-key"))
+    .map((entry) => entry.record)
+    .filter(
+      (key) =>
+        key.scope.organizationId === sourceOrganizationId && key.scope.productId === productId,
+    );
+  for (const key of productKeys) {
+    await store().writeRecord({
+      ...key,
+      scope: { ...key.scope, organizationId: destinationOrganizationId as OrganizationId },
+    });
+  }
+
+  const clients = (await listRecordsWithRecovery("consumer-client"))
+    .map((entry) => entry.record)
+    .filter(
+      (client) =>
+        client.organizationId === sourceOrganizationId && client.productId === productId,
+    );
+  for (const client of clients) {
+    await store().writeRecord({
+      ...client,
+      organizationId: destinationOrganizationId as OrganizationId,
+      updatedAt: now,
+    });
+  }
+  invalidateOrganizationDashboardDataCache();
+}
+
+export interface PrivateProductMoveResult {
+  product: ProductRecord;
+  sourceOrganizationId: string;
+  destinationOrganizationId: string;
+  affectedOrganizationIds: string[];
+}
+
+export interface ProductMoveRecoveryState {
+  organizationId: string;
+  pending: boolean;
+  productId: string;
+}
+
+export async function getProductMoveRecoveryState(
+  actorId: SubjectId,
+  productRecordId: string,
+): Promise<ProductMoveRecoveryState | null> {
+  assertOpaqueId(productRecordId);
+  return authMutationQueue.read(async () => {
+    const current = await loadRecord("product", productRecordId);
+    if (!current) return null;
+    try {
+      if (current.record.pendingMove) {
+        await requireProductMoveOwner(
+          actorId,
+          current.record.pendingMove.sourceOrganizationId,
+          true,
+        );
+        await requireProductMoveOwner(
+          actorId,
+          current.record.pendingMove.destinationOrganizationId,
+          true,
+        );
+      } else {
+        await requireOrganizationRoleUnlocked(actorId, current.record.organizationId, ["owner"]);
+      }
+    } catch {
+      return null;
+    }
+    return current
+      ? {
+          organizationId: current.record.organizationId,
+          pending: !!current.record.pendingMove,
+          productId: current.record.productId,
+        }
+      : null;
+  });
+}
+
+export async function movePrivateProductForOrganizationOwner(
+  actorId: SubjectId,
+  sourceOrganizationId: string,
+  productRecordId: string,
+  destinationOrganizationId: string,
+): Promise<PrivateProductMoveResult> {
+  assertOpaqueId(sourceOrganizationId);
+  assertOpaqueId(productRecordId);
+  assertOpaqueId(destinationOrganizationId);
+  if (sourceOrganizationId === destinationOrganizationId) {
+    throw new Error("Choose a different destination organization.");
+  }
+
+  return authMutationQueue.run(async () => {
+    const initial = await loadRecord("product", productRecordId);
+    if (!initial || initial.record.sharedProductRef || initial.record.deletedAt) {
+      throw new Error("Product not found.");
+    }
+    const isResuming = Boolean(initial.record.pendingMove);
+    await requireProductMoveOwner(actorId, sourceOrganizationId, isResuming);
+    await requireProductMoveOwner(actorId, destinationOrganizationId, isResuming);
+    return withOrganizationMutationLocks(
+      [sourceOrganizationId, destinationOrganizationId],
+      async () => {
+        const current = await loadRecord("product", productRecordId);
+        if (!current || current.record.sharedProductRef || current.record.deletedAt) {
+          throw new Error("Product not found.");
+        }
+
+        const currentIsResuming = Boolean(current.record.pendingMove);
+        await requireProductMoveOwner(actorId, sourceOrganizationId, currentIsResuming);
+        await requireProductMoveOwner(actorId, destinationOrganizationId, currentIsResuming);
+
+        let product = current.record;
+        let pendingMove = product.pendingMove;
+        if (pendingMove) {
+          if (
+            pendingMove.sourceOrganizationId !== sourceOrganizationId ||
+            pendingMove.destinationOrganizationId !== destinationOrganizationId ||
+            (product.organizationId !== sourceOrganizationId &&
+              product.organizationId !== destinationOrganizationId)
+          ) {
+            throw new Error("Resume the product move to its existing destination.");
+          }
+        } else {
+          if (
+            product.organizationId !== sourceOrganizationId ||
+            product.visibility === "public" ||
+            product.archivedAt ||
+            product.deletionStartedAt
+          ) {
+            throw new Error("Only an active private product can be moved directly.");
+          }
+          const products = (await listRecordsWithRecovery("product")).map((entry) => entry.record);
+          if (
+            products.some(
+              (candidate) =>
+                candidate.organizationId === destinationOrganizationId &&
+                candidate.productId === product.productId,
+            )
+          ) {
+            throw new Error("A product with this ID already exists in the destination organization.");
+          }
+          if (
+            products.some((candidate) => isActiveSharedInstallationForSource(candidate, product))
+          ) {
+            throw new Error("Remove shared product installations before moving this product.");
+          }
+          const [destinationMemberships, allInvitations, allPrincipals, allKeys, allClients] =
+            await Promise.all([
+              store().listOrganizationMemberships(destinationOrganizationId, product.productId),
+              listRecordsWithRecovery("organization-invitation"),
+              listRecordsWithRecovery("service-principal"),
+              listRecordsWithRecovery("api-key"),
+              listRecordsWithRecovery("consumer-client"),
+            ]);
+          const hasDestinationProductData =
+            destinationMemberships.length > 0 ||
+            allInvitations.some(
+              ({ record }) =>
+                record.organizationId === destinationOrganizationId &&
+                record.productId === product.productId,
+            ) ||
+            allPrincipals.some(
+              ({ record }) =>
+                record.organizationId === destinationOrganizationId &&
+                record.productId === product.productId,
+            ) ||
+            allKeys.some(
+              ({ record }) =>
+                record.scope.organizationId === destinationOrganizationId &&
+                record.scope.productId === product.productId,
+            ) ||
+            allClients.some(
+              ({ record }) =>
+                record.organizationId === destinationOrganizationId &&
+                record.productId === product.productId,
+            );
+          if (hasDestinationProductData) {
+            throw new Error("The destination already has data for this product ID.");
+          }
+          const organization = await loadApprovedOrganizationUnlocked(destinationOrganizationId);
+          if (!organization) throw new Error("Choose an approved destination organization.");
+          pendingMove = {
+            sourceOrganizationId: sourceOrganizationId as OrganizationId,
+            destinationOrganizationId: destinationOrganizationId as OrganizationId,
+            initiatedBySubjectId: actorId,
+            initiatedAt: new Date().toISOString(),
+          };
+          product = { ...product, pendingMove, updatedAt: new Date().toISOString() };
+          await store().writeRecord(product);
+          invalidateOrganizationDashboardDataCache();
+        }
+
+        if (!pendingMove) throw new Error("Product move state is missing.");
+        try {
+          await movePrivateProductDataUnlocked(
+            sourceOrganizationId,
+            destinationOrganizationId,
+            product.productId,
+          );
+          const currentProduct = await loadRecord("product", productRecordId);
+          if (!currentProduct?.record.pendingMove) {
+            throw new Error("The product move could not be resumed safely.");
+          }
+          const destinationProduct: ProductRecord = {
+            ...currentProduct.record,
+            organizationId: destinationOrganizationId as OrganizationId,
+            visibility: "private",
+            updatedAt: new Date().toISOString(),
+          };
+          const sourceProductKeyRecord: ProductRecord = {
+            ...destinationProduct,
+            organizationId: sourceOrganizationId as OrganizationId,
+          };
+          await store().moveRecord(sourceProductKeyRecord, destinationProduct);
+          await appendProductMoveActivity(pendingMove, destinationProduct);
+          const completedProduct: ProductRecord = {
+            ...destinationProduct,
+            pendingMove: undefined,
+            updatedAt: new Date().toISOString(),
+          };
+          await store().writeRecord(completedProduct);
+          invalidateOrganizationDashboardDataCache();
+          return {
+            product: completedProduct,
+            sourceOrganizationId,
+            destinationOrganizationId,
+            affectedOrganizationIds: [sourceOrganizationId, destinationOrganizationId],
+          };
+        } catch (error) {
+          invalidateOrganizationDashboardDataCache();
+          throw error;
+        }
+      },
+    );
   });
 }
 
@@ -2587,10 +3072,14 @@ async function getProductAccessUnlocked(
   organizationId: string,
   productId: string,
 ): Promise<ProductAccessSummary> {
-  const organization = await loadApprovedOrganizationUnlocked(organizationId);
-  if (!organization) throw new Error("Organization not found.");
   const product = await store().readProduct(organizationId, productId);
   if (!product) throw new Error("Product not found.");
+  const organization = await loadApprovedOrganizationUnlocked(organizationId);
+  if (!organization) {
+    if (!product.pendingMove) throw new Error("Organization not found.");
+    await requireProductMoveOwner(subjectId, product.pendingMove.sourceOrganizationId, true);
+    await requireProductMoveOwner(subjectId, product.pendingMove.destinationOrganizationId, true);
+  }
   const [catalog, membership] = await Promise.all([
     organizationMembershipUnlocked(organizationId, subjectId),
     store().readOrganizationMembership(organizationId, subjectId, productId),
@@ -2633,6 +3122,9 @@ export async function requireProductRoleUnlocked(
   if (!organization || !product) throw new Error("Product not found.");
   if (product.archivedAt) {
     throw new Error("This product is archived. Restore it before making changes.");
+  }
+  if (product.pendingMove) {
+    throw new Error("A product move is in progress. Resume it before making changes.");
   }
   if (!membership || membership.status !== "active" || !roles.includes(membership.role)) {
     throw new Error("You do not have permission to manage this product.");

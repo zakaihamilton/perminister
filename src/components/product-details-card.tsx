@@ -1,9 +1,14 @@
 import { ProductIcon } from "@/components/product-icon";
 import { ProductLifecycleControl } from "@/components/product-lifecycle-control";
+import { ProductMoveControl } from "@/components/product-move-control";
 import { ProductTransferControl } from "@/components/product-transfer-control";
 import { ProductVisibilityControl } from "@/components/product-visibility-control";
 import type { ProductRecord } from "@/lib/auth/domain";
-import type { OrganizationProductTransferOptions, ProductShareInfo } from "@/lib/auth/service";
+import type {
+  OrganizationProductMoveOptions,
+  OrganizationProductTransferOptions,
+  ProductShareInfo,
+} from "@/lib/auth/service";
 
 export function ProductDetailsCard({
   canManageDetails,
@@ -15,6 +20,8 @@ export function ProductDetailsCard({
   shareInfo,
   canTransferPublisher,
   transferOptions,
+  canMoveProduct,
+  moveOptions,
 }: {
   canManageDetails: boolean;
   canManageLifecycle: boolean;
@@ -25,9 +32,18 @@ export function ProductDetailsCard({
   shareInfo: ProductShareInfo | null;
   canTransferPublisher: boolean;
   transferOptions: OrganizationProductTransferOptions;
+  canMoveProduct: boolean;
+  moveOptions: OrganizationProductMoveOptions;
 }) {
   const showTransferControl =
-    canTransferPublisher && !product.sharedProductRef && transferOptions.destinations.length > 0;
+    canTransferPublisher &&
+    !product.pendingMove &&
+    !product.sharedProductRef &&
+    transferOptions.destinations.length > 0;
+  const showMoveControl =
+    canMoveProduct &&
+    !product.sharedProductRef &&
+    (product.visibility !== "public" || !!product.pendingMove);
 
   return (
     <section className="dashboard-card product-detail-card">
@@ -41,7 +57,7 @@ export function ProductDetailsCard({
           </a>
         </div>
       </div>
-      {canManageDetails ? (
+      {canManageDetails && !product.pendingMove ? (
         <form
           action="/actions/updateOrganizationProductAction"
           method="post"
@@ -96,7 +112,7 @@ export function ProductDetailsCard({
           <dd>{new Date(product.createdAt).toLocaleDateString()}</dd>
         </dl>
       )}
-      {canManageDetails && !product.sharedProductRef && shareInfo ? (
+      {canManageDetails && !product.pendingMove && !product.sharedProductRef && shareInfo ? (
         <ProductVisibilityControl
           organizationId={organizationId}
           productId={product.productId}
@@ -105,6 +121,28 @@ export function ProductDetailsCard({
           adopterOrganizations={shareInfo.adopterOrganizations}
           initialDialogOpen={initialDialogOpen}
         />
+      ) : null}
+      {showMoveControl ? (
+        <section
+          className="product-visibility-control product-move-control"
+          aria-labelledby="product-move-title"
+        >
+          <div>
+            <h2 id="product-move-title">Move product</h2>
+            <p>
+              Move this private product and its product-specific members, permissions, invitations,
+              clients, integrations, and API keys to another organization you own. It stays private.
+            </p>
+          </div>
+          <ProductMoveControl
+            destinations={moveOptions.destinations}
+            pendingDestinationOrganizationId={moveOptions.pendingDestinationOrganizationId}
+            productId={product.productId}
+            productName={product.name}
+            productRecordId={product.productRecordId}
+            sourceOrganizationId={moveOptions.sourceOrganizationId}
+          />
+        </section>
       ) : null}
       {showTransferControl ? (
         <section
@@ -128,7 +166,7 @@ export function ProductDetailsCard({
           />
         </section>
       ) : null}
-      {canManageLifecycle ? (
+      {canManageLifecycle && !product.pendingMove ? (
         <ProductLifecycleControl
           adopterOrganizations={adopterOrganizations}
           organizationId={organizationId}

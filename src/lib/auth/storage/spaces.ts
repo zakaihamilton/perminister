@@ -846,6 +846,44 @@ export class SpacesAuthStore {
     await this.writeJson(key, record);
   }
 
+  async moveRecord(previousInput: AuthRecord, nextInput: AuthRecord): Promise<void> {
+    const previous = lowercaseScopeIdentifiersInRecord(previousInput) as AuthRecord;
+    const next = lowercaseScopeIdentifiersInRecord(nextInput) as AuthRecord;
+    if (previous.kind !== next.kind || authRecordId(previous) !== authRecordId(next)) {
+      throw new Error("A record move must keep the same record identity.");
+    }
+    if (next.schemaVersion !== 1) throw new Error("Unsupported auth record schema version");
+    assertOpaqueId(authRecordId(next));
+    assertNoPlaintextSecrets(next);
+
+    const previousKey = recordKey(previous);
+    const nextKey = recordKey(next);
+    if (previousKey === nextKey) {
+      await this.writeRecord(next);
+      return;
+    }
+
+    // Prepare the destination object before moving its identity pointer. If a write fails,
+    // the original object remains readable and a retry can safely overwrite this copy.
+    await this.writeJson(nextKey, next);
+    await this.writeRecord(next);
+    await this.deleteObjectAtKey(previousKey);
+
+    if (previous.kind === "organization-membership" && previous.productId) {
+      const productPart = safeSegment(previous.productId);
+      const staleIndexKeys = [
+        `${INDEX_ROOT}/by-subject/${previous.subjectId}/products/${previous.organizationId}/${productPart}.json`,
+        `${ORGANIZATION_MEMBERSHIP_INDEX_ROOT}/${previous.organizationId}/${productPart}/${previous.subjectId}.json`,
+      ];
+      await Promise.all(
+        staleIndexKeys.map(async (key) => {
+          const pointer = await this.readJson<{ key?: unknown }>(key);
+          if (pointer?.key === previousKey) await this.deleteObjectAtKey(key);
+        }),
+      );
+    }
+  }
+
   async appendEvent(event: AuthEvent): Promise<void> {
     this.validateEvent(event);
     assertNoPlaintextSecrets(event);
@@ -1224,6 +1262,16 @@ export class SpacesAuthStore {
       );
     } finally {
       recordAuthStorageOperation("put", performance.now() - startedAt);
+    }
+  }
+
+  private async deleteObjectAtKey(key: string): Promise<void> {
+    this.assertWritable();
+    const startedAt = performance.now();
+    try {
+      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+    } finally {
+      recordAuthStorageOperation("delete", performance.now() - startedAt);
     }
   }
 

@@ -13,6 +13,7 @@ import {
   type ProductPageWithSearchParams,
 } from "@/lib/auth/product-page-context";
 import {
+  getOwnedProductMoveOptions,
   getOwnedPublicProductTransferOptions,
   getProductShareInfo,
   listConsumerClientsForProduct,
@@ -28,17 +29,25 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
   const product = productAccess.product;
   const isSharedInstallation = Boolean(product.sharedProductRef);
   const isArchived = Boolean(product.archivedAt);
+  const isMovePending = Boolean(product.pendingMove);
   const canManageLifecycle =
+    !isMovePending &&
     productAccess.catalogManager &&
     (productAccess.catalogRole === "owner" || productAccess.catalogRole === "admin");
   const canManageDetails = canManageLifecycle && !isSharedInstallation && !isArchived;
   const canTransferPublisher =
-    canManageLifecycle &&
+    productAccess.catalogManager &&
+    productAccess.catalogRole === "owner" &&
+    !isSharedInstallation &&
+    !isArchived;
+  const canMoveProduct =
+    productAccess.catalogManager &&
     productAccess.catalogRole === "owner" &&
     !isSharedInstallation &&
     !isArchived;
   const productRole = productAccess.membership?.role;
-  const canManageProduct = !isArchived && (productRole === "owner" || productRole === "admin");
+  const canManageProduct =
+    !isArchived && !isMovePending && (productRole === "owner" || productRole === "admin");
 
   return (
     <>
@@ -47,7 +56,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
           product.description || "Manage this product, its members, and their permissions."
         }
       />
-      {isArchived ? null : (
+      {isArchived || isMovePending ? null : (
         <ProductPageNavigation
           access={productAccess}
           organizationId={organizationId}
@@ -77,6 +86,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageW
           canManageDetails={canManageDetails}
           canManageLifecycle={canManageLifecycle}
           canTransferPublisher={canTransferPublisher}
+          canMoveProduct={canMoveProduct}
           initialDialogOpen={query.error === "product-private-confirmation"}
           organizationId={organizationId}
           product={product}
@@ -119,6 +129,7 @@ async function ProductDetailsPanel({
   canManageDetails,
   canManageLifecycle,
   canTransferPublisher,
+  canMoveProduct,
   initialDialogOpen,
   organizationId,
   product,
@@ -128,23 +139,29 @@ async function ProductDetailsPanel({
   canManageDetails: boolean;
   canManageLifecycle: boolean;
   canTransferPublisher: boolean;
+  canMoveProduct: boolean;
   initialDialogOpen: boolean;
   organizationId: string;
   product: ProductRecord;
   adopterOrganizations: Array<{ organizationId: string; name: string }>;
   subjectId: SubjectId;
 }) {
-  const [shareInfo, transferOptions] = await Promise.all([
+  const [shareInfo, transferOptions, moveOptions] = await Promise.all([
     canManageLifecycle && !product.sharedProductRef
       ? withRequestPerformance("dashboard.product-share-info", () =>
           getProductShareInfo(subjectId, organizationId, product.productRecordId),
         )
       : Promise.resolve(null),
-    canTransferPublisher
+    canTransferPublisher && !product.pendingMove
       ? withRequestPerformance("dashboard.product-transfer-options", () =>
           getOwnedPublicProductTransferOptions(subjectId, organizationId, product.productRecordId),
         )
       : Promise.resolve({ destinations: [] }),
+    canMoveProduct
+      ? withRequestPerformance("dashboard.product-move-options", () =>
+          getOwnedProductMoveOptions(subjectId, organizationId, product.productRecordId),
+        )
+      : Promise.resolve({ sourceOrganizationId: organizationId, destinations: [] }),
   ]);
   return (
     <ProductDetailsCard
@@ -157,6 +174,8 @@ async function ProductDetailsPanel({
       shareInfo={shareInfo}
       canTransferPublisher={canTransferPublisher}
       transferOptions={transferOptions}
+      canMoveProduct={canMoveProduct}
+      moveOptions={moveOptions}
     />
   );
 }

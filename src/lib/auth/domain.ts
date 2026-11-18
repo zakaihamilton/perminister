@@ -97,6 +97,13 @@ export interface SharedProductReference {
   detachedAt?: string | null;
 }
 
+export interface PendingProductMove {
+  sourceOrganizationId: OrganizationId;
+  destinationOrganizationId: OrganizationId;
+  initiatedBySubjectId: SubjectId;
+  initiatedAt: string;
+}
+
 export interface OrganizationMembershipRecord {
   kind: "organization-membership";
   schemaVersion: 1;
@@ -133,6 +140,8 @@ export interface ProductRecord {
   deletedAt?: string;
   /** Present only for an organization-local installation of a public product. */
   sharedProductRef?: SharedProductReference;
+  /** Durable checkpoint used while a private product and its organization-scoped data move. */
+  pendingMove?: PendingProductMove;
   /** Action bundles are publisher-owned for shared products. */
   accessRoles?: ProductAccessRole[];
   /** Most recently fetched catalog, waiting for an explicit administrator review. */

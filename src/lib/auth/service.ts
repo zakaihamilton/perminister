@@ -65,11 +65,13 @@ export {
   decideOrganizationRequest,
   getOrganizationDashboardData,
   getOrganizationForSubject,
+  getOwnedProductMoveOptions,
   listOrganizationSwitcherData,
   getOwnedPublicProductTransferOptions,
   getProductAccessForSubject,
   getProductForOrganization,
   getProductShareInfo,
+  getProductMoveRecoveryState,
   installPublicProduct,
   listConsumerOrganizationsForSubject,
   listOrganizationMembers,
@@ -80,6 +82,7 @@ export {
   listProductsForOrganization,
   listPublicProductsForAdministrator,
   listPublicProductsForOrganization,
+  movePrivateProductForOrganizationOwner,
   removeOrganizationMember,
   removeProductAccessRole,
   restoreOrganizationProduct,
@@ -96,6 +99,7 @@ export {
   type ConsumerOrganizationAccess,
   type OrganizationMemberView,
   type OrganizationProductTransferOptions,
+  type OrganizationProductMoveOptions,
   type OrganizationRequestSummary,
   type OrganizationReviewRequest,
   type ProductAccessSummary,
@@ -105,6 +109,8 @@ export {
   type ProductTransferDestination,
   type PublicProductCatalogEntry,
   type PublicProductTransferResult,
+  type PrivateProductMoveResult,
+  type ProductMoveRecoveryState,
 } from "./service/organizations-and-products";
 
 export {

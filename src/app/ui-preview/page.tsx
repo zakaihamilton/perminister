@@ -570,6 +570,8 @@ export default async function PreviewPage({
               transferOptions={{
                 destinations: [{ organizationId: "preview-destination", name: "Another Studio" }],
               }}
+              canMoveProduct={false}
+              moveOptions={{ sourceOrganizationId: organizationId, destinations: [] }}
             />
           </>
         )}

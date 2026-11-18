@@ -8,6 +8,14 @@ const productTransferErrorMessages = new Set([
   "This product has an incomplete transfer. Resume it at its existing destination first.",
   "The previous transfer cannot be resumed safely.",
   "You do not have permission to manage this organization.",
+  "Only an active private product can be moved directly.",
+  "A product with this ID already exists in the destination organization.",
+  "The destination already has data for this product ID.",
+  "Remove shared product installations before moving this product.",
+  "Resume the product move to its existing destination.",
+  "A product move is in progress. Resume it before making changes.",
+  "This product ID is reserved by an incomplete move. Resume it first.",
+  "The product move was interrupted. Resume it from this page.",
 ]);
 
 export function ProductPageNotices({
@@ -52,6 +60,12 @@ export function ProductPageNotices({
           kind="success"
         />
       ) : null}
+      {notice === "product-moved" ? (
+        <DashboardNotice
+          message="Product moved. Its product-specific members, permissions, invitations, clients, integrations, and API keys moved with it."
+          kind="success"
+        />
+      ) : null}
       {error === "product-visibility-invalid" ? (
         <DashboardNotice
           message="Choose whether this product should be public or private."
@@ -67,6 +81,16 @@ export function ProductPageNotices({
             reason && productTransferErrorMessages.has(reason)
               ? reason
               : "Could not transfer the publisher role. Make sure you own both organizations and the product is shared."
+          }
+          kind="error"
+        />
+      ) : null}
+      {error === "product-move" ? (
+        <DashboardNotice
+          message={
+            reason && productTransferErrorMessages.has(reason)
+              ? reason
+              : "Could not move the product. Make sure you own both organizations and choose an approved destination without this product ID."
           }
           kind="error"
         />
