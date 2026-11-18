@@ -3,12 +3,10 @@ import { ConfirmationActionControl } from "@/components/confirmation-action-cont
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { ProductPageNavigation } from "@/components/product-navigation";
 import {
-  getProductPageContext,
-  requireProductManagerRole,
+  getProductManagementPageContext,
   type ProductPageWithSearchParams,
 } from "@/lib/auth/product-page-context";
 import type { ProductAccessRole } from "@/lib/auth/access-roles";
-import { notFound } from "next/navigation";
 
 function sameValues(left: readonly string[], right: readonly string[]) {
   return [...left].sort().join("\0") === [...right].sort().join("\0");
@@ -29,11 +27,9 @@ export default async function ProductRoleCatalogPage({
   searchParams,
 }: ProductPageWithSearchParams) {
   const [{ organizationId, productId, access }, query] = await Promise.all([
-    getProductPageContext(params),
+    getProductManagementPageContext(params),
     searchParams,
   ]);
-  requireProductManagerRole(access.membership?.role, organizationId, productId);
-  if (access.product.sharedProductRef) notFound();
 
   const rolesPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/roles`;
   const staged = access.product.stagedAccessRoleCatalog;
