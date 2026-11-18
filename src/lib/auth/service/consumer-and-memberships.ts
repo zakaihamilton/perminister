@@ -2,21 +2,22 @@ import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
 import { cache } from "react";
+import type { ProductAccessRole } from "../access-roles";
 import { mapWithConcurrency } from "../concurrency";
-import { authMutationQueue } from "../mutation-queue";
+import { consumerProductPolicy, consumerRoleActions, scopeResourceId } from "../consumer-policy";
 import { withOrganizationMutationLock } from "../coordination";
 import {
   assertOpaqueId,
+  type ConsumerClientRecord,
+  effectiveConsumerSessionLifetimeMs,
+  MAX_CONSUMER_SESSION_LIFETIME_MS,
+  type MembershipRecord,
+  MIN_CONSUMER_SESSION_LIFETIME_MS,
   newConsumerClientId,
   newInvitationId,
   newMembershipId,
   newOrganizationMembershipId,
   type OAuthClientRegistrationRecord,
-  type ConsumerClientRecord,
-  MAX_CONSUMER_SESSION_LIFETIME_MS,
-  MIN_CONSUMER_SESSION_LIFETIME_MS,
-  effectiveConsumerSessionLifetimeMs,
-  type MembershipRecord,
   type OrganizationId,
   type OrganizationInvitationRecord,
   type OrganizationMembershipRecord,
@@ -27,8 +28,9 @@ import {
   type SubjectId,
   type SubjectRecord,
 } from "../domain";
+import { authMutationQueue } from "../mutation-queue";
+import { normalizeOAuthUri, normalizeOAuthUriList, parseOAuthScopeList } from "../oauth-uris";
 import { type VersionedRecord } from "../storage/spaces";
-import { consumerProductPolicy, consumerRoleActions, scopeResourceId } from "../consumer-policy";
 import {
   appendRecordActivityEvent,
   canonicalEmail,
@@ -41,12 +43,12 @@ import {
   isEmailVerifiedOrExemptForProduct,
   listProductsByProductIdDuringRender,
   listRecordsWithRecovery,
-  mapMembershipsToSubjectContact,
   loadApprovedOrganizationUnlocked,
   loadRecord,
   loadSubjectByEmailUnlocked,
   loadSubjectByUsernameUnlocked,
   loadSubjectUnlocked,
+  mapMembershipsToSubjectContact,
   normalizeProductUsername,
   organizationMembershipUnlocked,
   persistRecord,
@@ -61,14 +63,22 @@ import {
   validateScope,
 } from "./core";
 import {
-  type ProductMemberView,
   isActiveSharedInstallationForSource,
   isSharedProductSource,
+  type ProductMemberView,
   requireProductRoleUnlocked,
 } from "./organizations-and-products";
-import { normalizeOAuthUri, normalizeOAuthUriList, parseOAuthScopeList } from "../oauth-uris";
 
 const ORGANIZATION_INVITATION_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
+
+function accessRoleSnapshot(role: ProductAccessRole): NonNullable<MembershipRecord["accessRole"]> {
+  return {
+    id: role.id,
+    name: role.name,
+    ...(role.role ? { role: role.role } : {}),
+    ...(role.catalogSource ? { catalogVersion: role.catalogSource.version } : {}),
+  };
+}
 
 export interface ConsumerClientSummary {
   clientId: string;
@@ -2510,12 +2520,7 @@ export async function addExistingProductMemberByEmail(
           subjectId: target.subjectId,
           scope,
           grants: [{ scope, actions }],
-          accessRole: {
-            id: role.id,
-            name: role.name,
-            ...(role.role ? { role: role.role } : {}),
-            ...(role.catalogSource ? { catalogVersion: role.catalogSource.version } : {}),
-          },
+          accessRole: accessRoleSnapshot(role),
           status: "active",
           createdAt: now,
           updatedAt: now,
@@ -2647,14 +2652,7 @@ export async function createPermissionGrant(
         scope,
         grants: [{ scope, actions }],
         ...(role
-          ? {
-              accessRole: {
-                id: role.id,
-                name: role.name,
-                ...(role.role ? { role: role.role } : {}),
-                ...(role.catalogSource ? { catalogVersion: role.catalogSource.version } : {}),
-              },
-            }
+          ? { accessRole: accessRoleSnapshot(role) }
           : {}),
         status: "active",
         createdAt: now,
