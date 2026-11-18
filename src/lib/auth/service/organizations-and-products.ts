@@ -24,7 +24,9 @@ import {
   type ResourceScope,
   type SubjectId,
 } from "../domain";
-import type { ProductAccessRole } from "../access-roles";
+import type { ProductAccessRole, ProductRoleCatalogEntry } from "../access-roles";
+import { parseProductRoleCatalog } from "../role-catalog";
+import { fetchPublicProductRoleCatalog } from "../../product-discovery";
 import {
   type OrganizationDashboardData,
   type OrganizationSummary,
@@ -406,7 +408,7 @@ export async function listConsumerOrganizationsForSubject(
         permissions,
         resourceRoles: scopedMemberships.map((grant) => ({
           scope: grant.scope,
-          role: grant.accessRole?.name ?? null,
+          role: grant.accessRole?.role ?? grant.accessRole?.name ?? null,
           actions: grant.grants.flatMap((permission) => [...permission.actions]),
         })),
         platformAdmin:
@@ -711,6 +713,9 @@ export async function updateOrganizationProduct(
         ...details,
         updatedAt: new Date().toISOString(),
       };
+      if (next.websiteUrl !== current.record.websiteUrl) {
+        delete next.stagedAccessRoleCatalog;
+      }
       await persistRecord(next, "product.updated", {
         kind: "subject",
         subjectId: manager.subjectId,
@@ -1147,8 +1152,9 @@ export async function installPublicProduct(
       }
 
       const now = new Date().toISOString();
+      const { stagedAccessRoleCatalog: _stagedAccessRoleCatalog, ...publishedSource } = source;
       const installation: ProductRecord = {
-        ...source,
+        ...publishedSource,
         productRecordId: existing?.productRecordId ?? newProductRecordId(),
         organizationId: organizationId as OrganizationId,
         visibility: "public",
@@ -2187,6 +2193,121 @@ function withProductAccessRoleMutation<T>(
   );
 }
 
+export async function stageProductAccessRoleCatalog(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+) {
+  const access = await getProductAccessForSubject(actorId, organizationId, productId);
+  if (access.membership?.role !== "owner" && access.membership?.role !== "admin") {
+    throw new Error("You do not have permission to manage this product.");
+  }
+  if (access.product.sharedProductRef) {
+    throw new Error("Shared access roles are controlled by the publishing organization.");
+  }
+
+  const catalog = parseProductRoleCatalog(
+    await fetchPublicProductRoleCatalog(access.product.websiteUrl),
+    access.product.productId,
+  );
+  const fetchedAt = new Date().toISOString();
+  return withProductAccessRoleMutation(
+    actorId,
+    organizationId,
+    productId,
+    async ({ actor, product }) => {
+      if (product.websiteUrl !== access.product.websiteUrl) {
+        throw new Error("The registered product website changed. Fetch the catalog again.");
+      }
+      const stagedAccessRoleCatalog = {
+        catalog,
+        fetchedAt,
+        websiteUrl: product.websiteUrl,
+      };
+      await persistRecord(
+        { ...product, stagedAccessRoleCatalog, updatedAt: fetchedAt },
+        "product.access-role-catalog-staged",
+        { kind: "subject", subjectId: actor.subjectId },
+        { catalogVersion: catalog.version, roleCount: catalog.roles.length },
+      );
+      return stagedAccessRoleCatalog;
+    },
+  );
+}
+
+export async function applyProductAccessRoleCatalog(
+  actorId: SubjectId,
+  organizationId: string,
+  productId: string,
+): Promise<ProductAccessRole[]> {
+  return withProductAccessRoleMutation(
+    actorId,
+    organizationId,
+    productId,
+    async ({ actor, product }) => {
+      const staged = product.stagedAccessRoleCatalog;
+      if (!staged) throw new Error("Fetch a product role catalog before applying it.");
+      if (staged.websiteUrl !== product.websiteUrl) {
+        throw new Error("The registered product website changed. Fetch the catalog again.");
+      }
+
+      const currentRoles = product.accessRoles ?? [];
+      const manualRoles = currentRoles.filter((role) => !role.catalogSource);
+      const catalogRoles = currentRoles.filter((role) => !!role.catalogSource);
+      const existingBySourceId = new Map(
+        catalogRoles.map((role) => [role.catalogSource!.roleId, role]),
+      );
+      const incomingIds = new Set(staged.catalog.roles.map((role) => role.id));
+      const importedRoles = staged.catalog.roles.map((entry: ProductRoleCatalogEntry) => {
+        const existing = existingBySourceId.get(entry.id);
+        return {
+          id: existing?.id ?? `role-${randomBytes(16).toString("hex")}`,
+          name: entry.name,
+          description: entry.description,
+          actions: validateActions(entry.actions),
+          role: entry.role,
+          scopeKinds: entry.scopeKinds,
+          catalogSource: { roleId: entry.id, version: staged.catalog.version },
+          deprecated: false,
+        } satisfies ProductAccessRole;
+      });
+      const retiredRoles = catalogRoles
+        .filter((role) => !incomingIds.has(role.catalogSource!.roleId))
+        .map((role) => ({ ...role, deprecated: true }));
+      const nextRoles = [...manualRoles, ...importedRoles, ...retiredRoles];
+      if (nextRoles.filter((role) => !role.deprecated).length > 32) {
+        throw new Error("A product can have up to 32 access roles.");
+      }
+      const names = nextRoles
+        .filter((role) => !role.deprecated)
+        .map((role) => role.name.toLowerCase());
+      if (new Set(names).size !== names.length) {
+        throw new Error("A product role name conflicts with an existing permission set.");
+      }
+
+      const importedAt = new Date().toISOString();
+      const { stagedAccessRoleCatalog: _staged, ...productWithoutStage } = product;
+      await persistRecord(
+        {
+          ...productWithoutStage,
+          accessRoles: nextRoles,
+          roleCatalogVersion: staged.catalog.version,
+          roleCatalogImportedAt: importedAt,
+          updatedAt: importedAt,
+        },
+        "product.access-role-catalog-applied",
+        { kind: "subject", subjectId: actor.subjectId },
+        {
+          catalogVersion: staged.catalog.version,
+          roleCount: importedRoles.length,
+          deprecatedRoleCount: retiredRoles.length,
+        },
+      );
+      return nextRoles;
+    },
+  );
+}
+
 export async function createProductAccessRole(
   actorId: SubjectId,
   organizationId: string,
@@ -2200,8 +2321,14 @@ export async function createProductAccessRole(
     productId,
     async ({ actor, product }) => {
       const roles = product.accessRoles ?? [];
-      if (roles.length >= 32) throw new Error("A product can have up to 32 access roles.");
-      if (roles.some((role) => role.name.toLowerCase() === name.toLowerCase())) {
+      if (roles.filter((role) => !role.deprecated).length >= 32) {
+        throw new Error("A product can have up to 32 access roles.");
+      }
+      if (
+        roles.some(
+          (role) => !role.deprecated && role.name.toLowerCase() === name.toLowerCase(),
+        )
+      ) {
         throw new Error("An access role with that name already exists.");
       }
       const role: ProductAccessRole = {
@@ -2237,9 +2364,15 @@ export async function updateProductAccessRole(
       const roles = product.accessRoles ?? [];
       const currentRole = roles.find((role) => role.id === accessRoleId);
       if (!currentRole) throw new Error("Access role not found.");
+      if (currentRole.catalogSource) {
+        throw new Error("Product-published permission sets are managed by their role catalog.");
+      }
       if (
         roles.some(
-          (role) => role.id !== accessRoleId && role.name.toLowerCase() === name.toLowerCase(),
+          (role) =>
+            role.id !== accessRoleId &&
+            !role.deprecated &&
+            role.name.toLowerCase() === name.toLowerCase(),
         )
       ) {
         throw new Error("An access role with that name already exists.");
@@ -2288,6 +2421,9 @@ export async function removeProductAccessRole(
         productId,
       );
       const roles = product.accessRoles ?? [];
+      if (roles.some((role) => role.id === accessRoleId && role.catalogSource)) {
+        throw new Error("Product-published permission sets are managed by their role catalog.");
+      }
       const nextRoles = roles.filter((role) => role.id !== accessRoleId);
       if (nextRoles.length === roles.length) throw new Error("Access role not found.");
       await persistRecord(

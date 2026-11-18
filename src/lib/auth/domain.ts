@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { ProductAccessRole } from "./access-roles";
+import type { ProductAccessRole, StagedProductRoleCatalog } from "./access-roles";
 
 type BrandedId<Name extends string> = string & { readonly __brand: Name };
 
@@ -135,6 +135,11 @@ export interface ProductRecord {
   sharedProductRef?: SharedProductReference;
   /** Action bundles are publisher-owned for shared products. */
   accessRoles?: ProductAccessRole[];
+  /** Most recently fetched catalog, waiting for an explicit administrator review. */
+  stagedAccessRoleCatalog?: StagedProductRoleCatalog;
+  /** Last product-published role catalog version approved by an administrator. */
+  roleCatalogVersion?: string;
+  roleCatalogImportedAt?: string;
   createdBySubjectId: SubjectId;
   createdAt: string;
   updatedAt: string;
@@ -240,7 +245,12 @@ export interface MembershipRecord {
   scope: ResourceScope;
   grants: readonly PermissionGrant[];
   /** Optional display snapshot for grants created from a product-published access role. */
-  accessRole?: { id: string; name: string };
+  accessRole?: {
+    id: string;
+    name: string;
+    role?: string;
+    catalogVersion?: string;
+  };
   status: "active" | "disabled";
   createdAt: string;
   updatedAt: string;

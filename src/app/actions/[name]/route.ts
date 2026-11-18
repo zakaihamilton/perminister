@@ -1,6 +1,7 @@
 import {
   acceptOrganizationInvitationAction,
   addPublicProductAction,
+  applyProductAccessRoleCatalogAction,
   archiveOrganizationProductAction,
   createApiKeyAction,
   createGrantAction,
@@ -11,6 +12,7 @@ import {
   deletePermissionGrantAction,
   deleteOrganizationProductAction,
   deleteAccountAction,
+  fetchProductAccessRoleCatalogAction,
   inviteOrganizationMemberAction,
   inviteProductMemberAction,
   lookupProductWebsiteAction,
@@ -67,6 +69,7 @@ type StableAction = (formData: FormData) => Promise<ActionResult>;
 const actions: Record<string, StableAction> = {
   acceptOrganizationInvitationAction,
   addPublicProductAction,
+  applyProductAccessRoleCatalogAction,
   archiveOrganizationProductAction,
   approveConsumerAuthorizationAction,
   cancelConsumerAuthorizationAction,
@@ -81,6 +84,7 @@ const actions: Record<string, StableAction> = {
   deletePermissionGrantAction,
   deleteOrganizationProductAction,
   deleteAccountAction,
+  fetchProductAccessRoleCatalogAction,
   inviteOrganizationMemberAction,
   inviteProductMemberAction,
   lookupProductWebsiteAction: (formData) => lookupProductWebsiteAction({}, formData),

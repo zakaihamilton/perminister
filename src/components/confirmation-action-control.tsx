@@ -4,6 +4,7 @@ import { ConfirmationDialog } from "@/components/confirmation-dialog";
 
 interface ConfirmationActionControlProps {
   action:
+    | "/actions/applyProductAccessRoleCatalogAction"
     | "/actions/removeProductAccessRoleAction"
     | "/actions/revokeProductInvitationAction"
     | "/actions/revokeOrganizationInvitationAction"
@@ -41,6 +42,12 @@ export function ConfirmationActionControl({
   );
   const confirmationForm = (() => {
     switch (action) {
+      case "/actions/applyProductAccessRoleCatalogAction":
+        return (
+          <form action="/actions/applyProductAccessRoleCatalogAction" method="post">
+            {formContents}
+          </form>
+        );
       case "/actions/removeProductAccessRoleAction":
         return (
           <form action="/actions/removeProductAccessRoleAction" method="post">

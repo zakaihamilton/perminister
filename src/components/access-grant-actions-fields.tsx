@@ -2,19 +2,30 @@
 
 import { useState } from "react";
 import { CustomDropdown } from "@/components/custom-dropdown";
+import type { GrantScopeKind } from "@/components/access-grant-scope-fields";
 import type { ProductAccessRole } from "@/lib/auth/access-roles";
 
 const CUSTOM_ACTIONS = "__custom_actions__";
 
-export function AccessGrantActionsFields({ roles }: { roles: readonly ProductAccessRole[] }) {
+export function AccessGrantActionsFields({
+  roles,
+  scopeKind,
+}: {
+  roles: readonly ProductAccessRole[];
+  scopeKind: GrantScopeKind | "";
+}) {
   const [choice, setChoice] = useState("");
-  const selectedRole = roles.find((role) => role.id === choice);
+  const availableRoles = roles.filter(
+    (role) =>
+      !role.deprecated && (!scopeKind || !role.scopeKinds || role.scopeKinds.includes(scopeKind)),
+  );
+  const selectedRole = availableRoles.find((role) => role.id === choice);
   const customSelected = choice === CUSTOM_ACTIONS;
 
-  if (roles.length === 0) {
+  if (availableRoles.length === 0) {
     return (
-      <label className="access-actions-field" htmlFor="grant-actions">
-        Custom app permissions
+      <div className="access-actions-field">
+        <label htmlFor="grant-actions">Custom app permissions</label>
         <input
           id="grant-actions"
           name="actions"
@@ -24,10 +35,11 @@ export function AccessGrantActionsFields({ roles }: { roles: readonly ProductAcc
           aria-describedby="grant-actions-help"
         />
         <small className="access-form-field-help" id="grant-actions-help">
-          Enter the exact action names checked by this app, separated by commas. Ask the app
-          developer if you are unsure which names it uses.
+          {roles.some((role) => !role.deprecated)
+            ? "No published permission sets support this scope. Choose a different scope or enter the product's action names."
+            : "Enter the exact action names checked by this app, separated by commas. Ask the app developer if you are unsure which names it uses."}
         </small>
-      </label>
+      </div>
     );
   }
 
@@ -43,7 +55,10 @@ export function AccessGrantActionsFields({ roles }: { roles: readonly ProductAcc
         defaultValue=""
         placeholder="Choose a permission set"
         options={[
-          ...roles.map((role) => ({ value: role.id, label: role.name })),
+          ...availableRoles.map((role) => ({
+            value: role.id,
+            label: `${role.name}${role.scopeKinds ? ` · ${role.scopeKinds.join(", ")}` : ""}`,
+          })),
           { value: CUSTOM_ACTIONS, label: "Custom permissions" },
         ]}
         onValueChange={setChoice}
