@@ -135,6 +135,9 @@ async function consumerClientPublisherProductUnlocked(
 ): Promise<ProductRecord> {
   const product = await store().readProduct(organizationId, productId);
   if (!product) throw new Error("Product not found.");
+  if (product.pendingMove) {
+    throw new Error("A product move is in progress. Resume it before making changes.");
+  }
   const reference = product.sharedProductRef;
   if (!reference) return product;
 

@@ -917,6 +917,9 @@ export async function requireOrganizationProductUnlocked(
   if (!product) {
     throw new Error("Choose a product in this organization.");
   }
+  if (product.pendingMove) {
+    throw new Error("A product move is in progress. Resume it before making changes.");
+  }
   if (!allowArchived && product.archivedAt) {
     throw new Error("This product is archived. Restore it before making changes.");
   }

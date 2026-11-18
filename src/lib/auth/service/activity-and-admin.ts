@@ -131,6 +131,8 @@ const ACTIVITY_SUMMARIES: Readonly<Record<string, string>> = {
   "product.member-removed": "Removed a product member",
   "product.member-reactivated": "Reactivated a product member",
   "product.member-role-updated": "Changed a product member role",
+  "product.moved": "Moved a product into this organization",
+  "product.moved-from": "Moved a product out of this organization",
   "product.owner-assigned": "Assigned a product owner",
   "product.published": "Published a product",
   "product.restored": "Restored a product",
@@ -276,7 +278,12 @@ function activityTargetLabel(
   servicePrincipalNames: ReadonlyMap<string, string>,
   productNames: ReadonlyMap<string, string>,
 ): string {
-  if (event.type === "product.transferred" && typeof event.payload.productName === "string") {
+  if (
+    (event.type === "product.transferred" ||
+      event.type === "product.moved" ||
+      event.type === "product.moved-from") &&
+    typeof event.payload.productName === "string"
+  ) {
     return event.payload.productName;
   }
   if (event.aggregate.kind === "organization-invitation" && event.type.startsWith("product.")) {
@@ -578,11 +585,15 @@ async function platformActivityEntries(
       actorIsUser: event.actor.kind === "subject" && event.actor.subjectId === userId,
       details: [
         ...entry.details,
-        ...(event.type === "product.transferred"
+        ...(event.type === "product.transferred" ||
+        event.type === "product.moved" ||
+        event.type === "product.moved-from"
           ? [
               {
-                label: "Transfer",
-                value: `${event.payload.productName ?? entry.target} transferred from ${
+                label: event.type.startsWith("product.moved") ? "Move" : "Transfer",
+                value: `${event.payload.productName ?? entry.target} ${
+                  event.type === "product.moved-from" ? "moved from" : "transferred from"
+                } ${
                   organizationNames.get(eventPayloadId(event, "sourceOrganizationId") ?? "") ??
                   "the source organization"
                 } to ${

@@ -8,6 +8,10 @@ const previewCases = [
     path: "/ui-preview?screen=product-overview&scenario=long-organization-names",
   },
   {
+    name: "private product move flow",
+    path: "/ui-preview?screen=product-move",
+  },
+  {
     name: "high-volume member list",
     path: "/ui-preview?screen=members&scenario=many-records",
   },

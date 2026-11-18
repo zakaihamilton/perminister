@@ -41,6 +41,7 @@ import {
   deletePermissionGrant,
   getCurrentSession,
   getOrganizationForSubject,
+  getProductMoveRecoveryState,
   getProductShareInfo,
   installPublicProduct,
   isAdministrator,
@@ -52,6 +53,7 @@ import {
   removeProductAccessRole,
   removeProductMember,
   restoreOrganizationProduct,
+  movePrivateProductForOrganizationOwner,
   retireLegacyAccess,
   revokeApiKeyForSubject,
   revokeConsumerClient,
@@ -126,6 +128,13 @@ function publicActionError(error: unknown): string {
     "Confirm making this product private to remove it and revoke access in other organizations.",
     "Choose public or private product visibility.",
     "Only a public publisher product can be transferred.",
+    "Only an active private product can be moved directly.",
+    "A product with this ID already exists in the destination organization.",
+    "The destination already has data for this product ID.",
+    "Remove shared product installations before moving this product.",
+    "Resume the product move to its existing destination.",
+    "A product move is in progress. Resume it before making changes.",
+    "This product ID is reserved by an incomplete move. Resume it first.",
     "Choose a different destination organization.",
     "Choose an approved destination organization.",
     "The destination already has a product with this product ID.",
@@ -797,12 +806,20 @@ export async function transferPublicProductAction(formData: FormData): Promise<v
   );
 }
 
-export async function transferOwnedPublicProductAction(formData: FormData): Promise<void> {
+async function requireProductActionContext(formData: FormData) {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
-  const sourceOrganizationId = firstValue(formData, "sourceOrganizationId");
-  const productRecordId = firstValue(formData, "productRecordId");
-  const productId = firstValue(formData, "productId");
+  return {
+    current,
+    sourceOrganizationId: firstValue(formData, "sourceOrganizationId"),
+    productRecordId: firstValue(formData, "productRecordId"),
+    productId: firstValue(formData, "productId"),
+  };
+}
+
+export async function transferOwnedPublicProductAction(formData: FormData): Promise<void> {
+  const { current, sourceOrganizationId, productRecordId, productId } =
+    await requireProductActionContext(formData);
   const returnTo = `/dashboard/${encodeURIComponent(sourceOrganizationId)}/products/${encodeURIComponent(
     productId,
   )}`;
@@ -823,6 +840,47 @@ export async function transferOwnedPublicProductAction(formData: FormData): Prom
   revalidateTransferredProductPaths(transfer);
   redirect(
     `/dashboard/${encodeURIComponent(transfer.destinationOrganizationId)}/products/${encodeURIComponent(transfer.product.productId)}?notice=product-transferred`,
+  );
+}
+
+export async function movePrivateProductAction(formData: FormData): Promise<void> {
+  const { current, sourceOrganizationId, productRecordId, productId } =
+    await requireProductActionContext(formData);
+  const destinationOrganizationId = firstValue(formData, "destinationOrganizationId");
+
+  let move: Awaited<ReturnType<typeof movePrivateProductForOrganizationOwner>>;
+  try {
+    move = await movePrivateProductForOrganizationOwner(
+      current.subject.subjectId,
+      sourceOrganizationId,
+      productRecordId,
+      destinationOrganizationId,
+    );
+  } catch (error) {
+    const recovery = await getProductMoveRecoveryState(
+      current.subject.subjectId,
+      productRecordId,
+    ).catch(() => null);
+    const returnOrganizationId = recovery?.organizationId ?? sourceOrganizationId;
+    const returnProductId = recovery?.productId ?? productId;
+    if (recovery?.organizationId === destinationOrganizationId && !recovery.pending) {
+      redirect(
+        `/dashboard/${encodeURIComponent(destinationOrganizationId)}/products/${encodeURIComponent(returnProductId)}?notice=product-moved`,
+      );
+    }
+    const reason = encodeURIComponent(
+      recovery?.pending
+        ? "The product move was interrupted. Resume it from this page."
+        : publicActionError(error),
+    );
+    redirect(
+      `/dashboard/${encodeURIComponent(returnOrganizationId)}/products/${encodeURIComponent(returnProductId)}?error=product-move&reason=${reason}`,
+    );
+  }
+
+  revalidateTransferredProductPaths(move);
+  redirect(
+    `/dashboard/${encodeURIComponent(move.destinationOrganizationId)}/products/${encodeURIComponent(move.product.productId)}?notice=product-moved`,
   );
 }
 
