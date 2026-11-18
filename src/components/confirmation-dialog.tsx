@@ -10,12 +10,14 @@ export function ConfirmationDialog({
   description,
   children,
   triggerClassName = "button button-secondary",
+  triggerAriaLabel,
 }: {
   triggerLabel: string;
   title: string;
   description: string;
   children: ReactNode;
   triggerClassName?: string;
+  triggerAriaLabel?: string;
 }) {
   const { isOpen, openDialog, closeDialog } = useModalDialog();
 
@@ -23,6 +25,7 @@ export function ConfirmationDialog({
     <>
       <button
         aria-haspopup="dialog"
+        aria-label={triggerAriaLabel}
         className={triggerClassName}
         onClick={openDialog}
         type="button"
