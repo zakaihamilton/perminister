@@ -18,7 +18,7 @@ export default async function EditProductAccessRolePage({
   const accessRole = (access.product.accessRoles ?? []).find(
     (role) => role.id === accessRoleId,
   );
-  if (!accessRole) notFound();
+  if (!accessRole || accessRole.catalogSource) notFound();
 
   return (
     <ProductAccessRoleFormPage

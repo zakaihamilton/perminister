@@ -2439,6 +2439,12 @@ export async function createPermissionGrant(
       if (accessRoleId && !role) {
         throw new Error("Choose an access role configured for this product.");
       }
+      if (role?.deprecated) {
+        throw new Error("This product permission set has been retired and cannot be assigned.");
+      }
+      if (role?.scopeKinds && !role.scopeKinds.includes(scope.kind)) {
+        throw new Error("Choose a scope supported by this permission set.");
+      }
       const actions = role ? validateActions(role.actions) : customActions;
       if (!actions) throw new Error("Enter 1 to 32 valid action names.");
       const target = await loadSubjectUnlocked(targetSubjectId);
@@ -2461,7 +2467,16 @@ export async function createPermissionGrant(
         subjectId: target.subjectId,
         scope,
         grants: [{ scope, actions }],
-        ...(role ? { accessRole: { id: role.id, name: role.name } } : {}),
+        ...(role
+          ? {
+              accessRole: {
+                id: role.id,
+                name: role.name,
+                ...(role.role ? { role: role.role } : {}),
+                ...(role.catalogSource ? { catalogVersion: role.catalogSource.version } : {}),
+              },
+            }
+          : {}),
         status: "active",
         createdAt: now,
         updatedAt: now,

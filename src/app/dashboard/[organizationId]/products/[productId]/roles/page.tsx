@@ -2,23 +2,19 @@ import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell"
 import { ProductPageNavigation } from "@/components/product-navigation";
 import { ProductAccessRoleCatalog } from "@/components/product-access-role-sections";
 import {
-  getProductPageContext,
-  requireProductManagerRole,
+  getProductManagementPageContext,
   type ProductPageWithSearchParams,
 } from "@/lib/auth/product-page-context";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 
 export default async function ProductAccessRolesPage({
   params,
   searchParams,
 }: ProductPageWithSearchParams) {
   const [{ organizationId, productId, access }, query] = await Promise.all([
-    getProductPageContext(params),
+    getProductManagementPageContext(params),
     searchParams,
   ]);
-  requireProductManagerRole(access.membership?.role, organizationId, productId);
-  if (access.product.sharedProductRef) notFound();
 
   const accessRoles = access.product.accessRoles ?? [];
   const rolesPath = `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/roles`;
@@ -38,6 +34,11 @@ export default async function ProductAccessRolesPage({
         organizationId={organizationId}
         productId={productId}
       />
+      <p>
+        <Link className="button button-secondary" href={`${rolesPath}/catalog`}>
+          Import roles from product
+        </Link>
+      </p>
       {query.notice === "access-role-created" ? (
         <DashboardNotice message="Permission set created." kind="success" />
       ) : null}

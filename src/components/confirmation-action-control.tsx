@@ -9,6 +9,7 @@ interface ConfirmationActionControlProps {
     | "/actions/revokeOrganizationInvitationAction"
     | "/actions/removeOrganizationMemberAction"
     | "/actions/retireLegacyAccessAction"
+    | "/actions/applyProductAccessRoleCatalogAction"
     | "/actions/revokeApiKeyAction";
   fields: readonly { name: string; value: string }[];
   triggerLabel: string;
@@ -68,6 +69,12 @@ export function ConfirmationActionControl({
       case "/actions/retireLegacyAccessAction":
         return (
           <form action="/actions/retireLegacyAccessAction" method="post">
+            {formContents}
+          </form>
+        );
+      case "/actions/applyProductAccessRoleCatalogAction":
+        return (
+          <form action="/actions/applyProductAccessRoleCatalogAction" method="post">
             {formContents}
           </form>
         );

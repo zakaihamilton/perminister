@@ -1,19 +1,16 @@
 "use client";
 
-import { useState } from "react";
 import { CustomDropdown } from "@/components/custom-dropdown";
 
-type GrantScopeKind = "product" | "project" | "workspace";
+export type GrantScopeKind = "product" | "project" | "workspace";
 
-export function AccessGrantScopeFields() {
-  const [scopeKind, setScopeKind] = useState<GrantScopeKind | "">("");
-
-  function handleScopeChange(value: string) {
-    if (value === "product" || value === "project" || value === "workspace") {
-      setScopeKind(value);
-    }
-  }
-
+export function AccessGrantScopeFields({
+  scopeKind,
+  onScopeKindChange,
+}: {
+  scopeKind: GrantScopeKind | "";
+  onScopeKindChange: (value: GrantScopeKind | "") => void;
+}) {
   const scopeDescription =
     scopeKind === "product"
       ? "These actions apply across all resources in this product."
@@ -42,7 +39,11 @@ export function AccessGrantScopeFields() {
             { value: "project", label: "One project" },
             { value: "workspace", label: "One workspace" },
           ]}
-          onValueChange={handleScopeChange}
+          onValueChange={(value) =>
+            onScopeKindChange(
+              value === "product" || value === "project" || value === "workspace" ? value : "",
+            )
+          }
         />
         <small className="access-form-field-help" id="grant-scope-help">
           {scopeDescription}

@@ -5,6 +5,7 @@ import { lookup } from "node:dns/promises";
 import { request as httpsRequest } from "node:https";
 
 const MAX_HTML_BYTES = 1_000_000;
+const MAX_ROLE_CATALOG_BYTES = 128_000;
 const MAX_REDIRECTS = 3;
 const FETCH_TIMEOUT_MS = 7_000;
 
@@ -137,10 +138,12 @@ interface ProductHttpResponse {
 async function requestValidatedTarget(
   target: ValidatedFetchTarget,
   deadline: number,
+  options: { accept?: string; maxBytes?: number } = {},
 ): Promise<ProductHttpResponse> {
   const selected = target.addresses[0];
   const hostname = target.url.hostname.replace(/^\[|\]$/g, "");
   const remainingMs = deadline - Date.now();
+  const maxBytes = options.maxBytes ?? MAX_HTML_BYTES;
   if (remainingMs <= 0) throw new Error("Product website request timed out.");
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -154,7 +157,7 @@ async function requestValidatedTarget(
       target.url,
       {
         method: "GET",
-        headers: { Accept: "text/html,application/xhtml+xml;q=0.9" },
+        headers: { Accept: options.accept ?? "text/html,application/xhtml+xml;q=0.9" },
         servername: isIP(hostname) ? undefined : hostname,
         lookup: (_name, options, callback) =>
           options.all
@@ -163,7 +166,7 @@ async function requestValidatedTarget(
       },
       (response) => {
         const announcedLength = Number(response.headers["content-length"] ?? 0);
-        if (announcedLength > MAX_HTML_BYTES) {
+        if (announcedLength > maxBytes) {
           response.destroy();
           finish(() => reject(new Error("This website returned too much content to import.")));
           return;
@@ -173,7 +176,7 @@ async function requestValidatedTarget(
         response.on("data", (chunk: Buffer | string) => {
           const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
           size += bytes.byteLength;
-          if (size > MAX_HTML_BYTES) {
+          if (size > maxBytes) {
             response.destroy();
             finish(() => reject(new Error("This website returned too much content to import.")));
             return;
@@ -203,6 +206,47 @@ async function requestValidatedTarget(
     request.on("error", (error) => finish(() => reject(error)));
     request.end();
   });
+}
+
+export async function fetchPublicProductRoleCatalog(websiteUrl: string): Promise<unknown> {
+  let registeredOrigin: string;
+  try {
+    registeredOrigin = new URL(websiteUrl).origin;
+  } catch {
+    throw new Error("The registered product website is invalid.");
+  }
+  const endpoint = new URL("/api/perminister/role-catalog", registeredOrigin).toString();
+  const deadline = Date.now() + FETCH_TIMEOUT_MS;
+  let currentTarget = await validateFetchUrl(endpoint, deadline);
+  for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
+    const response = await requestValidatedTarget(currentTarget, deadline, {
+      accept: "application/json",
+      maxBytes: MAX_ROLE_CATALOG_BYTES,
+    });
+    if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
+      if (!response.location || redirectCount === MAX_REDIRECTS) {
+        throw new Error("The product role catalog redirected too many times.");
+      }
+      const redirectUrl = new URL(response.location, currentTarget.url);
+      if (redirectUrl.origin !== registeredOrigin) {
+        throw new Error("The product role catalog redirected to another website.");
+      }
+      currentTarget = await validateFetchUrl(redirectUrl.toString(), deadline);
+      continue;
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw new Error("The product role catalog could not be fetched.");
+    }
+    if (!response.contentType.includes("application/json")) {
+      throw new Error("The product role catalog did not return JSON.");
+    }
+    try {
+      return JSON.parse(response.body) as unknown;
+    } catch {
+      throw new Error("The product role catalog returned invalid JSON.");
+    }
+  }
+  throw new Error("The product role catalog redirected too many times.");
 }
 
 async function fetchPublicHtml(startUrl: string): Promise<{ html: string; finalUrl: URL }> {

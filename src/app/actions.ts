@@ -21,6 +21,7 @@ import {
 } from "@/lib/auth/mail";
 import {
   acceptOrganizationInvitation,
+  applyProductAccessRoleCatalog,
   archiveOrganizationProduct,
   completeEmailAction,
   completeOrganizationInvitationResend,
@@ -59,6 +60,7 @@ import {
   rotateConsumerClient,
   setOrganizationProductVisibility,
   setSessionCookie,
+  stageProductAccessRoleCatalog,
   transferPublicProductForAdministrator,
   transferPublicProductForOrganizationOwner,
   updateAccountProfile,
@@ -1396,6 +1398,53 @@ export async function removeProductAccessRoleAction(formData: FormData): Promise
         productId,
         firstValue(formData, "accessRoleId"),
       ),
+  );
+}
+
+function productRoleCatalogPath(organizationId: string, productId: string) {
+  return `/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(productId)}/roles/catalog`;
+}
+
+async function runProductRoleCatalogAction(
+  formData: FormData,
+  error: "role-catalog-fetch" | "role-catalog-apply",
+  notice: "role-catalog-staged" | "role-catalog-applied",
+  mutation: (subjectId: SubjectId, organizationId: string, productId: string) => Promise<unknown>,
+  refreshAccess = false,
+): Promise<void> {
+  const current = await getCurrentSession();
+  if (!current) redirect("/login");
+  const organizationId = firstValue(formData, "organizationId");
+  const productId = firstValue(formData, "productId");
+  const catalogPath = productRoleCatalogPath(organizationId, productId);
+  try {
+    await mutation(current.subject.subjectId, organizationId, productId);
+  } catch {
+    redirect(`${catalogPath}?error=${error}`);
+  }
+  revalidatePath(catalogPath);
+  const encodedProductPath = `/dashboard/${encodeURIComponent(organizationId)}/products/${encodeURIComponent(productId)}`;
+  revalidatePath(`${encodedProductPath}/roles`);
+  if (refreshAccess) revalidatePath(`${encodedProductPath}/access`);
+  redirect(`${catalogPath}?notice=${notice}`);
+}
+
+export async function fetchProductAccessRoleCatalogAction(formData: FormData): Promise<void> {
+  await runProductRoleCatalogAction(
+    formData,
+    "role-catalog-fetch",
+    "role-catalog-staged",
+    stageProductAccessRoleCatalog,
+  );
+}
+
+export async function applyProductAccessRoleCatalogAction(formData: FormData): Promise<void> {
+  await runProductRoleCatalogAction(
+    formData,
+    "role-catalog-apply",
+    "role-catalog-applied",
+    applyProductAccessRoleCatalog,
+    true,
   );
 }
 

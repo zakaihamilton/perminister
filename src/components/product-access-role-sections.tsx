@@ -92,6 +92,15 @@ export function ProductAccessRoleCatalog({
                   {accessRole.description || "No description"} · {accessRole.actions.length}{" "}
                   permission{accessRole.actions.length === 1 ? "" : "s"}
                 </span>
+                {accessRole.catalogSource ? (
+                  <span>
+                    Product catalog role · version {accessRole.catalogSource.version}
+                    {accessRole.deprecated ? " · retired; existing assignments are unchanged" : ""}
+                  </span>
+                ) : null}
+                {accessRole.scopeKinds ? (
+                  <span>Available for: {accessRole.scopeKinds.join(", ")}</span>
+                ) : null}
                 <div
                   aria-label={`${accessRole.name} action names`}
                   className="access-role-actions"
@@ -102,28 +111,30 @@ export function ProductAccessRoleCatalog({
                   ))}
                 </div>
               </div>
-              <div className="access-role-item-actions">
-                <Link
-                  aria-label={`Edit ${accessRole.name} permission set`}
-                  className="button button-secondary"
-                  href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/roles/${encodeURIComponent(accessRole.id)}/edit`}
-                >
-                  Edit
-                </Link>
-                <ConfirmationActionControl
-                  action="/actions/removeProductAccessRoleAction"
-                  fields={[
-                    { name: "organizationId", value: organizationId },
-                    { name: "productId", value: productId },
-                    { name: "accessRoleId", value: accessRole.id },
-                  ]}
-                  triggerLabel="Remove permission set"
-                  triggerAriaLabel={`Remove ${accessRole.name} permission set`}
-                  title={`Remove ${accessRole.name}?`}
-                  description="This permission set will no longer be available for new assignments. Existing member permissions stay in place."
-                  confirmLabel="Remove permission set"
-                />
-              </div>
+              {!accessRole.catalogSource ? (
+                <div className="access-role-item-actions">
+                  <Link
+                    aria-label={`Edit ${accessRole.name} permission set`}
+                    className="button button-secondary"
+                    href={`/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/roles/${encodeURIComponent(accessRole.id)}/edit`}
+                  >
+                    Edit
+                  </Link>
+                  <ConfirmationActionControl
+                    action="/actions/removeProductAccessRoleAction"
+                    fields={[
+                      { name: "organizationId", value: organizationId },
+                      { name: "productId", value: productId },
+                      { name: "accessRoleId", value: accessRole.id },
+                    ]}
+                    triggerLabel="Remove permission set"
+                    triggerAriaLabel={`Remove ${accessRole.name} permission set`}
+                    title={`Remove ${accessRole.name}?`}
+                    description="This permission set will no longer be available for new assignments. Existing member permissions stay in place."
+                    confirmLabel="Remove permission set"
+                  />
+                </div>
+              ) : null}
             </article>
           ))}
         </div>

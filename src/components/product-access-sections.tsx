@@ -1,6 +1,5 @@
 import Image from "next/image";
-import { AccessGrantActionsFields } from "@/components/access-grant-actions-fields";
-import { AccessGrantScopeFields } from "@/components/access-grant-scope-fields";
+import { AccessGrantPermissionFields } from "@/components/access-grant-permission-fields";
 import { CustomDropdown } from "@/components/custom-dropdown";
 import { PermissionGrantDeleteControl } from "@/components/permission-grant-delete-control";
 import type { ProductAccessRole } from "@/lib/auth/access-roles";
@@ -162,8 +161,7 @@ export function AccessGrantCreationSection({
                 }))}
               />
             </label>
-            <AccessGrantScopeFields />
-            <AccessGrantActionsFields roles={accessRoles} />
+            <AccessGrantPermissionFields roles={accessRoles} />
           </div>
           <button className="button button-primary" type="submit">
             Assign permissions

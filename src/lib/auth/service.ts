@@ -55,6 +55,7 @@ export {
 
 export {
   archiveOrganizationProduct,
+  applyProductAccessRoleCatalog,
   countOrganizationMembersForSubject,
   countPendingOrganizationsForAdministrator,
   createOrganization,
@@ -83,6 +84,7 @@ export {
   removeProductAccessRole,
   restoreOrganizationProduct,
   setOrganizationProductVisibility,
+  stageProductAccessRoleCatalog,
   transferPublicProductForAdministrator,
   transferPublicProductForOrganizationOwner,
   updateProductAccessRole,

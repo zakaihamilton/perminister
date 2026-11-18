@@ -658,6 +658,8 @@ export class SpacesAuthStore {
       websiteUrl: canonical.websiteUrl,
       iconUrl: canonical.iconUrl,
       accessRoles: canonical.accessRoles,
+      roleCatalogVersion: canonical.roleCatalogVersion,
+      roleCatalogImportedAt: canonical.roleCatalogImportedAt,
       visibility: "public",
       updatedAt: canonical.updatedAt,
     };
