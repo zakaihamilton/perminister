@@ -63,12 +63,8 @@ export function ProductRelocationControl({
     ? `${resumeIntro}The product will leave the source organization. Product members and permissions, invitations, app clients, integrations, and product-scoped API keys will move with it. Organization members and organization-scoped keys stay where they are. The product stays private, and its product ID and app client credentials remain the same.`
     : `${resumeIntro}${transferNotice}The product keeps ID ${productId}. Organizations already using this published product keep their setup and access.`;
 
-  return (
-    <form
-      action={isMoving ? "/actions/moveProductAction" : "/actions/transferProductAction"}
-      method="post"
-      className="product-transfer-form"
-    >
+  const formContents = (
+    <>
       <input type="hidden" name="productRecordId" value={productRecordId} />
       {operationsOrganizationId ? (
         <input
@@ -144,6 +140,16 @@ export function ProductRelocationControl({
           </button>
         </div>
       </AlertDialog>
+    </>
+  );
+
+  return isMoving ? (
+    <form action="/actions/moveProductAction" method="post" className="product-transfer-form">
+      {formContents}
+    </form>
+  ) : (
+    <form action="/actions/transferProductAction" method="post" className="product-transfer-form">
+      {formContents}
     </form>
   );
 }
