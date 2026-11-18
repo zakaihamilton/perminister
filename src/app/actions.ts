@@ -21,6 +21,7 @@ import {
 } from "@/lib/auth/mail";
 import {
   acceptOrganizationInvitation,
+  addExistingProductMemberByEmail,
   applyProductAccessRoleCatalog,
   archiveOrganizationProduct,
   completeEmailAction,
@@ -1102,6 +1103,35 @@ export async function inviteProductMemberAction(formData: FormData): Promise<voi
     redirect(`${productPath}?error=${code}`);
   }
   redirect(`${productPath}?notice=invite-sent`);
+}
+
+export async function addExistingProductMemberAction(formData: FormData): Promise<void> {
+  const { current, organizationId, productId, productPath } =
+    await productPeopleActionContext(formData);
+  let result: "added" | "updated" | "already-assigned";
+  try {
+    result = await addExistingProductMemberByEmail(
+      current.subject.subjectId,
+      organizationId,
+      productId,
+      firstValue(formData, "email"),
+      firstValue(formData, "accessRoleId"),
+      firstValue(formData, "membershipRole"),
+    );
+  } catch (error) {
+    console.error("Existing product member access grant failed", {
+      error: error instanceof Error ? error.message.slice(0, 240) : "Unknown error",
+    });
+    redirect(`${productPath}?error=existing-member-failed`);
+  }
+  revalidatePath(productPath);
+  const notice =
+    result === "added"
+      ? "existing-member-added"
+      : result === "updated"
+        ? "existing-member-updated"
+        : "existing-member-already-assigned";
+  redirect(`${productPath}?notice=${notice}`);
 }
 
 export async function acceptOrganizationInvitationAction(formData: FormData): Promise<void> {

@@ -123,7 +123,7 @@ export function isEmailVerifiedOrExemptForProduct(
   productId: string,
 ): boolean {
   const importedSystemConceptsAccount =
-    productId === "system-concepts" &&
+    ["system-concepts", "systemconcepts"].includes(productId.trim().toLowerCase()) &&
     subject.legacySources?.some((source) => source.source === "systemconcepts") === true;
   return (
     isEmailVerifiedOrExempt(subject) ||

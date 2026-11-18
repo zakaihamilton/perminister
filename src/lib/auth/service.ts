@@ -109,6 +109,7 @@ export {
 
 export {
   acceptOrganizationInvitation,
+  addExistingProductMemberByEmail,
   bootstrapProjectAdmin,
   bootstrapWorkspaceAdmin,
   completeOrganizationInvitationResend,

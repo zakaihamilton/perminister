@@ -23,7 +23,11 @@ import { DashboardBreadcrumbs } from "@/components/dashboard-breadcrumbs";
 import { ProductDetailsCard } from "@/components/product-details-card";
 import { ProductAccessRoleCatalog } from "@/components/product-access-role-sections";
 import { ConsumerClientManager } from "@/components/consumer-client-manager";
-import { ProductPeopleSection } from "@/components/product-people-sections";
+import {
+  AddExistingProductMemberSection,
+  InviteProductMemberSection,
+  ProductPeopleSection,
+} from "@/components/product-people-sections";
 import { ProductApiKeyRecords } from "@/components/product-api-key-sections";
 import { ProductSetupForm } from "@/components/product-setup-form";
 import {
@@ -36,7 +40,6 @@ import {
   ProductAccessGrantCard,
   AccessGrantExplainer,
 } from "@/components/product-access-sections";
-import { InviteProductMemberSection } from "@/components/product-people-sections";
 import { SessionList } from "@/components/session-list";
 import { AccountsSection } from "@/components/accounts-section";
 import { OrganizationRequestsSection } from "@/components/organization-requests-section";
@@ -573,6 +576,12 @@ export default async function PreviewPage({
         {screen === "product-people" && (
           <>
             <DashboardHeading description="Manage who can use this product and what they can do." />
+            <AddExistingProductMemberSection
+              accessRoles={empty ? [] : previewAccessRoles}
+              organizationId={organizationId}
+              productId="field-notes"
+              isProductOwner={isOwner}
+            />
             <ProductPeopleSection
               isOwner={isOwner}
               members={empty ? [] : previewMembers}
