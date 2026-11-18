@@ -727,6 +727,9 @@ export async function updateOrganizationProduct(
         ...details,
         updatedAt: new Date().toISOString(),
       };
+      if (next.websiteUrl !== current.record.websiteUrl) {
+        delete next.stagedAccessRoleCatalog;
+      }
       await persistRecord(next, "product.updated", {
         kind: "subject",
         subjectId: manager.subjectId,
@@ -2698,7 +2701,11 @@ export async function stageProductAccessRoleCatalog(
       if (product.websiteUrl !== access.product.websiteUrl) {
         throw new Error("The registered product website changed. Fetch the catalog again.");
       }
-      const stagedAccessRoleCatalog = { catalog, fetchedAt };
+      const stagedAccessRoleCatalog = {
+        catalog,
+        fetchedAt,
+        websiteUrl: product.websiteUrl,
+      };
       await persistRecord(
         { ...product, stagedAccessRoleCatalog, updatedAt: fetchedAt },
         "product.access-role-catalog-staged",
@@ -2722,6 +2729,9 @@ export async function applyProductAccessRoleCatalog(
     async ({ actor, product }) => {
       const staged = product.stagedAccessRoleCatalog;
       if (!staged) throw new Error("Fetch a product role catalog before applying it.");
+      if (staged.websiteUrl !== product.websiteUrl) {
+        throw new Error("The registered product website changed. Fetch the catalog again.");
+      }
 
       const currentRoles = product.accessRoles ?? [];
       const manualRoles = currentRoles.filter((role) => !role.catalogSource);

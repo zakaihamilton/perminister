@@ -20,6 +20,7 @@ export interface ProductRoleCatalog {
 export interface StagedProductRoleCatalog {
   catalog: ProductRoleCatalog;
   fetchedAt: string;
+  websiteUrl: string;
 }
 
 export interface ProductAccessRole {
