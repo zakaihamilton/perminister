@@ -1,6 +1,6 @@
-import { withApiRoutePerformance, withRequestPerformanceSpan } from "@/lib/auth/performance";
 import { authenticateConsumerClient } from "@/lib/auth/consumer-clients";
 import { bearerToken, NO_STORE_HEADERS } from "@/lib/auth/http";
+import { withApiRoutePerformance, withRequestPerformanceSpan } from "@/lib/auth/performance";
 import {
   getSessionFromToken,
   listConsumerOrganizationsForSubject,

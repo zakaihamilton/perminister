@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { AuthLinkContent } from "@/components/auth-link-pages";
+
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { AuthLinkContent } from "@/components/auth-link-pages";
 
 afterEach(cleanup);
 

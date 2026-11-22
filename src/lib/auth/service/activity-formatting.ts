@@ -1,42 +1,17 @@
 import "server-only";
 
 import { mapWithConcurrency } from "../concurrency";
-import { authMutationQueue } from "../mutation-queue";
-import { withOrganizationMutationLock } from "../coordination";
-import {
-  assertOpaqueId,
-  type ApiKeyRecord,
-  type AuthEvent,
-  type AuthRecord,
-  type AuthRecordKind,
-  type EventId,
-  type MembershipRecord,
-  type OrganizationRole,
-  type SessionRecord,
-  type SubjectId,
-  type SubjectRecord,
+import type {
+  AuthEvent,
+  AuthRecord,
+  AuthRecordKind,
+  EventId,
+  OrganizationRole,
+  SubjectId,
+  SubjectRecord,
 } from "../domain";
-import {
-  configuredAdministrators,
-  eventPayloadId,
-  isAdministrator,
-  isEmailVerifiedOrExempt,
-  listRecordsWithRecovery,
-  loadApprovedOrganizationUnlocked,
-  loadRecord,
-  loadSubjectUnlocked,
-  organizationMembershipUnlocked,
-  persistRecord,
-  requireAdministrator,
-  requireOrganizationRoleUnlocked,
-  requireVerifiedActiveSubject,
-  store,
-} from "./core";
-import { listSessionsForSubjectUnlocked } from "./sessions-and-identity";
-import {
-  getOrganizationDashboardData,
-  requireProductRoleUnlocked,
-} from "./organizations-and-products";
+import { loadRecord, store } from "./persistence";
+import { eventPayloadId, isAdministrator } from "./validators";
 
 export interface ActivityDetail {
   label: string;
@@ -76,8 +51,14 @@ export interface PlatformAuditPage {
   totalPages: number;
 }
 
-const PLATFORM_AUDIT_PAGE_SIZE = 25;
-const PLATFORM_AUDIT_MAX_EVENTS = 100;
+export interface AuditEntry {
+  eventId: EventId;
+  type: string;
+  occurredAt: string;
+  actor: string;
+  aggregateKind: string;
+}
+
 const ACTIVITY_READ_CONCURRENCY = 40;
 
 const ACTIVITY_SUMMARIES: Readonly<Record<string, string>> = {
@@ -155,6 +136,12 @@ const ACTIVITY_SUMMARIES: Readonly<Record<string, string>> = {
   "session.created": "Signed in",
   "session.consumer-created": "Signed in to a product",
   "session.revoked": "Signed out",
+};
+
+const ACTIVITY_CHANGE_LABELS: Readonly<Record<string, string>> = {
+  actions: "Allowed actions",
+  role: "Role",
+  status: "Status",
 };
 
 function humanizeActivityType(type: string): string {
@@ -354,12 +341,6 @@ function activityTargetLabel(
   return humanizeActivityType(event.aggregate.kind);
 }
 
-const ACTIVITY_CHANGE_LABELS: Readonly<Record<string, string>> = {
-  actions: "Allowed actions",
-  role: "Role",
-  status: "Status",
-};
-
 function activityDetailValue(value: unknown): string | null {
   if (value === null) return "None";
   if (typeof value === "string") return value.slice(0, 300);
@@ -404,7 +385,7 @@ function activityDetails(event: AuthEvent): ActivityDetail[] {
   return details;
 }
 
-function activityBelongsToOrganization(event: AuthEvent, organizationId: string): boolean {
+export function activityBelongsToOrganization(event: AuthEvent, organizationId: string): boolean {
   const eventOrganizationId =
     typeof event.payload.organizationId === "string"
       ? event.payload.organizationId
@@ -414,7 +395,7 @@ function activityBelongsToOrganization(event: AuthEvent, organizationId: string)
   return eventOrganizationId === organizationId;
 }
 
-async function organizationActivityEntries(
+export async function organizationActivityEntries(
   events: readonly AuthEvent[],
   includeSubjectEmails = false,
   productNames: ReadonlyMap<string, string> = new Map(),
@@ -509,7 +490,7 @@ async function organizationActivityEntries(
       if (subject.record) subjectRecords.set(subject.id, subject.record);
     }
   }
-  const entries = events.map((event) => {
+  return events.map((event) => {
     const actor =
       event.actor.kind === "subject"
         ? activitySubjectLabel(event.actor.subjectId, subjectRecords, includeSubjectEmails)
@@ -539,10 +520,9 @@ async function organizationActivityEntries(
       details: activityDetails(event),
     };
   });
-  return entries;
 }
 
-async function platformActivityEntries(
+export async function platformActivityEntries(
   events: readonly AuthEvent[],
 ): Promise<PlatformActivityEntry[]> {
   const organizationIds = new Set<string>();
@@ -608,419 +588,10 @@ async function platformActivityEntries(
   });
 }
 
-export async function listOrganizationAudit(
-  subjectId: SubjectId,
-  organizationId: string,
-  limit = 100,
-): Promise<OrganizationActivityEntry[]> {
-  return authMutationQueue.read(async () => {
-    await requireOrganizationRoleUnlocked(subjectId, organizationId, ["owner", "admin"]);
-    const cappedLimit = Math.min(100, Math.max(0, Math.floor(limit)));
-    const events = await store().listOrganizationEvents(organizationId, undefined, cappedLimit);
-    return organizationActivityEntries(
-      events
-        .filter((event) => activityBelongsToOrganization(event, organizationId))
-        .slice(0, cappedLimit),
-    );
-  });
-}
-
-export async function getOrganizationActivityPageData(
-  actor: SubjectRecord,
-  organizationId: string,
-): Promise<OrganizationActivityPageData> {
-  return authMutationQueue.read(async () => {
-    assertOpaqueId(organizationId);
-    const subjectId = actor.subjectId;
-    const [organization, membership] = await Promise.all([
-      loadApprovedOrganizationUnlocked(organizationId),
-      organizationMembershipUnlocked(organizationId, subjectId),
-    ]);
-    requireVerifiedActiveSubject(actor);
-    if (!organization) throw new Error("Organization not found.");
-
-    const productMembership = membership
-      ? null
-      : (await store().listMembershipsForSubject(subjectId)).find(
-          (item) =>
-            item.organizationId === organizationId && !!item.productId && item.status === "active",
-        );
-    const role = membership?.role ?? (productMembership ? "member" : null);
-    if (!role) throw new Error("Organization not found.");
-    if (role === "member") return { role, entries: [] };
-
-    const [dashboardData, events] = await Promise.all([
-      getOrganizationDashboardData(subjectId, organizationId),
-      store()
-        .listOrganizationEvents(organizationId, undefined, 100)
-        .then((records) =>
-          records
-            .filter((event) => activityBelongsToOrganization(event, organizationId))
-            .slice(0, 100),
-        ),
-    ]);
-
-    const productNames = new Map(
-      dashboardData.products.map((product) => [product.productId, product.name]),
-    );
-    const entries = await organizationActivityEntries(events, false, productNames, [actor]);
-    return { role, entries };
-  });
-}
-
-export async function listProductAudit(
-  subjectId: SubjectId,
-  organizationId: string,
-  productId: string,
-): Promise<OrganizationActivityEntry[]> {
-  return authMutationQueue.read(async () => {
-    await requireProductRoleUnlocked(subjectId, organizationId, productId, [
-      "owner",
-      "admin",
-      "member",
-    ]);
-    return organizationActivityEntries(
-      (await store().listOrganizationEvents(organizationId, productId, 100)).slice(0, 100),
-    );
-  });
-}
-
-export async function listPlatformAudit(
-  actorId: SubjectId,
-  requestedPage = 1,
-  organizationId?: string,
-): Promise<PlatformAuditPage> {
-  return authMutationQueue.read(async () => {
-    await requireAdministrator(actorId);
-    const activityStore = store();
-    let events: AuthEvent[];
-    if (organizationId !== undefined) {
-      assertOpaqueId(organizationId);
-      const organization = await loadApprovedOrganizationUnlocked(organizationId);
-      if (!organization) throw new Error("Organization not found.");
-      events = (await activityStore.listOrganizationEvents(
-        organizationId,
-        undefined,
-        PLATFORM_AUDIT_MAX_EVENTS,
-      ))
-        .filter((event) => activityBelongsToOrganization(event, organizationId))
-        .slice(0, PLATFORM_AUDIT_MAX_EVENTS);
-    } else {
-      events = (
-        typeof activityStore.listRecentEvents === "function"
-          ? await activityStore.listRecentEvents(PLATFORM_AUDIT_MAX_EVENTS)
-          : await activityStore.listAllEvents()
-      ).slice(0, PLATFORM_AUDIT_MAX_EVENTS);
-    }
-    const totalItems = events.length;
-    const totalPages = Math.ceil(totalItems / PLATFORM_AUDIT_PAGE_SIZE);
-    const validPage = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-    const page = totalPages > 0 ? Math.min(validPage, totalPages) : 1;
-    const offset = (page - 1) * PLATFORM_AUDIT_PAGE_SIZE;
-
-    return {
-      entries: await platformActivityEntries(
-        events.slice(offset, offset + PLATFORM_AUDIT_PAGE_SIZE),
-      ),
-      page,
-      pageSize: PLATFORM_AUDIT_PAGE_SIZE,
-      totalItems,
-      totalPages,
-    };
-  });
-}
-
-export async function retireLegacyAccess(
-  actorId: SubjectId,
-): Promise<{ grants: number; keys: number }> {
-  return authMutationQueue.run(async () => {
-    const actor = await requireAdministrator(actorId);
-    const legacyMemberships = (await listRecordsWithRecovery("membership"))
-      .map((item) => item.record)
-      .filter((record) => record.status === "active" && !record.scope.organizationId);
-    const legacyKeys = (await listRecordsWithRecovery("api-key"))
-      .map((item) => item.record)
-      .filter((record) => record.status === "active" && !record.scope.organizationId);
-    for (const membership of legacyMemberships) {
-      await persistRecord(
-        { ...membership, status: "disabled", updatedAt: new Date().toISOString() },
-        "migration.legacy-grant-disabled",
-        { kind: "subject", subjectId: actor.subjectId },
-      );
-    }
-    for (const key of legacyKeys) {
-      await persistRecord(
-        { ...key, status: "revoked", revokedAt: new Date().toISOString() },
-        "migration.legacy-api-key-revoked",
-        { kind: "subject", subjectId: actor.subjectId },
-      );
-    }
-    return { grants: legacyMemberships.length, keys: legacyKeys.length };
-  });
-}
-
-export async function previewLegacyAccessRetirement(
-  actorId: SubjectId,
-): Promise<{ grants: number; keys: number }> {
-  return authMutationQueue.run(async () => {
-    await requireAdministrator(actorId);
-    const memberships = (await listRecordsWithRecovery("membership")).map((item) => item.record);
-    const keys = (await listRecordsWithRecovery("api-key")).map((item) => item.record);
-    return {
-      grants: memberships.filter(
-        (record) => record.status === "active" && !record.scope.organizationId,
-      ).length,
-      keys: keys.filter((record) => record.status === "active" && !record.scope.organizationId)
-        .length,
-    };
-  });
-}
-
-export interface PublicAccount {
-  subjectId: SubjectId;
-  email: string | null;
-  firstName: string | null;
-  lastName: string | null;
-  status: SubjectRecord["status"];
-  emailVerified: boolean;
-  administrator: boolean;
-  createdAt: string;
-}
-
-function publicAccount(subject: SubjectRecord): PublicAccount {
-  return {
-    subjectId: subject.subjectId,
-    email: subject.primaryEmail,
-    firstName: subject.firstName ?? null,
-    lastName: subject.lastName ?? null,
-    status: subject.status,
-    emailVerified: !!subject.emailVerifiedAt,
-    administrator: isAdministrator(subject),
-    createdAt: subject.createdAt,
-  };
-}
-
-export async function currentAccountProfile(subject: SubjectRecord): Promise<PublicAccount> {
-  return publicAccount(subject);
-}
-
-export async function listAccountsForAdministrator(actorId: SubjectId): Promise<PublicAccount[]> {
-  return authMutationQueue.run(async () => {
-    return listAccountsForAdministratorUnlocked(actorId);
-  });
-}
-
-async function listAccountsForAdministratorUnlocked(actorId: SubjectId): Promise<PublicAccount[]> {
-  await requireAdministrator(actorId);
-  const accounts = (await listRecordsWithRecovery("subject"))
-    .filter((entry) => !entry.record.deletedAt)
-    .map((entry) => publicAccount(entry.record))
-    .sort((left, right) => (left.email ?? "").localeCompare(right.email ?? ""));
-  return accounts.sort((left, right) => (left.email ?? "").localeCompare(right.email ?? ""));
-}
-
-export async function updateAccountStatus(
-  actorId: SubjectId,
-  subjectId: string,
-  status: "active" | "disabled",
-): Promise<void> {
-  assertOpaqueId(subjectId);
-  await authMutationQueue.run(async () => {
-    const actor = await requireAdministrator(actorId);
-    const current = await loadRecord("subject", subjectId);
-    if (!current) throw new Error("Account not found.");
-    if (current.record.deletedAt) throw new Error("Account not found.");
-    if (
-      status === "disabled" &&
-      current.record.primaryEmail &&
-      configuredAdministrators().has(current.record.primaryEmail.toLowerCase())
-    ) {
-      throw new Error(
-        "Remove this address from PERMINISTER_ADMIN_EMAILS before disabling the account.",
-      );
-    }
-    if (current.record.status === status) return;
-    const next: SubjectRecord = {
-      ...current.record,
-      status,
-      authVersion: current.record.authVersion + 1,
-      updatedAt: new Date().toISOString(),
-    };
-    await persistRecord(next, status === "disabled" ? "identity.disabled" : "identity.enabled", {
-      kind: "subject",
-      subjectId: actor.subjectId,
-    });
-  });
-}
-
-export async function deleteAccountForAdministrator(
-  actorId: SubjectId,
-  subjectIdInput: string,
-): Promise<void> {
-  assertOpaqueId(subjectIdInput);
-  await authMutationQueue.run(async () => {
-    const actor = await requireAdministrator(actorId);
-    if (subjectIdInput === actor.subjectId) throw new Error("You cannot delete your own account.");
-
-    const initial = await loadRecord("subject", subjectIdInput);
-    if (!initial) throw new Error("Account not found.");
-    if (initial.record.deletedAt) return;
-    if (initial.record.status !== "disabled")
-      throw new Error("Disable the account before deleting it.");
-    if (
-      initial.record.primaryEmail &&
-      configuredAdministrators().has(initial.record.primaryEmail.toLowerCase())
-    ) {
-      throw new Error(
-        "Remove this address from PERMINISTER_ADMIN_EMAILS before deleting the account.",
-      );
-    }
-
-    const initialMemberships = await store().listMembershipsForSubject(initial.record.subjectId);
-    const initialKeys = await store().listApiKeysForSubject(initial.record.subjectId);
-    const organizationIds = [
-      ...new Set(
-        [
-          ...initialMemberships.map((membership) => membership.organizationId),
-          ...initialKeys.map((key) => key.scope.organizationId),
-        ].filter(Boolean),
-      ),
-    ].sort();
-
-    const withOrganizationLocks = async (
-      index: number,
-      operation: () => Promise<void>,
-    ): Promise<void> => {
-      if (index >= organizationIds.length) return operation();
-      return withOrganizationMutationLock(organizationIds[index], () =>
-        withOrganizationLocks(index + 1, operation),
-      );
-    };
-
-    await withOrganizationLocks(0, async () => {
-      const current = await loadRecord("subject", subjectIdInput);
-      if (!current) throw new Error("Account not found.");
-      if (current.record.deletedAt) return;
-      if (current.record.status !== "disabled") {
-        throw new Error("Disable the account before deleting it.");
-      }
-      if (
-        current.record.primaryEmail &&
-        configuredAdministrators().has(current.record.primaryEmail.toLowerCase())
-      ) {
-        throw new Error(
-          "Remove this address from PERMINISTER_ADMIN_EMAILS before deleting the account.",
-        );
-      }
-
-      const memberships = (
-        await store().listMembershipsForSubject(current.record.subjectId)
-      ).filter((membership) => organizationIds.includes(membership.organizationId));
-      for (const membership of memberships) {
-        if (membership.status !== "active" || membership.role !== "owner") continue;
-        const organizationMemberships = await store().listOrganizationMemberships(
-          membership.organizationId,
-          membership.productId ?? null,
-        );
-        let hasAnotherActiveOwner = false;
-        for (const candidate of organizationMemberships) {
-          if (
-            candidate.subjectId === current.record.subjectId ||
-            candidate.productId !== membership.productId ||
-            candidate.role !== "owner" ||
-            candidate.status !== "active"
-          ) {
-            continue;
-          }
-          const owner = await loadSubjectUnlocked(candidate.subjectId);
-          if (owner?.status === "active" && isEmailVerifiedOrExempt(owner)) {
-            hasAnotherActiveOwner = true;
-            break;
-          }
-        }
-        if (!hasAnotherActiveOwner) {
-          throw new Error(
-            "Transfer organization and product ownership to another active owner before deleting this account.",
-          );
-        }
-      }
-
-      const now = new Date().toISOString();
-      for (const membership of memberships) {
-        const permissionGrants = (membership.permissionGrants ?? []).map((grant) =>
-          grant.status === "active"
-            ? { ...grant, status: "disabled" as const, updatedAt: now }
-            : grant,
-        );
-        if (
-          membership.status === "disabled" &&
-          permissionGrants.every(
-            (grant, index) => grant === (membership.permissionGrants ?? [])[index],
-          )
-        ) {
-          continue;
-        }
-        await persistRecord(
-          {
-            ...membership,
-            status: "disabled",
-            permissionGrants,
-            updatedAt: now,
-          },
-          "identity.deleted-membership-revoked",
-          { kind: "subject", subjectId: actor.subjectId },
-        );
-      }
-
-      const keys = await store().listApiKeysForSubject(current.record.subjectId);
-      for (const key of keys) {
-        if (key.status !== "active") continue;
-        await persistRecord(
-          { ...key, status: "revoked", revokedAt: now },
-          "identity.deleted-api-key-revoked",
-          { kind: "subject", subjectId: actor.subjectId },
-        );
-      }
-
-      await persistRecord(
-        {
-          ...current.record,
-          status: "disabled",
-          deletedAt: now,
-          firstName: undefined,
-          lastName: undefined,
-          primaryEmail: null,
-          emailVerifiedAt: null,
-          emailVerificationExempt: false,
-          loginIdentifiers: [],
-          legacySources: [],
-          externalIdentities: [],
-          legacyCredentialSource: undefined,
-          consumerProductStates: [],
-          passwordCredential: null,
-          authVersion: current.record.authVersion + 1,
-          updatedAt: now,
-        },
-        "identity.deleted",
-        { kind: "subject", subjectId: actor.subjectId },
-      );
-    });
-  });
-}
-
-export interface AuditEntry {
-  eventId: EventId;
-  type: string;
-  occurredAt: string;
-  actor: string;
-  aggregateKind: string;
-}
-
-export async function listAuditForSubject(subject: SubjectRecord): Promise<AuditEntry[]> {
-  return auditEntriesForEvents(await store().listAllEvents(), subject);
-}
-
-function auditEntriesForEvents(events: readonly AuthEvent[], subject: SubjectRecord): AuditEntry[] {
+export function auditEntriesForEvents(
+  events: readonly AuthEvent[],
+  subject: SubjectRecord,
+): AuditEntry[] {
   const administrator = isAdministrator(subject);
   return events
     .filter((event) => {
@@ -1037,43 +608,4 @@ function auditEntriesForEvents(events: readonly AuthEvent[], subject: SubjectRec
       actor: event.actor.kind === "subject" ? "account" : event.actor.kind,
       aggregateKind: event.aggregate.kind,
     }));
-}
-
-export interface DashboardData {
-  memberships: MembershipRecord[];
-  apiKeys: ApiKeyRecord[];
-  sessions: SessionRecord[];
-  audit: AuditEntry[];
-  accounts: PublicAccount[] | null;
-}
-
-export async function loadDashboardData(subject: SubjectRecord): Promise<DashboardData> {
-  return authMutationQueue.run(async () => {
-    const events = await store().listAllEvents();
-    const [membershipRecords, keyRecords, sessions, accounts] = await Promise.all([
-      listRecordsWithRecovery("membership"),
-      listRecordsWithRecovery("api-key"),
-      listSessionsForSubjectUnlocked(subject),
-      isAdministrator(subject)
-        ? listAccountsForAdministratorUnlocked(subject.subjectId)
-        : Promise.resolve(null),
-    ]);
-    const memberships = membershipRecords
-      .map((item) => item.record)
-      .filter((record) => isAdministrator(subject) || record.subjectId === subject.subjectId)
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
-    const apiKeys = keyRecords
-      .map((item) => item.record)
-      .filter(
-        (record) => record.owner.kind === "subject" && record.owner.subjectId === subject.subjectId,
-      )
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
-    return {
-      memberships,
-      apiKeys,
-      sessions,
-      audit: auditEntriesForEvents(events, subject),
-      accounts,
-    };
-  });
 }

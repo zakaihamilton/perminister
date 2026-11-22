@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { type FormEvent, useState } from "react";
 import type { ConsumerClientActionState } from "@/app/actions";
+import { ConsumerClientList } from "@/components/consumer-client-list";
 import { ConsumerClientSecretDetails } from "@/components/consumer-client-secret-details";
 import { submitStableAction } from "@/lib/action-client";
 import type { ConsumerClientSummary } from "@/lib/auth/service";
-import { ConsumerClientList } from "@/components/consumer-client-list";
 
 interface ConsumerClientManagerProps {
   organizationId: string;

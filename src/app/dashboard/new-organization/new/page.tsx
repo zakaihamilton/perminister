@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { DashboardHeading } from "@/components/dashboard-shell";
-import { OrganizationRequestPageShell } from "@/components/organization-request-page-shell";
 import {
   NewOrganizationRequestNotices,
   OrganizationRequestSubmission,
 } from "@/components/new-organization-sections";
+import { OrganizationRequestPageShell } from "@/components/organization-request-page-shell";
 import { getOrganizationRequestPageContext } from "@/lib/auth/organization-request-page-context";
 
 export default async function NewOrganizationRequestPage({

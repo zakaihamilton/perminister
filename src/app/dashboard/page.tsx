@@ -1,5 +1,5 @@
-import { getCurrentSession, listOrganizationsForSubject } from "@/lib/auth/service";
 import { redirect } from "next/navigation";
+import { getCurrentSession, listOrganizationsForSubject } from "@/lib/auth/service";
 
 export default async function DashboardHome({
   searchParams,

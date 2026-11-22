@@ -1,9 +1,9 @@
-import { DashboardHeading } from "@/components/dashboard-shell";
+import { notFound } from "next/navigation";
 import { ActivityFeed } from "@/components/activity-feed";
+import { DashboardHeading } from "@/components/dashboard-shell";
 import { ProductPageNavigation } from "@/components/product-navigation";
 import { getProductPageContext, type ProductPageParams } from "@/lib/auth/product-page-context";
 import { listProductAudit } from "@/lib/auth/service";
-import { notFound } from "next/navigation";
 
 export default async function ProductActivityPage({ params }: ProductPageParams) {
   const { current, organizationId, productId, access } = await getProductPageContext(params);

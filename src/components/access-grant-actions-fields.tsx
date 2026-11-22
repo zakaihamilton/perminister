@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { CustomDropdown } from "@/components/custom-dropdown";
 import type { GrantScopeKind } from "@/components/access-grant-scope-fields";
+import { CustomDropdown } from "@/components/custom-dropdown";
 import type { ProductAccessRole } from "@/lib/auth/access-roles";
 
 const CUSTOM_ACTIONS = "__custom_actions__";

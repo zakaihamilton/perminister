@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { DashboardHeading } from "@/components/dashboard-shell";
+import { redirect } from "next/navigation";
 import { ApiKeyNotices } from "@/components/api-key-item";
+import { DashboardHeading } from "@/components/dashboard-shell";
 import {
   ApiKeyAccessHint,
   OrganizationApiKeyRecords,
@@ -13,7 +14,6 @@ import {
   listOrganizationPermissionGrants,
   listProductsForOrganization,
 } from "@/lib/auth/service";
-import { redirect } from "next/navigation";
 
 export default async function ApiKeysPage({
   params,

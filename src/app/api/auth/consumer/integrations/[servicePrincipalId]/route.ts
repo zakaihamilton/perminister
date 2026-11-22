@@ -1,6 +1,6 @@
-import { withApiRoutePerformance } from "@/lib/auth/performance";
-import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
 import { consumerIntegrationError, requireConsumerJsonRequest } from "@/lib/auth/consumer-route";
+import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
+import { withApiRoutePerformance } from "@/lib/auth/performance";
 import { updateServicePrincipalStatus } from "@/lib/auth/service";
 
 export const runtime = "nodejs";

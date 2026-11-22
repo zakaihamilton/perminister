@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { ApiKeyRotationControl } from "@/components/api-key-rotation-control";
 import { ApiKeyForm } from "@/components/api-key-form";
 import { ApiKeyItem } from "@/components/api-key-item";
+import { ApiKeyRotationControl } from "@/components/api-key-rotation-control";
 import type { ApiKeyRecord, ProductRecord, ResourceScope } from "@/lib/auth/domain";
 
 function keyStatus(key: ApiKeyRecord, now: number): "active" | "revoked" | "expired" {

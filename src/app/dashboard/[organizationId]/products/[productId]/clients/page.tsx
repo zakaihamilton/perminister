@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { ConsumerClientManager } from "@/components/consumer-client-manager";
+import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { ProductPageNavigation } from "@/components/product-navigation";
 import {
   getProductPageContext,
-  requireProductManagerRole,
   type ProductPageWithSearchParams,
+  requireProductManagerRole,
 } from "@/lib/auth/product-page-context";
 import { listConsumerClientsForProduct } from "@/lib/auth/service";
 

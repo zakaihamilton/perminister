@@ -1,8 +1,8 @@
+import { readConsumerJsonBody, requireConsumerClient } from "@/lib/auth/consumer-route";
+import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
+import { sendVerificationEmail } from "@/lib/auth/mail";
 import { withApiRoutePerformance } from "@/lib/auth/performance";
 import { findAccountByEmail, issueEmailAction, registerAccount } from "@/lib/auth/service";
-import { sendVerificationEmail } from "@/lib/auth/mail";
-import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
-import { readConsumerJsonBody, requireConsumerClient } from "@/lib/auth/consumer-route";
 
 export const runtime = "nodejs";
 

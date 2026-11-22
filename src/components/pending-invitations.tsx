@@ -1,5 +1,5 @@
-import type { OrganizationInvitationRecord } from "@/lib/auth/domain";
 import { ConfirmationActionControl } from "@/components/confirmation-action-control";
+import type { OrganizationInvitationRecord } from "@/lib/auth/domain";
 
 type Invitation = Pick<
   OrganizationInvitationRecord,

@@ -1,17 +1,17 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
+import {
+  type ConsumerAuthorizationRequest,
+  consumerAuthorizationErrorCallback,
+  consumerAuthorizationQuery,
+} from "@/lib/auth/consumer-sso";
 import type { SubjectId } from "@/lib/auth/domain";
+import { getConfiguredOidcIssuer } from "@/lib/auth/oidc";
 import {
   ConsumerProductAccessDeniedError,
   createConsumerAuthorizationCode,
 } from "@/lib/auth/service";
-import {
-  consumerAuthorizationErrorCallback,
-  consumerAuthorizationQuery,
-  type ConsumerAuthorizationRequest,
-} from "@/lib/auth/consumer-sso";
-import { getConfiguredOidcIssuer } from "@/lib/auth/oidc";
 
 export async function completeConsumerAuthorization(
   subjectId: SubjectId,

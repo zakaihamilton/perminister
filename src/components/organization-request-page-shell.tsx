@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { BreadcrumbBar } from "@/components/dashboard-breadcrumbs";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { SiteFooter, SiteHeader } from "@/components/site-shell";
-import type { DashboardBreadcrumbItem } from "@/lib/dashboard-breadcrumbs";
 import type { OrganizationRequestPageContext } from "@/lib/auth/organization-request-page-context";
+import type { DashboardBreadcrumbItem } from "@/lib/dashboard-breadcrumbs";
 
 export function OrganizationRequestPageShell({
   context,

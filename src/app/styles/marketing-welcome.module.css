@@ -1,0 +1,631 @@
+/* Welcome landing page, marketing sections, and privacy policy document */
+
+.appScope {
+  --scope-marker: 1;
+}
+
+:where(.appScope) :global(.hero-actions) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 13px;
+  margin-top: 31px;
+}
+
+:where(.appScope) :global(.home-page) {
+  --blue: #3867a5;
+  --blue-dark: #2d527f;
+  --blue-pale: #e9f0f9;
+  --blue-action: #3867a5;
+  --blue-action-hover: #2d527f;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  color: var(--ink);
+}
+
+:where(.appScope) :global(.home-page .eyebrow) {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+:where(.appScope) :global(.home-page-main) {
+  flex: 1 0 auto;
+  padding-bottom: 1px;
+}
+
+:where(.appScope) :global(.welcome-hero-copy > *) {
+  animation: welcome-copy-enter 650ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+:where(.appScope) :global(.welcome-hero-copy > :nth-child(1)) {
+  animation-delay: 60ms;
+}
+
+:where(.appScope) :global(.welcome-hero-copy > :nth-child(2)) {
+  animation-delay: 130ms;
+}
+
+:where(.appScope) :global(.welcome-hero-copy > :nth-child(3)) {
+  animation-delay: 200ms;
+}
+
+:where(.appScope) :global(.welcome-hero-copy > :nth-child(4)) {
+  animation-delay: 270ms;
+}
+
+:where(.appScope) :global(.welcome-hero) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr);
+  align-items: center;
+  gap: clamp(38px, 5.5vw, 76px);
+  padding-top: clamp(60px, 8vw, 92px);
+  padding-bottom: clamp(64px, 8vw, 88px);
+}
+
+:where(.appScope) :global(.welcome-hero-copy) {
+  max-width: 620px;
+}
+
+:where(.appScope) :global(.welcome-hero h1) {
+  max-width: 660px;
+  margin: 16px 0 22px;
+  color: var(--ink);
+  font-size: clamp(46px, 5.8vw, 68px);
+  line-height: 1.02;
+  letter-spacing: -0.045em;
+}
+
+:where(.appScope) :global(.welcome-hero-lede) {
+  max-width: 570px;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 18px;
+  line-height: 1.65;
+}
+
+:where(.appScope) :global(.welcome-hero-actions) {
+  gap: 12px;
+  margin-top: 30px;
+}
+
+:where(.appScope) :global(.welcome-hero-actions .button) {
+  min-height: 48px;
+  font-size: 15px;
+}
+
+:where(.appScope) :global(.welcome-hero-figure) {
+  min-width: 0;
+  margin: 0;
+  animation: welcome-figure-enter 850ms cubic-bezier(0.2, 0.7, 0.2, 1) 120ms both;
+}
+
+:where(.appScope) :global(.welcome-graphic-status-halo) {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: welcome-status-halo 2.8s ease-out 900ms infinite;
+}
+
+:where(.appScope) :global(.welcome-hero-illustration) {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+:where(.appScope) :global(.home-benefits) {
+  border-top: 1px solid var(--line);
+  padding-top: clamp(52px, 7vw, 76px);
+  padding-bottom: clamp(60px, 7vw, 82px);
+}
+
+:where(.appScope) :global(.home-section-heading) {
+  max-width: 800px;
+  margin-bottom: 30px;
+}
+
+:where(.appScope) :global(.home-section-heading h2) {
+  margin: 12px 0 15px;
+  color: var(--ink);
+  font-size: clamp(34px, 4.2vw, 46px);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+
+:where(.appScope) :global(.home-section-heading > p:last-child) {
+  max-width: 760px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+:where(.appScope) :global(.home-benefit-grid) {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+:where(.appScope) :global(.home-benefit-card) {
+  min-height: 225px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 24px;
+  background: var(--surface);
+  box-shadow: 0 10px 25px rgba(33, 48, 68, 0.04);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+:where(.appScope) :global(.home-benefit-card:hover),
+:where(.appScope) :global(.home-benefit-card:focus-within) {
+  transform: translateY(-4px);
+  border-color: var(--line-strong);
+  box-shadow: 0 16px 32px rgba(33, 48, 68, 0.09);
+}
+
+:where(.appScope) :global(.home-card-label) {
+  margin: 0 0 16px;
+  color: var(--blue-dark);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.015em;
+}
+
+:where(.appScope) :global(.home-benefit-card h3) {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-size: 21px;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+}
+
+:where(.appScope) :global(.home-benefit-card > p:last-child) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+:where(.appScope) :global(.home-access-section) {
+  border-top: 1px solid var(--line);
+  padding-top: clamp(52px, 7vw, 76px);
+  padding-bottom: clamp(62px, 7vw, 84px);
+}
+
+:where(.appScope) :global(.home-access-heading) {
+  max-width: 780px;
+}
+
+:where(.appScope) :global(.home-access-grid) {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+:where(.appScope) :global(.home-access-card) {
+  min-height: 205px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 23px 24px;
+  background: var(--surface-2);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+:where(.appScope) :global(.home-access-card:hover),
+:where(.appScope) :global(.home-access-card:focus-within) {
+  transform: translateY(-4px);
+  border-color: var(--line-strong);
+  box-shadow: 0 16px 32px rgba(33, 48, 68, 0.07);
+}
+
+:where(.appScope) :global(.home-access-number) {
+  display: inline-block;
+  margin-bottom: 15px;
+  color: var(--blue-dark);
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+:where(.appScope) :global(.home-access-card h3) {
+  margin: 0 0 9px;
+  color: var(--ink);
+  font-size: 21px;
+  line-height: 1.25;
+}
+
+:where(.appScope) :global(.home-access-card p) {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+:where(.appScope) :global(.home-closing-cta) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+  margin-bottom: clamp(54px, 7vw, 78px);
+  border-radius: 18px;
+  padding: clamp(27px, 4vw, 42px);
+  color: #ffffff;
+  background: var(--blue);
+}
+
+:where(.appScope) :global(.home-cta-label) {
+  margin: 0 0 10px;
+  color: #d8e5f5;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+:where(.appScope) :global(.home-closing-cta h2) {
+  max-width: 700px;
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(28px, 3.6vw, 38px);
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+}
+
+:where(.appScope) :global(.home-closing-cta > div > p:last-child) {
+  max-width: 680px;
+  margin: 12px 0 0;
+  color: #e2ebf7;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+:where(.appScope) :global(.home-closing-button) {
+  flex: 0 0 auto;
+  min-height: 48px;
+  border: 1px solid #ffffff;
+  color: #18324f;
+  background: #ffffff;
+  font-size: 15px;
+}
+
+:where(.appScope) :global(.home-closing-button:hover) {
+  color: #18324f;
+  background: #e9f0f9;
+}
+
+:where(.appScope) :global(.home-page .welcome-hero-actions .button svg),
+:where(.appScope) :global(.home-page .home-closing-button svg) {
+  transition: transform 180ms ease;
+}
+
+:where(.appScope) :global(.home-page .welcome-hero-actions .button:hover svg),
+:where(.appScope) :global(.home-page .welcome-hero-actions .button:focus-visible svg),
+:where(.appScope) :global(.home-page .home-closing-button:hover svg),
+:where(.appScope) :global(.home-page .home-closing-button:focus-visible svg) {
+  transform: translateX(3px);
+}
+
+:where(.appScope) :global(.privacy-page) {
+  padding: clamp(44px, 7vw, 82px) 0 clamp(64px, 8vw, 96px);
+}
+
+:where(.appScope) :global(.privacy-document) {
+  max-width: 900px;
+}
+
+:where(.appScope) :global(.privacy-heading) {
+  max-width: 760px;
+  margin-bottom: clamp(38px, 6vw, 60px);
+}
+
+:where(.appScope) :global(.privacy-heading h1) {
+  margin: 10px 0 16px;
+  color: var(--ink);
+  font-size: clamp(38px, 6vw, 56px);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+
+:where(.appScope) :global(.privacy-intro) {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 19px;
+  line-height: 1.65;
+}
+
+:where(.appScope) :global(.privacy-updated) {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+:where(.appScope) :global(.privacy-sections) {
+  display: grid;
+  gap: 32px;
+  max-width: 760px;
+}
+
+:where(.appScope) :global(.privacy-sections section) {
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+}
+
+:where(.appScope) :global(.privacy-sections h2) {
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-size: 23px;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+
+:where(.appScope) :global(.privacy-sections li) {
+  color: var(--ink-soft);
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+:where(.appScope) :global(.privacy-sections p) {
+  color: var(--ink-soft);
+  font-size: 16px;
+  line-height: 1.75;
+  margin: 0 0 14px;
+}
+
+:where(.appScope) :global(.privacy-sections p:last-child) {
+  margin-bottom: 0;
+}
+
+:where(.appScope) :global(.privacy-sections ul) {
+  display: grid;
+  gap: 9px;
+  margin: 12px 0 16px;
+  padding-left: 24px;
+}
+
+:where(.appScope) :global(.privacy-sections li::marker) {
+  color: var(--blue-dark);
+}
+
+:where(.appScope) :global(.privacy-provider-links a),
+:where(.appScope) :global(.privacy-sections a) {
+  color: var(--blue-dark);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+:where(.appScope) :global(.privacy-provider-links a:hover),
+:where(.appScope) :global(.privacy-sections a:hover) {
+  text-decoration-thickness: 2px;
+}
+
+/* Dark theme overrides */
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.home-page) {
+  --blue: #80a7d4;
+  --blue-dark: #a2bee0;
+  --blue-pale: #2a394a;
+  --blue-action: #385d86;
+  --blue-action-hover: #2e4f74;
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.home-closing-button),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.home-closing-button:hover) {
+  color: #18324f;
+}
+
+@keyframes welcome-copy-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes welcome-figure-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+@keyframes welcome-status-halo {
+  0% {
+    opacity: 0.36;
+    transform: scale(0.7);
+  }
+  75%,
+  100% {
+    opacity: 0;
+    transform: scale(1.65);
+  }
+}
+
+@media (max-width: 900px) {
+  :where(.appScope) :global(.welcome-hero) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+    gap: 32px;
+  }
+
+  :where(.appScope) :global(.welcome-hero h1) {
+    font-size: clamp(43px, 5.8vw, 56px);
+  }
+
+  :where(.appScope) :global(.home-benefit-grid),
+  :where(.appScope) :global(.home-access-grid) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  :where(.appScope) :global(.home-benefit-card:last-child),
+  :where(.appScope) :global(.home-access-card:last-child) {
+    grid-column: 1 / -1;
+    min-height: auto;
+  }
+}
+
+@media (max-width: 800px) {
+  :where(.appScope) :global(.welcome-hero) {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding-top: 52px;
+  }
+
+  :where(.appScope) :global(.welcome-hero-copy) {
+    max-width: 700px;
+  }
+
+  :where(.appScope) :global(.welcome-hero h1) {
+    max-width: 680px;
+    font-size: clamp(44px, 8vw, 62px);
+  }
+
+  :where(.appScope) :global(.welcome-hero-lede) {
+    max-width: 650px;
+    font-size: 17px;
+  }
+
+  :where(.appScope) :global(.welcome-hero-figure) {
+    max-width: 680px;
+  }
+}
+
+@media (max-width: 740px) {
+  :where(.appScope) :global(.home-closing-cta) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  :where(.appScope) :global(.home-closing-button) {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 560px) {
+  :where(.appScope) :global(.welcome-hero) {
+    gap: 27px;
+    padding-top: 42px;
+    padding-bottom: 52px;
+  }
+
+  :where(.appScope) :global(.welcome-hero h1) {
+    margin-top: 12px;
+    font-size: clamp(40px, 11vw, 50px);
+  }
+
+  :where(.appScope) :global(.welcome-hero-lede) {
+    font-size: 16px;
+  }
+
+  :where(.appScope) :global(.welcome-hero-actions) {
+    align-items: stretch;
+    flex-direction: column;
+    margin-top: 24px;
+  }
+
+  :where(.appScope) :global(.welcome-hero-actions .button) {
+    width: 100%;
+    justify-content: center;
+  }
+
+  :where(.appScope) :global(.home-benefits),
+  :where(.appScope) :global(.home-access-section) {
+    padding-top: 44px;
+    padding-bottom: 52px;
+  }
+
+  :where(.appScope) :global(.home-section-heading) {
+    margin-bottom: 23px;
+  }
+
+  :where(.appScope) :global(.home-section-heading h2) {
+    font-size: 34px;
+  }
+
+  :where(.appScope) :global(.home-section-heading > p:last-child) {
+    font-size: 16px;
+  }
+
+  :where(.appScope) :global(.home-benefit-grid),
+  :where(.appScope) :global(.home-access-grid) {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  :where(.appScope) :global(.home-benefit-card),
+  :where(.appScope) :global(.home-access-card),
+  :where(.appScope) :global(.home-benefit-card:last-child),
+  :where(.appScope) :global(.home-access-card:last-child) {
+    min-height: auto;
+    grid-column: auto;
+    padding: 21px;
+  }
+
+  :where(.appScope) :global(.home-card-label) {
+    margin-bottom: 12px;
+  }
+
+  :where(.appScope) :global(.home-closing-cta) {
+    gap: 22px;
+    margin-bottom: 48px;
+    padding: 24px 21px;
+  }
+
+  :where(.appScope) :global(.home-closing-cta h2) {
+    font-size: 30px;
+  }
+}
+
+@media (max-width: 480px) {
+  :where(.appScope) :global(.privacy-page) {
+    padding-top: 38px;
+  }
+
+  :where(.appScope) :global(.privacy-sections) {
+    gap: 26px;
+  }
+
+  :where(.appScope) :global(.privacy-sections section) {
+    padding-top: 20px;
+  }
+
+  :where(.appScope) :global(.privacy-sections h2) {
+    font-size: 21px;
+  }
+}
+
+@media (max-width: 390px) {
+  :where(.appScope) :global(.hero-actions) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  :where(.appScope) :global(.hero-actions .button) {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.appScope) :global(.home-page .welcome-hero-copy > *),
+  :where(.appScope) :global(.home-page .welcome-hero-figure),
+  :where(.appScope) :global(.home-page .welcome-graphic-status-halo) {
+    animation: none;
+  }
+
+  :where(.appScope) :global(.home-page .home-benefit-card),
+  :where(.appScope) :global(.home-page .home-access-card),
+  :where(.appScope) :global(.home-page .welcome-hero-actions .button svg),
+  :where(.appScope) :global(.home-page .home-closing-button svg) {
+    transition: none;
+  }
+
+  :where(.appScope) :global(.home-page .home-benefit-card:hover),
+  :where(.appScope) :global(.home-page .home-benefit-card:focus-within),
+  :where(.appScope) :global(.home-page .home-access-card:hover),
+  :where(.appScope) :global(.home-page .home-access-card:focus-within) {
+    transform: none;
+  }
+}

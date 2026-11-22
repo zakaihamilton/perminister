@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import type { ConsumerClientActionState } from "@/app/actions";
 import { ConsumerClientCreateForm } from "@/components/consumer-client-create-form";
 import { ConsumerClientSecretDetails } from "@/components/consumer-client-secret-details";

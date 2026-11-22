@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AuthPageFeedback } from "@/components/auth-page-feedback";
-import { PasswordField } from "@/components/password-field";
 import { AuthCard } from "panel-frame-ui";
+import { AuthPageFeedback } from "@/components/auth-page-feedback";
 import { AuthPageFrame } from "@/components/auth-page-frame";
-import { getCurrentSession } from "@/lib/auth/service";
-import { authPageContext, type AuthPageProps } from "@/lib/auth/auth-page-context";
+import { PasswordField } from "@/components/password-field";
+import { type AuthPageProps, authPageContext } from "@/lib/auth/auth-page-context";
 import { postLoginDestination } from "@/lib/auth/login-redirect";
+import { getCurrentSession } from "@/lib/auth/service";
 
 const errorText: Record<string, string> = {
   "account-exists": "An account with this email address already exists. Sign in instead.",

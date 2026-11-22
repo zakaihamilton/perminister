@@ -1,9 +1,9 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 import { AuthShell } from "panel-frame-ui";
+import type { ReactNode } from "react";
+import type { ConsumerAuthPresentation } from "@/components/consumer-auth-presentation";
 import { Brand } from "@/components/site-shell";
 import { ThemeControl } from "@/components/theme-control";
-import type { ConsumerAuthPresentation } from "@/components/consumer-auth-presentation";
 
 export function AuthPageFrame({
   children,

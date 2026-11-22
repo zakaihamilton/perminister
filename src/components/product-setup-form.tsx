@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import type { ProductLookupState } from "@/app/actions";
-import { submitStableAction } from "@/lib/action-client";
-import { productSlug } from "@/lib/product-slug";
 import {
   ProductDetailsReviewStep,
   ProductWebsiteLookupStep,
 } from "@/components/product-setup-steps";
+import { submitStableAction } from "@/lib/action-client";
+import { productSlug } from "@/lib/product-slug";
 
 export function ProductSetupForm({ organizationId }: { organizationId: string }) {
   const [lookupState, setLookupState] = useState<ProductLookupState>({});

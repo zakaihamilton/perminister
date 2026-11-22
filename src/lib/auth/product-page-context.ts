@@ -1,7 +1,7 @@
 import "server-only";
+import { notFound, redirect } from "next/navigation";
 import type { OrganizationRole } from "@/lib/auth/domain";
 import { getCurrentSession, getProductAccessForSubject } from "@/lib/auth/service";
-import { notFound, redirect } from "next/navigation";
 
 export type ProductPageRouteParams = { organizationId: string; productId: string };
 export type ProductPageParams = { params: Promise<ProductPageRouteParams> };

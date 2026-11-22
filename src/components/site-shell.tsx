@@ -1,6 +1,6 @@
+import Link from "next/link";
 import { ThemeControl } from "@/components/theme-control";
 import { getCurrentSession } from "@/lib/auth/service";
-import Link from "next/link";
 
 type ActivePage = "home" | "dashboard" | "developers" | "none";
 

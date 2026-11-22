@@ -1,5 +1,5 @@
-import { PutObjectCommand, type S3Client } from "@aws-sdk/client-s3";
 import { createHmac } from "node:crypto";
+import { PutObjectCommand, type S3Client } from "@aws-sdk/client-s3";
 import { describe, expect, it, vi } from "vitest";
 import type { OrganizationMembershipRecord, SubjectRecord } from "../../src/lib/auth/domain";
 import {

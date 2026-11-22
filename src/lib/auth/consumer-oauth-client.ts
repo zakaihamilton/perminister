@@ -1,8 +1,11 @@
 import "server-only";
 
 import type { ConsumerClientRecord } from "./domain";
-import type { ConsumerOAuthAuthorizationClient } from "./service/consumer-and-memberships";
-import { getConsumerClientRecord, getOAuthAuthorizationClient } from "./service";
+import {
+  type ConsumerOAuthAuthorizationClient,
+  getConsumerClientRecord,
+  getOAuthAuthorizationClient,
+} from "./service";
 
 export async function getConsumerOAuthAuthorizationClient(
   clientId: string,

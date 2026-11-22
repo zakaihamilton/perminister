@@ -1,8 +1,8 @@
-import type { FormEventHandler } from "react";
 import { AlertDialog } from "panel-frame-ui";
-import type { ConsumerClientSummary } from "@/lib/auth/service";
-import type { ConsumerClientConfirmation } from "@/components/consumer-client-list-types";
+import type { FormEventHandler } from "react";
 import { ConsumerClientFormContextFields } from "@/components/consumer-client-form-context-fields";
+import type { ConsumerClientConfirmation } from "@/components/consumer-client-list-types";
+import type { ConsumerClientSummary } from "@/lib/auth/service";
 
 export function ConsumerClientConfirmationDialog({
   client,

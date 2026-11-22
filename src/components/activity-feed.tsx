@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { ActivityFeedEntryRow, type ActivityFeedEntry } from "@/components/activity-feed-entry";
+import { type ActivityFeedEntry, ActivityFeedEntryRow } from "@/components/activity-feed-entry";
 
 const requestTime = cache(() => Date.now());
 

@@ -1,20 +1,20 @@
 import Link from "next/link";
-import { PendingInvitations } from "@/components/pending-invitations";
+import { redirect } from "next/navigation";
 import { DashboardHeading } from "@/components/dashboard-shell";
 import {
   OrganizationPeopleNotices,
   OrganizationPeopleSection,
 } from "@/components/organization-people-sections";
+import { PendingInvitations } from "@/components/pending-invitations";
+import {
+  getOrganizationDashboardRequestContext,
+  type OrganizationDashboardPageProps,
+} from "@/lib/auth/organization-dashboard-context";
 import {
   getOrganizationForSubject,
   listOrganizationInvitations,
   listOrganizationMembers,
 } from "@/lib/auth/service";
-import {
-  getOrganizationDashboardRequestContext,
-  type OrganizationDashboardPageProps,
-} from "@/lib/auth/organization-dashboard-context";
-import { redirect } from "next/navigation";
 
 export default async function PeoplePage(
   props: OrganizationDashboardPageProps<{ notice?: string; error?: string }>,

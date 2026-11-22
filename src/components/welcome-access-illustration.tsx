@@ -8,8 +8,8 @@ import {
   IllustrationMainHeading,
   IllustrationMetrics,
 } from "./welcome-access-illustration-parts/overview";
-import { IllustrationProductAccess } from "./welcome-access-illustration-parts/product-access";
 import { IllustrationPermissionSummary } from "./welcome-access-illustration-parts/permission-summary";
+import { IllustrationProductAccess } from "./welcome-access-illustration-parts/product-access";
 import { IllustrationSecurityCard } from "./welcome-access-illustration-parts/security-card";
 
 export function WelcomeAccessIllustration() {

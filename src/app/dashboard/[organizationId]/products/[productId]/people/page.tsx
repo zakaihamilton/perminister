@@ -1,18 +1,18 @@
 import Link from "next/link";
 import { DashboardHeading } from "@/components/dashboard-shell";
-import { ProductPageNavigation } from "@/components/product-navigation";
 import { PendingInvitations } from "@/components/pending-invitations";
+import { ProductPageNavigation } from "@/components/product-navigation";
 import {
   AddExistingProductMemberSection,
   ProductPeopleNotices,
   ProductPeopleSection,
 } from "@/components/product-people-sections";
-import { listProductInvitations, listProductMembers } from "@/lib/auth/service";
 import {
   getProductPageContext,
-  requireProductManagerRole,
   type ProductPageWithSearchParams,
+  requireProductManagerRole,
 } from "@/lib/auth/product-page-context";
+import { listProductInvitations, listProductMembers } from "@/lib/auth/service";
 
 export default async function ProductPeoplePage({
   params,

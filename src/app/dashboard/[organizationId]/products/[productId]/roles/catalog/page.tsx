@@ -2,11 +2,11 @@ import Link from "next/link";
 import { ConfirmationActionControl } from "@/components/confirmation-action-control";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { ProductPageNavigation } from "@/components/product-navigation";
+import type { ProductAccessRole } from "@/lib/auth/access-roles";
 import {
   getProductManagementPageContext,
   type ProductPageWithSearchParams,
 } from "@/lib/auth/product-page-context";
-import type { ProductAccessRole } from "@/lib/auth/access-roles";
 
 function sameValues(left: readonly string[], right: readonly string[]) {
   return [...left].sort().join("\0") === [...right].sort().join("\0");

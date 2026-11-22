@@ -1,0 +1,365 @@
+/* Sign-in, registration, OAuth consent, account profile, and session pages */
+
+.appScope {
+  --scope-marker: 1;
+}
+
+:where(.appScope) :global(.management-form .auth-form) {
+  gap: 12px;
+}
+
+:where(.appScope) :global(.profile-card .profile-name-form) {
+  border-bottom: 1px solid var(--line);
+  margin: 15px 0 18px;
+  padding-bottom: 18px;
+}
+
+:where(.appScope) :global(.profile-details) {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+:where(.appScope) :global(.profile-details > div:first-child) {
+  border-top: 0;
+  padding-top: 0;
+}
+
+:where(.appScope) :global(.profile-details dt) {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.profile-details dd) {
+  margin: 0;
+  color: #354157;
+  font-size: 14px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+:where(.appScope) :global(.profile-actions) {
+  margin-top: 16px;
+}
+
+:where(.appScope) :global(.profile-actions form) {
+  margin: 0;
+}
+
+:where(.appScope) :global(.profile-card .button) {
+  min-height: 42px;
+}
+
+:where(.appScope) :global(.invitation-auth-links) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 16px;
+}
+
+:where(.appScope) :global(.dashboard-layout .auth-form) {
+  gap: 13px;
+}
+
+:where(.appScope) :global(.auth-page-shell) {
+  padding: clamp(30px, 4.5vh, 54px) 0 clamp(28px, 5vh, 76px);
+}
+
+:where(.appScope) :global(.auth-page) {
+  width: min(490px, calc(100% - 48px));
+}
+
+:where(.appScope) :global(.auth-heading) {
+  margin: 0 0 26px;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+:where(.appScope) :global(.auth-account-context) {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+:where(.appScope) :global(.auth-account-context strong) {
+  color: var(--ink);
+}
+
+:where(.appScope) :global(.auth-heading h1) {
+  margin: 9px 0 10px;
+  font-family: Iowan Old Style, Baskerville, "Palatino Linotype", Georgia, serif;
+  font-weight: 500;
+  font-size: clamp(34px, 4vw, 46px);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+}
+
+:where(.appScope) :global(.auth-card h1) {
+  margin: 8px 0 18px;
+  font-family: Iowan Old Style, Baskerville, "Palatino Linotype", Georgia, serif;
+  font-weight: 500;
+  font-size: clamp(34px, 4vw, 46px);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+}
+
+:where(.appScope) :global(.auth-heading > p:last-child) {
+  margin: 0;
+  max-width: 420px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+:where(.appScope) :global(.login-heading > p:last-child) {
+  max-width: none;
+  white-space: normal;
+}
+
+:where(.appScope) :global(.auth-card h2) {
+  margin: 0 0 20px;
+  font-weight: 700;
+  line-height: 1.25;
+  font-family: "Manrope", sans-serif;
+  font-size: 18px;
+}
+
+:where(.appScope) :global(.auth-form) {
+  display: grid;
+  gap: 15px;
+}
+
+:where(.appScope) :global(.auth-form label) {
+  display: grid;
+  gap: 7px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+:where(.appScope) :global(.auth-form input),
+:where(.appScope) :global(.auth-form .pf-select-trigger) {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--line-strong);
+  padding: 10px 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  border-radius: 4px;
+  color: var(--ink);
+  background: var(--surface-inset);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.auth-form textarea) {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  padding: 10px 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  min-height: 82px;
+  resize: vertical;
+  border-radius: 4px;
+  color: var(--ink);
+  background: var(--surface-inset);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.auth-form input::placeholder) {
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+:where(.appScope) :global(.auth-form input:focus),
+:where(.appScope) :global(.auth-form textarea:focus) {
+  outline: 3px solid var(--blue);
+  outline-offset: 1px;
+  border-color: var(--blue);
+  outline-color: var(--blue);
+}
+
+:where(.appScope) :global(.auth-links) {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-top: 19px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+:where(.appScope) :global(.auth-links a) {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  color: var(--blue-dark);
+}
+
+:where(.appScope) :global(.profile-links a) {
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: var(--blue-dark);
+}
+
+:where(.appScope) :global(.auth-card) {
+  border: 1px solid var(--line);
+  padding: 26px;
+  border-radius: 5px;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+:where(.appScope) :global(.profile-details > div) {
+  display: grid;
+  grid-template-columns: minmax(135px, 0.4fr) minmax(0, 1fr);
+  gap: 16px;
+  border-top: 1px solid #edf0f4;
+  padding: 14px 0;
+  border-color: var(--line);
+}
+
+:where(.appScope) :global(.profile-links) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  border-top: 1px solid #edf0f4;
+  margin-top: 17px;
+  padding-top: 15px;
+  border-color: var(--line);
+}
+
+:where(.appScope) :global(.login-provider-options) {
+  display: grid;
+  gap: 13px;
+  margin-top: 18px;
+}
+
+:where(.appScope) :global(.login-divider) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+:where(.appScope) :global(.login-divider::before),
+:where(.appScope) :global(.login-divider::after) {
+  height: 1px;
+  background: var(--line);
+  content: "";
+  flex: 1;
+}
+
+:where(.appScope) :global(.login-google-button) {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+:where(.appScope) :global(.login-google-button:hover) {
+  text-decoration: none;
+}
+
+:where(.appScope) :global(.auth-footnote) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+:where(.appScope) :global(.auth-form .password-input-wrap input) {
+  padding-right: 72px;
+}
+
+:where(.appScope) :global(.auth-name-fields) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px;
+}
+
+/* Dark theme overrides */
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-card) {
+  border-color: var(--line);
+  color: var(--ink);
+  background-color: var(--surface);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.profile-details dd),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-heading h1),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-card h1) {
+  color: var(--ink);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-footnote),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-heading > p:last-child),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.profile-details dt) {
+  color: var(--muted);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-links a),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.profile-links a) {
+  color: var(--blue-dark);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form input),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form .pf-select-trigger),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form textarea) {
+  border-color: var(--line-strong);
+  color: var(--ink);
+  background: var(--surface-inset);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form input::placeholder) {
+  color: var(--muted);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.profile-details > div) {
+  border-color: var(--line);
+}
+
+@media (max-width: 560px) {
+  :where(.appScope) :global(.auth-page-shell) {
+    padding: 38px 0 58px;
+  }
+
+  :where(.appScope) :global(.auth-page) {
+    width: min(100% - 34px, 620px);
+  }
+
+  :where(.appScope) :global(.auth-card) {
+    padding: 19px;
+  }
+
+  :where(.appScope) :global(.login-heading > p:last-child) {
+    white-space: normal;
+  }
+
+  :where(.appScope) :global(.auth-heading h1),
+  :where(.appScope) :global(.auth-card h1) {
+    font-size: 38px;
+  }
+}
+
+@media (max-width: 540px) {
+  :where(.appScope) :global(.profile-details > div) {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 420px) {
+  :where(.appScope) :global(.auth-name-fields) {
+    grid-template-columns: 1fr;
+  }
+}

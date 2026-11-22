@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createPrivateKey, createPublicKey, sign as signBytes, type KeyObject } from "node:crypto";
+import { createPrivateKey, createPublicKey, type KeyObject, sign as signBytes } from "node:crypto";
 
 const OIDC_SCOPES = ["openid", "profile", "email", "perminister_api"] as const;
 const PRIVATE_JWK_FIELDS = new Set(["d", "p", "q", "dp", "dq", "qi", "oth"]);

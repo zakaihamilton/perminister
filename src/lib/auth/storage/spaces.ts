@@ -1,14 +1,8 @@
 import "server-only";
 
 import { createHmac } from "node:crypto";
-import {
-  DeleteObjectCommand,
-  GetObjectCommand,
-  ListObjectsV2Command,
-  type ListObjectsV2CommandOutput,
-  PutObjectCommand,
-  S3Client,
-} from "@aws-sdk/client-s3";
+import type { S3Client } from "@aws-sdk/client-s3";
+import { mapWithConcurrency } from "../concurrency";
 import type {
   ApiKeyRecord,
   AuthEvent,
@@ -22,72 +16,29 @@ import type {
   SubjectRecord,
 } from "../domain";
 import { assertOpaqueId, authRecordId } from "../domain";
-import { mapWithConcurrency } from "../concurrency";
-import { recordAuthStorageOperation } from "../performance";
+import { SpacesEventStore } from "./event-store";
+import {
+  assertNoPlaintextSecrets,
+  directRecordKey,
+  fallbackRecordKey,
+  INDEX_ROOT,
+  identityIndexKey,
+  isAuthRecord,
+  isRecordListCandidate,
+  lowercaseScopeIdentifiersInRecord,
+  OBJECT_PREFIX,
+  ORGANIZATION_MEMBERSHIP_INDEX_MANIFEST,
+  ORGANIZATION_MEMBERSHIP_INDEX_ROOT,
+  recordKey,
+  safeSegment,
+  unwrapRecord,
+  type VersionedRecord,
+  wrapRecord,
+} from "./keys-and-validation";
+import { SpacesRateLimitStore } from "./rate-limit-store";
+import { createSpacesClientConfigFromEnv, SpacesS3Client } from "./s3-client";
 
-const OBJECT_ROOT = "";
-const OBJECT_PREFIX = OBJECT_ROOT ? `${OBJECT_ROOT}/` : "";
-const INDEX_ROOT = `${OBJECT_PREFIX}indexes`;
-const ID_INDEX_ROOT = `${INDEX_ROOT}/by-id`;
-const ORGANIZATION_MEMBERSHIP_INDEX_ROOT = `${INDEX_ROOT}/by-organization-membership`;
-const ORGANIZATION_MEMBERSHIP_INDEX_MANIFEST = `${ORGANIZATION_MEMBERSHIP_INDEX_ROOT}/manifest.json`;
-const MAX_RATE_LIMIT_ENTRIES_PER_SHARD = 512;
-const ACTIVITY_READ_CONCURRENCY = 40;
-const RECENT_ACTIVITY_CACHE_LIMIT = 100;
-const RECENT_ACTIVITY_CACHE_TTL_MS = 30_000;
-const RECENT_ACTIVITY_CACHE_MAX_ENTRIES = 128;
-
-type RecentActivityCacheEntry = {
-  events: AuthEvent[];
-  expiresAt: number;
-};
-
-const recentActivityCache = new Map<string, RecentActivityCacheEntry>();
-const recentActivityReads = new Map<string, Promise<AuthEvent[]>>();
-
-function activityOrganizationId(event: AuthEvent): string | null {
-  if (typeof event.payload.organizationId === "string") return event.payload.organizationId;
-  return event.aggregate.kind === "organization" ? event.aggregate.id : null;
-}
-
-function recentActivityCacheKey(organizationId: string, productId?: string): string {
-  return JSON.stringify([organizationId, productId ?? null]);
-}
-
-function getRecentActivityCache(key: string): RecentActivityCacheEntry | null {
-  const entry = recentActivityCache.get(key);
-  if (!entry) return null;
-  if (entry.expiresAt <= Date.now()) {
-    recentActivityCache.delete(key);
-    return null;
-  }
-  recentActivityCache.delete(key);
-  recentActivityCache.set(key, entry);
-  return entry;
-}
-
-function setRecentActivityCache(key: string, events: AuthEvent[]): void {
-  if (
-    !recentActivityCache.has(key) &&
-    recentActivityCache.size >= RECENT_ACTIVITY_CACHE_MAX_ENTRIES
-  ) {
-    const oldestKey = recentActivityCache.keys().next().value;
-    if (oldestKey !== undefined) recentActivityCache.delete(oldestKey);
-  }
-  recentActivityCache.delete(key);
-  recentActivityCache.set(key, {
-    events,
-    expiresAt: Date.now() + RECENT_ACTIVITY_CACHE_TTL_MS,
-  });
-}
-
-export interface VersionedRecord<RecordType extends AuthRecord = AuthRecord> {
-  /** Compatibility shape for service callers; Spaces stores the record itself, not this envelope. */
-  formatVersion: 1;
-  revision: number;
-  writtenAt: string;
-  record: RecordType;
-}
+export type { VersionedRecord };
 
 export interface SpacesAuthStoreOptions {
   client: S3Client;
@@ -96,318 +47,37 @@ export interface SpacesAuthStoreOptions {
   readOnly?: boolean;
 }
 
-function assertNoPlaintextSecrets(value: unknown, path = "record"): void {
-  if (Array.isArray(value)) {
-    value.forEach((item, index) => assertNoPlaintextSecrets(item, `${path}[${index}]`));
-    return;
-  }
-  if (value === null || typeof value !== "object") return;
-
-  for (const [key, nested] of Object.entries(value)) {
-    const normalizedKey = key.replace(/[^a-z0-9]/gi, "").toLowerCase();
-    const isPlaintextCredentialField =
-      normalizedKey.includes("secret") ||
-      normalizedKey.includes("token") ||
-      normalizedKey === "key" ||
-      normalizedKey === "apikey" ||
-      normalizedKey === "rawapikey" ||
-      normalizedKey === "authorization" ||
-      (normalizedKey.startsWith("password") && normalizedKey !== "passwordcredential");
-    if (isPlaintextCredentialField) {
-      throw new Error(`Refusing to persist plaintext credential field at ${path}.${key}`);
-    }
-    assertNoPlaintextSecrets(nested, `${path}.${key}`);
-  }
-}
-
-function safeSegment(value: string): string {
-  if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value)) {
-    throw new Error("Invalid S3 key segment");
-  }
-  return value;
-}
-
-function storageAttempts(value: unknown): number {
-  if (typeof value !== "object" || value === null) return 1;
-  const metadata = (value as { $metadata?: unknown }).$metadata;
-  if (typeof metadata !== "object" || metadata === null) return 1;
-  const attempts = (metadata as { attempts?: unknown }).attempts;
-  return typeof attempts === "number" && Number.isSafeInteger(attempts) && attempts > 0
-    ? attempts
-    : 1;
-}
-
-function recordKey(record: AuthRecord): string {
-  switch (record.kind) {
-    case "subject":
-      return `${OBJECT_PREFIX}subjects/${record.subjectId}.json`;
-    case "organization":
-      return `${OBJECT_PREFIX}orgs/${record.organizationId}/organization.json`;
-    case "organization-membership":
-      return record.productId
-        ? `${OBJECT_PREFIX}orgs/${record.organizationId}/products/${safeSegment(record.productId)}/members/${record.subjectId}.json`
-        : `${OBJECT_PREFIX}orgs/${record.organizationId}/catalog-managers/${record.subjectId}.json`;
-    case "product":
-      return `${OBJECT_PREFIX}orgs/${record.organizationId}/products/${safeSegment(record.productId)}/product.json`;
-    case "service-principal":
-      return `${OBJECT_PREFIX}service-principals/${record.servicePrincipalId}.json`;
-    case "organization-invitation":
-      return record.productId
-        ? `${OBJECT_PREFIX}orgs/${record.organizationId}/products/${safeSegment(record.productId)}/invitations/${record.invitationId}.json`
-        : `${OBJECT_PREFIX}invitations/${record.invitationId}.json`;
-    case "membership":
-      return `${OBJECT_PREFIX}orgs/${record.scope.organizationId}/products/${safeSegment(record.scope.productId)}/members/${record.subjectId}/grants/${record.membershipId}.json`;
-    case "api-key":
-      return `${OBJECT_PREFIX}api-keys/${record.apiKeyId}.json`;
-    case "consumer-client":
-      return `${OBJECT_PREFIX}consumer-clients/${record.consumerClientId}.json`;
-    case "oauth-client-registration":
-      return `${OBJECT_PREFIX}oauth-client-registrations/${record.oauthClientId}.json`;
-    case "consumer-authorization-code":
-      return `${OBJECT_PREFIX}consumer-authorization-codes/${record.consumerAuthorizationCodeId}.json`;
-    case "session":
-      return `${OBJECT_PREFIX}sessions/${record.sessionId}.json`;
-    case "email-action":
-      return `${OBJECT_PREFIX}email-actions/${record.actionId}.json`;
-  }
-}
-
-function identityIndexKey(kind: AuthRecordKind, id: string): string {
-  assertOpaqueId(id);
-  return `${ID_INDEX_ROOT}/${kind}/${id}.json`;
-}
-
-function eventIdentity(event: AuthEvent): string {
-  return `${event.eventId}`;
-}
-
-function datePart(occurredAt: string): string {
-  const date = new Date(occurredAt);
-  if (!Number.isFinite(date.getTime())) throw new Error("Activity event has an invalid timestamp");
-  return date.toISOString().slice(0, 10);
-}
-
-function eventKey(event: AuthEvent): string {
-  return `${OBJECT_PREFIX}activity/events/${datePart(event.occurredAt)}/${event.occurredAt.replaceAll(":", "-")}-${eventIdentity(event)}.json`;
-}
-
-function isMissingObject(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) return false;
-  const candidate = error as { name?: string; $metadata?: { httpStatusCode?: number } };
-  return (
-    candidate.name === "NoSuchKey" ||
-    (candidate.name === "NotFound" && candidate.$metadata?.httpStatusCode === 404)
-  );
-}
-
-function isAuthRecord(value: unknown, kind: AuthRecordKind, id?: string): value is AuthRecord {
-  if (typeof value !== "object" || value === null) return false;
-  const record = value as Partial<AuthRecord>;
-  if (record.schemaVersion !== 1 || record.kind !== kind) return false;
-  if (id !== undefined) {
-    try {
-      return authRecordId(record as AuthRecord) === id;
-    } catch {
-      return false;
-    }
-  }
-  return true;
-}
-
-function isRecordListCandidate(kind: AuthRecordKind, key: string): boolean {
-  if (!key.endsWith(".json") || key.includes("/activity/") || key.includes("/indexes/")) {
-    return false;
-  }
-
-  const relativeKey =
-    OBJECT_PREFIX && key.startsWith(OBJECT_PREFIX) ? key.slice(OBJECT_PREFIX.length) : key;
-
-  switch (kind) {
-    case "organization":
-      return /^orgs\/[^/]+\/organization\.json$/.test(relativeKey);
-    case "organization-membership":
-      return /^orgs\/[^/]+\/(?:catalog-managers\/[^/]+|products\/[^/]+\/members\/[^/]+)\.json$/.test(
-        relativeKey,
-      );
-    case "product":
-      return /^orgs\/[^/]+\/products\/[^/]+\/product\.json$/.test(relativeKey);
-    case "organization-invitation":
-      return /^(?:invitations\/[^/]+\.json|orgs\/[^/]+\/products\/[^/]+\/invitations\/[^/]+\.json)$/.test(
-        relativeKey,
-      );
-    case "membership":
-      return /^orgs\/[^/]+\/products\/[^/]+\/members\/[^/]+(?:\/grants\/[^/]+)?\.json$/.test(
-        relativeKey,
-      );
-    case "oauth-client-registration":
-      return /^oauth-client-registrations\/[^/]+\.json$/.test(relativeKey);
-    default:
-      return true;
-  }
-}
-
-function lowercaseScopeIdentifiers(value: unknown): unknown {
-  if (typeof value !== "object" || value === null) return value;
-  const scope = value as Record<string, unknown>;
-  if (scope.kind !== "product" && scope.kind !== "project" && scope.kind !== "workspace") {
-    return value;
-  }
-  const normalized: Record<string, unknown> = { ...scope };
-  if (typeof scope.organizationId === "string")
-    normalized.organizationId = scope.organizationId.toLowerCase();
-  if (typeof scope.productId === "string") normalized.productId = scope.productId.toLowerCase();
-  if (scope.kind === "project" && typeof scope.projectId === "string") {
-    normalized.projectId = scope.projectId.toLowerCase();
-  }
-  if (scope.kind === "workspace" && typeof scope.workspaceId === "string") {
-    normalized.workspaceId = scope.workspaceId.toLowerCase();
-  }
-  return normalized;
-}
-
-function lowercaseScopeIdentifiersInRecord(value: unknown): unknown {
-  if (typeof value !== "object" || value === null) return value;
-  const record = value as Record<string, unknown>;
-  if (record.kind === "membership" || record.kind === "api-key") {
-    return { ...record, scope: lowercaseScopeIdentifiers(record.scope) };
-  }
-  if (record.kind === "organization-membership" && Array.isArray(record.permissionGrants)) {
-    return {
-      ...record,
-      permissionGrants: record.permissionGrants.map((grant) => {
-        if (typeof grant !== "object" || grant === null) return grant;
-        const membership = grant as Record<string, unknown>;
-        return { ...membership, scope: lowercaseScopeIdentifiers(membership.scope) };
-      }),
-    };
-  }
-  return value;
-}
-
 export class SpacesAuthStore {
-  private readonly client: S3Client;
-  private readonly bucket: string;
+  private readonly s3: SpacesS3Client;
+  private readonly rateLimits: SpacesRateLimitStore;
+  private readonly events: SpacesEventStore;
   private readonly identityIndexSecret: string;
-  private readonly readOnly: boolean;
   private organizationMembershipIndexReady = false;
   private organizationMembershipIndexCheckedAt = 0;
   private organizationMembershipIndexCheck?: Promise<boolean>;
-  private readonly rateLimitQueues = new Map<string, Promise<void>>();
 
   constructor({ client, bucket, identityIndexSecret, readOnly = false }: SpacesAuthStoreOptions) {
     if (!bucket.trim()) throw new Error("Spaces bucket is required");
     if (identityIndexSecret.length < 32) {
       throw new Error("Identity index secret must be at least 32 characters");
     }
-    this.client = client;
-    this.bucket = bucket;
     this.identityIndexSecret = identityIndexSecret;
-    this.readOnly = readOnly;
+    this.s3 = new SpacesS3Client({ client, bucket, readOnly });
+    this.rateLimits = new SpacesRateLimitStore(this.s3, identityIndexSecret);
+    this.events = new SpacesEventStore(this.s3);
   }
 
-  async checkReadiness(): Promise<void> {
-    const startedAt = performance.now();
-    try {
-      await this.client.send(
-        new ListObjectsV2Command({ Bucket: this.bucket, Prefix: OBJECT_ROOT, MaxKeys: 1 }),
-      );
-    } finally {
-      recordAuthStorageOperation("list", performance.now() - startedAt);
-    }
+  checkReadiness(): Promise<void> {
+    return this.s3.checkReadiness();
   }
 
-  async consumeRateLimit(
+  consumeRateLimit(
     namespace: string,
     key: string,
     limit: number,
     windowMs: number,
   ): Promise<boolean> {
-    if (!/^[a-z][a-z0-9-]{0,31}$/.test(namespace)) {
-      throw new Error("Invalid rate-limit namespace");
-    }
-    if (
-      !key ||
-      !Number.isSafeInteger(limit) ||
-      limit < 1 ||
-      !Number.isSafeInteger(windowMs) ||
-      windowMs < 1
-    ) {
-      throw new Error("Invalid rate-limit configuration");
-    }
-
-    const digest = createHmac("sha256", this.identityIndexSecret)
-      .update(`${namespace}\0${key}`)
-      .digest("hex");
-    const shard = digest.slice(0, 2);
-    const objectKey = `${OBJECT_PREFIX}security/rate-limits/${namespace}/${shard}.json`;
-
-    return this.withRateLimitLock(objectKey, async () => {
-      const now = Date.now();
-      const stored = await this.readJson<unknown>(objectKey);
-      const entries: Record<string, { count: number; resetAt: number }> = {};
-      if (typeof stored === "object" && stored !== null && !Array.isArray(stored)) {
-        for (const [storedDigest, value] of Object.entries(stored)) {
-          if (
-            /^[a-f0-9]{64}$/.test(storedDigest) &&
-            typeof value === "object" &&
-            value !== null &&
-            !Array.isArray(value)
-          ) {
-            const candidate = value as { count?: unknown; resetAt?: unknown };
-            if (
-              Number.isSafeInteger(candidate.count) &&
-              (candidate.count as number) > 0 &&
-              Number.isSafeInteger(candidate.resetAt) &&
-              (candidate.resetAt as number) > now
-            ) {
-              entries[storedDigest] = {
-                count: candidate.count as number,
-                resetAt: candidate.resetAt as number,
-              };
-            }
-          }
-        }
-      }
-
-      const current = entries[digest];
-      if (current && current.count >= limit) return false;
-      if (!current && Object.keys(entries).length >= MAX_RATE_LIMIT_ENTRIES_PER_SHARD) {
-        let earliestDigest: string | undefined;
-        let earliestResetAt = Number.POSITIVE_INFINITY;
-        for (const [storedDigest, entry] of Object.entries(entries)) {
-          if (entry.resetAt < earliestResetAt) {
-            earliestDigest = storedDigest;
-            earliestResetAt = entry.resetAt;
-          }
-        }
-        if (earliestDigest) delete entries[earliestDigest];
-      }
-
-      entries[digest] = current
-        ? { ...current, count: current.count + 1 }
-        : { count: 1, resetAt: now + windowMs };
-      await this.writeJson(objectKey, entries);
-      return true;
-    });
-  }
-
-  private async withRateLimitLock<Result>(
-    key: string,
-    operation: () => Promise<Result>,
-  ): Promise<Result> {
-    const previous = this.rateLimitQueues.get(key) ?? Promise.resolve();
-    let release!: () => void;
-    const current = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    this.rateLimitQueues.set(key, current);
-    await previous;
-    try {
-      return await operation();
-    } finally {
-      release();
-      if (this.rateLimitQueues.get(key) === current) this.rateLimitQueues.delete(key);
-    }
+    return this.rateLimits.consumeRateLimit(namespace, key, limit, windowMs);
   }
 
   async readRecord<Kind extends AuthRecordKind>(
@@ -415,29 +85,29 @@ export class SpacesAuthStore {
     id: string,
   ): Promise<VersionedRecord<AuthRecordFor<Kind>> | null> {
     assertOpaqueId(id);
-    const directKey = this.directRecordKey(kind, id);
+    const directKey = directRecordKey(kind, id);
     const indexed = directKey
       ? null
-      : await this.readJson<{ key?: unknown }>(identityIndexKey(kind, id));
+      : await this.s3.readJson<{ key?: unknown }>(identityIndexKey(kind, id));
     const key =
       directKey ??
-      (typeof indexed?.key === "string" ? indexed.key : this.fallbackRecordKey(kind, id));
-    const value = await this.readJson<unknown>(key);
+      (typeof indexed?.key === "string" ? indexed.key : fallbackRecordKey(kind, id));
+    const value = await this.s3.readJson<unknown>(key);
     if (value === null) return null;
-    const record = this.unwrapRecord(value);
+    const record = unwrapRecord(value);
     if (kind === "membership" && isAuthRecord(record, "organization-membership")) {
       const grant = (record as OrganizationMembershipRecord).permissionGrants?.find(
         (candidate) => candidate.membershipId === id,
       );
       if (!grant) return null;
       assertNoPlaintextSecrets(grant);
-      return this.wrapRecord(grant as AuthRecordFor<Kind>);
+      return wrapRecord(grant as AuthRecordFor<Kind>);
     }
     if (!isAuthRecord(record, kind, id)) {
       throw new Error(`Record identity does not match its S3 object at ${key}`);
     }
     assertNoPlaintextSecrets(record);
-    return this.wrapRecord(record as AuthRecordFor<Kind>);
+    return wrapRecord(record as AuthRecordFor<Kind>);
   }
 
   async readOrganizationMembership(
@@ -450,9 +120,9 @@ export class SpacesAuthStore {
     const key = productId
       ? `${OBJECT_PREFIX}orgs/${organizationId}/products/${safeSegment(productId)}/members/${subjectId}.json`
       : `${OBJECT_PREFIX}orgs/${organizationId}/catalog-managers/${subjectId}.json`;
-    const value = await this.readJson<unknown>(key);
+    const value = await this.s3.readJson<unknown>(key);
     if (value === null) return null;
-    const record = this.unwrapRecord(value);
+    const record = unwrapRecord(value);
     if (!isAuthRecord(record, "organization-membership")) {
       throw new Error(`Malformed product membership at ${key}`);
     }
@@ -475,7 +145,7 @@ export class SpacesAuthStore {
     assertOpaqueId(organizationId);
     const membershipIndexRoot = `${ORGANIZATION_MEMBERSHIP_INDEX_ROOT}/${organizationId}`;
     if (productId === undefined && (await this.hasOrganizationMembershipIndex())) {
-      const indexKeys = await this.listKeys(`${membershipIndexRoot}/`);
+      const indexKeys = await this.s3.listKeys(`${membershipIndexRoot}/`);
       const memberships = await mapWithConcurrency(indexKeys, async (indexKey) => {
         const relativePath = indexKey.slice(membershipIndexRoot.length + 1);
         const [productPart, subjectFile, ...extra] = relativePath.split("/");
@@ -513,15 +183,15 @@ export class SpacesAuthStore {
         : productId === undefined
           ? `${OBJECT_PREFIX}orgs/${organizationId}/`
           : `${OBJECT_PREFIX}orgs/${organizationId}/products/${safeSegment(productId)}/members/`;
-    const keys = (await this.listKeys(legacyPrefix)).filter((key) =>
+    const keys = (await this.s3.listKeys(legacyPrefix)).filter((key) =>
       productId === null
         ? /\/catalog-managers\/[^/]+\.json$/.test(key)
         : /\/(catalog-managers|members)\/[^/]+\.json$/.test(key),
     );
     const memberships = await mapWithConcurrency(keys, async (key) => {
-      const raw = await this.readJson<unknown>(key);
+      const raw = await this.s3.readJson<unknown>(key);
       if (raw === null) return null;
-      const record = this.unwrapRecord(raw);
+      const record = unwrapRecord(raw);
       if (!isAuthRecord(record, "organization-membership")) return null;
       const membership = record as OrganizationMembershipRecord;
       return membership.organizationId === organizationId &&
@@ -538,7 +208,8 @@ export class SpacesAuthStore {
     if (this.organizationMembershipIndexReady) return true;
     if (Date.now() - this.organizationMembershipIndexCheckedAt < 30_000) return false;
     if (this.organizationMembershipIndexCheck) return this.organizationMembershipIndexCheck;
-    const check = this.readJson<{ version?: unknown }>(ORGANIZATION_MEMBERSHIP_INDEX_MANIFEST)
+    const check = this.s3
+      .readJson<{ version?: unknown }>(ORGANIZATION_MEMBERSHIP_INDEX_MANIFEST)
       .then((manifest) => {
         this.organizationMembershipIndexReady = manifest?.version === 1;
         this.organizationMembershipIndexCheckedAt = Date.now();
@@ -554,7 +225,7 @@ export class SpacesAuthStore {
   async listMembershipsForSubject(subjectId: SubjectId): Promise<OrganizationMembershipRecord[]> {
     assertOpaqueId(subjectId);
     const prefix = `${INDEX_ROOT}/by-subject/${subjectId}/products/`;
-    const keys = await this.listKeys(prefix);
+    const keys = await this.s3.listKeys(prefix);
     const membershipKeys = keys.flatMap((pointerKey) => {
       const relativeKey = pointerKey.slice(prefix.length);
       const separator = relativeKey.indexOf("/");
@@ -588,9 +259,9 @@ export class SpacesAuthStore {
     const memberships = await mapWithConcurrency(
       membershipKeys,
       async ({ key, organizationId, productPart }) => {
-        const value = await this.readJson<unknown>(key);
+        const value = await this.s3.readJson<unknown>(key);
         if (value === null) return null;
-        const record = this.unwrapRecord(value);
+        const record = unwrapRecord(value);
         if (!isAuthRecord(record, "organization-membership")) return null;
         const membership = record as OrganizationMembershipRecord;
         return membership.organizationId === organizationId &&
@@ -608,7 +279,7 @@ export class SpacesAuthStore {
   async listApiKeysForSubject(subjectId: SubjectId): Promise<ApiKeyRecord[]> {
     assertOpaqueId(subjectId);
     const prefix = `${INDEX_ROOT}/by-subject/${subjectId}/api-keys/`;
-    const indexKeys = await this.listKeys(prefix);
+    const indexKeys = await this.s3.listKeys(prefix);
     const records = await mapWithConcurrency(indexKeys, async (indexKey) => {
       const apiKeyId = indexKey.slice(prefix.length).replace(/\.json$/, "");
       try {
@@ -616,9 +287,9 @@ export class SpacesAuthStore {
       } catch {
         return null;
       }
-      const value = await this.readJson<unknown>(`${OBJECT_PREFIX}api-keys/${apiKeyId}.json`);
+      const value = await this.s3.readJson<unknown>(`${OBJECT_PREFIX}api-keys/${apiKeyId}.json`);
       if (value === null) return null;
-      const record = this.unwrapRecord(value);
+      const record = unwrapRecord(value);
       if (!isAuthRecord(record, "api-key", apiKeyId)) return null;
       const apiKey = record as ApiKeyRecord;
       return apiKey.owner.kind === "subject" && apiKey.owner.subjectId === subjectId
@@ -668,17 +339,19 @@ export class SpacesAuthStore {
   async listProductsByProductId(productId: string): Promise<ProductRecord[]> {
     const normalizedProductId = safeSegment(productId);
     const organizationRoot = `${OBJECT_PREFIX}orgs/`;
-    const organizationIds = (await this.listCommonPrefixes(organizationRoot)).flatMap((prefix) => {
-      if (!prefix.startsWith(organizationRoot) || !prefix.endsWith("/")) return [];
-      const organizationId = prefix.slice(organizationRoot.length, -1);
-      if (!organizationId || organizationId.includes("/")) return [];
-      try {
-        assertOpaqueId(organizationId);
-      } catch {
-        return [];
-      }
-      return [organizationId];
-    });
+    const organizationIds = (await this.s3.listCommonPrefixes(organizationRoot)).flatMap(
+      (prefix) => {
+        if (!prefix.startsWith(organizationRoot) || !prefix.endsWith("/")) return [];
+        const organizationId = prefix.slice(organizationRoot.length, -1);
+        if (!organizationId || organizationId.includes("/")) return [];
+        try {
+          assertOpaqueId(organizationId);
+        } catch {
+          return [];
+        }
+        return [organizationId];
+      },
+    );
     const products = await mapWithConcurrency(organizationIds, (organizationId) =>
       this.readStoredProduct(organizationId, normalizedProductId),
     );
@@ -688,11 +361,11 @@ export class SpacesAuthStore {
   async listProducts(organizationId: string): Promise<ProductRecord[]> {
     assertOpaqueId(organizationId);
     const prefix = `${OBJECT_PREFIX}orgs/${organizationId}/products/`;
-    const keys = (await this.listKeys(prefix)).filter((key) => key.endsWith("/product.json"));
+    const keys = (await this.s3.listKeys(prefix)).filter((key) => key.endsWith("/product.json"));
     const products = await mapWithConcurrency(keys, async (key) => {
-      const raw = await this.readJson<unknown>(key);
+      const raw = await this.s3.readJson<unknown>(key);
       if (raw === null) return null;
-      const record = this.unwrapRecord(raw);
+      const record = unwrapRecord(raw);
       if (!isAuthRecord(record, "product")) return null;
       const local = record as ProductRecord;
       const keyProductId = key.slice(prefix.length, -"/product.json".length);
@@ -708,9 +381,9 @@ export class SpacesAuthStore {
   ): Promise<ProductRecord | null> {
     assertOpaqueId(organizationId);
     const key = `${OBJECT_PREFIX}orgs/${organizationId}/products/${safeSegment(productId)}/product.json`;
-    const raw = await this.readJson<unknown>(key);
+    const raw = await this.s3.readJson<unknown>(key);
     if (raw === null) return null;
-    const record = this.unwrapRecord(raw);
+    const record = unwrapRecord(raw);
     if (!isAuthRecord(record, "product")) throw new Error(`Malformed product at ${key}`);
     const product = record as ProductRecord;
     if (product.organizationId !== organizationId || product.productId !== productId) {
@@ -722,7 +395,7 @@ export class SpacesAuthStore {
   async findSubjectIdByEmail(email: string): Promise<SubjectId | null> {
     const normalized = email.trim().toLowerCase();
     const digest = createHmac("sha256", this.identityIndexSecret).update(normalized).digest("hex");
-    const value = await this.readJson<{ subjectId?: unknown }>(
+    const value = await this.s3.readJson<{ subjectId?: unknown }>(
       `${INDEX_ROOT}/by-email/${digest}.json`,
     );
     if (typeof value?.subjectId !== "string") return null;
@@ -737,7 +410,7 @@ export class SpacesAuthStore {
     const digest = createHmac("sha256", this.identityIndexSecret)
       .update(`${provider}\0${providerSubject}`)
       .digest("hex");
-    const value = await this.readJson<{ subjectId?: unknown }>(
+    const value = await this.s3.readJson<{ subjectId?: unknown }>(
       `${INDEX_ROOT}/by-external-identity/${provider}/${digest}.json`,
     );
     if (typeof value?.subjectId !== "string") return null;
@@ -751,7 +424,7 @@ export class SpacesAuthStore {
     const digest = createHmac("sha256", this.identityIndexSecret)
       .update(`${product}\0${normalized}`)
       .digest("hex");
-    const value = await this.readJson<{ subjectId?: unknown }>(
+    const value = await this.s3.readJson<{ subjectId?: unknown }>(
       `${INDEX_ROOT}/by-product-username/${product}/${digest}.json`,
     );
     if (typeof value?.subjectId !== "string") return null;
@@ -765,21 +438,21 @@ export class SpacesAuthStore {
     assertOpaqueId(authRecordId(record));
     assertNoPlaintextSecrets(record);
     if (record.kind === "subject" && record.deletedAt) {
-      const previousValue = await this.readJson<unknown>(recordKey(record));
-      const previous = this.unwrapRecord(previousValue);
+      const previousValue = await this.s3.readJson<unknown>(recordKey(record));
+      const previous = unwrapRecord(previousValue);
       if (isAuthRecord(previous, "subject")) {
         await this.deleteSubjectLookupIndexes(previous as SubjectRecord);
       }
     }
     const key = recordKey(record);
-    await this.writeJson(identityIndexKey(record.kind, authRecordId(record)), { key });
+    await this.s3.writeJson(identityIndexKey(record.kind, authRecordId(record)), { key });
 
     if (record.kind === "subject" && record.primaryEmail) {
       const normalized = record.primaryEmail.trim().toLowerCase();
       const digest = createHmac("sha256", this.identityIndexSecret)
         .update(normalized)
         .digest("hex");
-      await this.writeJson(`${INDEX_ROOT}/by-email/${digest}.json`, {
+      await this.s3.writeJson(`${INDEX_ROOT}/by-email/${digest}.json`, {
         subjectId: record.subjectId,
       });
     }
@@ -796,11 +469,11 @@ export class SpacesAuthStore {
           .update(`${identity.provider}\0${identity.subject}`)
           .digest("hex");
         const indexKey = `${INDEX_ROOT}/by-external-identity/${identity.provider}/${digest}.json`;
-        const existing = await this.readJson<{ subjectId?: unknown }>(indexKey);
+        const existing = await this.s3.readJson<{ subjectId?: unknown }>(indexKey);
         if (typeof existing?.subjectId === "string" && existing.subjectId !== record.subjectId) {
           throw new Error("This external login identity is already linked to another account.");
         }
-        await this.writeJson(indexKey, { subjectId: record.subjectId });
+        await this.s3.writeJson(indexKey, { subjectId: record.subjectId });
       }
 
       for (const identifier of record.loginIdentifiers ?? []) {
@@ -812,38 +485,38 @@ export class SpacesAuthStore {
         const digest = createHmac("sha256", this.identityIndexSecret)
           .update(`${product}\0${normalized}`)
           .digest("hex");
-        await this.writeJson(`${INDEX_ROOT}/by-product-username/${product}/${digest}.json`, {
+        await this.s3.writeJson(`${INDEX_ROOT}/by-product-username/${product}/${digest}.json`, {
           subjectId: record.subjectId,
         });
       }
     }
     if (record.kind === "organization-membership") {
       const productPart = record.productId ? safeSegment(record.productId) : "_catalog";
-      await this.writeJson(
+      await this.s3.writeJson(
         `${INDEX_ROOT}/by-subject/${record.subjectId}/products/${record.organizationId}/${productPart}.json`,
         { key },
       );
-      await this.writeJson(
+      await this.s3.writeJson(
         `${ORGANIZATION_MEMBERSHIP_INDEX_ROOT}/${record.organizationId}/${productPart}/${record.subjectId}.json`,
         { key },
       );
       for (const grant of record.permissionGrants ?? []) {
-        await this.writeJson(identityIndexKey("membership", grant.membershipId), { key });
+        await this.s3.writeJson(identityIndexKey("membership", grant.membershipId), { key });
       }
     }
     if (record.kind === "api-key" && record.owner.kind === "subject") {
-      await this.writeJson(
+      await this.s3.writeJson(
         `${INDEX_ROOT}/by-subject/${record.owner.subjectId}/api-keys/${record.apiKeyId}.json`,
         { key },
       );
     }
     if (record.kind === "session") {
-      await this.writeJson(
+      await this.s3.writeJson(
         `${INDEX_ROOT}/by-subject/${record.subjectId}/sessions/${record.sessionId}.json`,
         { key },
       );
     }
-    await this.writeJson(key, record);
+    await this.s3.writeJson(key, record);
   }
 
   async moveRecord(previousInput: AuthRecord, nextInput: AuthRecord): Promise<void> {
@@ -865,9 +538,9 @@ export class SpacesAuthStore {
 
     // Prepare the destination object before moving its identity pointer. If a write fails,
     // the original object remains readable and a retry can safely overwrite this copy.
-    await this.writeJson(nextKey, next);
+    await this.s3.writeJson(nextKey, next);
     await this.writeRecord(next);
-    await this.deleteObjectAtKey(previousKey);
+    await this.s3.deleteObjectAtKey(previousKey);
 
     if (previous.kind === "organization-membership" && previous.productId) {
       const productPart = safeSegment(previous.productId);
@@ -877,153 +550,39 @@ export class SpacesAuthStore {
       ];
       await Promise.all(
         staleIndexKeys.map(async (key) => {
-          const pointer = await this.readJson<{ key?: unknown }>(key);
-          if (pointer?.key === previousKey) await this.deleteObjectAtKey(key);
+          const pointer = await this.s3.readJson<{ key?: unknown }>(key);
+          if (pointer?.key === previousKey) await this.s3.deleteObjectAtKey(key);
         }),
       );
     }
   }
 
-  async appendEvent(event: AuthEvent): Promise<void> {
-    this.validateEvent(event);
-    assertNoPlaintextSecrets(event);
-    const key = eventKey(event);
-    await this.writeJson(key, event);
-    const date = datePart(event.occurredAt);
-    await this.writeJson(
-      `${OBJECT_PREFIX}activity/by-aggregate/${event.aggregate.kind}/${event.aggregate.id}/${event.eventId}.json`,
-      { key },
-    );
-    const organizationId =
-      typeof event.payload.organizationId === "string"
-        ? event.payload.organizationId
-        : event.aggregate.kind === "organization"
-          ? event.aggregate.id
-          : undefined;
-    const productId =
-      typeof event.payload.productId === "string" ? event.payload.productId : undefined;
-    const subjectId =
-      typeof event.payload.subjectId === "string"
-        ? event.payload.subjectId
-        : event.actor.kind === "subject"
-          ? event.actor.subjectId
-          : undefined;
-    if (organizationId) {
-      assertOpaqueId(organizationId);
-      await this.writeJson(
-        `${OBJECT_PREFIX}activity/by-organization/${organizationId}/${date}/${event.eventId}.json`,
-        { key },
-      );
-    }
-    if (organizationId && productId) {
-      await this.writeJson(
-        `${OBJECT_PREFIX}activity/by-product/${organizationId}/${safeSegment(productId)}/${date}/${event.eventId}.json`,
-        { key },
-      );
-    }
-    if (subjectId) {
-      assertOpaqueId(subjectId);
-      await this.writeJson(
-        `${OBJECT_PREFIX}activity/by-subject/${subjectId}/${date}/${event.eventId}.json`,
-        { key },
-      );
-    }
-    if (organizationId) {
-      this.updateRecentActivityCache(organizationId, undefined, event);
-      if (productId) this.updateRecentActivityCache(organizationId, productId, event);
-    }
+  appendEvent(event: AuthEvent): Promise<void> {
+    return this.events.appendEvent(event);
   }
 
-  async readEvent(aggregate: AuthEvent["aggregate"], eventId: EventId): Promise<AuthEvent | null> {
-    assertOpaqueId(eventId);
-    const pointer = await this.readJson<{ key?: unknown }>(
-      `${OBJECT_PREFIX}activity/by-aggregate/${aggregate.kind}/${aggregate.id}/${eventId}.json`,
-    );
-    if (typeof pointer?.key !== "string") return null;
-    const event = await this.readJson<AuthEvent>(pointer.key);
-    if (!event) return null;
-    this.validateEvent(event);
-    return event;
+  readEvent(aggregate: AuthEvent["aggregate"], eventId: EventId): Promise<AuthEvent | null> {
+    return this.events.readEvent(aggregate, eventId);
   }
 
-  async listEvents(aggregate: AuthEvent["aggregate"]): Promise<AuthEvent[]> {
-    const prefix = `${OBJECT_PREFIX}activity/by-aggregate/${aggregate.kind}/${aggregate.id}/`;
-    return this.readEventsFromPointers(prefix);
+  listEvents(aggregate: AuthEvent["aggregate"]): Promise<AuthEvent[]> {
+    return this.events.listEvents(aggregate);
   }
 
-  async listOrganizationEvents(
+  listOrganizationEvents(
     organizationId: string,
     productId?: string,
     limit?: number,
   ): Promise<AuthEvent[]> {
-    assertOpaqueId(organizationId);
-    const prefix = productId
-      ? `${OBJECT_PREFIX}activity/by-product/${organizationId}/${safeSegment(productId)}/`
-      : `${OBJECT_PREFIX}activity/by-organization/${organizationId}/`;
-    const maxEvents =
-      limit === undefined ? null : Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 0;
-    const belongsToOrganization = (event: AuthEvent) =>
-      activityOrganizationId(event) === organizationId;
-    if (maxEvents === null || maxEvents > RECENT_ACTIVITY_CACHE_LIMIT) {
-      return this.readEventsFromPointers(prefix, maxEvents ?? undefined, belongsToOrganization);
-    }
-    if (maxEvents === 0) return [];
-
-    const cacheKey = recentActivityCacheKey(organizationId, productId);
-    const cached = getRecentActivityCache(cacheKey);
-    if (cached) {
-      return cached.events.filter(belongsToOrganization).slice(0, maxEvents);
-    }
-
-    const pendingRead = recentActivityReads.get(cacheKey);
-    if (pendingRead) return (await pendingRead).filter(belongsToOrganization).slice(0, maxEvents);
-
-    const read = this.readEventsFromPointers(
-      prefix,
-      RECENT_ACTIVITY_CACHE_LIMIT,
-      belongsToOrganization,
-    ).then((events) => {
-      setRecentActivityCache(cacheKey, events);
-      return events;
-    });
-    recentActivityReads.set(cacheKey, read);
-    try {
-      return (await read).slice(0, maxEvents);
-    } finally {
-      if (recentActivityReads.get(cacheKey) === read) recentActivityReads.delete(cacheKey);
-    }
+    return this.events.listOrganizationEvents(organizationId, productId, limit);
   }
 
-  async listAllEvents(): Promise<AuthEvent[]> {
-    const keys = await this.listKeys(`${OBJECT_PREFIX}activity/events/`);
-    const events = await mapWithConcurrency(keys, async (key) => {
-      const event = await this.readJson<AuthEvent>(key);
-      if (event === null) return null;
-      this.validateEvent(event);
-      assertNoPlaintextSecrets(event);
-      return event;
-    });
-    return this.sortEvents(events.filter((event): event is AuthEvent => event !== null));
+  listAllEvents(): Promise<AuthEvent[]> {
+    return this.events.listAllEvents();
   }
 
-  async listRecentEvents(limit: number): Promise<AuthEvent[]> {
-    const maxEvents = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 0;
-    if (maxEvents === 0) return [];
-
-    const keys = await this.listKeys(`${OBJECT_PREFIX}activity/events/`);
-    const recentKeys = keys.sort().slice(-maxEvents);
-    const events = await mapWithConcurrency(
-      recentKeys,
-      async (key) => {
-        const event = await this.readJson<AuthEvent>(key);
-        if (event === null) return null;
-        this.validateEvent(event);
-        assertNoPlaintextSecrets(event);
-        return event;
-      },
-      ACTIVITY_READ_CONCURRENCY,
-    );
-    return this.sortEvents(events.filter((event): event is AuthEvent => event !== null));
+  listRecentEvents(limit: number): Promise<AuthEvent[]> {
+    return this.events.listRecentEvents(limit);
   }
 
   async listRecords<Kind extends AuthRecordKind>(
@@ -1044,244 +603,26 @@ export class SpacesAuthStore {
       session: [`${OBJECT_PREFIX}sessions/`],
       "email-action": [`${OBJECT_PREFIX}email-actions/`],
     };
-    const keys = (await Promise.all(prefixes[kind].map((prefix) => this.listKeys(prefix)))).flat();
+    const keys = (await Promise.all(prefixes[kind].map((prefix) => this.s3.listKeys(prefix)))).flat();
     const records = await mapWithConcurrency(
       [...new Set(keys)].filter((key) => isRecordListCandidate(kind, key)),
       async (key) => {
-        const value = await this.readJson<unknown>(key);
+        const value = await this.s3.readJson<unknown>(key);
         if (value === null) return [];
-        const record = this.unwrapRecord(value);
+        const record = unwrapRecord(value);
         if (kind === "membership" && isAuthRecord(record, "organization-membership")) {
           return ((record as OrganizationMembershipRecord).permissionGrants ?? []).map((grant) =>
-            this.wrapRecord(grant as AuthRecordFor<Kind>),
+            wrapRecord(grant as AuthRecordFor<Kind>),
           );
         }
-        return isAuthRecord(record, kind) ? [this.wrapRecord(record as AuthRecordFor<Kind>)] : [];
+        return isAuthRecord(record, kind) ? [wrapRecord(record as AuthRecordFor<Kind>)] : [];
       },
     );
     return records.flat();
   }
 
-  private fallbackRecordKey(kind: AuthRecordKind, id: string): string {
-    assertOpaqueId(id);
-    const direct: Partial<Record<AuthRecordKind, string>> = {
-      subject: `${OBJECT_PREFIX}subjects/${id}.json`,
-      organization: `${OBJECT_PREFIX}orgs/${id}/organization.json`,
-      "api-key": `${OBJECT_PREFIX}api-keys/${id}.json`,
-      "consumer-client": `${OBJECT_PREFIX}consumer-clients/${id}.json`,
-      "oauth-client-registration": `${OBJECT_PREFIX}oauth-client-registrations/${id}.json`,
-      "consumer-authorization-code": `${OBJECT_PREFIX}consumer-authorization-codes/${id}.json`,
-      session: `${OBJECT_PREFIX}sessions/${id}.json`,
-      "email-action": `${OBJECT_PREFIX}email-actions/${id}.json`,
-      "service-principal": `${OBJECT_PREFIX}service-principals/${id}.json`,
-      "organization-invitation": `${OBJECT_PREFIX}invitations/${id}.json`,
-    };
-    if (direct[kind]) return direct[kind]!;
-    throw new Error(`An identity index is required to load ${kind} ${id}`);
-  }
-
-  private directRecordKey(kind: AuthRecordKind, id: string): string | null {
-    switch (kind) {
-      case "subject":
-        return `${OBJECT_PREFIX}subjects/${id}.json`;
-      case "organization":
-        return `${OBJECT_PREFIX}orgs/${id}/organization.json`;
-      case "api-key":
-        return `${OBJECT_PREFIX}api-keys/${id}.json`;
-      case "consumer-client":
-        return `${OBJECT_PREFIX}consumer-clients/${id}.json`;
-      case "oauth-client-registration":
-        return `${OBJECT_PREFIX}oauth-client-registrations/${id}.json`;
-      case "consumer-authorization-code":
-        return `${OBJECT_PREFIX}consumer-authorization-codes/${id}.json`;
-      case "session":
-        return `${OBJECT_PREFIX}sessions/${id}.json`;
-      case "email-action":
-        return `${OBJECT_PREFIX}email-actions/${id}.json`;
-      case "service-principal":
-        return `${OBJECT_PREFIX}service-principals/${id}.json`;
-      default:
-        return null;
-    }
-  }
-
-  private unwrapRecord(value: unknown): unknown {
-    if (typeof value !== "object" || value === null) return value;
-    if ("record" in value && typeof value.record === "object" && value.record !== null) {
-      return lowercaseScopeIdentifiersInRecord(value.record);
-    }
-    return lowercaseScopeIdentifiersInRecord(value);
-  }
-
-  private wrapRecord<RecordType extends AuthRecord>(
-    record: RecordType,
-  ): VersionedRecord<RecordType> {
-    const writtenAt = "updatedAt" in record ? record.updatedAt : record.createdAt;
-    return { formatVersion: 1, revision: 1, writtenAt, record };
-  }
-
-  private validateEvent(event: AuthEvent): void {
-    if (event.schemaVersion !== 1) throw new Error("Unsupported auth activity schema version");
-    assertOpaqueId(event.eventId);
-    assertOpaqueId(event.aggregate.id);
-    if (!Number.isSafeInteger(event.aggregateVersion) || event.aggregateVersion < 1) {
-      throw new Error("Activity sequence must be a positive safe integer");
-    }
-    if (!event.type || event.type.length > 100) throw new Error("Invalid activity event type");
-  }
-
-  private async readEventsFromPointers(
-    prefix: string,
-    limit?: number,
-    includeEvent?: (event: AuthEvent) => boolean,
-  ): Promise<AuthEvent[]> {
-    const pointers = await this.listKeys(prefix);
-    const maxEvents =
-      limit === undefined ? null : Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 0;
-    if (maxEvents === 0) return [];
-    if (maxEvents === null || pointers.length <= maxEvents) {
-      return this.readEventsFromPointerKeys(pointers, includeEvent);
-    }
-
-    const pointersByDate = new Map<string, string[]>();
-    for (const pointerKey of pointers) {
-      const date = pointerKey.slice(prefix.length).split("/", 1)[0] ?? "";
-      const datePointers = pointersByDate.get(date) ?? [];
-      datePointers.push(pointerKey);
-      pointersByDate.set(date, datePointers);
-    }
-    const dateGroups = [...pointersByDate.entries()]
-      .sort(([left], [right]) => right.localeCompare(left))
-      .map(([, datePointers]) => datePointers);
-    const recentEvents: AuthEvent[] = [];
-    let nextDateGroup = 0;
-
-    while (nextDateGroup < dateGroups.length && recentEvents.length < maxEvents) {
-      const remaining = maxEvents - recentEvents.length;
-      const candidatePointers: string[] = [];
-      while (nextDateGroup < dateGroups.length && candidatePointers.length < remaining) {
-        candidatePointers.push(...dateGroups[nextDateGroup]!);
-        nextDateGroup += 1;
-      }
-      recentEvents.push(...(await this.readEventsFromPointerKeys(candidatePointers, includeEvent)));
-    }
-
-    return this.sortEvents(recentEvents).slice(0, maxEvents);
-  }
-
-  private async readEventsFromPointerKeys(
-    pointers: readonly string[],
-    includeEvent?: (event: AuthEvent) => boolean,
-  ): Promise<AuthEvent[]> {
-    const pointerValues = await mapWithConcurrency(
-      pointers,
-      (pointerKey) => this.readJson<{ key?: unknown }>(pointerKey),
-      ACTIVITY_READ_CONCURRENCY,
-    );
-    const eventKeys = pointerValues.flatMap((pointer) =>
-      typeof pointer?.key === "string" ? [pointer.key] : [],
-    );
-    const events = await mapWithConcurrency(
-      eventKeys,
-      async (key) => {
-        const event = await this.readJson<AuthEvent>(key);
-        if (!event) return null;
-        this.validateEvent(event);
-        return event;
-      },
-      ACTIVITY_READ_CONCURRENCY,
-    );
-    return this.sortEvents(
-      events.filter(
-        (event): event is AuthEvent => event !== null && (!includeEvent || includeEvent(event)),
-      ),
-    );
-  }
-
-  private updateRecentActivityCache(
-    organizationId: string,
-    productId: string | undefined,
-    event: AuthEvent,
-  ): void {
-    const cacheKey = recentActivityCacheKey(organizationId, productId);
-    const cached = getRecentActivityCache(cacheKey);
-    if (!cached || cached.events.some((cachedEvent) => cachedEvent.eventId === event.eventId))
-      return;
-    setRecentActivityCache(
-      cacheKey,
-      this.sortEvents([...cached.events, event]).slice(0, RECENT_ACTIVITY_CACHE_LIMIT),
-    );
-  }
-
-  private sortEvents(events: AuthEvent[]): AuthEvent[] {
-    return events.sort(
-      (left, right) =>
-        Date.parse(right.occurredAt) - Date.parse(left.occurredAt) ||
-        right.eventId.localeCompare(left.eventId),
-    );
-  }
-
-  private async readJson<Value>(key: string): Promise<Value | null> {
-    const startedAt = performance.now();
-    let attempts = 1;
-    try {
-      const result = await this.client.send(
-        new GetObjectCommand({ Bucket: this.bucket, Key: key }),
-      );
-      attempts = storageAttempts(result);
-      if (!result.Body) throw new Error(`Object body is missing at ${key}`);
-      return JSON.parse(await result.Body.transformToString()) as Value;
-    } catch (error) {
-      attempts = Math.max(attempts, storageAttempts(error));
-      if (isMissingObject(error)) return null;
-      throw error;
-    } finally {
-      recordAuthStorageOperation("get", performance.now() - startedAt, attempts);
-    }
-  }
-
-  private assertWritable(): void {
-    if (this.readOnly) {
-      throw new Error("Spaces store is configured as read-only in this runtime");
-    }
-  }
-
-  private async recordWriteOperation(
-    operation: "put" | "delete",
-    send: () => Promise<unknown>,
-  ): Promise<void> {
-    this.assertWritable();
-    const startedAt = performance.now();
-    try {
-      await send();
-    } finally {
-      recordAuthStorageOperation(operation, performance.now() - startedAt);
-    }
-  }
-
-  private async writeJson(key: string, value: unknown): Promise<void> {
-    await this.recordWriteOperation("put", () =>
-      this.client.send(
-        new PutObjectCommand({
-          Bucket: this.bucket,
-          Key: key,
-          Body: JSON.stringify(value),
-          ContentType: "application/json",
-          ACL: "private",
-          CacheControl: "no-store",
-        }),
-      ),
-    );
-  }
-
-  private async deleteObjectAtKey(key: string): Promise<void> {
-    await this.recordWriteOperation("delete", () =>
-      this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key })),
-    );
-  }
-
   private async deleteSubjectLookupIndexes(subject: SubjectRecord): Promise<void> {
-    this.assertWritable();
+    this.s3.assertWritable();
     const keys = new Set<string>();
     if (subject.primaryEmail) {
       const digest = createHmac("sha256", this.identityIndexSecret)
@@ -1305,120 +646,17 @@ export class SpacesAuthStore {
     }
     await Promise.all(
       [...keys].map(async (key) => {
-        const pointer = await this.readJson<{ subjectId?: unknown }>(key);
+        const pointer = await this.s3.readJson<{ subjectId?: unknown }>(key);
         if (pointer?.subjectId === subject.subjectId) {
-          await this.deleteObjectAtKey(key);
+          await this.s3.deleteObjectAtKey(key);
         }
       }),
     );
   }
-
-  private async listKeys(prefix: string): Promise<string[]> {
-    return (await this.listObjects(prefix)).keys;
-  }
-
-  private async listCommonPrefixes(prefix: string): Promise<string[]> {
-    return (await this.listObjects(prefix, "/")).commonPrefixes;
-  }
-
-  private async listObjects(
-    prefix: string,
-    delimiter?: string,
-  ): Promise<{ keys: string[]; commonPrefixes: string[] }> {
-    const keys: string[] = [];
-    const prefixes: string[] = [];
-    const seenTokens = new Set<string>();
-    let continuationToken: string | undefined;
-    do {
-      const startedAt = performance.now();
-      let page: ListObjectsV2CommandOutput;
-      let attempts = 1;
-      try {
-        page = await this.client.send(
-          new ListObjectsV2Command({
-            Bucket: this.bucket,
-            Prefix: prefix,
-            ...(delimiter ? { Delimiter: delimiter } : {}),
-            ContinuationToken: continuationToken,
-            MaxKeys: 1000,
-          }),
-        );
-        attempts = storageAttempts(page);
-      } catch (error) {
-        attempts = storageAttempts(error);
-        throw error;
-      } finally {
-        recordAuthStorageOperation("list", performance.now() - startedAt, attempts);
-      }
-      keys.push(...(page.Contents ?? []).flatMap((item) => (item.Key ? [item.Key] : [])));
-      prefixes.push(
-        ...(page.CommonPrefixes ?? []).flatMap(({ Prefix }) => (Prefix ? [Prefix] : [])),
-      );
-      if (!page.IsTruncated) break;
-      const nextToken = page.NextContinuationToken;
-      if (!nextToken || seenTokens.has(nextToken)) throw new Error("S3 listing did not advance");
-      seenTokens.add(nextToken);
-      continuationToken = nextToken;
-    } while (true);
-    return { keys, commonPrefixes: prefixes };
-  }
 }
 
-type Environment = Readonly<Record<string, string | undefined>>;
-
-function requiredEnvironmentValue(env: Environment, name: string): string {
-  const value = env[name]?.trim();
-  if (!value) throw new Error(`Missing required environment variable ${name}`);
-  return value;
-}
-
-function isReadOnlySpacesRuntime(env: Environment, bucket: string): boolean {
-  if (env.VERCEL === "1" && env.VERCEL_ENV !== "development") return true;
-  if (env.PERMINISTER_WRITE_PROXY_URL?.trim()) return true;
-  const normalizedBucket = bucket.trim().toLowerCase();
-  const isProductionBucket =
-    normalizedBucket === "perminister" ||
-    normalizedBucket.endsWith("-prod") ||
-    normalizedBucket.endsWith("-production");
-  if (isProductionBucket && env.PERMINISTER_WRITER_MODE !== "true") {
-    return true;
-  }
-  return false;
-}
-
-export function createSpacesAuthStoreFromEnv(env: Environment = process.env): SpacesAuthStore {
-  const endpoint = requiredEnvironmentValue(env, "PERMINISTER_SPACES_ENDPOINT");
-  const region = requiredEnvironmentValue(env, "PERMINISTER_SPACES_REGION");
-  const bucket = requiredEnvironmentValue(env, "PERMINISTER_SPACES_BUCKET");
-  const parsedEndpoint = new URL(endpoint);
-  if (
-    parsedEndpoint.protocol !== "https:" ||
-    parsedEndpoint.pathname !== "/" ||
-    parsedEndpoint.port !== "" ||
-    parsedEndpoint.search ||
-    parsedEndpoint.hash ||
-    parsedEndpoint.username ||
-    parsedEndpoint.password ||
-    parsedEndpoint.hostname.toLowerCase() !==
-      `${bucket.toLowerCase()}.${region.toLowerCase()}.digitaloceanspaces.com`
-  ) {
-    throw new Error("Spaces endpoint must be the bucket's HTTPS endpoint");
-  }
-
-  const client = new S3Client({
-    endpoint: `https://${region.toLowerCase()}.digitaloceanspaces.com`,
-    region,
-    credentials: {
-      accessKeyId: requiredEnvironmentValue(env, "PERMINISTER_SPACES_ACCESS_KEY"),
-      secretAccessKey: requiredEnvironmentValue(env, "PERMINISTER_SPACES_SECRET_KEY"),
-    },
-    maxAttempts: 3,
-  });
-
-  return new SpacesAuthStore({
-    client,
-    bucket,
-    identityIndexSecret: requiredEnvironmentValue(env, "PERMINISTER_IDENTITY_INDEX_SECRET"),
-    readOnly: isReadOnlySpacesRuntime(env, bucket),
-  });
+export function createSpacesAuthStoreFromEnv(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): SpacesAuthStore {
+  return new SpacesAuthStore(createSpacesClientConfigFromEnv(env));
 }

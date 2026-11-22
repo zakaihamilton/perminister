@@ -1,13 +1,13 @@
-import type { ReactNode } from "react";
 import { DashboardShell as PanelFrameDashboardShell } from "panel-frame-ui";
-import styles from "./dashboard-shell.module.css";
-import { BrandContent } from "@/components/site-shell";
-import type { OrganizationSummary } from "@/lib/auth/service";
+import type { ReactNode } from "react";
 import { DashboardBreadcrumbs } from "@/components/dashboard-breadcrumbs";
 import { DashboardNavigation } from "@/components/dashboard-navigation";
 import { OrganizationSwitcher } from "@/components/organization-switcher";
+import { BrandContent } from "@/components/site-shell";
 import { ThemeControl } from "@/components/theme-control";
+import type { OrganizationSummary } from "@/lib/auth/service";
 import type { DashboardBreadcrumbProduct } from "@/lib/dashboard-breadcrumbs";
+import styles from "./dashboard-shell.module.css";
 
 export function DashboardShell({
   organizationId,

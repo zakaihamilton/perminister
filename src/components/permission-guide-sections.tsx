@@ -1,5 +1,5 @@
-import { Tooltip } from "@/components/tooltip";
 import { CheckIcon } from "@/components/site-shell";
+import { Tooltip } from "@/components/tooltip";
 
 export function PermissionScopePanel() {
   return (

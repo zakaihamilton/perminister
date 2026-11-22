@@ -1,0 +1,2617 @@
+/* Organization overview, products, onboarding, access grants, roles, people, clients, and API keys */
+
+.appScope {
+  --scope-marker: 1;
+}
+
+:where(.appScope) :global(.access-form .form-grid) {
+  align-items: start;
+}
+
+:where(.appScope) :global(.access-form .form-grid > label) {
+  grid-template-rows: minmax(18px, auto) auto auto;
+}
+
+:where(.appScope) :global(.access-form .form-grid > .form-field-with-tooltip) {
+  align-content: start;
+}
+
+:where(.appScope) :global(.copy-environment-button) {
+  display: grid;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 0;
+  color: var(--success);
+  background: transparent;
+  cursor: pointer;
+}
+
+:where(.appScope) :global(.copy-environment-button:hover),
+:where(.appScope) :global(.copy-environment-button:focus-visible) {
+  border-color: var(--success);
+  background: var(--surface);
+}
+
+:where(.appScope) :global(.copy-environment-button svg) {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:where(.appScope) :global(.copy-environment-error) {
+  color: var(--danger);
+  font-size: 12px;
+}
+
+:where(.appScope) :global(.organization-id-inline) {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 12px;
+  margin: -8px 0 20px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+:where(.appScope) :global(.organization-id-copy) {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+:where(.appScope) :global(.organization-id-copy input) {
+  width: 320px;
+  min-width: 0;
+  border: 0;
+  padding: 4px 0;
+  color: var(--muted);
+  background: transparent;
+  font: 11px/1.5 "SFMono-Regular", Consolas, monospace;
+  user-select: all;
+}
+
+:where(.appScope) :global(.organization-id-copy input:focus-visible) {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+:where(.appScope) :global(.organization-id-copy-action) {
+  display: grid;
+  flex: 0 0 auto;
+  justify-items: center;
+  gap: 2px;
+}
+
+:where(.appScope) :global(.organization-id-copy-button) {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+:where(.appScope) :global(.organization-id-copy-button:hover) {
+  border-color: var(--blue);
+  color: var(--blue-dark);
+  background: var(--surface-2);
+}
+
+:where(.appScope) :global(.organization-id-copy-button svg) {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:where(.appScope) :global(.organization-id-copy-error) {
+  color: var(--danger);
+  font-size: 12px;
+}
+
+:where(.appScope) :global(.product-card > img) {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 1px solid #e9edf2;
+  border-radius: 9px;
+  object-fit: cover;
+}
+
+:where(.appScope) :global(.organization-empty-actions) {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+:where(.appScope) :global(.product-nav) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: -7px 0 22px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+
+:where(.appScope) :global(.product-nav-link) {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0 11px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+:where(.appScope) :global(.product-nav-link:hover),
+:where(.appScope) :global(.product-nav-link[aria-current="page"]) {
+  border-color: var(--line);
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+:where(.appScope) :global(.product-nav-link:focus-visible) {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+:where(.appScope) :global(.product-catalog) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
+}
+
+:where(.appScope) :global(.public-product-catalog) {
+  margin-top: 18px;
+}
+
+:where(.appScope) :global(.public-product-list) {
+  display: grid;
+  gap: 10px;
+}
+
+:where(.appScope) :global(.public-product-item) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 12px;
+  background: var(--surface);
+}
+
+:where(.appScope) :global(.public-product-copy) {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+:where(.appScope) :global(.public-product-copy > strong) {
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.public-product-copy > span) {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.appScope) :global(.public-product-copy > small) {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+:where(.appScope) :global(.public-product-copy code) {
+  font-family: "DM Mono", monospace;
+}
+
+:where(.appScope) :global(.public-product-conflict) {
+  max-width: 190px;
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+:where(.appScope) :global(.product-card-copy) {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+:where(.appScope) :global(.product-card-copy .product-visibility-badge) {
+  justify-self: start;
+}
+
+:where(.appScope) :global(.product-card-copy strong) {
+  font-size: 15px;
+}
+
+:where(.appScope) :global(.product-card-copy small) {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.appScope) :global(.product-detail-top > img) {
+  flex: 0 0 auto;
+  border: 1px solid #e9edf2;
+  border-radius: 9px;
+  object-fit: cover;
+  width: 54px;
+  height: 54px;
+}
+
+:where(.appScope) :global(.product-detail-top > .product-placeholder) {
+  width: 54px;
+  height: 54px;
+}
+
+:where(.appScope) :global(.product-detail-top > div) {
+  display: grid;
+  gap: 5px;
+}
+
+:where(.appScope) :global(.product-detail-card .text-link) {
+  color: var(--blue-dark);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+:where(.appScope) :global(.product-edit-form) {
+  max-width: 660px;
+  margin: 19px auto 0;
+}
+
+:where(.appScope) :global(.product-edit-form h2) {
+  margin: 0;
+}
+
+:where(.appScope) :global(.product-detail-list) {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 9px 15px;
+  margin: 17px 0 0;
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.product-detail-list dt) {
+  color: var(--muted);
+}
+
+:where(.appScope) :global(.product-detail-list dd) {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #344158;
+}
+
+:where(.appScope) :global(.product-detail-list a) {
+  color: var(--blue-dark);
+  text-decoration: underline;
+}
+
+:where(.appScope) :global(.product-visibility-control) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+:where(.appScope) :global(.product-visibility-control h2) {
+  margin: 0;
+  font-size: 16px;
+}
+
+:where(.appScope) :global(.product-visibility-control p) {
+  max-width: 650px;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+:where(.appScope) :global(.product-visibility-control small) {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+:where(.appScope) :global(.product-lifecycle-control) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+:where(.appScope) :global(.product-lifecycle-copy) {
+  min-width: 0;
+}
+
+:where(.appScope) :global(.product-lifecycle-copy h2) {
+  margin: 0;
+  font-size: 16px;
+}
+
+:where(.appScope) :global(.product-lifecycle-copy p) {
+  max-width: 650px;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+:where(.appScope) :global(.product-lifecycle-actions) {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+:where(.appScope) :global(.product-lifecycle-actions form) {
+  margin: 0;
+}
+
+:where(.appScope) :global(.archived-product-catalog) {
+  margin-top: 18px;
+}
+
+:where(.appScope) :global(.archived-product-list) {
+  display: grid;
+  gap: 10px;
+}
+
+:where(.appScope) :global(.archived-product-item) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 12px;
+  background: var(--surface);
+}
+
+:where(.appScope) :global(.archived-product-copy) {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 4px;
+  min-width: 0;
+}
+
+:where(.appScope) :global(.archived-product-copy > a),
+:where(.appScope) :global(.archived-product-copy > strong) {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+:where(.appScope) :global(.archived-product-copy > a:hover) {
+  color: var(--blue-dark);
+  text-decoration: underline;
+}
+
+:where(.appScope) :global(.archived-product-copy > span),
+:where(.appScope) :global(.archived-product-copy > small) {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+:where(.appScope) :global(.archived-product-copy .record-badge) {
+  justify-self: start;
+}
+
+:where(.appScope) :global(.product-privacy-organization-list) {
+  display: grid;
+  gap: 4px;
+  max-height: 180px;
+  overflow: auto;
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+:where(.appScope) :global(.product-setup-flow) {
+  display: grid;
+  gap: 16px;
+}
+
+:where(.appScope) :global(.product-setup-step-body) {
+  min-width: 0;
+}
+
+:where(.appScope) :global(.product-setup-step-body > p) {
+  margin: 6px 0 16px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+:where(.appScope) :global(.product-source-form) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 13px;
+  margin-top: 8px;
+}
+
+:where(.appScope) :global(.product-source-form label) {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+:where(.appScope) :global(.product-source-form input) {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: var(--surface-inset);
+  max-width: 420px;
+  font: 500 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+:where(.appScope) :global(.product-source-form input::placeholder) {
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+:where(.appScope) :global(.product-source-form input:focus) {
+  border-color: var(--blue);
+}
+
+:where(.appScope) :global(.product-details-form) {
+  max-width: 630px;
+  margin-top: 16px;
+}
+
+:where(.appScope) :global(.product-icon-preview) {
+  width: 45px;
+  height: 45px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  object-fit: cover;
+}
+
+:where(.appScope) :global(.product-manual-button) {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  border: 0;
+  margin-top: 8px;
+  padding: 0 2px;
+  background: none;
+  cursor: pointer;
+}
+
+:where(.appScope) :global(.people-list) {
+  display: grid;
+  gap: 9px;
+}
+
+:where(.appScope) :global(.access-grant-main) {
+  display: grid;
+  grid-column: 1;
+  grid-row: 2;
+  gap: 7px;
+  min-width: 0;
+}
+
+:where(.appScope) :global(.access-grant-main > div) {
+  display: grid;
+  gap: 5px;
+}
+
+:where(.appScope) :global(.access-grant-member-heading) {
+  display: flex;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+:where(.appScope) :global(.access-grant-member-heading strong) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+:where(.appScope) :global(.access-grant-member-heading .record-badge) {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+:where(.appScope) :global(.access-grant-actions) {
+  display: flex;
+  grid-column: 2;
+  grid-row: 2;
+  align-self: center;
+  justify-self: end;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+:where(.appScope) :global(.access-grant-main strong) {
+  color: #344158;
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.access-grant-main span),
+:where(.appScope) :global(.access-grant-main small) {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+:where(.appScope) :global(.access-grant-card form) {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+:where(.appScope) :global(.access-create-card) {
+  margin-top: 20px;
+}
+
+:where(.appScope) :global(.access-form) {
+  max-width: 780px;
+}
+
+:where(.appScope) :global(.people-card),
+:where(.appScope) :global(.invite-card) {
+  margin-top: 18px;
+}
+
+:where(.appScope) :global(.people-row:first-child) {
+  border-top: 0;
+}
+
+:where(.appScope) :global(.people-identity) {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+:where(.appScope) :global(.people-identity strong) {
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.appScope) :global(.people-identity small) {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+:where(.appScope) :global(.people-row-actions) {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+}
+
+:where(.appScope) :global(.people-row-actions form) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+:where(.appScope) :global(.people-row-actions .button) {
+  min-height: 44px;
+  padding: 0 11px;
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.invite-form) {
+  grid-template-columns: minmax(0, 1.5fr) minmax(130px, 0.7fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+:where(.appScope) :global(.invite-form .button) {
+  min-height: 43px;
+}
+
+:where(.appScope) :global(.pending-invite-row > span) {
+  display: grid;
+  gap: 4px;
+}
+
+:where(.appScope) :global(.pending-invite-row strong) {
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.pending-invite-row small) {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+:where(.appScope) :global(.pending-invite-row form) {
+  margin: 0;
+}
+
+:where(.appScope) :global(.role-help) {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+:where(.appScope) :global(.product-transfer-form) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+:where(.appScope) :global(.product-transfer-field) {
+  display: grid;
+  flex: 0 1 280px;
+  min-width: min(100%, 220px);
+  gap: 5px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+:where(.appScope) :global(.product-transfer-dropdown .pf-select-trigger) {
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 0 10px;
+  color: var(--ink-soft);
+  background: var(--surface-inset);
+  font: 500 14px/1.4 "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+:where(.appScope) :global(.product-transfer-form > .button) {
+  height: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+}
+
+:where(.appScope) :global(.settings-card .button) {
+  min-height: 42px;
+}
+
+:where(.appScope) :global(.onboarding-card p) {
+  margin: 0 0 13px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+:where(.appScope) :global(.onboarding-secondary) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 20px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.product-setup-step h2) {
+  margin: 0;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.025em;
+}
+
+:where(.appScope) :global(.consumer-client-form-field) {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  align-content: start;
+}
+
+:where(.appScope) :global(.consumer-client-form .form-grid) {
+  align-items: start;
+}
+
+:where(.appScope) :global(.consumer-client-field-hint) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+:where(.appScope) :global(.invite-form .pf-select-trigger) {
+  min-height: 44px;
+  border: 1px solid var(--line-strong);
+  padding: 0 10px;
+  border-radius: 4px;
+  color: var(--ink);
+  background: var(--surface-inset);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.onboarding-secondary a) {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: var(--blue-dark);
+}
+
+:where(.appScope) :global(.onboarding-page h1) {
+  margin: 7px 0 8px;
+  font-family: Iowan Old Style, Baskerville, "Palatino Linotype", Georgia, serif;
+  font-weight: 500;
+  color: var(--ink);
+  font-size: clamp(34px, 4vw, 46px);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+}
+
+:where(.appScope) :global(.product-setup-step) {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 15px;
+  border: 1px solid var(--line);
+  padding: 23px;
+  border-radius: 5px;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+:where(.appScope) :global(.product-placeholder) {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--line);
+  font: 700 17px "Manrope", sans-serif;
+  border-radius: 4px;
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+:where(.appScope) :global(.people-avatar) {
+  display: grid;
+  width: 35px;
+  height: 35px;
+  flex: 0 0 auto;
+  place-items: center;
+  font-weight: 700;
+  border-color: var(--line);
+  border-radius: 4px;
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+:where(.appScope) :global(.empty-state-illustration) {
+  display: block;
+  width: 88px;
+  height: 88px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+:where(.appScope) :global(.product-card) {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  box-shadow: none;
+  padding: 12px;
+}
+
+:where(.appScope) :global(.product-card-copy code),
+:where(.appScope) :global(.product-id-code) {
+  color: var(--muted);
+  font: 12px "SFMono-Regular", Consolas, monospace;
+}
+
+:where(.appScope) :global(.product-detail-top) {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  border-bottom: 1px solid #edf0f4;
+  padding-bottom: 18px;
+  border-color: var(--line);
+}
+
+:where(.appScope) :global(.people-row) {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid #edf0f4;
+  padding: 12px 0;
+  border-color: var(--line);
+}
+
+:where(.appScope) :global(.pending-invite-row) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid #edf0f4;
+  padding: 12px 0;
+  border-color: var(--line);
+}
+
+:where(.appScope) :global(.access-grant-card) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: none;
+  border-width: 0 0 1px;
+  border-radius: 0;
+  padding: 14px 2px;
+  padding-right: 12px;
+  padding-left: 12px;
+}
+
+:where(.appScope) :global(.role-pill) {
+  border: 1px solid #dce2eb;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+  border-radius: 3px;
+  color: var(--muted);
+  background: var(--surface-2);
+}
+
+:where(.appScope) :global(.onboarding-shell) {
+  padding: 50px 0 78px;
+}
+
+:where(.appScope) :global(.onboarding-page) {
+  max-width: 920px;
+}
+
+:where(.appScope) :global(.onboarding-card) {
+  display: grid;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  box-shadow: none;
+  grid-template-columns: 31px minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px;
+}
+
+:where(.appScope) :global(.onboarding-card h2) {
+  margin: 2px 0 5px;
+  font-weight: 700;
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.025em;
+  font-size: 15px;
+}
+
+:where(.appScope) :global(.onboarding-step) {
+  display: grid;
+  place-items: center;
+  font: 12px "DM Mono", monospace;
+  width: 28px;
+  height: 28px;
+  border-radius: 3px;
+  color: var(--blue-dark);
+  background: var(--blue-pale);
+}
+
+:where(.appScope) :global(.people-role-dropdown) {
+  width: 126px;
+  flex: 0 0 auto;
+}
+
+:where(.appScope) :global(.people-row-actions .pf-select-trigger) {
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--surface-inset);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  min-height: 44px;
+  padding: 0 10px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.api-key-empty-hint) {
+  margin: 14px 0 0;
+}
+
+:where(.appScope) :global(.api-key-products-card),
+:where(.appScope) :global(.api-key-create-card),
+:where(.appScope) :global(.api-key-gate-card) {
+  margin-top: 18px;
+}
+
+:where(.appScope) :global(.api-key-product-list) {
+  display: grid;
+}
+
+:where(.appScope) :global(.api-key-product-row) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-top: 1px solid var(--line);
+  padding: 14px 0;
+}
+
+:where(.appScope) :global(.api-key-product-row:first-child) {
+  border-top: 0;
+  padding-top: 0;
+}
+
+:where(.appScope) :global(.api-key-product-row:last-child) {
+  padding-bottom: 0;
+}
+
+:where(.appScope) :global(.api-key-product-row > div) {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+:where(.appScope) :global(.api-key-product-row > div > span) {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+:where(.appScope) :global(.api-key-product-row > .button) {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+:where(.appScope) :global(.api-key-access-link) {
+  display: inline-block;
+  margin-top: 12px;
+}
+
+:where(.appScope) :global(.access-explainer) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(130px, 165px);
+  gap: 16px 20px;
+}
+
+:where(.appScope) :global(.access-explainer-content) {
+  display: grid;
+  min-width: 0;
+  gap: 20px;
+  grid-column: 1;
+  grid-row: 1;
+}
+
+:where(.appScope) :global(.access-visual-overview) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(130px, 165px);
+  align-items: start;
+  gap: 12px;
+}
+
+:where(.appScope) :global(.access-visual-overview .dashboard-card-heading) {
+  margin-bottom: 0;
+}
+
+:where(.appScope) :global(.access-visual-illustration) {
+  display: block;
+  width: 100%;
+  max-width: 165px;
+  height: auto;
+  justify-self: end;
+}
+
+:where(.appScope) :global(.access-explainer > .access-visual-illustration) {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+}
+
+:where(.appScope) :global(.access-explainer .dashboard-card-heading) {
+  margin-bottom: 0;
+}
+
+:where(.appScope) :global(.access-explainer .dashboard-card-heading p) {
+  max-width: 850px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+:where(.appScope) :global(.access-scope-guide) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+:where(.appScope) :global(.access-explainer .access-scope-guide) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+:where(.appScope) :global(.access-grant-list) {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--line);
+  margin-top: 18px;
+}
+
+:where(.appScope) :global(.access-scope-guide article) {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 11px 12px;
+  background: var(--surface-inset);
+}
+
+:where(.appScope) :global(.access-scope-guide h3) {
+  margin: 0 0 5px;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+:where(.appScope) :global(.access-scope-guide p) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+:where(.appScope) :global(.access-explainer-note) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--line);
+  padding-top: 9px;
+}
+
+:where(.appScope) :global(.access-scope-field),
+:where(.appScope) :global(.access-actions-field) {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 7px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+:where(.appScope) :global(.access-form-field-help) {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+:where(.appScope) :global(.access-resource-field) {
+  align-content: start;
+}
+
+:where(.appScope) :global(.product-card:hover) {
+  border-color: var(--blue);
+  background: var(--surface-2);
+  box-shadow: 0 3px 10px rgba(38, 35, 27, 0.1);
+}
+
+:where(.appScope) :global(.product-card:active) {
+  border-color: var(--blue-dark);
+  background: var(--blue-pale);
+  transform: translateY(1px);
+}
+
+:where(.appScope) :global(.product-card-arrow) {
+  margin-left: auto;
+  color: var(--muted);
+  transition: color 140ms ease, transform 140ms ease;
+}
+
+:where(.appScope) :global(.product-card:hover .product-card-arrow) {
+  color: var(--blue);
+  transform: translate(2px, -2px);
+}
+
+:where(.appScope) :global(.product-onboarding-card) {
+  margin-bottom: 18px;
+}
+
+:where(.appScope) :global(.consumer-client-card) {
+  border-top: 1px solid var(--line);
+  padding: 16px 0;
+}
+
+:where(.appScope) :global(.consumer-client-card:first-child) {
+  border-top: 0;
+  padding-top: 16px;
+}
+
+:where(.appScope) :global(.consumer-client-card-heading) {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+:where(.appScope) :global(.consumer-client-card-heading h3) {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+}
+
+:where(.appScope) :global(.consumer-client-card-heading p) {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+:where(.appScope) :global(.consumer-client-details-grid) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+  margin: 16px 0 0;
+}
+
+:where(.appScope) :global(.consumer-client-details-grid dt) {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+:where(.appScope) :global(.consumer-client-details-grid dd) {
+  margin: 4px 0 0;
+  color: var(--ink);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+:where(.appScope) :global(.consumer-client-card-actions) {
+  align-items: flex-start;
+  justify-content: space-between;
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+:where(.appScope) :global(.consumer-client-card-buttons) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+:where(.appScope) :global(.consumer-client-card-actions form) {
+  margin: 0;
+}
+
+:where(.appScope) :global(.consumer-client-card-actions .management-form) {
+  border-top: 1px solid var(--line);
+  margin-top: 0;
+  padding-top: 12px;
+}
+
+:where(.appScope) :global(.consumer-client-edit-actions) {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+:where(.appScope) :global(.product-onboarding-card .dashboard-card-heading) {
+  margin-bottom: 16px;
+}
+
+:where(.appScope) :global(.product-onboarding-card .dashboard-card-heading p) {
+  max-width: 760px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+:where(.appScope) :global(.product-onboarding-steps) {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.appScope) :global(.product-onboarding-steps li) {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 13px;
+  border-top: 1px solid var(--line);
+  padding: 15px 0;
+}
+
+:where(.appScope) :global(.product-onboarding-steps li:first-child) {
+  border-top: 0;
+  padding-top: 0;
+}
+
+:where(.appScope) :global(.product-onboarding-steps li:last-child) {
+  padding-bottom: 0;
+}
+
+:where(.appScope) :global(.product-onboarding-steps .onboarding-step) {
+  margin-top: 1px;
+}
+
+:where(.appScope) :global(.product-onboarding-steps li > div) {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+:where(.appScope) :global(.product-onboarding-step-heading) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+:where(.appScope) :global(.product-onboarding-step-heading h3) {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.product-onboarding-steps p) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+:where(.appScope) :global(.product-onboarding-steps code) {
+  border-radius: 3px;
+  padding: 1px 4px;
+  color: var(--ink);
+  background: var(--surface-2);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+:where(.appScope) :global(.access-actions-field .custom-dropdown) {
+  width: 100%;
+}
+
+:where(.appScope) :global(.access-custom-actions) {
+  display: grid;
+  gap: 7px;
+  margin-top: 4px;
+}
+
+:where(.appScope) :global(.access-role-actions) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+:where(.appScope) :global(.access-role-actions code) {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 3px 6px;
+  color: var(--ink-soft);
+  background: var(--surface-inset);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-weight: 450;
+  overflow-wrap: anywhere;
+}
+
+:where(.appScope) :global(.access-role-action-names) {
+  display: block;
+  max-width: 620px;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+:where(.appScope) :global(.access-role-catalog-card) {
+  margin-top: 18px;
+  padding: 16px;
+}
+
+:where(.appScope) :global(.access-role-catalog-card .access-visual-overview) {
+  margin-bottom: 6px;
+}
+
+:where(.appScope) :global(.access-role-catalog-card .access-visual-illustration) {
+  max-width: 150px;
+}
+
+:where(.appScope) :global(.access-role-list) {
+  display: grid;
+  gap: 9px;
+}
+
+:where(.appScope) :global(.access-role-item) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 13px;
+  background: var(--surface-inset);
+}
+
+:where(.appScope) :global(.access-role-item-details) {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+:where(.appScope) :global(.access-role-item-actions) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+:where(.appScope) :global(.access-role-item strong) {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.access-role-item span) {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+:where(.appScope) :global(.access-role-item form) {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+:where(.appScope) :global(.access-role-catalog-note) {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+:where(.appScope) :global(.access-role-create-form) {
+  max-width: 700px;
+  margin-top: 12px;
+}
+
+:where(.appScope) :global(.product-onboarding-status-note) {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+:where(.appScope) :global(.organization-overview-page) {
+  display: grid;
+  gap: 17px;
+}
+
+:where(.appScope) :global(.organization-overview-page .organization-id-inline) {
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin: -5px 0 1px;
+  padding: 4px 8px 4px 13px;
+  background: var(--surface);
+}
+
+:where(.appScope) :global(.organization-overview-page .organization-id-inline > span) {
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+:where(.appScope) :global(.organization-overview-page .organization-id-copy input) {
+  width: clamp(170px, 38vw, 320px);
+  color: var(--muted);
+}
+
+:where(.appScope) :global(.organization-overview-page .organization-id-copy-button) {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--surface-inset);
+  transition: color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+:where(.appScope) :global(.organization-overview-page .organization-id-copy-button:hover) {
+  transform: translateY(-1px);
+}
+
+:where(.appScope) :global(.organization-overview-metrics) {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 13px;
+}
+
+:where(.appScope) :global(.organization-overview-stat) {
+  position: relative;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0;
+  background: linear-gradient(135deg, var(--surface) 45%, var(--surface-inset));
+  box-shadow: 0 9px 26px rgba(34, 39, 48, 0.045);
+  animation: overview-rise 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+:where(.appScope) :global(.organization-overview-stat.is-clickable) {
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+:where(.appScope) :global(.organization-overview-stat.is-clickable:hover),
+:where(.appScope) :global(.organization-overview-stat.is-clickable:focus-within) {
+  transform: translateY(-2px);
+  border-color: var(--blue);
+  box-shadow: 0 14px 32px rgba(34, 39, 48, 0.12);
+}
+
+:where(.appScope) :global(.organization-overview-stat-link) {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-height: 100%;
+  border-radius: inherit;
+  padding: 15px 17px;
+  color: inherit;
+  text-decoration: none;
+}
+
+:where(.appScope) :global(.organization-overview-stat-link[href]:hover .organization-overview-stat-label) {
+  color: var(--blue-dark);
+}
+
+:where(.appScope) :global(.organization-overview-stat:nth-child(2)) {
+  animation-delay: 55ms;
+}
+
+:where(.appScope) :global(.organization-overview-stat:nth-child(3)) {
+  animation-delay: 110ms;
+}
+
+:where(.appScope) :global(.organization-overview-stat-heading) {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding-right: 24px;
+  gap: 8px;
+}
+
+:where(.appScope) :global(.organization-overview-stat-icon) {
+  width: 29px;
+  height: 29px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  color: var(--blue-dark);
+  background: var(--blue-pale);
+}
+
+:where(.appScope) :global(.organization-overview-stat-icon.is-members) {
+  color: var(--mint-dark);
+  background: var(--success-soft);
+}
+
+:where(.appScope) :global(.organization-overview-stat-icon.is-keys) {
+  color: var(--amber);
+  background: var(--amber-pale);
+}
+
+:where(.appScope) :global(.organization-overview-stat-icon svg),
+:where(.appScope) :global(.organization-activity-empty-icon svg) {
+  width: 17px;
+  height: 17px;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:where(.appScope) :global(.organization-overview-stat-label) {
+  min-width: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+:where(.appScope) :global(.organization-overview-info.tooltip-trigger) {
+  width: 17px;
+  height: 17px;
+  font-size: 10px;
+}
+
+:where(.appScope) :global(.organization-overview-stat > .tooltip-anchor) {
+  position: absolute;
+  top: 21px;
+  right: 17px;
+  z-index: 1;
+}
+
+:where(.appScope) :global(.organization-overview-stat-value) {
+  color: var(--ink);
+  font: 700 clamp(22px, 2.4vw, 29px)/1.1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.055em;
+  overflow-wrap: anywhere;
+}
+
+:where(.appScope) :global(.organization-overview-stat-caption) {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+:where(.appScope) :global(.organization-overview-grid) {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+  align-items: start;
+  gap: 16px;
+}
+
+:where(.appScope) :global(.organization-overview-grid.is-products-only) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+:where(.appScope) :global(.organization-overview-grid > .dashboard-card) {
+  min-width: 0;
+  margin-top: 0;
+  border-color: var(--line);
+  border-radius: 14px;
+  padding: 20px;
+  background: var(--surface);
+  box-shadow: 0 10px 30px rgba(34, 39, 48, 0.04);
+  animation: overview-rise 480ms 120ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+:where(.appScope) :global(.organization-overview-grid .dashboard-card-heading) {
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+:where(.appScope) :global(.organization-overview-grid .dashboard-card-heading h2) {
+  font-size: 17px;
+  letter-spacing: -0.035em;
+}
+
+:where(.appScope) :global(.organization-overview-grid .dashboard-card-heading p) {
+  max-width: 390px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+:where(.appScope) :global(.organization-overview-grid .text-link) {
+  flex: 0 0 auto;
+  color: var(--blue-dark);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+
+:where(.appScope) :global(.organization-overview-grid .text-link:hover) {
+  text-decoration: underline;
+}
+
+:where(.appScope) :global(.organization-product-browser-toolbar) {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: -2px 0 11px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+:where(.appScope) :global(.organization-product-view-controls) {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 3px;
+  background: var(--surface-inset);
+}
+
+:where(.appScope) :global(.organization-product-view-button) {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+:where(.appScope) :global(.organization-product-view-button svg) {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:where(.appScope) :global(.organization-product-view-button:hover) {
+  transform: translateY(-1px);
+  color: var(--blue-dark);
+}
+
+:where(.appScope) :global(.organization-product-view-button[aria-pressed="true"]) {
+  border-color: var(--line);
+  color: var(--blue-dark);
+  background: var(--surface);
+  box-shadow: 0 2px 6px rgba(34, 39, 48, 0.08);
+}
+
+:where(.appScope) :global(.organization-product-preview-grid) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px;
+}
+
+:where(.appScope) :global(.organization-product-card) {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--surface-inset);
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+  animation: overview-rise 420ms 160ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+:where(.appScope) :global(.organization-product-card:nth-child(2)) {
+  animation-delay: 210ms;
+}
+
+:where(.appScope) :global(.organization-product-card:nth-child(3)) {
+  animation-delay: 260ms;
+}
+
+:where(.appScope) :global(.organization-product-card:nth-child(4)) {
+  animation-delay: 310ms;
+}
+
+:where(.appScope) :global(.organization-product-card:hover) {
+  transform: translateY(-2px);
+  border-color: var(--blue);
+  background: var(--surface);
+  box-shadow: 0 10px 24px rgba(34, 39, 48, 0.08);
+}
+
+:where(.appScope) :global(.organization-product-card:focus-visible) {
+  border-color: var(--blue);
+}
+
+:where(.appScope) :global(.organization-product-card-top) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+:where(.appScope) :global(.organization-product-card-top .organization-product-icon) {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+:where(.appScope) :global(.organization-product-card-top .product-placeholder) {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  object-fit: cover;
+  color: var(--blue-dark);
+  background: var(--blue-pale);
+}
+
+:where(.appScope) :global(.organization-product-badge) {
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: var(--ink-soft);
+  background: var(--surface);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+:where(.appScope) :global(.organization-product-card-copy) {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+:where(.appScope) :global(.organization-product-card-copy > strong) {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.appScope) :global(.organization-product-description) {
+  display: -webkit-box;
+  min-height: 38px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+:where(.appScope) :global(.organization-product-card-action) {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  color: var(--blue-dark);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+:where(.appScope) :global(.organization-product-card-action svg) {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 150ms ease;
+}
+
+:where(.appScope) :global(.organization-product-card:hover .organization-product-card-action svg) {
+  transform: translateX(3px);
+}
+
+:where(.appScope) :global(.organization-product-preview-grid.is-list) {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+:where(.appScope) :global(.organization-product-preview-grid.is-list .organization-product-card) {
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+}
+
+:where(.appScope) :global(.organization-product-preview-grid.is-list .organization-product-card-top) {
+  grid-row: 1;
+}
+
+:where(.appScope) :global(.organization-product-preview-grid.is-list .organization-product-card-top .organization-product-icon),
+:where(.appScope) :global(.organization-product-preview-grid.is-list .organization-product-card-top .product-placeholder) {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+}
+
+:where(.appScope) :global(.organization-product-preview-grid.is-list .organization-product-badge) {
+  display: none;
+}
+
+:where(.appScope) :global(.organization-product-preview-grid.is-list .organization-product-card-copy) {
+  grid-column: 2;
+  grid-row: 1;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 12px;
+}
+
+:where(.appScope) :global(.organization-product-preview-grid.is-list .organization-product-card-copy > strong) {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+:where(.appScope) :global(.organization-product-preview-grid.is-list .organization-product-description) {
+  min-height: 0;
+  grid-column: 1;
+  grid-row: 2;
+  -webkit-line-clamp: 1;
+}
+
+:where(.appScope) :global(.organization-product-preview-grid.is-list .organization-product-card-action) {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  margin: 0;
+  white-space: nowrap;
+}
+
+:where(.appScope) :global(.organization-activity-preview) {
+  min-width: 0;
+}
+
+:where(.appScope) :global(.organization-activity-heading) {
+  align-items: flex-start !important;
+}
+
+:where(.appScope) :global(.organization-activity-list) {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.appScope) :global(.organization-activity-item) {
+  position: relative;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding: 13px 0;
+  animation: overview-rise 380ms 180ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+:where(.appScope) :global(.organization-activity-item:first-child) {
+  border-top: 0;
+  padding-top: 0;
+}
+
+:where(.appScope) :global(.organization-activity-marker) {
+  position: relative;
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--blue);
+  border-radius: 50%;
+  margin-top: 5px;
+  background: var(--surface);
+}
+
+:where(.appScope) :global(.organization-activity-item:not(:last-child) .organization-activity-marker::after) {
+  position: absolute;
+  top: 7px;
+  left: 2px;
+  width: 1px;
+  height: calc(100% + 23px);
+  background: var(--line);
+  content: "";
+}
+
+:where(.appScope) :global(.organization-activity-item p) {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+:where(.appScope) :global(.organization-activity-item p strong) {
+  color: var(--ink);
+}
+
+:where(.appScope) :global(.organization-activity-copy) {
+  min-width: 0;
+}
+
+:where(.appScope) :global(.organization-activity-metadata) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+:where(.appScope) :global(.organization-activity-meta-item) {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: baseline;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 4px 7px;
+  color: var(--ink-soft);
+  background: var(--surface-2);
+  font-size: 10px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+:where(.appScope) :global(.organization-activity-meta-label) {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+:where(.appScope) :global(.organization-activity-meta-value) {
+  min-width: 0;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+:where(.appScope) :global(.organization-activity-item time) {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+:where(.appScope) :global(.organization-activity-empty) {
+  min-height: 180px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 7px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+:where(.appScope) :global(.organization-activity-empty-icon) {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  margin-bottom: 3px;
+  color: var(--blue-dark);
+  background: var(--blue-pale);
+}
+
+:where(.appScope) :global(.organization-activity-empty strong) {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+:where(.appScope) :global(.organization-activity-empty p) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* Dark theme overrides */
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-card),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-setup-step),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.onboarding-card),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.access-grant-card) {
+  border-color: var(--line);
+  color: var(--ink);
+  background-color: var(--surface);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-detail-list dd),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-card-copy strong),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.people-identity strong),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.pending-invite-row strong),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.access-grant-main strong),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.onboarding-page h1) {
+  color: var(--ink);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-detail-list dt),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-card-copy small),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-card-copy code),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-id-code),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.people-identity small),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.pending-invite-row small),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.role-help) {
+  color: var(--muted);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.onboarding-secondary a),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-detail-list a) {
+  color: var(--blue-dark);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-transfer-dropdown .pf-select-trigger),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.people-row-actions .pf-select-trigger),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.invite-form .pf-select-trigger) {
+  border-color: var(--line-strong);
+  color: var(--ink);
+  background: var(--surface-inset);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.role-pill) {
+  border-color: var(--line-strong);
+  color: var(--muted);
+  background: var(--surface-2);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-placeholder),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.people-avatar),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-nav-link:hover),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-nav-link[aria-current="page"]) {
+  border-color: var(--line);
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-nav-link) {
+  color: var(--muted);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.onboarding-step) {
+  color: var(--blue-dark);
+  background: var(--blue-pale);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.people-row),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.pending-invite-row) {
+  border-color: var(--line);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-onboarding-step-heading h3),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-onboarding-steps code),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.access-role-item strong) {
+  color: var(--ink);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.access-role-actions code) {
+  color: var(--ink);
+  border-color: var(--line);
+  background: var(--surface-2);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.organization-overview-stat),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.organization-overview-grid > .dashboard-card) {
+  border-color: var(--line);
+  background: var(--surface);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.organization-product-card) {
+  border-color: var(--line);
+  background: var(--surface-inset);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.organization-product-card:hover) {
+  border-color: var(--blue);
+  background: var(--surface-2);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.organization-product-badge) {
+  border-color: var(--line);
+  color: var(--ink-soft);
+  background: var(--surface-2);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.organization-overview-page .organization-id-inline),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.organization-product-view-controls) {
+  border-color: var(--line);
+  background: var(--surface-2);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.organization-product-view-button[aria-pressed="true"]) {
+  border-color: var(--line-strong);
+  color: var(--blue-dark);
+  background: var(--surface);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.organization-activity-item p),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.organization-activity-empty strong),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.organization-overview-stat-label) {
+  color: var(--ink-soft);
+}
+
+@keyframes overview-rise {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1120px) {
+  :where(.appScope) :global(.organization-overview-grid) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 980px) {
+  :where(.appScope) :global(.people-row) {
+    flex-wrap: wrap;
+  }
+
+  :where(.appScope) :global(.people-row-actions) {
+    width: 100%;
+    margin-left: 47px;
+  }
+
+  :where(.appScope) :global(.access-explainer) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :where(.appScope) :global(.access-explainer-content) {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  :where(.appScope) :global(.access-explainer > .access-visual-illustration) {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: center;
+  }
+
+  :where(.appScope) :global(.access-explainer .access-scope-guide) {
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  }
+
+  :where(.appScope) :global(.access-explainer-note) {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  :where(.appScope) :global(.access-visual-overview) {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  :where(.appScope) :global(.access-visual-illustration) {
+    max-width: 160px;
+    justify-self: center;
+  }
+}
+
+@media (max-width: 740px) {
+  :where(.appScope) :global(.product-catalog) {
+    grid-template-columns: 1fr;
+  }
+
+  :where(.appScope) :global(.public-product-item) {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  :where(.appScope) :global(.public-product-item > form .button) {
+    width: 100%;
+  }
+
+  :where(.appScope) :global(.public-product-item > .public-product-conflict) {
+    flex: 0 1 calc(100% - 54px);
+    max-width: none;
+    margin-left: 54px;
+    text-align: left;
+  }
+
+  :where(.appScope) :global(.public-product-item > .record-badge) {
+    margin-left: 54px;
+  }
+
+  :where(.appScope) :global(.public-product-item > form) {
+    flex: 1 1 calc(100% - 54px);
+    width: calc(100% - 54px);
+    margin-left: 54px;
+  }
+
+  :where(.appScope) :global(.product-visibility-control) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  :where(.appScope) :global(.product-visibility-control > form),
+  :where(.appScope) :global(.product-visibility-control > form .button) {
+    width: 100%;
+  }
+
+  :where(.appScope) :global(.product-lifecycle-control) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  :where(.appScope) :global(.product-lifecycle-actions),
+  :where(.appScope) :global(.product-lifecycle-actions form),
+  :where(.appScope) :global(.product-lifecycle-actions .button) {
+    width: 100%;
+  }
+
+  :where(.appScope) :global(.archived-product-item) {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  :where(.appScope) :global(.archived-product-copy) {
+    flex: 1 1 calc(100% - 54px);
+  }
+
+  :where(.appScope) :global(.archived-product-item > .product-lifecycle-control) {
+    flex: 1 1 100%;
+    margin: 4px 0 0 54px;
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  :where(.appScope) :global(.onboarding-page h1) {
+    font-size: 37px;
+  }
+
+  :where(.appScope) :global(.organization-overview-metrics) {
+    gap: 9px;
+  }
+
+  :where(.appScope) :global(.organization-overview-stat) {
+    min-height: 112px;
+  }
+
+  :where(.appScope) :global(.organization-overview-stat-link) {
+    min-height: 112px;
+    padding: 13px;
+  }
+
+  :where(.appScope) :global(.organization-overview-stat > .tooltip-anchor) {
+    top: 18px;
+    right: 13px;
+  }
+
+  :where(.appScope) :global(.organization-overview-grid > .dashboard-card) {
+    padding: 17px;
+  }
+}
+
+@media (max-width: 560px) {
+  :where(.appScope) :global(.organization-empty-actions) {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  :where(.appScope) :global(.organization-empty-actions .button) {
+    width: 100%;
+  }
+
+  :where(.appScope) :global(.organization-id-inline) {
+    flex-wrap: wrap;
+    gap: 4px 9px;
+  }
+
+  :where(.appScope) :global(.organization-id-copy) {
+    flex: 1 1 220px;
+  }
+
+  :where(.appScope) :global(.organization-id-copy input) {
+    width: 100%;
+  }
+
+  :where(.appScope) :global(.empty-state-illustration) {
+    width: 68px;
+    height: 68px;
+  }
+
+  :where(.appScope) :global(.onboarding-page h1) {
+    font-size: 38px;
+  }
+
+  :where(.appScope) :global(.access-grant-card) {
+    align-items: flex-start;
+  }
+
+  :where(.appScope) :global(.api-key-product-row) {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  :where(.appScope) :global(.api-key-product-row > .button) {
+    width: 100%;
+    justify-content: center;
+  }
+
+  :where(.appScope) :global(.consumer-client-card-heading),
+  :where(.appScope) :global(.consumer-client-card-buttons) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  :where(.appScope) :global(.consumer-client-card-buttons .button) {
+    width: 100%;
+  }
+
+  :where(.appScope) :global(.consumer-client-edit-actions) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  :where(.appScope) :global(.consumer-client-edit-actions .button) {
+    width: 100%;
+  }
+
+  :where(.appScope) :global(.consumer-client-details-grid) {
+    grid-template-columns: 1fr;
+  }
+
+  :where(.appScope) :global(.product-onboarding-card) {
+    padding: 16px;
+  }
+
+  :where(.appScope) :global(.access-role-catalog-card) {
+    padding: 14px;
+  }
+
+  :where(.appScope) :global(.product-onboarding-steps li) {
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  :where(.appScope) :global(.access-role-item) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  :where(.appScope) :global(.access-role-item-actions) {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  :where(.appScope) :global(.access-role-item-actions > .button),
+  :where(.appScope) :global(.access-role-item-actions form),
+  :where(.appScope) :global(.access-role-item-actions form .button) {
+    width: 100%;
+  }
+
+  :where(.appScope) :global(.organization-overview-page) {
+    gap: 13px;
+  }
+
+  :where(.appScope) :global(.organization-overview-metrics) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :where(.appScope) :global(.organization-overview-stat-link) {
+    min-height: 112px;
+    padding: 12px;
+  }
+
+  :where(.appScope) :global(.organization-overview-stat > .tooltip-anchor) {
+    top: 16px;
+    right: 12px;
+  }
+
+  :where(.appScope) :global(.organization-overview-stat-icon) {
+    width: 26px;
+    height: 26px;
+  }
+
+  :where(.appScope) :global(.organization-overview-stat-label) {
+    font-size: 11px;
+  }
+
+  :where(.appScope) :global(.organization-overview-stat-value) {
+    font-size: clamp(20px, 7vw, 25px);
+  }
+
+  :where(.appScope) :global(.organization-overview-stat-caption) {
+    font-size: 11px;
+  }
+
+  :where(.appScope) :global(.organization-overview-page .organization-id-inline) {
+    width: 100%;
+    justify-content: space-between;
+    gap: 6px;
+    border-radius: 12px;
+    margin: 0;
+    padding: 7px 9px 7px 12px;
+  }
+
+  :where(.appScope) :global(.organization-overview-page .organization-id-copy) {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+  }
+
+  :where(.appScope) :global(.organization-overview-page .organization-id-copy input) {
+    width: 0;
+    flex: 1 1 auto;
+    font-size: 10px;
+    text-align: right;
+  }
+
+  :where(.appScope) :global(.organization-overview-grid > .dashboard-card) {
+    padding: 15px;
+  }
+
+  :where(.appScope) :global(.organization-overview-grid .dashboard-card-heading) {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  :where(.appScope) :global(.organization-overview-grid .dashboard-card-heading p) {
+    max-width: 250px;
+  }
+
+  :where(.appScope) :global(.organization-overview-grid .text-link) {
+    padding-top: 3px;
+  }
+
+  :where(.appScope) :global(.organization-products-empty) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :where(.appScope) :global(.organization-products-empty .organization-empty-actions) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  :where(.appScope) :global(.organization-products-empty .organization-empty-actions .button) {
+    width: 100%;
+  }
+
+  :where(.appScope) :global(.organization-product-preview-grid) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :where(.appScope) :global(.organization-product-preview-grid.is-list .organization-product-card) {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  :where(.appScope) :global(.organization-product-preview-grid.is-list .organization-product-card-copy) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
+  }
+
+  :where(.appScope) :global(.organization-product-preview-grid.is-list .organization-product-card-action) {
+    display: none;
+  }
+
+  :where(.appScope) :global(.organization-activity-heading) {
+    align-items: flex-start !important;
+  }
+
+  :where(.appScope) :global(.organization-activity-item) {
+    padding: 11px 0;
+  }
+}
+
+@media (max-width: 540px) {
+  :where(.appScope) :global(.product-source-form),
+  :where(.appScope) :global(.invite-form) {
+    grid-template-columns: 1fr;
+  }
+
+  :where(.appScope) :global(.product-source-form .button),
+  :where(.appScope) :global(.invite-form .button) {
+    width: 100%;
+  }
+
+  :where(.appScope) :global(.product-setup-step) {
+    grid-template-columns: 1fr;
+    padding: 17px;
+  }
+
+  :where(.appScope) :global(.product-setup-step > .onboarding-step) {
+    width: 27px;
+    height: 27px;
+  }
+
+  :where(.appScope) :global(.access-grant-card) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  :where(.appScope) :global(.access-grant-member-heading) {
+    grid-column: 1;
+  }
+
+  :where(.appScope) :global(.access-grant-main) {
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+  }
+
+  :where(.appScope) :global(.access-grant-actions) {
+    grid-column: 1;
+    grid-row: 3;
+    width: 100%;
+    justify-self: start;
+    align-self: start;
+    justify-content: flex-end;
+  }
+
+  :where(.appScope) :global(.people-row) {
+    gap: 9px;
+  }
+
+  :where(.appScope) :global(.people-row-actions) {
+    flex-wrap: wrap;
+    margin-left: 0;
+  }
+
+  :where(.appScope) :global(.people-row-actions form) {
+    flex-wrap: wrap;
+  }
+
+  :where(.appScope) :global(.pending-invite-row) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.appScope) :global(.organization-overview-page *),
+  :where(.appScope) :global(.organization-overview-page *::before),
+  :where(.appScope) :global(.organization-overview-page *::after) {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  :where(.appScope) :global(.organization-overview-stat),
+  :where(.appScope) :global(.organization-overview-grid > .dashboard-card),
+  :where(.appScope) :global(.organization-product-card),
+  :where(.appScope) :global(.organization-activity-item) {
+    animation: none !important;
+  }
+}

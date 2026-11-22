@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
-import { isUiPreviewAllowed } from "@/lib/ui-preview-access";
 import { AuthorizationView } from "@/components/authorization-view";
 import { InvitationView } from "@/components/invitation-view";
 import { SitePageSkeleton } from "@/components/site-page-skeleton";
+import { isUiPreviewAllowed } from "@/lib/ui-preview-access";
 import { consumerAuthorization } from "../fixtures";
 import { PreviewGuard } from "../preview-guard";
 

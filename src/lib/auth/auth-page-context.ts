@@ -1,8 +1,8 @@
 import "server-only";
 
 import {
-  consumerAuthRequestContext,
   type ConsumerAuthRequestContext,
+  consumerAuthRequestContext,
 } from "./consumer-auth-request-context";
 
 export type AuthPageSearchParams = {

@@ -1,9 +1,9 @@
 import { authenticateConsumerClientBasic } from "@/lib/auth/consumer-clients";
+import { NO_STORE_HEADERS, noStoreJsonResponse, readBoundedRequestBody, uniqueFormValue } from "@/lib/auth/http";
+import { normalizeOAuthUri } from "@/lib/auth/oauth-uris";
+import { getOidcIssuer } from "@/lib/auth/oidc";
 import { withApiRoutePerformance } from "@/lib/auth/performance";
 import { getSessionFromToken } from "@/lib/auth/service";
-import { NO_STORE_HEADERS, noStoreJsonResponse, readBoundedRequestBody, uniqueFormValue } from "@/lib/auth/http";
-import { getOidcIssuer } from "@/lib/auth/oidc";
-import { normalizeOAuthUri } from "@/lib/auth/oauth-uris";
 
 export const runtime = "nodejs";
 

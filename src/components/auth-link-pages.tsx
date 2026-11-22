@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { PasswordField } from "@/components/password-field";
 import { AuthPageFrame, AuthReturnToSignIn } from "@/components/auth-page-frame";
+import { PasswordField } from "@/components/password-field";
 import { getAuthLinkPageContext } from "@/lib/auth/auth-link-page-context";
 
 type AuthLinkPageProps = {

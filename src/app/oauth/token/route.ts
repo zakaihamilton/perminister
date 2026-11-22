@@ -1,13 +1,13 @@
-import { withApiRoutePerformance, withRequestPerformanceSpan } from "@/lib/auth/performance";
 import { authenticateConsumerClientBasic } from "@/lib/auth/consumer-clients";
 import { NO_STORE_HEADERS, noStoreJsonResponse, readBoundedRequestBody, uniqueFormValue } from "@/lib/auth/http";
+import { assertOidcSigningKeyReady, signOidcIdToken } from "@/lib/auth/oidc";
+import { withApiRoutePerformance, withRequestPerformanceSpan } from "@/lib/auth/performance";
 import {
   exchangeConsumerAuthorizationCode,
   getOAuthClientRegistration,
   InvalidConsumerAuthorizationCodeError,
   InvalidConsumerAuthorizationScopeError,
 } from "@/lib/auth/service";
-import { assertOidcSigningKeyReady, signOidcIdToken } from "@/lib/auth/oidc";
 
 export const runtime = "nodejs";
 

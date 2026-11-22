@@ -1,11 +1,11 @@
+import Link from "next/link";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
-import { ProductPageNavigation } from "@/components/product-navigation";
 import { ProductAccessRoleCatalog } from "@/components/product-access-role-sections";
+import { ProductPageNavigation } from "@/components/product-navigation";
 import {
   getProductManagementPageContext,
   type ProductPageWithSearchParams,
 } from "@/lib/auth/product-page-context";
-import Link from "next/link";
 
 export default async function ProductAccessRolesPage({
   params,

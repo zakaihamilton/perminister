@@ -1,13 +1,13 @@
 import "server-only";
 
-import { assertOpaqueId, type ConsumerClientRecord } from "./domain";
+import { getConsumerOAuthAuthorizationClient } from "./consumer-oauth-client";
 import {
+  type ConsumerAuthorizationRequest,
   legacyConsumerAuthorizationEnabled,
   parseConsumerAuthorizationRequest,
   safeConsumerAuthorizationReturnTo,
-  type ConsumerAuthorizationRequest,
 } from "./consumer-sso";
-import { getConsumerOAuthAuthorizationClient } from "./consumer-oauth-client";
+import { assertOpaqueId, type ConsumerClientRecord } from "./domain";
 
 export type ConsumerAuthRequestContext = {
   next: string | null;

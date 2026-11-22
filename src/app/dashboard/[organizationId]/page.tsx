@@ -7,16 +7,16 @@ import {
   OrganizationProductsSection,
 } from "@/components/organization-overview-products";
 import {
+  getOrganizationDashboardRequestContext,
+  type OrganizationDashboardPageProps,
+} from "@/lib/auth/organization-dashboard-context";
+import { withRequestPerformance } from "@/lib/auth/performance";
+import {
   countOrganizationMembersForSubject,
   getOrganizationDashboardData,
   listApiKeysForSubject,
   listOrganizationAudit,
 } from "@/lib/auth/service";
-import {
-  getOrganizationDashboardRequestContext,
-  type OrganizationDashboardPageProps,
-} from "@/lib/auth/organization-dashboard-context";
-import { withRequestPerformance } from "@/lib/auth/performance";
 
 export default async function OrganizationOverview(
   props: OrganizationDashboardPageProps<{ notice?: string }>,

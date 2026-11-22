@@ -4,8 +4,8 @@ import { ProductPageNavigation } from "@/components/product-navigation";
 import { InviteProductMemberSection } from "@/components/product-people-sections";
 import {
   getProductPageContext,
-  requireProductManagerRole,
   type ProductPageParams,
+  requireProductManagerRole,
 } from "@/lib/auth/product-page-context";
 
 export default async function InviteProductMemberPage({ params }: ProductPageParams) {

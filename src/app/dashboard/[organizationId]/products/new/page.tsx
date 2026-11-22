@@ -2,11 +2,11 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { ProductSetupForm } from "@/components/product-setup-form";
-import { getOrganizationForSubject } from "@/lib/auth/service";
 import {
   getOrganizationDashboardRequestContext,
   type OrganizationDashboardPageProps,
 } from "@/lib/auth/organization-dashboard-context";
+import { getOrganizationForSubject } from "@/lib/auth/service";
 
 export default async function NewProductPage(
   props: OrganizationDashboardPageProps<{ error?: string }>,

@@ -1,14 +1,13 @@
 import "server-only";
 
-import { authMutationQueue } from "../mutation-queue";
 import { newSubjectId, type SubjectRecord } from "../domain";
+import { authMutationQueue } from "../mutation-queue";
 import {
-  canonicalEmail,
   loadSubjectByEmailUnlocked,
   loadSubjectByUsernameUnlocked,
-  normalizeProductUsername,
   persistRecord,
-} from "./core";
+} from "./persistence";
+import { canonicalEmail, normalizeProductUsername } from "./validators";
 
 export interface SystemConceptsLegacyIdentity {
   id: string;

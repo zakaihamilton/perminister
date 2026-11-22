@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { OrganizationSummary } from "@/lib/auth/service";
 import { OrganizationSwitcher } from "@/components/organization-switcher";
+import type { OrganizationSummary } from "@/lib/auth/service";
 
 export function PreviewOrganizationSwitcher({
   organizations,

@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import { DashboardNotice } from "@/components/dashboard-shell";
 import { ConfirmationActionControl } from "@/components/confirmation-action-control";
-import type { ApiKeyRecord } from "@/lib/auth/domain";
+import { DashboardNotice } from "@/components/dashboard-shell";
 import { ProductPageNavigation } from "@/components/product-navigation";
+import type { ApiKeyRecord } from "@/lib/auth/domain";
 import type { ProductAccessSummary } from "@/lib/auth/service";
 
 export function ProductApiKeyPageNavigation({

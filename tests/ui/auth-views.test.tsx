@@ -6,6 +6,7 @@ afterEach(cleanup);
 
 vi.mock("@/components/site-shell", () => ({ Brand: () => null, SiteHeader: () => null, SiteFooter: () => null }));
 vi.mock("@/components/theme-control", () => ({ ThemeControl: () => null }));
+
 import { AuthorizationView } from "@/components/authorization-view";
 import { InvitationView } from "@/components/invitation-view";
 

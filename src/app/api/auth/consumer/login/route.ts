@@ -1,15 +1,15 @@
+import { requireConsumerClientJsonBody } from "@/lib/auth/consumer-route";
+import { passwordRecoveryRequesterKey } from "@/lib/auth/coordination";
+import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
 import { withApiRoutePerformance } from "@/lib/auth/performance";
 import {
   authenticate,
-  consumeConsumerLoginRequestRateLimit,
   ConsumerProductAccessDeniedError,
+  consumeConsumerLoginRequestRateLimit,
   createConsumerSession,
   isEmailVerifiedOrExemptForProduct,
   listConsumerOrganizationsForSubject,
 } from "@/lib/auth/service";
-import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
-import { requireConsumerClientJsonBody } from "@/lib/auth/consumer-route";
-import { passwordRecoveryRequesterKey } from "@/lib/auth/coordination";
 
 export const runtime = "nodejs";
 

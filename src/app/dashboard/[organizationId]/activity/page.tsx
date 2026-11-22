@@ -1,7 +1,7 @@
-import { DashboardHeading } from "@/components/dashboard-shell";
-import { ActivityFeed } from "@/components/activity-feed";
-import { getCurrentSession, getOrganizationActivityPageData } from "@/lib/auth/service";
 import { redirect } from "next/navigation";
+import { ActivityFeed } from "@/components/activity-feed";
+import { DashboardHeading } from "@/components/dashboard-shell";
+import { getCurrentSession, getOrganizationActivityPageData } from "@/lib/auth/service";
 
 export default async function ActivityPage({
   params,

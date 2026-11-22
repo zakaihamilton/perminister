@@ -1,17 +1,17 @@
-import { withApiRoutePerformance } from "@/lib/auth/performance";
 import { after } from "next/server";
-import { sendRecoveryEmail } from "@/lib/auth/mail";
+import {
+  invalidConsumerEmailResponse,
+  requireConsumerClientJsonObjectBody,
+} from "@/lib/auth/consumer-route";
 import { consumePasswordRecoveryRateLimit } from "@/lib/auth/coordination";
+import { NO_STORE_HEADERS } from "@/lib/auth/http";
+import { sendRecoveryEmail } from "@/lib/auth/mail";
+import { withApiRoutePerformance } from "@/lib/auth/performance";
 import {
   completeEmailAction,
   InvalidAuthActionError,
   issueRecoveryAction,
 } from "@/lib/auth/service";
-import { NO_STORE_HEADERS } from "@/lib/auth/http";
-import {
-  invalidConsumerEmailResponse,
-  requireConsumerClientJsonObjectBody,
-} from "@/lib/auth/consumer-route";
 
 export const runtime = "nodejs";
 

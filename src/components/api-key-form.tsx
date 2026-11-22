@@ -1,10 +1,10 @@
 "use client";
 
-import { useId, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { type FormEvent, useId, useState } from "react";
 import type { CreateApiKeyState } from "@/app/actions";
+import { type ApiKeyFormDefaults, ApiKeyFormFields } from "@/components/api-key-form-fields";
 import { submitStableAction } from "@/lib/action-client";
-import { ApiKeyFormFields, type ApiKeyFormDefaults } from "@/components/api-key-form-fields";
 import type { ProductRecord } from "@/lib/auth/domain";
 
 interface ApiKeyFormProps {
