@@ -47,7 +47,7 @@ export function OrganizationSwitcher({
     },
   ];
 
-  function selectOrganization(nextOrganizationId: string) {
+  async function selectOrganization(nextOrganizationId: string) {
     if (preview) {
       if (organizations.some(({ organization }) => organization.organizationId === nextOrganizationId))
         onOrganizationChange?.(nextOrganizationId);
@@ -72,11 +72,17 @@ export function OrganizationSwitcher({
       return;
     }
     setError(null);
-    router.push(
-      keepOperationsContext
-        ? operationsHref("/dashboard/operations", selectedOrganization.organization.organizationId)
-        : `/dashboard/${encodeURIComponent(selectedOrganization.organization.organizationId)}`,
-    );
+    const selectedOrganizationId = selectedOrganization.organization.organizationId;
+    const destination = keepOperationsContext
+      ? operationsHref("/dashboard/operations", selectedOrganizationId)
+      : `/dashboard/${encodeURIComponent(selectedOrganizationId)}`;
+    await fetch("/api/dashboard/organization-preference", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organizationId: selectedOrganizationId }),
+      credentials: "same-origin",
+    }).catch(() => null);
+    router.push(destination);
   }
 
   if (

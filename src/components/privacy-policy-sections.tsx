@@ -61,8 +61,9 @@ function PrivacyBrowserStorageSection() {
     <section aria-labelledby="privacy-browser-storage">
       <h2 id="privacy-browser-storage">Cookies and browser storage</h2>
       <p>
-        Sign-in uses an HTTP-only session cookie that expires after 12 hours. The site also stores
-        your light, dark, or system theme preference in your browser’s local storage.
+        Sign-in uses an HTTP-only session cookie that expires after 30 days. An HTTP-only
+        preference cookie remembers your last selected organization for up to one year. The site
+        also stores your light, dark, or system theme preference in your browser’s local storage.
       </p>
     </section>
   );

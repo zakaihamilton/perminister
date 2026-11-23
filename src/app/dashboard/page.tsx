@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentSession, listOrganizationsForSubject } from "@/lib/auth/service";
+import { getLastSelectedOrganizationId } from "@/lib/auth/organization-preference";
 
 export default async function DashboardHome({
   searchParams,
@@ -8,13 +9,22 @@ export default async function DashboardHome({
 }) {
   const current = await getCurrentSession();
   if (!current) redirect("/login");
-  const [organizations, query] = await Promise.all([
+  const [organizations, query, lastSelectedOrganizationId] = await Promise.all([
     listOrganizationsForSubject(current.subject.subjectId),
     searchParams,
+    getLastSelectedOrganizationId(),
   ]);
 
   if (organizations.length) {
-    redirect(`/dashboard/${organizations[0].organization.organizationId}`);
+    const selectedOrganization = organizations.find(
+      ({ organization }) => organization.organizationId === lastSelectedOrganizationId,
+    );
+    redirect(
+      `/dashboard/${encodeURIComponent(
+        selectedOrganization?.organization.organizationId ??
+          organizations[0].organization.organizationId,
+      )}`,
+    );
   }
 
   const parameters = new URLSearchParams();
