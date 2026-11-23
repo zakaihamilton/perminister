@@ -221,12 +221,6 @@
   background: var(--surface-2);
 }
 
-:where(.appScope) :global(.developer-nav a[aria-current="page"]) {
-  border-color: var(--line);
-  color: var(--ink);
-  background: var(--surface-2);
-}
-
 :where(.appScope) :global(.developer-index-card) {
   min-width: 0;
   display: grid;
@@ -402,8 +396,7 @@
 /* Dark theme overrides */
 
 :global(html[data-theme="dark"]) :where(.appScope) :global(.guide-panel),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.aside-card),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.developer-index-card) {
+:global(html[data-theme="dark"]) :where(.appScope) :global(.aside-card) {
   border-color: var(--line);
   color: var(--ink);
   background-color: var(--surface);
@@ -426,12 +419,6 @@
   color: var(--blue-dark);
 }
 
-:global(html[data-theme="dark"]) :where(.appScope) :global(.guide-notice) {
-  border-color: var(--line);
-  color: var(--ink-soft);
-  background: var(--surface-2);
-}
-
 :global(html[data-theme="dark"]) :where(.appScope) :global(.guide-notice strong),
 :global(html[data-theme="dark"]) :where(.appScope) :global(.guide-notice p) {
   color: var(--ink-soft);
@@ -439,12 +426,6 @@
 
 :global(html[data-theme="dark"]) :where(.appScope) :global(.developer-nav a:hover) {
   border-color: var(--line);
-  color: var(--ink);
-  background: var(--surface-2);
-}
-
-:global(html[data-theme="dark"]) :where(.appScope) :global(.developer-nav a[aria-current="page"]) {
-  color: var(--ink);
 }
 
 :global(html[data-theme="dark"]) :where(.appScope) :global(.developer-nav a) {
