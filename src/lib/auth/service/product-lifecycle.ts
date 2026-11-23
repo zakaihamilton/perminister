@@ -311,10 +311,12 @@ export async function deleteOrganizationProduct(
       const now = new Date().toISOString();
       if (!currentRecord.record.deletionStartedAt) {
         const started = { ...currentRecord.record, deletionStartedAt: now, updatedAt: now };
-        await persistRecord(started, "product.deletion-started", {
-          kind: "subject",
-          subjectId: actor.subjectId,
-        });
+        await persistRecord(
+          started,
+          "product.deletion-started",
+          { kind: "subject", subjectId: actor.subjectId },
+          { productName: started.name },
+        );
         currentRecord = { ...currentRecord, record: started };
       }
 
@@ -371,6 +373,7 @@ export async function deleteOrganizationProduct(
           { kind: "subject", subjectId: actor.subjectId },
           {
             affectedOrganizationIds,
+            productName: latest.record.name,
             removedSharedInstallation: isSharedInstallation,
           },
         );

@@ -115,9 +115,9 @@ export default function HomePage() {
               together.
             </p>
           </div>
-          <Link className="button home-closing-button" href="/dashboard">
+          <a className="button home-closing-button" href="/dashboard">
             Open dashboard <ArrowRight />
-          </Link>
+          </a>
         </section>
       </main>
       <SiteFooter />

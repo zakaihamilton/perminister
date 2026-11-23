@@ -89,7 +89,7 @@ Content-Type: application/json
             </pre>
             <p>
               See <Link href="/developers/permissions">permission scopes</Link> for evaluation rules
-              and <Link href="/dashboard">the dashboard</Link> to create a user-owned key.
+              and <a href="/dashboard">the dashboard</a> to create a user-owned key.
             </p>
           </section>
           <section className="aside-card">
