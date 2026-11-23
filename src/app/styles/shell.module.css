@@ -614,8 +614,7 @@
 
 :global(html[data-theme="dark"]) :where(.appScope) :global(.site-header),
 :global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-sidebar),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-card),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-empty-card) {
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-card) {
   border-color: var(--line);
   color: var(--ink);
   background-color: var(--surface);
@@ -631,30 +630,6 @@
 :global(html[data-theme="dark"]) :where(.appScope) :global(.sidebar-email),
 :global(html[data-theme="dark"]) :where(.appScope) :global(.site-footer p) {
   color: var(--muted);
-}
-
-:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-notice) {
-  border-color: var(--line);
-  color: var(--ink-soft);
-  background: var(--surface-2);
-}
-
-:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-notice.success) {
-  border-color: #41543e;
-  color: var(--success);
-  background: var(--success-soft);
-}
-
-:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-notice.error) {
-  border-color: #67403a;
-  color: var(--danger);
-  background: var(--danger-soft);
-}
-
-:global(html[data-theme="dark"]) :where(.appScope) :global(.org-switcher .pf-select-trigger) {
-  border-color: var(--line-strong);
-  color: var(--ink);
-  background: var(--surface-inset);
 }
 
 :global(html[data-theme="dark"]) :where(.appScope) :global(.header-create) {
