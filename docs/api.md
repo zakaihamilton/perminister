@@ -212,10 +212,10 @@ backends should also apply their own rate limits.
 Authentication service failures return `503`.
 
 Each app client stores its configured session lifetime (5 minutes through 30 days; new clients
-default to 12 hours). Choose the shortest lifetime the application supports. Existing clients set
-above 30 days now receive sessions capped at 30 days; sessions already issued under longer settings
-also stop working 30 days after creation. Keep the returned token in the app's Secure,
-HttpOnly, SameSite cookie.
+default to 30 days). Choose a shorter lifetime if the application needs one; existing clients keep
+their saved lifetime. Existing clients set above 30 days now receive sessions capped at 30 days;
+sessions already issued under longer settings also stop working 30 days after creation. Keep the
+returned token in the app's Secure, HttpOnly, SameSite cookie.
 
 Use `GET /api/auth/consumer/session` with the client headers and session bearer token to validate the
 session. A successful response contains `authenticated: true`, the same `account` and organization

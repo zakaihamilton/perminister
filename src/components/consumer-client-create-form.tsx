@@ -82,7 +82,7 @@ export function ConsumerClientCreateForm({
               min="0.083333"
               max="720"
               step="any"
-              defaultValue="12"
+              defaultValue="720"
             />
           </label>
           <label htmlFor={`${formId}-registration`}>
@@ -101,8 +101,8 @@ export function ConsumerClientCreateForm({
           </label>
         </div>
         <p className="form-hint">
-          Session lifetime defaults to 12 hours (5 minutes to 30 days). Choose the shortest duration
-          your app supports. New clients default to invite only. Public registration allows any
+          Session lifetime defaults to 30 days (5 minutes to 30 days). You can shorten it for your
+          app. New clients default to invite only. Public registration allows any
           verified account to sign in; invite only requires product membership. Owners and
           administrators can always sign in.
         </p>
