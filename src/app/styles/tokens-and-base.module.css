@@ -549,10 +549,26 @@
   color: var(--ink);
 }
 
-:global(html[data-theme="dark"]) :where(.appScope) :global(.panel) {
+:global(html[data-theme="dark"]) :where(.appScope) :global(.panel),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-card),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.developer-index-card),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.access-grant-card),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-empty-card) {
   border-color: var(--line);
   color: var(--ink);
   background-color: var(--surface);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form input),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form .pf-select-trigger),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form textarea),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-transfer-dropdown .pf-select-trigger),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.people-row-actions .pf-select-trigger),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.invite-form .pf-select-trigger),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.org-switcher .pf-select-trigger) {
+  border-color: var(--line-strong);
+  color: var(--ink);
+  background: var(--surface-inset);
 }
 
 :global(html[data-theme="dark"]) :where(.appScope) :global(.page-shell) {
@@ -580,13 +596,35 @@
   color: inherit;
 }
 
+:where(.appScope) :global(.developer-nav a[aria-current="page"]),
+:where(.appScope) :global(.product-nav-link:hover),
+:where(.appScope) :global(.product-nav-link[aria-current="page"]) {
+  border-color: var(--line);
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.developer-nav a:hover) {
+  border-color: var(--line);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.guide-notice),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.organization-product-badge),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-notice),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.code-label) {
+  border-color: var(--line);
+  color: var(--ink-soft);
+  background: var(--surface-2);
+}
+
 :global(html[data-theme="dark"]) :where(.appScope) :global(.text-link) {
   color: var(--blue-dark);
 }
 
 :global(html[data-theme="dark"]) :where(.appScope) :global(.form-success),
 :global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge.active),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.one-time-secret) {
+:global(html[data-theme="dark"]) :where(.appScope) :global(.one-time-secret),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-notice.success) {
   border-color: #41543e;
   color: var(--success);
   background: var(--success-soft);
@@ -595,7 +633,8 @@
 :global(html[data-theme="dark"]) :where(.appScope) :global(.form-error),
 :global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge.disabled),
 :global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge.revoked),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge.expired) {
+:global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge.expired),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-notice.error) {
   border-color: #67403a;
   color: var(--danger);
   background: var(--danger-soft);
@@ -606,7 +645,8 @@
   background: transparent;
 }
 
-:global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge) {
+:global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.role-pill) {
   border-color: var(--line-strong);
   color: var(--muted);
   background: var(--surface-2);
@@ -616,12 +656,6 @@
   border-color: var(--line);
   color: var(--ink-soft);
   background: var(--surface-inset);
-}
-
-:global(html[data-theme="dark"]) :where(.appScope) :global(.code-label) {
-  border-color: var(--line);
-  color: var(--ink-soft);
-  background: var(--surface-2);
 }
 
 :global(html[data-theme="dark"]) :where(.appScope) :global(.one-time-secret code) {
