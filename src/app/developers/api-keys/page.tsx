@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Tooltip } from "@/components/tooltip";
 import { DeveloperGuideLayout } from "@/components/developer-guide-layout";
 import { CheckIcon, KeyIcon } from "@/components/site-shell";
+import { Tooltip } from "@/components/tooltip";
 
 const lifecycle = [
   {

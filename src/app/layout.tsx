@@ -1,24 +1,27 @@
-import type { ReactNode } from "react";
-import { Suspense } from "react";
+// biome-ignore-all assist/source/organizeImports: CSS module import order defines cascade
 import Script from "next/script";
 import { getThemeBootstrapScript, ThemeProvider } from "panel-frame-ui";
+import type { ReactNode } from "react";
+import { Suspense } from "react";
 import { ActionRefreshNotice } from "@/components/action-refresh-notice";
 import { UrlNoticeCleanser } from "@/components/url-notice-cleanser";
 import "./globals.css";
-import publicPageStyles from "./styles/public-pages.module.css";
-import dashboardGuideStyles from "./styles/dashboard-and-guide.module.css";
-import organizationDashboardStyles from "./styles/organization-dashboard.module.css";
-import visualSystemStyles from "./styles/visual-system.module.css";
-import organizationOverviewStyles from "./styles/organization-overview.module.css";
-import dashboardComponentStyles from "./styles/dashboard-components.module.css";
+import tokensAndBaseStyles from "./styles/tokens-and-base.module.css";
+import shellStyles from "./styles/shell.module.css";
+import marketingWelcomeStyles from "./styles/marketing-welcome.module.css";
+import authPagesStyles from "./styles/auth-pages.module.css";
+import productPagesStyles from "./styles/product-pages.module.css";
+import operationsStyles from "./styles/operations.module.css";
+import developersStyles from "./styles/developers.module.css";
 
 const appStyleScope = [
-  publicPageStyles.appScope,
-  dashboardGuideStyles.appScope,
-  organizationDashboardStyles.appScope,
-  visualSystemStyles.appScope,
-  organizationOverviewStyles.appScope,
-  dashboardComponentStyles.appScope,
+  tokensAndBaseStyles.appScope,
+  shellStyles.appScope,
+  marketingWelcomeStyles.appScope,
+  authPagesStyles.appScope,
+  productPagesStyles.appScope,
+  operationsStyles.appScope,
+  developersStyles.appScope,
 ].join(" ");
 
 const themePersistence = { type: "localStorage" as const, key: "perminister-theme" };

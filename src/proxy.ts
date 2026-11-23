@@ -1,13 +1,13 @@
 import { isIP } from "node:net";
-import { NextResponse, type NextRequest } from "next/server";
-import { lastValidForwardedIp } from "@/lib/client-ip";
-import { currentDeploymentId, currentWriterRevision } from "@/lib/deployment";
+import { type NextRequest, NextResponse } from "next/server";
 import {
   GOOGLE_LOGIN_CALLBACK_PATH,
   legacyConsumerAuthorizationEnabled,
   parseConsumerAuthorizationRequest,
 } from "@/lib/auth/consumer-sso";
 import { getOAuthAuthorizationClient } from "@/lib/auth/service";
+import { lastValidForwardedIp } from "@/lib/client-ip";
+import { currentDeploymentId, currentWriterRevision } from "@/lib/deployment";
 import {
   getConfiguredWriteProxySecret,
   matchesWriteProxySecret,

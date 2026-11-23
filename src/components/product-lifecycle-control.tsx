@@ -1,9 +1,9 @@
 "use client";
 
-import { useId } from "react";
 import { AlertDialog } from "panel-frame-ui";
-import type { ProductRecord } from "@/lib/auth/domain";
+import { useId } from "react";
 import { useModalDialog } from "@/components/use-modal-dialog";
+import type { ProductRecord } from "@/lib/auth/domain";
 
 export function ProductLifecycleControl({
   adopterOrganizations,

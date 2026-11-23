@@ -1,16 +1,16 @@
-import { withApiRoutePerformance } from "@/lib/auth/performance";
+import {
+  invalidConsumerEmailResponse,
+  requireConsumerClientJsonObjectBody,
+} from "@/lib/auth/consumer-route";
+import { NO_STORE_HEADERS } from "@/lib/auth/http";
 import { sendVerificationEmail } from "@/lib/auth/mail";
+import { withApiRoutePerformance } from "@/lib/auth/performance";
 import {
   completeEmailAction,
   findAccountByEmail,
   InvalidAuthActionError,
   issueEmailAction,
 } from "@/lib/auth/service";
-import { NO_STORE_HEADERS } from "@/lib/auth/http";
-import {
-  invalidConsumerEmailResponse,
-  requireConsumerClientJsonObjectBody,
-} from "@/lib/auth/consumer-route";
 
 export const runtime = "nodejs";
 

@@ -1,13 +1,13 @@
-import { ProductAccessGrantCard } from "@/components/product-access-sections";
+import Link from "next/link";
+import { redirect } from "next/navigation";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
+import { ProductAccessGrantCard } from "@/components/product-access-sections";
 import { ProductPageNavigation } from "@/components/product-navigation";
-import { listProductMembers, listProductPermissionGrants } from "@/lib/auth/service";
 import {
   getProductPageContext,
   type ProductPageWithSearchParams,
 } from "@/lib/auth/product-page-context";
-import Link from "next/link";
-import { redirect } from "next/navigation";
+import { listProductMembers, listProductPermissionGrants } from "@/lib/auth/service";
 
 export default async function ProductAccessPage({
   params,

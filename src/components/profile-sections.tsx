@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { DashboardNotice } from "@/components/dashboard-shell";
-import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 import type { SubjectRecord } from "@/lib/auth/domain";
+import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 
 export function ProfileNotices({ error, notice }: { error?: string; notice?: string }) {
   return (

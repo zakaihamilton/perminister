@@ -1,10 +1,13 @@
-import { skeletonClasses } from "@/components/skeleton-classnames";
-import { Suspense, type ReactNode } from "react";
 import { redirect } from "next/navigation";
+import { type ReactNode, Suspense } from "react";
 import { DashboardBreadcrumbs } from "@/components/dashboard-breadcrumbs";
+import { DashboardLayoutSkeleton } from "@/components/dashboard-layout-skeleton";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { OrganizationSwitcher } from "@/components/organization-switcher";
-import { DashboardLayoutSkeleton } from "@/components/dashboard-layout-skeleton";
+import { skeletonClasses } from "@/components/skeleton-classnames";
+import type { ProductRecord } from "@/lib/auth/domain";
+import { withRequestPerformance } from "@/lib/auth/performance";
+import type { OrganizationSummary } from "@/lib/auth/service";
 import {
   getCurrentSession,
   getOrganizationForSubject,
@@ -12,9 +15,6 @@ import {
   listOrganizationSwitcherData,
   listProductsForOrganization,
 } from "@/lib/auth/service";
-import type { OrganizationSummary } from "@/lib/auth/service";
-import type { ProductRecord } from "@/lib/auth/domain";
-import { withRequestPerformance } from "@/lib/auth/performance";
 
 type OrganizationSwitcherDataPromise = Promise<OrganizationSummary[]>;
 type BreadcrumbProductsPromise = Promise<ProductRecord[]>;

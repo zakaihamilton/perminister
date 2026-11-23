@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useRef } from "react";
 
 const REFRESH_PARAM = "__perminister_action";
 

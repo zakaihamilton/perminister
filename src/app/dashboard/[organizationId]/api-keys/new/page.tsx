@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ApiKeyNotices } from "@/components/api-key-item";
 import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
 import { OrganizationApiKeyCreationSection } from "@/components/organization-api-key-sections";
@@ -8,7 +9,6 @@ import {
   listOrganizationPermissionGrants,
   listProductsForOrganization,
 } from "@/lib/auth/service";
-import { redirect } from "next/navigation";
 
 export default async function NewOrganizationApiKeyPage({
   params,

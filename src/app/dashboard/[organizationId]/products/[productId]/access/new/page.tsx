@@ -1,14 +1,14 @@
 import Link from "next/link";
+import { DashboardHeading } from "@/components/dashboard-shell";
 import {
   AccessGrantCreationSection,
   AccessGrantExplainer,
 } from "@/components/product-access-sections";
-import { DashboardHeading } from "@/components/dashboard-shell";
 import { ProductPageNavigation } from "@/components/product-navigation";
 import {
   getProductPageContext,
-  requireProductManagerRole,
   type ProductPageParams,
+  requireProductManagerRole,
 } from "@/lib/auth/product-page-context";
 import { listProductMembers } from "@/lib/auth/service";
 

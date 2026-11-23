@@ -1,11 +1,11 @@
-import { withApiRoutePerformance } from "@/lib/auth/performance";
-import { NO_STORE_HEADERS } from "@/lib/auth/http";
-import { consumerServiceError, requireConsumerJsonObjectRequest } from "@/lib/auth/consumer-route";
 import {
   consumerMemberScopeInput,
   consumerProductPolicy,
   isConsumerResourceScope,
 } from "@/lib/auth/consumer-policy";
+import { consumerServiceError, requireConsumerJsonObjectRequest } from "@/lib/auth/consumer-route";
+import { NO_STORE_HEADERS } from "@/lib/auth/http";
+import { withApiRoutePerformance } from "@/lib/auth/performance";
 import { removeConsumerMember, updateConsumerMember } from "@/lib/auth/service";
 
 export const runtime = "nodejs";

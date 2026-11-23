@@ -2,20 +2,20 @@ import "server-only";
 
 import { authenticateConsumerClient, type ConsumerClient } from "./consumer-clients";
 import { isConsumerResourceId, isOrganizationId } from "./consumer-policy";
-import { withApiRoutePerformance } from "./performance";
 import {
   bearerToken,
   isJsonObject,
   isJsonRequest,
   NO_STORE_HEADERS,
-  readBoundedJson,
   RequestBodyTooLargeError,
+  readBoundedJson,
 } from "./http";
+import { withApiRoutePerformance } from "./performance";
 import {
+  type AuthenticatedSession,
   bootstrapProjectAdmin,
   bootstrapWorkspaceAdmin,
   getSessionFromToken,
-  type AuthenticatedSession,
 } from "./service";
 
 export interface ConsumerRequestContext {

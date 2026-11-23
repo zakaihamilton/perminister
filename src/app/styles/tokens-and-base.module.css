@@ -1,0 +1,735 @@
+/* Base typography, buttons, forms, badges, code blocks, and shared interactive primitives */
+
+.appScope {
+  --scope-marker: 1;
+}
+
+:where(.appScope) :global(.eyebrow) {
+  margin: 0;
+  color: var(--blue-dark);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+:where(.appScope) :global(.muted) {
+  color: var(--muted);
+}
+
+:where(.appScope) :global(.arrow-icon) {
+  width: 17px;
+  height: 17px;
+}
+
+:where(.appScope) :global(.form-submit) {
+  width: 100%;
+  margin-top: 4px;
+}
+
+:where(.appScope) :global(.record-item-head) {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+:where(.appScope) :global(.record-actions) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 11px;
+}
+
+:where(.appScope) :global(.record-actions form) {
+  margin: 0;
+}
+
+:where(.appScope) :global(.record-actions .button) {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+:where(.appScope) :global(.management-form) {
+  border-top: 1px solid #edf0f4;
+  margin-top: 15px;
+  padding-top: 15px;
+}
+
+:where(.appScope) :global(.form-grid) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+:where(.appScope) :global(.management-form .form-hint) {
+  margin: -5px 0 0;
+}
+
+:where(.appScope) :global(.one-time-secret-heading) {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+:where(.appScope) :global(.one-time-secret-heading > strong) {
+  padding-top: 5px;
+}
+
+:where(.appScope) :global(.one-time-secret .form-error) {
+  margin: 0;
+}
+
+:where(.appScope) :global(.empty-list),
+:where(.appScope) :global(.dashboard-empty-card p) {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+:where(.appScope) :global(.aside-card h2),
+:where(.appScope) :global(.guide-panel-head h2),
+:where(.appScope) :global(.onboarding-card h2) {
+  font-weight: 700;
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.025em;
+  font-size: 15px;
+}
+
+:where(.appScope) :global(.activity-target-chip),
+:where(.appScope) :global(.activity-context-chip),
+:where(.appScope) :global(.organization-activity-meta-item) {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+:where(.appScope) :global(.arrow-icon),
+:where(.appScope) :global(.step-number svg),
+:where(.appScope) :global(.organization-activity-empty-icon svg) {
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:where(.appScope) :global(.key-callout-icon svg),
+:where(.appScope) :global(.organization-product-view-button svg),
+:where(.appScope) :global(.organization-product-card-action svg) {
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:where(.appScope) :global(.button:not(:disabled):hover) {
+  transform: translateY(-1px);
+}
+
+:where(.appScope) :global(.button-danger) {
+  border-color: var(--danger);
+  color: var(--white);
+  background: var(--danger);
+}
+
+:where(.appScope) :global(.button-danger:hover) {
+  background: var(--danger);
+}
+
+:where(.appScope) :global(.product-privacy-dialog-actions) {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+:where(.appScope) :global(.product-privacy-dialog-actions form) {
+  margin: 0;
+}
+
+:where(.appScope) :global(.pf-select-trigger),
+:where(.appScope) :global(.auth-form input),
+:where(.appScope) :global(.auth-form textarea),
+:where(.appScope) :global(.product-source-form input) {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: var(--surface-inset);
+  font-weight: 500;
+  line-height: 1.4;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.pending-invitations) {
+  margin-top: 18px;
+}
+
+:where(.appScope) :global(.visually-hidden) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+:global(body):where(.appScope) {
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 15px;
+  background: var(--paper);
+}
+
+:where(.appScope) :global(.page-shell) {
+  min-height: auto;
+  flex: 1 0 auto;
+  overflow: hidden;
+  background: var(--paper);
+}
+
+:where(.appScope) :global(::selection) {
+  color: var(--ink);
+  background: var(--mint);
+}
+
+:where(.appScope) :global(h1) {
+  font-family: Iowan Old Style, Baskerville, "Palatino Linotype", Georgia, serif;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+
+:where(.appScope) :global(h2),
+:where(.appScope) :global(h3) {
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.025em;
+}
+
+:where(.appScope) :global(.container) {
+  margin: 0 auto;
+  width: min(1200px, calc(100% - 52px));
+}
+
+:where(.appScope) :global(.button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid transparent;
+  padding: 0 17px;
+  font-weight: 700;
+  transition: transform 150ms ease, background 150ms ease, border-color 150ms ease;
+  min-height: 46px;
+  border-radius: 4px;
+  font-size: 14px;
+  box-shadow: none;
+}
+
+:where(.appScope) :global(.button-primary) {
+  color: #fffdf8;
+  background: var(--button-primary);
+  box-shadow: none;
+}
+
+:where(.appScope) :global(.button-primary:hover) {
+  background: var(--button-primary-hover);
+}
+
+:where(.appScope) :global(.button-secondary) {
+  border-color: var(--line-strong);
+  color: var(--ink);
+  background: transparent;
+}
+
+:where(.appScope) :global(.button-secondary:hover) {
+  border-color: var(--ink);
+  background: var(--surface);
+}
+
+:where(.appScope) :global(.button:disabled) {
+  box-shadow: none;
+  cursor: not-allowed;
+  color: var(--muted);
+  border-color: var(--line);
+  background: var(--surface-2);
+}
+
+:where(.appScope) :global(a:focus-visible),
+:where(.appScope) :global(button:focus-visible),
+:where(.appScope) :global(input:focus-visible),
+:where(.appScope) :global(select:focus-visible),
+:where(.appScope) :global(textarea:focus-visible),
+:where(.appScope) :global(summary:focus-visible) {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+
+:where(.appScope) :global(.form-field-with-tooltip),
+:where(.appScope) :global(.auth-form label),
+:where(.appScope) :global(.access-actions-field) {
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 650;
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+:where(.appScope) :global(.form-hint) {
+  margin: -4px 0 0;
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+:where(.appScope) :global(.form-error) {
+  padding: 11px 13px;
+  font-size: 14px;
+  line-height: 1.55;
+  border: 1px solid #e4b7ac;
+  border-radius: 4px;
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+:where(.appScope) :global(.form-success) {
+  padding: 11px 13px;
+  font-size: 14px;
+  line-height: 1.55;
+  border: 1px solid #bfd0b5;
+  border-radius: 4px;
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+:where(.appScope) :global(.text-link),
+:where(.appScope) :global(.auth-links a),
+:where(.appScope) :global(.profile-links a),
+:where(.appScope) :global(.guide-next-link a),
+:where(.appScope) :global(.onboarding-secondary a) {
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: var(--blue-dark);
+}
+
+:where(.appScope) :global(.panel) {
+  border-color: var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+:where(.appScope) :global(.record-item strong) {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+:where(.appScope) :global(.record-meta) {
+  display: block;
+  margin-top: 5px;
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+
+:where(.appScope) :global(.record-list) {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+
+:where(.appScope) :global(.record-item) {
+  border: 1px solid var(--line);
+  box-shadow: none;
+  border-width: 0 0 1px;
+  border-radius: 0;
+  padding: 14px 2px;
+  background: transparent;
+}
+
+:where(.appScope) :global(.record-badge) {
+  flex: 0 0 auto;
+  border: 1px solid var(--line-strong);
+  padding: 4px 8px;
+  font-family: "DM Mono", monospace;
+  text-transform: uppercase;
+  border-radius: 3px;
+  color: var(--muted);
+  background: var(--surface-2);
+  font-size: 10px;
+}
+
+:where(.appScope) :global(.record-badge.active) {
+  border-color: #bfcdb5;
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+:where(.appScope) :global(.record-badge.disabled),
+:where(.appScope) :global(.record-badge.revoked),
+:where(.appScope) :global(.record-badge.expired) {
+  border-color: #dfb4aa;
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+:where(.appScope) :global(.code-block) {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  margin: 12px 0;
+  padding: 14px;
+  white-space: pre;
+  border-radius: 4px;
+  color: var(--ink-soft);
+  background: var(--surface-inset);
+  font: 12px/1.65 "SFMono-Regular", Consolas, monospace;
+}
+
+:where(.appScope) :global(.code-label) {
+  display: inline-block;
+  border: 1px solid var(--line);
+  padding: 3px 6px;
+  font-size: 13px;
+  border-radius: 3px;
+  color: var(--ink-soft);
+  background: var(--surface-2);
+  font-family: "SFMono-Regular", Consolas, monospace;
+}
+
+:where(.appScope) :global(.one-time-secret) {
+  display: grid;
+  gap: 9px;
+  border: 1px solid #bfcdb5;
+  padding: 13px;
+  border-radius: 4px;
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+:where(.appScope) :global(.one-time-secret code) {
+  display: block;
+  padding: 10px;
+  border-radius: 6px;
+  font: 13px/1.5 "DM Mono", monospace;
+  overflow-wrap: anywhere;
+  user-select: all;
+  color: var(--ink);
+  background: var(--surface);
+}
+
+:where(.appScope) :global(.custom-dropdown) {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+:where(.appScope) :global(.tooltip-anchor) {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  vertical-align: middle;
+}
+
+:where(.appScope) :global(.form-label-row) {
+  display: flex;
+  min-height: 18px;
+  align-items: center;
+  gap: 7px;
+}
+
+:where(.appScope) :global(.form-label-row > label) {
+  display: inline;
+}
+
+:where(.appScope) :global(.tooltip-trigger) {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  font: 600 11px/1 Georgia, serif;
+  cursor: help;
+}
+
+:where(.appScope) :global(.tooltip-trigger:hover),
+:where(.appScope) :global(.tooltip-trigger:focus-visible) {
+  border-color: var(--blue);
+  color: var(--blue-dark);
+}
+
+:where(.appScope) :global(button:not(:disabled)) {
+  cursor: pointer;
+}
+
+:where(.appScope) :global(button:disabled) {
+  cursor: not-allowed;
+}
+
+:where(.appScope) :global(:is(a[href]:not([aria-disabled="true"]), button:not(:disabled):not([aria-disabled="true"]), [role="button"]:not([aria-disabled="true"]), [role="option"]:not([aria-disabled="true"]), [role="menuitemradio"]:not([aria-disabled="true"]), summary)) {
+  transition: color 140ms ease, background 140ms ease, border-color 140ms ease, box-shadow 140ms ease, filter 140ms ease, transform 140ms ease;
+}
+
+:where(.appScope) :global(:is(a[href]:not([aria-disabled="true"]), button:not(:disabled):not([aria-disabled="true"]), [role="button"]:not([aria-disabled="true"]), [role="option"]:not([aria-disabled="true"]), [role="menuitemradio"]:not([aria-disabled="true"]), summary):hover) {
+  filter: brightness(0.97);
+}
+
+:where(.appScope) :global(:is(a[href]:not([aria-disabled="true"]), button:not(:disabled):not([aria-disabled="true"]), [role="button"]:not([aria-disabled="true"]), [role="option"]:not([aria-disabled="true"]), [role="menuitemradio"]:not([aria-disabled="true"]), summary):active) {
+  filter: brightness(0.92);
+  transform: translateY(1px);
+}
+
+:where(.appScope) :global(.button:not(:disabled):active) {
+  transform: translateY(1px);
+}
+
+:where(.appScope) :global(.filter-empty-message) {
+  padding: 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.password-field) {
+  display: grid;
+  gap: 7px;
+}
+
+:where(.appScope) :global(.password-input-wrap) {
+  position: relative;
+}
+
+:where(.appScope) :global(.password-visibility) {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  border: 0;
+  border-radius: 4px;
+  padding: 0 14px;
+  color: var(--blue-dark);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+:where(.appScope) :global(.password-visibility:focus-visible) {
+  outline: 2px solid var(--blue);
+  outline-offset: -3px;
+}
+
+/* Dark theme overrides */
+
+:global(html[data-theme="dark"]) :where(.appScope) {
+  color: var(--ink);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.panel),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-card),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.developer-index-card),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.access-grant-card),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-empty-card),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.guide-panel),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.aside-card),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-card),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-setup-step),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.onboarding-card),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.site-header),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-sidebar),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-card) {
+  border-color: var(--line);
+  color: var(--ink);
+  background-color: var(--surface);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form input),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form .pf-select-trigger),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form textarea),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-transfer-dropdown .pf-select-trigger),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.people-row-actions .pf-select-trigger),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.invite-form .pf-select-trigger),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.org-switcher .pf-select-trigger) {
+  border-color: var(--line-strong);
+  color: var(--ink);
+  background: var(--surface-inset);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.page-shell) {
+  background: var(--paper);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.record-item strong),
+:global(html[data-theme="dark"]) :where(.appScope) :global(h2),
+:global(html[data-theme="dark"]) :where(.appScope) :global(h3),
+:global(html[data-theme="dark"]) :where(.appScope) :global(strong),
+:global(html[data-theme="dark"]) :where(.appScope) :global(label) {
+  color: var(--ink);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(p),
+:global(html[data-theme="dark"]) :where(.appScope) :global(small),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.muted),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.record-meta),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.form-hint),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.empty-list) {
+  color: var(--muted);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(a) {
+  color: inherit;
+}
+
+:where(.appScope) :global(.developer-nav a[aria-current="page"]),
+:where(.appScope) :global(.product-nav-link:hover),
+:where(.appScope) :global(.product-nav-link[aria-current="page"]) {
+  border-color: var(--line);
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.developer-nav a:hover) {
+  border-color: var(--line);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.guide-notice),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.organization-product-badge),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-notice),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.code-label) {
+  border-color: var(--line);
+  color: var(--ink-soft);
+  background: var(--surface-2);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.guide-notice strong),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.guide-notice p) {
+  color: var(--ink-soft);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.text-link) {
+  color: var(--blue-dark);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.form-success),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge.active),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.one-time-secret),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-notice.success) {
+  border-color: #41543e;
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.form-error),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge.disabled),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge.revoked),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge.expired),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-notice.error) {
+  border-color: #67403a;
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.record-item) {
+  border-color: var(--line);
+  background: transparent;
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.role-pill) {
+  border-color: var(--line-strong);
+  color: var(--muted);
+  background: var(--surface-2);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.code-block) {
+  border-color: var(--line);
+  color: var(--ink-soft);
+  background: var(--surface-inset);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.one-time-secret code) {
+  border-color: var(--line);
+  color: var(--ink);
+  background: var(--surface-inset);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.tooltip-trigger) {
+  border-color: var(--line-strong);
+  color: var(--muted);
+}
+
+@media (max-width: 740px) {
+  :where(.appScope) :global(.container) {
+    width: min(100% - 36px, 600px);
+  }
+}
+
+@media (max-width: 700px) {
+  :where(.appScope) :global(.container) {
+    width: min(100% - 34px, 540px);
+  }
+}
+
+@media (max-width: 560px) {
+  :where(.appScope) :global(.form-grid) {
+    grid-template-columns: 1fr;
+  }
+
+  :where(.appScope) :global(.record-item-head) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 540px) {
+  :where(.appScope) :global(.product-privacy-dialog-actions) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :where(.appScope) :global(.product-privacy-dialog-actions > .button),
+  :where(.appScope) :global(.product-privacy-dialog-actions form),
+  :where(.appScope) :global(.product-privacy-dialog-actions form .button) {
+    width: 100%;
+  }
+}
+
+@media (max-width: 390px) {
+  :where(.appScope) :global(.container) {
+    width: calc(100% - 26px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.appScope) :global(*),
+  :where(.appScope) :global(*::before),
+  :where(.appScope) :global(*::after) {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

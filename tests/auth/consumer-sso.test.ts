@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ConsumerClientRecord } from "../../src/lib/auth/domain";
 import {
   CONSUMER_OIDC_SCOPE,
   consumerAuthorizationQuery,
   legacyConsumerAuthorizationEnabled,
   parseConsumerAuthorizationRequest,
 } from "../../src/lib/auth/consumer-sso";
+import type { ConsumerClientRecord } from "../../src/lib/auth/domain";
 
 const clientId = "11111111-1111-4111-8111-111111111111" as ConsumerClientRecord["consumerClientId"];
 const redirectUri = "https://postparticle.example/auth/perminister/callback";

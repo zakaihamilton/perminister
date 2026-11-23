@@ -1,6 +1,6 @@
+import { handleLoginPost } from "@/lib/auth/login-session-handler";
 import { withApiRoutePerformance } from "@/lib/auth/performance";
 import { getCurrentSession } from "@/lib/auth/service";
-import { handleLoginPost } from "@/lib/auth/login-session-handler";
 
 export const runtime = "nodejs";
 

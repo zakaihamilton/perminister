@@ -1,15 +1,15 @@
 import { redirect } from "next/navigation";
 import { AuthorizationView } from "@/components/authorization-view";
-import { getCurrentSession } from "@/lib/auth/service";
-import { getConsumerOAuthAuthorizationClient } from "@/lib/auth/consumer-oauth-client";
 import { completeConsumerAuthorization } from "@/lib/auth/complete-consumer-authorization";
-import { withRequestPerformanceSpan } from "@/lib/auth/performance";
+import { getConsumerOAuthAuthorizationClient } from "@/lib/auth/consumer-oauth-client";
 import {
   consumerAuthorizationQuery,
   legacyConsumerAuthorizationEnabled,
   parseConsumerAuthorizationRequest,
   safeConsumerAuthorizationReturnTo,
 } from "@/lib/auth/consumer-sso";
+import { withRequestPerformanceSpan } from "@/lib/auth/performance";
+import { getCurrentSession } from "@/lib/auth/service";
 
 function singleValue(value: string | string[] | undefined): string {
   return typeof value === "string" ? value : "";

@@ -1,8 +1,8 @@
 import { DashboardHeading } from "@/components/dashboard-shell";
 import { OperationsShell } from "@/components/operations-shell";
+import type { OperationsQuery } from "@/components/operations-types";
 import { PlatformAdminSectionLinks } from "@/components/platform-admin-section-links";
 import { getOperationsPageContext } from "@/lib/auth/operations-page-context";
-import type { OperationsQuery } from "@/components/operations-types";
 import { organizationDashboardHref } from "@/lib/operations-navigation";
 
 export default async function OperationsPage({

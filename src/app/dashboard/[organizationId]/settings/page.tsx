@@ -1,11 +1,11 @@
-import { OrganizationSettingsForm } from "@/components/organization-settings-form";
-import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
-import { getOrganizationForSubject } from "@/lib/auth/service";
 import { notFound } from "next/navigation";
+import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
+import { OrganizationSettingsForm } from "@/components/organization-settings-form";
 import {
   getOrganizationDashboardRequestContext,
   type OrganizationDashboardPageProps,
 } from "@/lib/auth/organization-dashboard-context";
+import { getOrganizationForSubject } from "@/lib/auth/service";
 
 export default async function OrganizationSettingsPage(
   props: OrganizationDashboardPageProps<{ notice?: string; error?: string }>,

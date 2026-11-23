@@ -1,13 +1,13 @@
-import { withApiRoutePerformance } from "@/lib/auth/performance";
 import { authenticateConsumerClient } from "@/lib/auth/consumer-clients";
 import {
   bearerToken,
   isJsonObject,
   isJsonRequest,
   NO_STORE_HEADERS,
-  readBoundedJson,
   RequestBodyTooLargeError,
+  readBoundedJson,
 } from "@/lib/auth/http";
+import { withApiRoutePerformance } from "@/lib/auth/performance";
 import { changePasswordForSubject, getConsumerSessionFromToken } from "@/lib/auth/service";
 
 export const runtime = "nodejs";

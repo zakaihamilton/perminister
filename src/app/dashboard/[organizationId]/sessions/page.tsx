@@ -1,7 +1,7 @@
-import { SessionList } from "@/components/session-list";
-import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
-import { getCurrentSession, listSessionsForSubject } from "@/lib/auth/service";
 import { redirect } from "next/navigation";
+import { DashboardHeading, DashboardNotice } from "@/components/dashboard-shell";
+import { SessionList } from "@/components/session-list";
+import { getCurrentSession, listSessionsForSubject } from "@/lib/auth/service";
 
 export default async function SessionsPage({
   params,

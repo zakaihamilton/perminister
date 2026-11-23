@@ -1,6 +1,6 @@
 import Link from "next/link";
-import type { ConsumerClientSummary } from "@/lib/auth/service";
 import type { ConsumerClientManagementAction } from "@/components/consumer-client-list-types";
+import type { ConsumerClientSummary } from "@/lib/auth/service";
 
 const createdDateFormatter = new Intl.DateTimeFormat("en", {
   month: "short",

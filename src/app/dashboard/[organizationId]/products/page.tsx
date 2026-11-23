@@ -7,15 +7,15 @@ import {
   PublicProductCatalog,
 } from "@/components/organization-product-sections";
 import {
-  getOrganizationDashboardData,
-  listArchivedProductsForOrganization,
-  listPublicProductsForOrganization,
-} from "@/lib/auth/service";
-import {
   getOrganizationDashboardRequestContext,
   type OrganizationDashboardPageProps,
 } from "@/lib/auth/organization-dashboard-context";
 import { withRequestPerformance } from "@/lib/auth/performance";
+import {
+  getOrganizationDashboardData,
+  listArchivedProductsForOrganization,
+  listPublicProductsForOrganization,
+} from "@/lib/auth/service";
 
 export default async function ProductsPage(
   props: OrganizationDashboardPageProps<{ error?: string; notice?: string; reason?: string }>,

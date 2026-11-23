@@ -1,8 +1,8 @@
-import { withApiRoutePerformance } from "@/lib/auth/performance";
 import { passwordRecoveryRequesterKey } from "@/lib/auth/coordination";
-import { consumeOAuthClientRegistrationRateLimit, registerOAuthClient } from "@/lib/auth/service";
-import { NO_STORE_HEADERS, isJsonRequest, readBoundedJson, RequestBodyTooLargeError } from "@/lib/auth/http";
+import { isJsonRequest, NO_STORE_HEADERS, RequestBodyTooLargeError, readBoundedJson } from "@/lib/auth/http";
 import { normalizeOAuthUriList, parseOAuthScopeList } from "@/lib/auth/oauth-uris";
+import { withApiRoutePerformance } from "@/lib/auth/performance";
+import { consumeOAuthClientRegistrationRateLimit, registerOAuthClient } from "@/lib/auth/service";
 
 export const runtime = "nodejs";
 

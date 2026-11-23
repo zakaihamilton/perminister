@@ -1,8 +1,8 @@
 import { CustomDropdown } from "@/components/custom-dropdown";
 import { DashboardNotice } from "@/components/dashboard-shell";
 import { ProductPeopleMemberList } from "@/components/people-member-lists";
-import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 import type { ProductAccessRole } from "@/lib/auth/access-roles";
+import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 import type { ProductMemberView } from "@/lib/auth/service";
 
 const productPeopleErrorText: Record<string, string> = {

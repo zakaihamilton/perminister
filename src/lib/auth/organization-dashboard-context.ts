@@ -1,6 +1,6 @@
 import "server-only";
-import { getCurrentSession } from "@/lib/auth/service";
 import { redirect } from "next/navigation";
+import { getCurrentSession } from "@/lib/auth/service";
 
 export type OrganizationDashboardPageProps<SearchParams extends object> = {
   params: Promise<{ organizationId: string }>;

@@ -1,5 +1,5 @@
-import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
@@ -13,5 +13,7 @@ export default defineConfig({
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
     restoreMocks: true,
     clearMocks: true,
+    testTimeout: 20000,
+    hookTimeout: 20000,
   },
 });

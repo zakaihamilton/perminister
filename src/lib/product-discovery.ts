@@ -1,8 +1,8 @@
 import "server-only";
 
-import { isIP } from "node:net";
 import { lookup } from "node:dns/promises";
 import { request as httpsRequest } from "node:https";
+import { isIP } from "node:net";
 
 const MAX_HTML_BYTES = 1_000_000;
 const MAX_ROLE_CATALOG_BYTES = 128_000;

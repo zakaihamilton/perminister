@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
-import { WelcomeAccessIllustration } from "@/components/welcome-access-illustration";
 import {
   DeveloperGuideNav,
+  type DeveloperSection,
   SiteFooter,
   SiteHeader,
-  type DeveloperSection,
 } from "@/components/site-shell";
+import { WelcomeAccessIllustration } from "@/components/welcome-access-illustration";
 
 export function DeveloperGuideLayout({
   active,

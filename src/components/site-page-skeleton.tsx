@@ -1,5 +1,5 @@
-import { skeletonClasses } from "@/components/skeleton-classnames";
 import { BrandContent } from "@/components/site-shell";
+import { skeletonClasses } from "@/components/skeleton-classnames";
 
 type SitePageSkeletonVariant = "marketing" | "document" | "auth" | "authorization";
 

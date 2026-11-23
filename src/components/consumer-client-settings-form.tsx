@@ -1,17 +1,17 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { type FormEvent, useState } from "react";
 import type { ConsumerClientActionState } from "@/app/actions";
-import { CustomDropdown } from "@/components/custom-dropdown";
+import { ConsumerClientFormContextFields } from "@/components/consumer-client-form-context-fields";
 import {
   ConsumerClientMultilineField,
   ConsumerClientOriginField,
 } from "@/components/consumer-client-form-fields";
-import type { ConsumerClientSummary } from "@/lib/auth/service";
+import { CustomDropdown } from "@/components/custom-dropdown";
 import { submitStableAction } from "@/lib/action-client";
-import { ConsumerClientFormContextFields } from "@/components/consumer-client-form-context-fields";
+import type { ConsumerClientSummary } from "@/lib/auth/service";
 
 export function ConsumerClientSettingsForm({
   client,

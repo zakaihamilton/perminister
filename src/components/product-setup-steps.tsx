@@ -1,6 +1,6 @@
+import type { FormEventHandler } from "react";
 import type { ProductLookupState } from "@/app/actions";
 import { ProductIcon } from "@/components/product-icon";
-import type { FormEventHandler } from "react";
 
 export function ProductWebsiteLookupStep({
   onLookupSubmit,

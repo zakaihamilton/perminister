@@ -1,6 +1,6 @@
 import type { ConsumerClientId, ConsumerClientRecord } from "./domain";
-import type { ConsumerOAuthAuthorizationClient } from "./service/consumer-and-memberships";
 import { normalizeOAuthUri } from "./oauth-uris";
+import type { ConsumerOAuthAuthorizationClient } from "./service";
 
 export const CONSUMER_SSO_CALLBACK_PATH = "/auth/perminister/callback";
 export const GOOGLE_LOGIN_CALLBACK_PATH = "/auth/google/callback";

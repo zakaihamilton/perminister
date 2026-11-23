@@ -1,7 +1,7 @@
-import { withApiRoutePerformance } from "@/lib/auth/performance";
-import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
-import { consumerServiceError, requireConsumerJsonRequest } from "@/lib/auth/consumer-route";
 import { isConsumerResourceId, isOrganizationId } from "@/lib/auth/consumer-policy";
+import { consumerServiceError, requireConsumerJsonRequest } from "@/lib/auth/consumer-route";
+import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
+import { withApiRoutePerformance } from "@/lib/auth/performance";
 import { revokeProjectGrants } from "@/lib/auth/service";
 
 export const runtime = "nodejs";

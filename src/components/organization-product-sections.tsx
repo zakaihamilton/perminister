@@ -1,7 +1,7 @@
-import Link from "next/link";
 import Image from "next/image";
-import { ProductIcon } from "@/components/product-icon";
+import Link from "next/link";
 import { DashboardNotice } from "@/components/dashboard-shell";
+import { ProductIcon } from "@/components/product-icon";
 import { ProductLifecycleControl } from "@/components/product-lifecycle-control";
 import type { ProductRecord } from "@/lib/auth/domain";
 import type { ArchivedProductEntry, PublicProductCatalogEntry } from "@/lib/auth/service";

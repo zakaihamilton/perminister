@@ -1,16 +1,16 @@
-import { withApiRoutePerformance } from "@/lib/auth/performance";
-import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
 import {
   consumerIntegrationError,
   requireConsumerJsonRequest,
   requireConsumerRequestContext,
 } from "@/lib/auth/consumer-route";
+import type { ResourceScope } from "@/lib/auth/domain";
+import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
+import { withApiRoutePerformance } from "@/lib/auth/performance";
 import {
+  type CreateApiKeyOptions,
   createApiKeyForServicePrincipal,
   listApiKeysForServicePrincipal,
-  type CreateApiKeyOptions,
 } from "@/lib/auth/service";
-import type { ResourceScope } from "@/lib/auth/domain";
 
 export const runtime = "nodejs";
 

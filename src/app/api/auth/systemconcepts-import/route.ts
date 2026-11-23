@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
-import { importSystemConceptsLegacyIdentities } from "@/lib/auth/service";
 import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
+import { importSystemConceptsLegacyIdentities } from "@/lib/auth/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

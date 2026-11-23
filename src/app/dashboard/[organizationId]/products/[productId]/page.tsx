@@ -1,4 +1,3 @@
-import { skeletonClasses } from "@/components/skeleton-classnames";
 import { Suspense } from "react";
 import { DashboardHeading } from "@/components/dashboard-shell";
 import {
@@ -7,7 +6,9 @@ import {
   ProductPageNotices,
 } from "@/components/product-detail-sections";
 import { ProductPageNavigation } from "@/components/product-navigation";
+import { skeletonClasses } from "@/components/skeleton-classnames";
 import type { ProductRecord, SubjectId } from "@/lib/auth/domain";
+import { withRequestPerformance } from "@/lib/auth/performance";
 import {
   getProductPageContext,
   type ProductPageWithSearchParams,
@@ -18,7 +19,6 @@ import {
   getProductShareInfo,
   listConsumerClientsForProduct,
 } from "@/lib/auth/service";
-import { withRequestPerformance } from "@/lib/auth/performance";
 
 export default async function ProductPage({ params, searchParams }: ProductPageWithSearchParams) {
   const [context, query] = await Promise.all([

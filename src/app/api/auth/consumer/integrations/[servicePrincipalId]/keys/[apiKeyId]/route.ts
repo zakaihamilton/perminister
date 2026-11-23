@@ -1,6 +1,6 @@
-import { withApiRoutePerformance } from "@/lib/auth/performance";
-import { NO_STORE_HEADERS } from "@/lib/auth/http";
 import { requireConsumerRequestContext } from "@/lib/auth/consumer-route";
+import { NO_STORE_HEADERS } from "@/lib/auth/http";
+import { withApiRoutePerformance } from "@/lib/auth/performance";
 import { revokeServicePrincipalApiKey } from "@/lib/auth/service";
 
 export const runtime = "nodejs";

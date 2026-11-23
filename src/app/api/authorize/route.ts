@@ -1,17 +1,17 @@
-import {
-  authorizeApiKey,
-  getSessionFromToken,
-  type AuthorizationRequest,
-} from "@/lib/auth/service";
 import { authenticateConsumerClient } from "@/lib/auth/consumer-clients";
-import { withRequestPerformance } from "@/lib/auth/performance";
-import { normalizeOAuthUri } from "@/lib/auth/oauth-uris";
 import {
   bearerToken,
   isJsonRequest,
-  readBoundedJson,
   RequestBodyTooLargeError,
+  readBoundedJson,
 } from "@/lib/auth/http";
+import { normalizeOAuthUri } from "@/lib/auth/oauth-uris";
+import { withRequestPerformance } from "@/lib/auth/performance";
+import {
+  type AuthorizationRequest,
+  authorizeApiKey,
+  getSessionFromToken,
+} from "@/lib/auth/service";
 
 export const runtime = "nodejs";
 

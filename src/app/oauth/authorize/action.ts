@@ -1,10 +1,8 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
-import { getCurrentSession } from "@/lib/auth/service";
-import { getConsumerOAuthAuthorizationClient } from "@/lib/auth/consumer-oauth-client";
 import { completeConsumerAuthorization } from "@/lib/auth/complete-consumer-authorization";
-import { withRequestPerformanceSpan } from "@/lib/auth/performance";
+import { getConsumerOAuthAuthorizationClient } from "@/lib/auth/consumer-oauth-client";
 import {
   consumerAuthorizationErrorCallback,
   consumerAuthorizationQuery,
@@ -13,6 +11,8 @@ import {
   safeConsumerAuthorizationReturnTo,
 } from "@/lib/auth/consumer-sso";
 import { getConfiguredOidcIssuer } from "@/lib/auth/oidc";
+import { withRequestPerformanceSpan } from "@/lib/auth/performance";
+import { getCurrentSession } from "@/lib/auth/service";
 
 function firstValue(data: FormData, name: string): string {
   const value = data.get(name);

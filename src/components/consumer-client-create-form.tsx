@@ -1,10 +1,10 @@
-import { useId, type FormEventHandler } from "react";
-import { CustomDropdown } from "@/components/custom-dropdown";
+import { type FormEventHandler, useId } from "react";
+import { ConsumerClientFormContextFields } from "@/components/consumer-client-form-context-fields";
 import {
   ConsumerClientMultilineField,
   ConsumerClientOriginField,
 } from "@/components/consumer-client-form-fields";
-import { ConsumerClientFormContextFields } from "@/components/consumer-client-form-context-fields";
+import { CustomDropdown } from "@/components/custom-dropdown";
 
 interface ConsumerClientCreateFormProps {
   onSubmit: FormEventHandler<HTMLFormElement>;

@@ -1,7 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { AlertDialog } from "panel-frame-ui";
+import type { ReactNode } from "react";
 import { useModalDialog } from "@/components/use-modal-dialog";
 
 export function ConfirmationDialog({

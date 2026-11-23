@@ -1,0 +1,1031 @@
+/* Public header/footer and dashboard shell layout, sidebar navigation, headings, and cards */
+
+.appScope {
+  --scope-marker: 1;
+}
+
+:where(.appScope) :global(.brand-mark svg) {
+  width: 100%;
+  height: 100%;
+}
+
+:where(.appScope) :global(.brand-compact .brand-mark) {
+  width: 28px;
+  height: 28px;
+}
+
+:where(.appScope) :global(.brand-compact .brand-word) {
+  font-size: 17px;
+}
+
+:where(.appScope) :global(.primary-nav a:hover) {
+  color: var(--ink);
+}
+
+:where(.appScope) :global(.dashboard-brand-row .brand-word) {
+  font-size: 19px;
+}
+
+:where(.appScope) :global(.platform-nav-label),
+:where(.appScope) :global(.dashboard-account-nav) {
+  margin-top: 22px;
+}
+
+:where(.appScope) :global(.dashboard-nav-mark) {
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid currentColor;
+  border-radius: 3px;
+  opacity: 0.8;
+}
+
+:where(.appScope) :global(.dashboard-nav-count) {
+  display: inline-grid;
+  min-width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  margin-left: auto;
+  padding: 0 6px;
+  color: var(--blue-dark);
+  background: var(--blue-pale);
+  font: 600 11px/1 "DM Mono", monospace;
+  white-space: nowrap;
+}
+
+:where(.appScope) :global(.dashboard-sidebar-theme) {
+  display: flex;
+  align-items: center;
+  margin-top: auto;
+  padding: 0 7px 12px;
+}
+
+:where(.appScope) :global(.sidebar-account) {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+:where(.appScope) :global(.sidebar-account-name) {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+:where(.appScope) :global(.dashboard-heading-action) {
+  flex: 0 0 auto;
+}
+
+:where(.appScope) :global(.action-refresh-notice) {
+  position: fixed;
+  z-index: 10000;
+  top: 16px;
+  left: 50%;
+  width: min(640px, calc(100% - 32px));
+  margin: 0;
+  transform: translateX(-50%);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 12%);
+}
+
+:where(.appScope) :global(.dashboard-card + .dashboard-card),
+:where(.appScope) :global(.dashboard-card + .dashboard-empty-card) {
+  margin-top: 18px;
+}
+
+:where(.appScope) :global(.dashboard-empty-card p) {
+  margin: 6px 0 0;
+}
+
+:where(.appScope) :global(.dashboard-empty-card > div) {
+  flex: 1;
+}
+
+
+
+:where(.appScope) :global(.dashboard-overview-products) {
+  margin-top: 0;
+}
+
+:where(.appScope) :global(.dashboard-layout .button) {
+  min-height: 44px;
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.site-header) {
+  border-bottom: 1px solid var(--line);
+  position: relative;
+  height: 72px;
+  background: var(--paper);
+}
+
+:where(.appScope) :global(.site-header-inner) {
+  height: 100%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: min(1200px, calc(100% - 52px));
+  gap: 18px;
+}
+
+:where(.appScope) :global(.brand) {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 9px;
+}
+
+:where(.appScope) :global(.brand-mark) {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+}
+
+:where(.appScope) :global(.brand-word) {
+  line-height: 1;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 19px;
+  font-weight: 750;
+  letter-spacing: -0.055em;
+}
+
+:where(.appScope) :global(.brand-period) {
+  color: var(--blue);
+}
+
+:where(.appScope) :global(.brand-mark path:first-child) {
+  stroke-width: 1;
+  fill: var(--ink);
+  stroke: var(--ink);
+}
+
+:where(.appScope) :global(.brand-mark path:nth-child(2)) {
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke: var(--mint);
+}
+
+:where(.appScope) :global(.brand-mark circle) {
+  fill: var(--blue);
+}
+
+:where(.appScope) :global(.primary-nav) {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  gap: clamp(13px, 2.4vw, 29px);
+}
+
+:where(.appScope) :global(.primary-nav a) {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 9px 0;
+  transition: color 160ms ease;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+:where(.appScope) :global(.primary-nav a[aria-current="page"]) {
+  color: var(--ink);
+  box-shadow: inset 0 -2px var(--blue);
+}
+
+:where(.appScope) :global(.header-create) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  white-space: nowrap;
+  min-height: 40px;
+  border-radius: 4px;
+  padding: 0 13px;
+  color: #fffdf8;
+  background: var(--button-primary);
+  font-size: 13px;
+}
+
+:where(.appScope) :global(.header-create:hover) {
+  background: var(--button-primary-hover);
+}
+
+:where(.appScope) :global(.site-header .primary-nav a),
+:where(.appScope) :global(.site-header .header-create) {
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.dashboard-layout) {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 246px minmax(0, 1fr);
+  background: var(--paper);
+}
+
+:where(.appScope) :global(.dashboard-sidebar) {
+  position: sticky;
+  top: 0;
+  display: flex;
+  height: 100vh;
+  min-height: 620px;
+  flex-direction: column;
+  overflow-y: auto;
+  border-right: 1px solid var(--line);
+  padding: 22px 14px 14px;
+  background: var(--surface);
+}
+
+:where(.appScope) :global(.dashboard-brand-row) {
+  padding: 0 10px 27px;
+  padding-bottom: 22px;
+}
+
+:where(.appScope) :global(.org-switcher) {
+  display: grid;
+  gap: 7px;
+  padding: 0 4px 19px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+:where(.appScope) :global(.org-switcher .pf-select-trigger) {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  font: 650 14px "DM Sans", sans-serif;
+  letter-spacing: normal;
+  text-transform: none;
+  border-radius: 4px;
+  color: var(--ink);
+  background: var(--surface-inset);
+}
+
+:where(.appScope) :global(.dashboard-nav) {
+  display: grid;
+  gap: 2px;
+}
+
+:where(.appScope) :global(.dashboard-nav-label) {
+  margin: 7px 9px 5px;
+  font-weight: 600;
+  font-family: "DM Mono", monospace;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+:where(.appScope) :global(.dashboard-nav-link) {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 0 10px;
+  transition: color 0.14s ease, background 0.14s ease;
+  min-height: 40px;
+  border-left: 2px solid transparent;
+  border-radius: 2px;
+  padding-left: 9px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 550;
+}
+
+:where(.appScope) :global(.dashboard-nav-link:hover) {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+:where(.appScope) :global(.dashboard-sidebar-footer) {
+  display: grid;
+  gap: 10px;
+  margin-top: 0;
+  border-top: 1px solid var(--line);
+  padding: 16px 7px 0;
+}
+
+:where(.appScope) :global(.sidebar-email) {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font-family: inherit;
+  line-height: 1.5;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+:where(.appScope) :global(.dashboard-main) {
+  min-width: 0;
+  padding: 22px clamp(24px, 4vw, 60px) 64px;
+}
+
+:where(.appScope) :global(.dashboard-breadcrumbs) {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+:where(.appScope) :global(.dashboard-breadcrumbs ol) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.appScope) :global(.dashboard-breadcrumbs li) {
+  display: inline-flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 10px;
+  overflow-wrap: anywhere;
+}
+
+:where(.appScope) :global(.dashboard-breadcrumbs a) {
+  color: var(--muted);
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+
+:where(.appScope) :global(.dashboard-breadcrumbs a:hover),
+:where(.appScope) :global(.dashboard-breadcrumbs a:focus-visible) {
+  color: var(--blue-dark);
+  text-decoration: underline;
+}
+
+:where(.appScope) :global(.dashboard-breadcrumb-separator) {
+  color: var(--line-strong);
+}
+
+:where(.appScope) :global(.dashboard-page-heading) {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 29px;
+  margin-bottom: 25px;
+}
+
+:where(.appScope) :global(.dashboard-page-heading > p) {
+  max-width: 680px;
+  margin: 0;
+  line-height: 1.6;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.dashboard-card) {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  box-shadow: none;
+  padding: 19px;
+}
+
+:where(.appScope) :global(.dashboard-card h2),
+:where(.appScope) :global(.dashboard-empty-card h2) {
+  margin: 0;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.025em;
+  font-size: 16px;
+}
+
+:where(.appScope) :global(.dashboard-card-heading) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+:where(.appScope) :global(.dashboard-card-heading p) {
+  margin: 5px 0 0;
+  line-height: 1.5;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+:where(.appScope) :global(.dashboard-notice) {
+  border: 1px solid #d5dff8;
+  margin: -11px 0 20px;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  border-radius: 4px;
+  color: var(--ink-soft);
+  background: var(--surface-2);
+}
+
+:where(.appScope) :global(.dashboard-notice.success) {
+  border-color: #bfcdb5;
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+:where(.appScope) :global(.dashboard-notice.error) {
+  border-color: #dfb4aa;
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+:where(.appScope) :global(.dashboard-notice.info) {
+  border-color: var(--line);
+  color: var(--ink-soft);
+  background: var(--surface-2);
+}
+
+:where(.appScope) :global(.dashboard-empty-card) {
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  border-radius: 5px;
+  background: var(--surface);
+  box-shadow: none;
+  padding: 19px;
+  gap: 15px;
+}
+
+:where(.appScope) :global(.theme-control) {
+  position: relative;
+  z-index: 30;
+  flex: 0 0 auto;
+}
+
+:where(.appScope) :global(.site-footer) {
+  display: flex;
+  align-items: center;
+  margin: 0 auto;
+  border-top: 1px solid var(--line);
+  width: min(1200px, calc(100% - 52px));
+  min-height: 78px;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  padding-block: 16px;
+}
+
+:where(.appScope) :global(.site-footer p) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+:where(.appScope) :global(.footer-links) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px 20px;
+  margin-left: auto;
+  font-size: 14px;
+}
+
+:where(.appScope) :global(.footer-links a) {
+  color: var(--blue-dark);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 3px;
+}
+
+:where(.appScope) :global(.footer-links a:hover) {
+  text-decoration-color: currentColor;
+}
+
+:where(.appScope) :global(.footer-links .footer-github-link) {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+
+:where(.appScope) :global(.footer-github-link svg) {
+  display: block;
+  width: 21px;
+  height: 21px;
+}
+
+:where(.appScope) :global(.footer-links .footer-github-link:hover) {
+  border-color: var(--line-strong);
+  color: var(--blue-dark);
+  background: var(--blue-pale);
+}
+
+:where(.appScope) :global(.dashboard-page-title) {
+  margin: 0;
+  margin-bottom: 10px;
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: clamp(36px, 4.2vw, 48px);
+  font-weight: 700;
+  letter-spacing: -0.055em;
+  line-height: 1.08;
+}
+
+:where(.appScope) :global(.dashboard-nav-link[aria-current="page"]) {
+  border-left: 3px solid var(--blue);
+  border-radius: 8px;
+  padding-left: 11px;
+  color: var(--blue-dark);
+  background: var(--blue-pale);
+}
+
+:where(.appScope) :global(.dashboard-nav-link[aria-current="page"] .dashboard-nav-mark) {
+  color: var(--blue-dark);
+  border-radius: 50%;
+  background: currentColor;
+}
+
+:where(.appScope) :global(.dashboard-mobile-header) {
+  display: none;
+}
+
+:where(.appScope) :global(.pf-dashboard-shell .dashboard-nav) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  overflow: visible;
+  padding: 0;
+}
+
+:where(.appScope) :global(.pf-dashboard-shell .dashboard-nav-label) {
+  display: block;
+}
+
+:where(.appScope) :global(.pf-dashboard-shell .dashboard-nav-mark) {
+  display: inline-block;
+}
+
+:where(.appScope) :global(.pf-dashboard-shell .dashboard-nav-link) {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  flex: initial;
+  justify-content: flex-start;
+  border: 1px solid transparent;
+  border-radius: var(--pf-radius-sm);
+  padding: 8px 10px;
+  color: var(--pf-muted);
+  font-size: 13px;
+  font-weight: 590;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+}
+
+:where(.appScope) :global(.pf-dashboard-shell .dashboard-nav-link:hover) {
+  color: var(--pf-text);
+  background: color-mix(in srgb, var(--pf-accent) 7%, var(--pf-surface));
+}
+
+:where(.appScope) :global(.pf-dashboard-shell .dashboard-nav-link.pf-sidebar-link[aria-current="page"]) {
+  border-color: color-mix(in srgb, var(--pf-accent) 18%, var(--pf-border));
+  color: var(--pf-accent);
+  background: color-mix(in srgb, var(--pf-accent) 10%, var(--pf-surface));
+  font-weight: 700;
+}
+
+/* Dark theme overrides */
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-layout),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-main) {
+  background: var(--paper);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-page-heading > p),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-card-heading p),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.sidebar-email),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.site-footer p) {
+  color: var(--muted);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.header-create) {
+  color: #fffdf8;
+  background: var(--button-primary);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.header-create:hover) {
+  background: var(--button-primary-hover);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-sidebar-footer) {
+  border-color: var(--line);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-nav-link) {
+  border-color: var(--line);
+  color: var(--ink-soft);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-nav-link:hover) {
+  background: var(--surface-2);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-nav-link[aria-current="page"]) {
+  background: var(--surface-2);
+  border-left-color: var(--blue);
+  color: var(--ink);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-nav-link[aria-current="page"] .dashboard-nav-mark) {
+  color: var(--blue);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-nav-label) {
+  color: var(--muted);
+}
+
+@media (max-width: 980px) {
+  :where(.appScope) :global(.dashboard-layout) {
+    grid-template-columns: 225px minmax(0, 1fr);
+  }
+
+  :where(.appScope) :global(.dashboard-sidebar) {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  :where(.appScope) :global(.dashboard-main) {
+    padding-right: 26px;
+    padding-left: 26px;
+  }
+}
+
+@media (max-width: 920px) {
+  :where(.appScope) :global(.site-header-inner) {
+    gap: 12px;
+  }
+
+  :where(.appScope) :global(.primary-nav) {
+    gap: clamp(9px, 1.5vw, 14px);
+  }
+
+  :where(.appScope) :global(.primary-nav a) {
+    font-size: 13px;
+  }
+
+  :where(.appScope) :global(.header-create) {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+}
+
+@media (max-width: 860px) {
+  :where(.appScope) :global(.dashboard-layout) {
+    display: block;
+  }
+
+  :where(.appScope) :global(.dashboard-sidebar) {
+    position: static;
+    height: auto;
+    min-height: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 10px 14px 0;
+  }
+
+  :where(.appScope) :global(.dashboard-brand-row),
+  :where(.appScope) :global(.dashboard-nav-label),
+  :where(.appScope) :global(.dashboard-nav-mark) {
+    display: none;
+  }
+
+  :where(.appScope) :global(.dashboard-nav) {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: visible;
+    gap: 3px 4px;
+    padding: 5px 0 8px;
+  }
+
+  :where(.appScope) :global(.dashboard-nav-link) {
+    width: 100%;
+    min-width: 0;
+    min-height: 38px;
+    flex: initial;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 0 6px;
+    font-size: 12px;
+    line-height: 1.1;
+    text-align: center;
+    white-space: normal;
+  }
+
+  :where(.appScope) :global(.dashboard-nav-link[aria-current="page"]) {
+    border: 1px solid var(--line);
+    border-bottom: 2px solid var(--blue);
+    padding: 0 6px;
+  }
+
+  :where(.appScope) :global(.dashboard-account-nav) {
+    display: contents;
+    margin-top: 0;
+  }
+
+  :where(.appScope) :global(.dashboard-sidebar-footer) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid var(--line);
+    padding: 8px 2px;
+  }
+
+  :where(.appScope) :global(.sidebar-account) {
+    flex: 1 1 auto;
+  }
+
+  :where(.appScope) :global(.dashboard-sidebar-footer form) {
+    flex: 0 0 auto;
+    margin: 0;
+  }
+
+  :where(.appScope) :global(.dashboard-sidebar-theme) {
+    justify-content: flex-end;
+    margin-top: 0;
+    padding: 4px 2px 8px;
+  }
+}
+
+@media (max-width: 780px) {
+  :where(.appScope) :global(.pf-dashboard-shell[data-mobile-open="true"] .pf-sidebar) {
+    z-index: 40;
+  }
+}
+
+@media (max-width: 760px) {
+  :where(.appScope) :global(.site-footer) {
+    align-items: flex-start;
+    gap: 12px 18px;
+  }
+
+  :where(.appScope) :global(.site-footer p) {
+    flex-basis: calc(100% - 170px);
+  }
+
+  :where(.appScope) :global(.footer-links) {
+    flex-basis: 100%;
+  }
+}
+
+@media (max-width: 740px) {
+  :where(.appScope) :global(.org-switcher) {
+    padding: 0 1px 10px;
+  }
+
+  :where(.appScope) :global(.org-switcher > span) {
+    display: none;
+  }
+
+  :where(.appScope) :global(.org-switcher .custom-dropdown) {
+    max-width: 100%;
+  }
+
+  :where(.appScope) :global(.dashboard-heading-action),
+  :where(.appScope) :global(.dashboard-heading-action .button) {
+    width: 100%;
+  }
+
+  :where(.appScope) :global(.site-header) {
+    height: auto;
+    min-height: 64px;
+  }
+
+  :where(.appScope) :global(.site-footer) {
+    width: min(100% - 36px, 600px);
+  }
+
+  :where(.appScope) :global(.site-header-inner) {
+    width: min(100% - 36px, 600px);
+    min-height: 64px;
+    flex-wrap: wrap;
+    gap: 0 11px;
+    padding: 8px 0 0;
+  }
+
+  :where(.appScope) :global(.primary-nav) {
+    order: 4;
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 5px 0 0;
+    border-top: 1px solid var(--line);
+    padding: 4px 0 6px;
+  }
+
+  :where(.appScope) :global(.primary-nav a) {
+    min-height: 38px;
+    font-size: 12px;
+  }
+
+  :where(.appScope) :global(.theme-control) {
+    margin-left: auto;
+  }
+
+  :where(.appScope) :global(.header-create) {
+    min-height: 36px;
+    margin-left: 0;
+    font-size: 12px;
+  }
+
+  :where(.appScope) :global(.dashboard-main) {
+    padding: 14px 18px 44px;
+  }
+
+  :where(.appScope) :global(.dashboard-page-heading) {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 13px;
+    margin-bottom: 19px;
+  }
+
+  :where(.appScope) :global(.dashboard-sidebar) {
+    display: none !important;
+  }
+
+  :where(.appScope) :global(.dashboard-mobile-header) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 16px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 700px) {
+  :where(.appScope) :global(.site-header) {
+    height: 68px;
+  }
+
+  :where(.appScope) :global(.site-header-inner) {
+    width: min(100% - 34px, 540px);
+    gap: 12px;
+  }
+
+  :where(.appScope) :global(.brand) {
+    gap: 7px;
+  }
+
+  :where(.appScope) :global(.brand-mark) {
+    width: 31px;
+    height: 31px;
+  }
+
+  :where(.appScope) :global(.brand-word) {
+    font-size: 18px;
+  }
+
+  :where(.appScope) :global(.primary-nav) {
+    gap: 14px;
+  }
+
+  :where(.appScope) :global(.primary-nav a) {
+    font-size: 14px;
+  }
+
+  :where(.appScope) :global(.site-footer) {
+    width: min(100% - 34px, 540px);
+    min-height: 82px;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding: 15px 0;
+  }
+}
+
+@media (max-width: 560px) {
+  :where(.appScope) :global(.header-create) {
+    margin-left: auto;
+    min-height: 44px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+
+  :where(.appScope) :global(.site-header) {
+    height: auto;
+  }
+
+  :where(.appScope) :global(.site-header-inner) {
+    height: auto;
+    min-height: 58px;
+    flex-wrap: wrap;
+    gap: 0 10px;
+    padding: 8px 0 0;
+  }
+
+  :where(.appScope) :global(.primary-nav) {
+    order: 3;
+    width: 100%;
+    justify-content: space-around;
+    gap: 8px;
+    margin: 7px 0 0;
+    border-top: 1px solid var(--line);
+    padding: 6px 0 8px;
+  }
+
+  :where(.appScope) :global(.primary-nav a) {
+    padding: 6px 2px;
+  }
+
+  :where(.appScope) :global(.dashboard-main) {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  :where(.appScope) :global(.dashboard-card) {
+    padding: 15px;
+  }
+
+  :where(.appScope) :global(.dashboard-empty-card) {
+    padding: 15px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  :where(.appScope) :global(.dashboard-empty-card .button) {
+    width: 100%;
+  }
+
+  :where(.appScope) :global(.site-footer) {
+    width: min(100% - 36px, 600px);
+  }
+}
+
+@media (max-width: 540px) {
+  :where(.appScope) :global(.dashboard-card) {
+    padding: 16px;
+  }
+
+  :where(.appScope) :global(.dashboard-empty-card) {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  :where(.appScope) :global(.site-footer p) {
+    flex-basis: 100%;
+  }
+}
+
+@media (max-width: 390px) {
+  :where(.appScope) :global(.site-header-inner),
+  :where(.appScope) :global(.site-footer) {
+    width: calc(100% - 26px);
+  }
+
+  :where(.appScope) :global(.brand-word) {
+    font-size: 16px;
+  }
+
+  :where(.appScope) :global(.primary-nav) {
+    gap: 5px;
+  }
+
+  :where(.appScope) :global(.primary-nav a) {
+    font-size: 13px;
+  }
+
+  :where(.appScope) :global(.dashboard-nav-link) {
+    padding-right: 4px;
+    padding-left: 4px;
+    font-size: 11px;
+  }
+
+  :where(.appScope) :global(.dashboard-nav-link[aria-current="page"]) {
+    padding-right: 4px;
+    padding-left: 4px;
+  }
+}
+
+@media (max-width: 360px) {
+  :where(.appScope) :global(.dashboard-nav) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

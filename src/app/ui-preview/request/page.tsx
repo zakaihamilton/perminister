@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
-import { isUiPreviewAllowed } from "@/lib/ui-preview-access";
+import { PreviewDropdown, PreviewToolbar } from "ui-preview-kit";
 import { DashboardHeading } from "@/components/dashboard-shell";
 import { OrganizationRequestHistory } from "@/components/new-organization-sections";
 import { OrganizationRequestEmptyShell } from "@/components/organization-request-page-shell";
 import type { OrganizationRequestSummary } from "@/lib/auth/service";
-import { PreviewDropdown, PreviewToolbar } from "ui-preview-kit";
+import { isUiPreviewAllowed } from "@/lib/ui-preview-access";
 import { PreviewGuard } from "../preview-guard";
 
 const pendingRequest: OrganizationRequestSummary = {

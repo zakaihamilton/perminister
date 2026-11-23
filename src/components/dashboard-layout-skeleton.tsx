@@ -1,6 +1,6 @@
+import { DashboardPageSkeleton } from "@/components/dashboard-page-skeleton";
 import { skeletonClasses } from "@/components/skeleton-classnames";
 import styles from "./dashboard-shell.module.css";
-import { DashboardPageSkeleton } from "@/components/dashboard-page-skeleton";
 
 export function DashboardLayoutSkeleton() {
   return (

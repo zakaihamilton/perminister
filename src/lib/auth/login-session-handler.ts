@@ -1,21 +1,21 @@
 import "server-only";
 
-import { safeConsumerAuthorizationReturnTo } from "@/lib/auth/consumer-sso";
 import { consumerAuthRequestContext } from "@/lib/auth/consumer-auth-request-context";
-import { postLoginDestination } from "@/lib/auth/login-redirect";
+import { safeConsumerAuthorizationReturnTo } from "@/lib/auth/consumer-sso";
 import { passwordRecoveryRequesterKey } from "@/lib/auth/coordination";
 import {
   isSameOriginBrowserRequest,
   publicRedirectResponse,
   readBoundedRequestBody,
 } from "@/lib/auth/http";
+import { postLoginDestination } from "@/lib/auth/login-redirect";
+import { withRequestPerformanceSpan } from "@/lib/auth/performance";
 import {
   authenticate,
   consumeLoginRequestRateLimit,
   createSession,
   setSessionCookie,
 } from "@/lib/auth/service";
-import { withRequestPerformanceSpan } from "@/lib/auth/performance";
 
 const MAX_LOGIN_FORM_BYTES = 8 * 1024;
 const MAX_LOGIN_PASSWORD_LENGTH = 256;
