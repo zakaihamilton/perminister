@@ -167,13 +167,6 @@
   white-space: nowrap;
 }
 
-:where(.appScope) :global(.product-nav-link:hover),
-:where(.appScope) :global(.product-nav-link[aria-current="page"]) {
-  border-color: var(--line);
-  color: var(--ink);
-  background: var(--surface-2);
-}
-
 :where(.appScope) :global(.product-nav-link:focus-visible) {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
@@ -1931,8 +1924,7 @@
 
 :global(html[data-theme="dark"]) :where(.appScope) :global(.product-card),
 :global(html[data-theme="dark"]) :where(.appScope) :global(.product-setup-step),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.onboarding-card),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.access-grant-card) {
+:global(html[data-theme="dark"]) :where(.appScope) :global(.onboarding-card) {
   border-color: var(--line);
   color: var(--ink);
   background-color: var(--surface);
@@ -1962,24 +1954,8 @@
   color: var(--blue-dark);
 }
 
-:global(html[data-theme="dark"]) :where(.appScope) :global(.product-transfer-dropdown .pf-select-trigger),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.people-row-actions .pf-select-trigger),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.invite-form .pf-select-trigger) {
-  border-color: var(--line-strong);
-  color: var(--ink);
-  background: var(--surface-inset);
-}
-
-:global(html[data-theme="dark"]) :where(.appScope) :global(.role-pill) {
-  border-color: var(--line-strong);
-  color: var(--muted);
-  background: var(--surface-2);
-}
-
 :global(html[data-theme="dark"]) :where(.appScope) :global(.product-placeholder),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.people-avatar),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.product-nav-link:hover),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.product-nav-link[aria-current="page"]) {
+:global(html[data-theme="dark"]) :where(.appScope) :global(.people-avatar) {
   border-color: var(--line);
   color: var(--ink);
   background: var(--surface-2);
@@ -2025,12 +2001,6 @@
 
 :global(html[data-theme="dark"]) :where(.appScope) :global(.organization-product-card:hover) {
   border-color: var(--blue);
-  background: var(--surface-2);
-}
-
-:global(html[data-theme="dark"]) :where(.appScope) :global(.organization-product-badge) {
-  border-color: var(--line);
-  color: var(--ink-soft);
   background: var(--surface-2);
 }
 
