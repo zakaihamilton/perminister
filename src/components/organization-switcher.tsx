@@ -76,13 +76,22 @@ export function OrganizationSwitcher({
     const destination = keepOperationsContext
       ? operationsHref("/dashboard/operations", selectedOrganizationId)
       : `/dashboard/${encodeURIComponent(selectedOrganizationId)}`;
-    await fetch("/api/dashboard/organization-preference", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organizationId: selectedOrganizationId }),
-      credentials: "same-origin",
-    }).catch(() => null);
-    router.push(destination);
+    try {
+      const response = await fetch("/api/dashboard/organization-preference", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId: selectedOrganizationId }),
+        credentials: "same-origin",
+      });
+      if (!response.ok) {
+        setError("Could not remember this organization. Please try again.");
+        return;
+      }
+    } catch {
+      setError("Could not remember this organization. Please try again.");
+      return;
+    }
+    window.location.assign(destination);
   }
 
   if (

@@ -62,9 +62,9 @@ export async function SiteHeader({
             Developers
           </Link>
           {signedIn ? (
-            <Link href="/dashboard" aria-current={active === "dashboard" ? "page" : undefined}>
+            <a href="/dashboard" aria-current={active === "dashboard" ? "page" : undefined}>
               Dashboard
-            </Link>
+            </a>
           ) : (
             <Link href="/login">Sign in</Link>
           )}
