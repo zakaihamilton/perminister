@@ -246,12 +246,6 @@
 
 /* Dark theme overrides */
 
-:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-card) {
-  border-color: var(--line);
-  color: var(--ink);
-  background-color: var(--surface);
-}
-
 :global(html[data-theme="dark"]) :where(.appScope) :global(.profile-details dd),
 :global(html[data-theme="dark"]) :where(.appScope) :global(.auth-heading h1),
 :global(html[data-theme="dark"]) :where(.appScope) :global(.auth-card h1) {
@@ -267,14 +261,6 @@
 :global(html[data-theme="dark"]) :where(.appScope) :global(.auth-links a),
 :global(html[data-theme="dark"]) :where(.appScope) :global(.profile-links a) {
   color: var(--blue-dark);
-}
-
-:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form input),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form .pf-select-trigger),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form textarea) {
-  border-color: var(--line-strong);
-  color: var(--ink);
-  background: var(--surface-inset);
 }
 
 :global(html[data-theme="dark"]) :where(.appScope) :global(.auth-form input::placeholder) {
