@@ -209,6 +209,12 @@ async function activityAggregateRecord(
       case "product": {
         const productId = event.payload.productId;
         if (organizationId && typeof productId === "string") {
+          if (
+            event.type === "product.deleted" ||
+            event.type === "product.deletion-started"
+          ) {
+            return (await loadRecord("product", event.aggregate.id))?.record ?? null;
+          }
           if (productNames.has(productId)) return null;
           return await store().readProduct(organizationId, productId);
         }
@@ -268,7 +274,9 @@ function activityTargetLabel(
   if (
     (event.type === "product.transferred" ||
       event.type === "product.moved" ||
-      event.type === "product.moved-from") &&
+      event.type === "product.moved-from" ||
+      event.type === "product.deleted" ||
+      event.type === "product.deletion-started") &&
     typeof event.payload.productName === "string"
   ) {
     return event.payload.productName;
