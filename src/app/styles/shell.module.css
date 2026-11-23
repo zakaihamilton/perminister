@@ -97,16 +97,15 @@
   margin-top: 18px;
 }
 
+:where(.appScope) :global(.dashboard-empty-card p) {
+  margin: 6px 0 0;
+}
+
 :where(.appScope) :global(.dashboard-empty-card > div) {
   flex: 1;
 }
 
-:where(.appScope) :global(.dashboard-empty-card p) {
-  margin: 6px 0 0;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.55;
-}
+
 
 :where(.appScope) :global(.dashboard-overview-products) {
   margin-top: 0;
@@ -1013,23 +1012,12 @@
 }
 
 @media (max-width: 540px) {
-  :where(.appScope) :global(.dashboard-main) {
-    padding-right: 14px;
-    padding-left: 14px;
-  }
-
   :where(.appScope) :global(.dashboard-card) {
     padding: 16px;
   }
 
   :where(.appScope) :global(.dashboard-empty-card) {
     padding: 16px;
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  :where(.appScope) :global(.dashboard-empty-card .button) {
-    width: 100%;
   }
 }
 

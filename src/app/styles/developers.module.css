@@ -87,15 +87,6 @@
   display: grid;
 }
 
-:where(.appScope) :global(.step-number svg) {
-  width: 15px;
-  height: 15px;
-  stroke: currentColor;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 :where(.appScope) :global(.scope-table) {
   width: 100%;
   border-collapse: collapse;
@@ -133,27 +124,11 @@
   font-size: 16px;
 }
 
-:where(.appScope) :global(.key-callout-icon svg) {
-  width: 18px;
-  height: 18px;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 :where(.appScope) :global(.storage-config-note) {
   margin: 16px 21px 19px;
   color: var(--muted);
   font-size: 16px;
   line-height: 1.65;
-}
-
-:where(.appScope) :global(.guide-next-link a) {
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  color: var(--blue-dark);
 }
 
 :where(.appScope) :global(.guide-notice) {
@@ -273,10 +248,10 @@
   box-shadow: none;
 }
 
-:where(.appScope) :global(.developer-index-number) {
+:where(.appScope) :global(.developer-index-number),
+:where(.appScope) :global(.step-number) {
   display: grid;
   place-items: center;
-  font: 500 12px "DM Mono", monospace;
   width: 30px;
   height: 30px;
   border-radius: 3px;
@@ -284,16 +259,23 @@
   background: var(--blue-pale);
 }
 
+:where(.appScope) :global(.developer-index-number) {
+  font: 500 12px "DM Mono", monospace;
+}
+
+:where(.appScope) :global(.step-number svg) {
+  width: 15px;
+  height: 15px;
+}
+
+:where(.appScope) :global(.key-callout-icon svg) {
+  width: 18px;
+  height: 18px;
+}
+
 :where(.appScope) :global(.step-number) {
-  display: grid;
-  place-items: center;
   border: 1px solid #dfe5f5;
   font: 500 11px "DM Mono", monospace;
-  width: 30px;
-  height: 30px;
-  border-radius: 3px;
-  color: var(--blue-dark);
-  background: var(--blue-pale);
 }
 
 :where(.appScope) :global(.developer-index-copy span) {
@@ -345,11 +327,6 @@
 :where(.appScope) :global(.guide-panel-head h2),
 :where(.appScope) :global(.aside-card h2) {
   margin: 0;
-  font-weight: 700;
-  color: var(--ink);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  letter-spacing: -0.025em;
-  font-size: 15px;
 }
 
 :where(.appScope) :global(.guide-panel-head p) {

@@ -407,6 +407,11 @@
   --blue-action-hover: #2e4f74;
 }
 
+:global(html[data-theme="dark"]) :where(.appScope) :global(.home-closing-cta) {
+  background: var(--blue-action);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.home-closing-cta .home-cta-label),
 :global(html[data-theme="dark"]) :where(.appScope) :global(.home-closing-button),
 :global(html[data-theme="dark"]) :where(.appScope) :global(.home-closing-button:hover) {
   color: #18324f;

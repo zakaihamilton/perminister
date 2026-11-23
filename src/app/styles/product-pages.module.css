@@ -36,7 +36,18 @@
   background: var(--surface);
 }
 
-:where(.appScope) :global(.copy-environment-button svg) {
+:where(.appScope) :global(.copy-environment-button svg),
+:where(.appScope) :global(.organization-activity-empty-icon svg) {
+  width: 17px;
+  height: 17px;
+}
+
+:where(.appScope) :global(.organization-product-view-button svg) {
+  width: 16px;
+  height: 16px;
+}
+
+:where(.appScope) :global(.organization-id-copy-button svg) {
   width: 16px;
   height: 16px;
   stroke: currentColor;
@@ -110,15 +121,6 @@
   background: var(--surface-2);
 }
 
-:where(.appScope) :global(.organization-id-copy-button svg) {
-  width: 16px;
-  height: 16px;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 :where(.appScope) :global(.organization-id-copy-error) {
   color: var(--danger);
   font-size: 12px;
@@ -133,7 +135,8 @@
   object-fit: cover;
 }
 
-:where(.appScope) :global(.organization-empty-actions) {
+:where(.appScope) :global(.organization-empty-actions),
+:where(.appScope) :global(.product-lifecycle-actions) {
   display: flex;
   flex: 0 0 auto;
   flex-wrap: wrap;
@@ -191,7 +194,8 @@
   gap: 10px;
 }
 
-:where(.appScope) :global(.public-product-item) {
+:where(.appScope) :global(.public-product-item),
+:where(.appScope) :global(.archived-product-item) {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -213,7 +217,8 @@
   font-size: 14px;
 }
 
-:where(.appScope) :global(.public-product-copy > span) {
+:where(.appScope) :global(.public-product-copy > span),
+:where(.appScope) :global(.product-card-copy small) {
   overflow: hidden;
   color: var(--muted);
   font-size: 13px;
@@ -253,14 +258,6 @@
   font-size: 15px;
 }
 
-:where(.appScope) :global(.product-card-copy small) {
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 :where(.appScope) :global(.product-detail-top > img) {
   flex: 0 0 auto;
   border: 1px solid #e9edf2;
@@ -278,14 +275,6 @@
 :where(.appScope) :global(.product-detail-top > div) {
   display: grid;
   gap: 5px;
-}
-
-:where(.appScope) :global(.product-detail-card .text-link) {
-  color: var(--blue-dark);
-  font-size: 13px;
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 
 :where(.appScope) :global(.product-edit-form) {
@@ -320,7 +309,8 @@
   text-decoration: underline;
 }
 
-:where(.appScope) :global(.product-visibility-control) {
+:where(.appScope) :global(.product-visibility-control),
+:where(.appScope) :global(.product-lifecycle-control) {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -335,7 +325,8 @@
   font-size: 16px;
 }
 
-:where(.appScope) :global(.product-visibility-control p) {
+:where(.appScope) :global(.product-visibility-control p),
+:where(.appScope) :global(.product-lifecycle-copy p) {
   max-width: 650px;
   margin: 6px 0 0;
   color: var(--muted);
@@ -350,16 +341,6 @@
   font-size: 13px;
 }
 
-:where(.appScope) :global(.product-lifecycle-control) {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  margin-top: 16px;
-  border-top: 1px solid var(--line);
-  padding-top: 16px;
-}
-
 :where(.appScope) :global(.product-lifecycle-copy) {
   min-width: 0;
 }
@@ -367,22 +348,6 @@
 :where(.appScope) :global(.product-lifecycle-copy h2) {
   margin: 0;
   font-size: 16px;
-}
-
-:where(.appScope) :global(.product-lifecycle-copy p) {
-  max-width: 650px;
-  margin: 6px 0 0;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.55;
-}
-
-:where(.appScope) :global(.product-lifecycle-actions) {
-  display: flex;
-  flex: 0 0 auto;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
 }
 
 :where(.appScope) :global(.product-lifecycle-actions form) {
@@ -396,17 +361,6 @@
 :where(.appScope) :global(.archived-product-list) {
   display: grid;
   gap: 10px;
-}
-
-:where(.appScope) :global(.archived-product-item) {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  padding: 12px;
-  background: var(--surface);
 }
 
 :where(.appScope) :global(.archived-product-copy) {
@@ -487,14 +441,6 @@
 }
 
 :where(.appScope) :global(.product-source-form input) {
-  width: 100%;
-  min-width: 0;
-  min-height: 44px;
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  padding: 10px 12px;
-  color: var(--ink);
-  background: var(--surface-inset);
   max-width: 420px;
   font: 500 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -763,12 +709,16 @@
   align-items: start;
 }
 
-:where(.appScope) :global(.consumer-client-field-hint) {
-  margin: 0;
+:where(.appScope) :global(.consumer-client-field-hint),
+:where(.appScope) :global(.access-form-field-help) {
   color: var(--muted);
   font-size: 12px;
   font-weight: 400;
   line-height: 1.45;
+}
+
+:where(.appScope) :global(.consumer-client-field-hint) {
+  margin: 0;
 }
 
 :where(.appScope) :global(.invite-form .pf-select-trigger) {
@@ -782,12 +732,7 @@
   font-size: 14px;
 }
 
-:where(.appScope) :global(.onboarding-secondary a) {
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  color: var(--blue-dark);
-}
+
 
 :where(.appScope) :global(.onboarding-page h1) {
   margin: 7px 0 8px;
@@ -871,9 +816,10 @@
   border-color: var(--line);
 }
 
-:where(.appScope) :global(.people-row) {
+:where(.appScope) :global(.people-row),
+:where(.appScope) :global(.people-row),
+:where(.appScope) :global(.pending-invite-row) {
   display: flex;
-  min-width: 0;
   align-items: center;
   gap: 12px;
   border-top: 1px solid #edf0f4;
@@ -881,14 +827,12 @@
   border-color: var(--line);
 }
 
+:where(.appScope) :global(.people-row) {
+  min-width: 0;
+}
+
 :where(.appScope) :global(.pending-invite-row) {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  border-top: 1px solid #edf0f4;
-  padding: 12px 0;
-  border-color: var(--line);
 }
 
 :where(.appScope) :global(.access-grant-card) {
@@ -938,11 +882,6 @@
 
 :where(.appScope) :global(.onboarding-card h2) {
   margin: 2px 0 5px;
-  font-weight: 700;
-  color: var(--ink);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  letter-spacing: -0.025em;
-  font-size: 15px;
 }
 
 :where(.appScope) :global(.onboarding-step) {
@@ -962,11 +901,7 @@
 }
 
 :where(.appScope) :global(.people-row-actions .pf-select-trigger) {
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  background: var(--surface-inset);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  min-height: 44px;
   padding: 0 10px;
   color: var(--ink-soft);
   font-size: 14px;
@@ -1126,20 +1061,7 @@
 
 :where(.appScope) :global(.access-scope-field),
 :where(.appScope) :global(.access-actions-field) {
-  display: grid;
-  min-width: 0;
   align-content: start;
-  gap: 7px;
-  color: var(--ink-soft);
-  font-size: 13px;
-  font-weight: 650;
-}
-
-:where(.appScope) :global(.access-form-field-help) {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.45;
 }
 
 :where(.appScope) :global(.access-resource-field) {
@@ -1183,11 +1105,15 @@
   padding-top: 16px;
 }
 
-:where(.appScope) :global(.consumer-client-card-heading) {
+:where(.appScope) :global(.consumer-client-card-heading),
+:where(.appScope) :global(.consumer-client-card-buttons) {
   display: flex;
+  gap: 12px;
+}
+
+:where(.appScope) :global(.consumer-client-card-heading) {
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
 }
 
 :where(.appScope) :global(.consumer-client-card-heading h3) {
@@ -1231,9 +1157,7 @@
 }
 
 :where(.appScope) :global(.consumer-client-card-buttons) {
-  display: flex;
   align-items: center;
-  gap: 12px;
 }
 
 :where(.appScope) :global(.consumer-client-card-actions form) {
@@ -1557,16 +1481,6 @@
   background: var(--amber-pale);
 }
 
-:where(.appScope) :global(.organization-overview-stat-icon svg),
-:where(.appScope) :global(.organization-activity-empty-icon svg) {
-  width: 17px;
-  height: 17px;
-  stroke: currentColor;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 :where(.appScope) :global(.organization-overview-stat-label) {
   min-width: 0;
   color: var(--ink-soft);
@@ -1687,15 +1601,6 @@
   transition: color 150ms ease, border-color 150ms ease, background 150ms ease, transform 150ms ease;
 }
 
-:where(.appScope) :global(.organization-product-view-button svg) {
-  width: 16px;
-  height: 16px;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 :where(.appScope) :global(.organization-product-view-button:hover) {
   transform: translateY(-1px);
   color: var(--blue-dark);
@@ -1757,7 +1662,8 @@
   gap: 8px;
 }
 
-:where(.appScope) :global(.organization-product-card-top .organization-product-icon) {
+:where(.appScope) :global(.organization-product-card-top .organization-product-icon),
+:where(.appScope) :global(.organization-product-card-top .product-placeholder) {
   width: 44px;
   height: 44px;
   flex: 0 0 auto;
@@ -1767,12 +1673,6 @@
 }
 
 :where(.appScope) :global(.organization-product-card-top .product-placeholder) {
-  width: 44px;
-  height: 44px;
-  flex: 0 0 auto;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  object-fit: cover;
   color: var(--blue-dark);
   background: var(--blue-pale);
 }
@@ -1832,10 +1732,6 @@
 :where(.appScope) :global(.organization-product-card-action svg) {
   width: 15px;
   height: 15px;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
   transition: transform 150ms ease;
 }
 
@@ -1971,18 +1867,11 @@
 }
 
 :where(.appScope) :global(.organization-activity-meta-item) {
-  display: inline-flex;
   max-width: 100%;
-  align-items: baseline;
-  gap: 5px;
-  border: 1px solid var(--line);
   border-radius: 5px;
   padding: 4px 7px;
   color: var(--ink-soft);
-  background: var(--surface-2);
   font-size: 10px;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
 }
 
 :where(.appScope) :global(.organization-activity-meta-label) {

@@ -79,18 +79,11 @@
 }
 
 :where(.appScope) :global(.activity-target-chip) {
-  display: inline-flex;
   max-width: 100%;
-  align-items: baseline;
-  gap: 5px;
-  border: 1px solid var(--line);
   border-radius: 999px;
   padding: 4px 9px;
   color: var(--ink-soft);
-  background: var(--surface-2);
   font-size: 12px;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
 }
 
 :where(.appScope) :global(.activity-target-label) {
@@ -135,17 +128,10 @@
 }
 
 :where(.appScope) :global(.activity-context-chip) {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-  border: 1px solid var(--line);
   border-radius: 5px;
   padding: 3px 7px;
   color: var(--muted);
-  background: var(--surface-2);
   font-size: 12px;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
 }
 
 :where(.appScope) :global(.activity-details) {
