@@ -553,7 +553,15 @@
 :global(html[data-theme="dark"]) :where(.appScope) :global(.auth-card),
 :global(html[data-theme="dark"]) :where(.appScope) :global(.developer-index-card),
 :global(html[data-theme="dark"]) :where(.appScope) :global(.access-grant-card),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-empty-card) {
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-empty-card),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.guide-panel),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.aside-card),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-card),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.product-setup-step),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.onboarding-card),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.site-header),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-sidebar),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-card) {
   border-color: var(--line);
   color: var(--ink);
   background-color: var(--surface);
@@ -615,6 +623,11 @@
   border-color: var(--line);
   color: var(--ink-soft);
   background: var(--surface-2);
+}
+
+:global(html[data-theme="dark"]) :where(.appScope) :global(.guide-notice strong),
+:global(html[data-theme="dark"]) :where(.appScope) :global(.guide-notice p) {
+  color: var(--ink-soft);
 }
 
 :global(html[data-theme="dark"]) :where(.appScope) :global(.text-link) {

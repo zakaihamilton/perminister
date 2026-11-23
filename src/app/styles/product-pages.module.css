@@ -1922,14 +1922,6 @@
 
 /* Dark theme overrides */
 
-:global(html[data-theme="dark"]) :where(.appScope) :global(.product-card),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.product-setup-step),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.onboarding-card) {
-  border-color: var(--line);
-  color: var(--ink);
-  background-color: var(--surface);
-}
-
 :global(html[data-theme="dark"]) :where(.appScope) :global(.product-detail-list dd),
 :global(html[data-theme="dark"]) :where(.appScope) :global(.product-card-copy strong),
 :global(html[data-theme="dark"]) :where(.appScope) :global(.people-identity strong),
@@ -1952,13 +1944,6 @@
 :global(html[data-theme="dark"]) :where(.appScope) :global(.onboarding-secondary a),
 :global(html[data-theme="dark"]) :where(.appScope) :global(.product-detail-list a) {
   color: var(--blue-dark);
-}
-
-:global(html[data-theme="dark"]) :where(.appScope) :global(.product-placeholder),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.people-avatar) {
-  border-color: var(--line);
-  color: var(--ink);
-  background: var(--surface-2);
 }
 
 :global(html[data-theme="dark"]) :where(.appScope) :global(.product-nav-link) {

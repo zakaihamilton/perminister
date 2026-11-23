@@ -30,9 +30,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run format:check
       - run: pnpm exec playwright install --with-deps chromium
-      - name: Diagnose duplication output
-        run: pnpm exec repnix check duplication --format json
-        continue-on-error: true
       - run: pnpm run health:responsive
       - run: pnpm test
       - run: node scripts/check-stable-form-actions.mjs

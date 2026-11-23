@@ -395,13 +395,6 @@
 
 /* Dark theme overrides */
 
-:global(html[data-theme="dark"]) :where(.appScope) :global(.guide-panel),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.aside-card) {
-  border-color: var(--line);
-  color: var(--ink);
-  background-color: var(--surface);
-}
-
 :global(html[data-theme="dark"]) :where(.appScope) :global(.developer-hero h1) {
   color: var(--ink);
 }
@@ -417,15 +410,6 @@
 
 :global(html[data-theme="dark"]) :where(.appScope) :global(.guide-next-link a) {
   color: var(--blue-dark);
-}
-
-:global(html[data-theme="dark"]) :where(.appScope) :global(.guide-notice strong),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.guide-notice p) {
-  color: var(--ink-soft);
-}
-
-:global(html[data-theme="dark"]) :where(.appScope) :global(.developer-nav a:hover) {
-  border-color: var(--line);
 }
 
 :global(html[data-theme="dark"]) :where(.appScope) :global(.developer-nav a) {

@@ -612,14 +612,6 @@
 
 /* Dark theme overrides */
 
-:global(html[data-theme="dark"]) :where(.appScope) :global(.site-header),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-sidebar),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-card) {
-  border-color: var(--line);
-  color: var(--ink);
-  background-color: var(--surface);
-}
-
 :global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-layout),
 :global(html[data-theme="dark"]) :where(.appScope) :global(.dashboard-main) {
   background: var(--paper);
