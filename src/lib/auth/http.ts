@@ -24,6 +24,22 @@ export function uniqueFormValue(params: URLSearchParams, name: string): string |
   return values.length === 1 ? (values[0] ?? null) : null;
 }
 
+export function safeDashboardReturnPath(request: Request): string | null {
+  const requestUrl = new URL(request.url);
+  const returnTo = requestUrl.searchParams.get("returnTo");
+  if (!returnTo) return null;
+
+  try {
+    const target = new URL(returnTo, requestUrl.origin);
+    if (target.origin !== requestUrl.origin || !target.pathname.startsWith("/dashboard/")) {
+      return null;
+    }
+    return `${target.pathname}${target.search}`;
+  } catch {
+    return null;
+  }
+}
+
 const PUBLIC_ORIGIN_HOST_HEADER = "x-perminister-public-host";
 const PUBLIC_ORIGIN_PROTOCOL_HEADER = "x-perminister-public-proto";
 

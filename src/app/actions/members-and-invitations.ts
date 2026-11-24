@@ -36,7 +36,9 @@ async function productPeopleActionContext(formData: FormData) {
     current,
     organizationId,
     productId,
-    productPath: `/dashboard/${organizationId}/products/${encodeURIComponent(productId)}/people`,
+    productPath: `/dashboard/${encodeURIComponent(
+      organizationId,
+    )}/products/${encodeURIComponent(productId)}/people`,
   };
 }
 

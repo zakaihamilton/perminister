@@ -658,8 +658,7 @@
   background: transparent;
 }
 
-:global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge),
-:global(html[data-theme="dark"]) :where(.appScope) :global(.role-pill) {
+:global(html[data-theme="dark"]) :where(.appScope) :global(.record-badge) {
   border-color: var(--line-strong);
   color: var(--muted);
   background: var(--surface-2);

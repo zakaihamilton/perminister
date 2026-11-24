@@ -81,9 +81,6 @@ function OrganizationMemberRow({
         <strong>{member.email ?? "Account unavailable"}</strong>
         <small>{member.emailVerified ? "Verified email" : "Email not verified"}</small>
       </div>
-      <span className={`role-pill role-${member.membership.role}`}>
-        {member.membership.role.charAt(0).toUpperCase() + member.membership.role.slice(1)}
-      </span>
       {owner ? (
         <div className="people-row-actions">
           <form action="/actions/updateOrganizationMemberRoleAction" method="post">
@@ -148,7 +145,6 @@ function ProductMemberRow({
         <strong>{email ?? "Account unavailable"}</strong>
         <small>{emailVerified ? "Verified email" : "Email not verified"}</small>
       </div>
-      <span className={`role-pill role-${membership.role}`}>{membership.role}</span>
       {isOwner ? (
         <div className="people-row-actions">
           <form action="/actions/updateProductMemberRoleAction" method="post">

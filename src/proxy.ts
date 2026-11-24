@@ -5,6 +5,7 @@ import {
   legacyConsumerAuthorizationEnabled,
   parseConsumerAuthorizationRequest,
 } from "@/lib/auth/consumer-sso";
+import { safeDashboardReturnPath } from "@/lib/auth/http";
 import { FEDERATED_OIDC_CALLBACK_PATH } from "@/lib/auth/federated-oidc";
 import { getOAuthAuthorizationClient } from "@/lib/auth/service";
 import { lastValidForwardedIp } from "@/lib/client-ip";
@@ -56,9 +57,15 @@ function isWriterRuntime(): boolean {
 
 function refreshTarget(request: NextRequest): URL {
   let target = new URL(request.url);
+  const actionPath = request.nextUrl.pathname.startsWith("/actions/");
+  const actionReturnPath = actionPath ? safeDashboardReturnPath(request) : null;
   const referer = request.headers.get("referer");
 
-  if (referer) {
+  if (actionPath) {
+    target = actionReturnPath
+      ? new URL(actionReturnPath, request.url)
+      : new URL("/dashboard", request.url);
+  } else if (referer) {
     try {
       const referringPage = new URL(referer);
       if (
@@ -72,9 +79,7 @@ function refreshTarget(request: NextRequest): URL {
     }
   }
 
-  if (target.pathname.startsWith("/actions/")) {
-    target = new URL("/dashboard", request.url);
-  } else if (target.pathname === "/login/submit") {
+  if (target.pathname === "/login/submit") {
     target = new URL("/login", request.url);
   } else if (target.pathname === "/logout/submit") {
     target = new URL("/login", request.url);

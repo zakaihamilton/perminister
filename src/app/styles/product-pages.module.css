@@ -597,6 +597,11 @@
   gap: 12px;
 }
 
+:where(.appScope) :global(.product-member-add-form > .button) {
+  grid-column: 3;
+  justify-self: end;
+}
+
 :where(.appScope) :global(.invite-form .button) {
   min-height: 43px;
 }
@@ -841,17 +846,6 @@
   padding: 14px 2px;
   padding-right: 12px;
   padding-left: 12px;
-}
-
-:where(.appScope) :global(.role-pill) {
-  border: 1px solid #dce2eb;
-  padding: 4px 8px;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: capitalize;
-  border-radius: 3px;
-  color: var(--muted);
-  background: var(--surface-2);
 }
 
 :where(.appScope) :global(.onboarding-shell) {
@@ -2389,6 +2383,11 @@
   :where(.appScope) :global(.product-source-form .button),
   :where(.appScope) :global(.invite-form .button) {
     width: 100%;
+  }
+
+  :where(.appScope) :global(.product-member-add-form > .button) {
+    grid-column: auto;
+    justify-self: stretch;
   }
 
   :where(.appScope) :global(.product-setup-step) {

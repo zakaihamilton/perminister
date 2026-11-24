@@ -57,6 +57,12 @@ export function AddExistingProductMemberSection({
   productId: string;
   isProductOwner: boolean;
 }) {
+  const peoplePath = `/dashboard/${encodeURIComponent(
+    organizationId,
+  )}/products/${encodeURIComponent(productId)}/people`;
+  const addMemberAction = `/actions/addExistingProductMemberAction?returnTo=${encodeURIComponent(
+    peoplePath,
+  )}`;
   const assignableRoles = accessRoles.filter(
     (role) => !role.deprecated && (!role.scopeKinds || role.scopeKinds.includes("product")),
   );
@@ -74,9 +80,9 @@ export function AddExistingProductMemberSection({
       </div>
       {assignableRoles.length > 0 ? (
         <form
-          action="/actions/addExistingProductMemberAction"
+          action={addMemberAction}
           method="post"
-          className="auth-form invite-form"
+          className="auth-form invite-form product-member-add-form"
         >
           <input type="hidden" name="organizationId" value={organizationId} />
           <input type="hidden" name="productId" value={productId} />
