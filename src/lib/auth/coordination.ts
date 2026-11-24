@@ -1,9 +1,11 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { isIP } from "node:net";
 import { lastValidForwardedIp } from "@/lib/client-ip";
 import { assertOpaqueId } from "./domain";
+import { storageBackendFromEnv } from "./storage/object-client";
+import { postgresObjectClientFromEnv } from "./storage/postgres-client";
 
 const LOOKUP_WINDOW_MS = 60 * 1000;
 const LOOKUP_LIMIT = 10;
@@ -51,6 +53,14 @@ export async function consumeProductLookupRateLimit(
 ): Promise<boolean> {
   assertOpaqueId(organizationId);
   assertOpaqueId(subjectId);
+  if (storageBackendFromEnv() === "postgres") {
+    return postgresObjectClientFromEnv().consumeRateLimit(
+      "product-lookup",
+      persistentRateLimitDigest("product-lookup", `${organizationId}:${subjectId}`),
+      LOOKUP_LIMIT,
+      LOOKUP_WINDOW_MS,
+    );
+  }
   const now = Date.now();
   const window = Math.floor(now / LOOKUP_WINDOW_MS);
   const key = `perminister:product-lookup:${organizationId}:${subjectId}:${window}`;
@@ -102,11 +112,32 @@ function recoveryBucketKey(namespace: string, value: string): string {
  * Limits recovery requests by address and, when available, by caller. This is process-local;
  * deployments using the Spaces store must run a single writer process.
  */
-export function consumePasswordRecoveryRateLimit(
+export async function consumePasswordRecoveryRateLimit(
   email: string,
   requesterKey?: string | null,
   requesterLimit = RECOVERY_REQUESTER_LIMIT,
-): boolean {
+): Promise<boolean> {
+  if (storageBackendFromEnv() === "postgres") {
+    const charges = [
+      {
+        namespace: "recovery-email",
+        digest: persistentRateLimitDigest("recovery-email", email.trim().toLowerCase()),
+        limit: RECOVERY_EMAIL_LIMIT,
+        windowMs: RECOVERY_WINDOW_MS,
+      },
+      ...(requesterKey?.trim()
+        ? [
+            {
+              namespace: "recovery-requester",
+              digest: persistentRateLimitDigest("recovery-requester", requesterKey.trim()),
+              limit: requesterLimit,
+              windowMs: RECOVERY_WINDOW_MS,
+            },
+          ]
+        : []),
+    ];
+    return postgresObjectClientFromEnv().consumeRateLimits(charges);
+  }
   const now = Date.now();
   const keys = [recoveryBucketKey("email", email.trim().toLowerCase())];
   if (requesterKey?.trim()) keys.push(recoveryBucketKey("requester", requesterKey.trim()));
@@ -151,4 +182,12 @@ export function consumePasswordRecoveryRateLimit(
     localRecoveryWindows.set(key, { timestamps: [...activeAttempts[index], now] });
   });
   return true;
+}
+
+function persistentRateLimitDigest(namespace: string, value: string): string {
+  const secret = process.env.PERMINISTER_IDENTITY_INDEX_SECRET?.trim();
+  if (!secret || secret.length < 32) {
+    throw new Error("PERMINISTER_IDENTITY_INDEX_SECRET must contain at least 32 characters");
+  }
+  return createHmac("sha256", secret).update(`${namespace}\0${value}`).digest("hex");
 }

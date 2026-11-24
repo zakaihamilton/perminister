@@ -96,6 +96,7 @@ export {
   authenticate,
   changePasswordForSubject,
   completeEmailAction,
+  FederatedAccountLinkRequiredError,
   findAccountByEmail,
   GoogleAccountLinkRequiredError,
   getSubjectById,
@@ -103,6 +104,7 @@ export {
   issueRecoveryAction,
   registerAccount,
   signInWithGoogle,
+  signInWithExternalIdentity,
   updateAccountProfile,
 } from "./service/identity";
 export {

@@ -1,10 +1,17 @@
 import "server-only";
 
+import nodemailer from "nodemailer";
 import { MailDeliveryUnavailableError } from "./service";
 
 interface ResendConfiguration {
   apiKey: string;
   from: string;
+}
+
+interface SmtpConfiguration {
+  url: string;
+  from: string;
+  requireTls: boolean;
 }
 
 interface EmailLinkOptions {
@@ -25,6 +32,33 @@ function readResendConfiguration(): ResendConfiguration | null {
   const from = process.env.PERMINISTER_MAIL_FROM?.trim();
   if (!apiKey || !from) return null;
   return { apiKey, from };
+}
+
+function readSmtpConfiguration(): SmtpConfiguration | null {
+  const url = process.env.PERMINISTER_SMTP_URL?.trim();
+  const from = process.env.PERMINISTER_MAIL_FROM?.trim();
+  if (!url || !from) return null;
+  try {
+    const parsed = new URL(url);
+    if (
+      !["smtp:", "smtps:"].includes(parsed.protocol) ||
+      !parsed.hostname ||
+      (parsed.pathname !== "" && parsed.pathname !== "/") ||
+      parsed.search ||
+      parsed.hash
+    ) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+  return {
+    url,
+    from,
+    requireTls:
+      process.env.PERMINISTER_SMTP_REQUIRE_TLS !== "false" &&
+      process.env.NODE_ENV === "production",
+  };
 }
 
 function parsePublicOrigin(value: string): URL | null {
@@ -84,7 +118,25 @@ export function browserOriginFromHeaders(requestHeaders: Headers): string {
 }
 
 export function isMailDeliveryConfigured(): boolean {
-  return readResendConfiguration() !== null;
+  return configuredMailProvider() !== null;
+}
+
+function configuredMailProvider():
+  | { kind: "resend"; configuration: ResendConfiguration }
+  | { kind: "smtp"; configuration: SmtpConfiguration }
+  | null {
+  const selected = process.env.PERMINISTER_MAIL_PROVIDER?.trim().toLowerCase();
+  if (selected === "smtp") {
+    const configuration = readSmtpConfiguration();
+    return configuration ? { kind: "smtp", configuration } : null;
+  }
+  if (selected === "resend") {
+    const configuration = readResendConfiguration();
+    return configuration ? { kind: "resend", configuration } : null;
+  }
+  if (selected) return null;
+  const resend = readResendConfiguration();
+  return resend ? { kind: "resend", configuration: resend } : null;
 }
 
 export function publicOrigin(): URL {
@@ -116,6 +168,43 @@ async function sendWithResend(message: OutboundEmail): Promise<void> {
   if (!response.ok) {
     throw new Error(`Resend rejected the message (HTTP ${response.status}). No email was sent.`);
   }
+}
+
+async function sendWithSmtp(message: OutboundEmail, configuration: SmtpConfiguration): Promise<void> {
+  const smtpUrl = new URL(configuration.url);
+  const secure = smtpUrl.protocol === "smtps:";
+  const port = Number(smtpUrl.port || (secure ? 465 : 587));
+  const transport = nodemailer.createTransport({
+    host: smtpUrl.hostname,
+    port,
+    secure,
+    requireTLS: configuration.requireTls && !secure,
+    ...(smtpUrl.username || smtpUrl.password
+      ? {
+          auth: {
+            user: decodeURIComponent(smtpUrl.username),
+            pass: decodeURIComponent(smtpUrl.password),
+          },
+        }
+      : {}),
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
+  });
+  try {
+    await transport.sendMail({ from: configuration.from, ...message });
+  } catch {
+    throw new Error("The SMTP server could not send the message.");
+  } finally {
+    transport.close();
+  }
+}
+
+async function sendConfiguredEmail(message: OutboundEmail): Promise<void> {
+  const provider = configuredMailProvider();
+  if (!provider) throw new MailDeliveryUnavailableError();
+  if (provider.kind === "smtp") return sendWithSmtp(message, provider.configuration);
+  return sendWithResend(message);
 }
 
 function escapeHtml(value: string): string {
@@ -155,7 +244,7 @@ async function sendAccountActionEmail(
   const message = isVerification
     ? `Confirm your ${appName} account`
     : `Reset your ${appName} password`;
-  await sendWithResend({
+  await sendConfiguredEmail({
     to: email,
     subject: isVerification ? `Verify your ${appName} account` : `Reset your ${appName} password`,
     text: `${message} within 30 minutes: ${safeLink}`,
@@ -203,7 +292,7 @@ function invitationEmailSender(kind: InvitationKind) {
     const scopeNote =
       kind === "product" ? "<p>This invitation applies to this product only.</p>" : "";
 
-    await sendWithResend({
+    await sendConfiguredEmail({
       to: email,
       subject: `Invitation to join ${resourceName} on Perminister`,
       text: `${textDescription} Accept the invitation within 7 days: ${url}`,

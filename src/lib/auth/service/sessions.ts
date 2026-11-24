@@ -5,7 +5,6 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 import {
   assertOpaqueId,
-  DEFAULT_CONSUMER_SESSION_LIFETIME_MS,
   effectiveConsumerSessionLifetimeMs,
   MAX_CONSUMER_SESSION_LIFETIME_MS,
   MIN_CONSUMER_SESSION_LIFETIME_MS,
@@ -34,7 +33,7 @@ import {
 } from "./validators";
 
 const SESSION_COOKIE = "perminister_session";
-const SESSION_LIFETIME_MS = DEFAULT_CONSUMER_SESSION_LIFETIME_MS;
+const SESSION_LIFETIME_MS = MAX_CONSUMER_SESSION_LIFETIME_MS;
 
 export interface AuthenticatedSession {
   session: SessionRecord;
@@ -88,7 +87,7 @@ export async function createConsumerSession(
   subjectId: SubjectId,
   clientId: string,
   productId: string,
-  sessionLifetimeMs = DEFAULT_CONSUMER_SESSION_LIFETIME_MS,
+  sessionLifetimeMs = MAX_CONSUMER_SESSION_LIFETIME_MS,
 ): Promise<{ session: SessionRecord; token: string }> {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(clientId)) {
     throw new Error("Choose a valid application client.");

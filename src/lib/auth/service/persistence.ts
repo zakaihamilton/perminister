@@ -217,7 +217,7 @@ export async function loadSubjectByEmailUnlocked(email: string): Promise<Subject
 }
 
 export async function loadSubjectByExternalIdentityUnlocked(
-  provider: "google",
+  provider: string,
   providerSubject: string,
 ): Promise<SubjectRecord | null> {
   const subjectId = await store().findSubjectIdByExternalIdentity(provider, providerSubject);

@@ -9,6 +9,9 @@ export const metadata: Metadata = {
 };
 
 export default function PrivacyPage() {
+  const selfHosted = process.env.PERMINISTER_DEPLOYMENT_PROFILE === "self-hosted";
+  const operatorName = selfHosted ? process.env.PERMINISTER_OPERATOR_NAME?.trim() : undefined;
+  const privacyEmail = selfHosted ? process.env.PERMINISTER_PRIVACY_EMAIL?.trim() : undefined;
   return (
     <>
       <SiteHeader active="none" />
@@ -18,12 +21,17 @@ export default function PrivacyPage() {
             <p className="eyebrow">Legal</p>
             <h1 id="privacy-title">Privacy Policy</h1>
             <p className="privacy-intro">
-              Perminister is operated by Zakai Hamilton. This policy explains how information is
-              handled when you visit the site or use its identity and access management service.
+              {selfHosted
+                ? `${operatorName || "Your organization"} operates this Perminister installation. This policy explains how information is handled when you visit the site or use its identity and access management service.`
+                : "Perminister is operated by Zakai Hamilton. This policy explains how information is handled when you visit the site or use its identity and access management service."}
             </p>
             <p className="privacy-updated">Last updated October 7, 2026</p>
           </header>
-          <PrivacyPolicySections />
+          <PrivacyPolicySections
+            selfHosted={selfHosted}
+            operatorName={operatorName}
+            privacyEmail={privacyEmail}
+          />
         </article>
       </main>
       <SiteFooter />

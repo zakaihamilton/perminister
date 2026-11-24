@@ -17,7 +17,7 @@ const errorText: Record<string, string> = {
   "invalid-systemconcepts-id": "Use 1 to 254 letters, numbers, underscores, or hyphens for your System Concepts ID.",
   "systemconcepts-id-in-use": "That System Concepts ID is already in use.",
   "registration-unavailable":
-    "Account creation is unavailable right now. Check the Spaces configuration and try again.",
+    "Account creation is unavailable right now. Check the storage configuration and try again.",
 };
 
 export default async function RegisterPage({ searchParams }: AuthPageProps) {

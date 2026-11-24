@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHmac } from "node:crypto";
 import { OBJECT_PREFIX } from "./keys-and-validation";
-import type { SpacesS3Client } from "./s3-client";
+import type { AuthObjectClient } from "./object-client";
 
 const MAX_RATE_LIMIT_ENTRIES_PER_SHARD = 512;
 
@@ -10,7 +10,7 @@ export class SpacesRateLimitStore {
   private readonly rateLimitQueues = new Map<string, Promise<void>>();
 
   constructor(
-    private readonly s3: SpacesS3Client,
+    private readonly s3: AuthObjectClient,
     private readonly identityIndexSecret: string,
   ) {}
 
@@ -36,6 +36,12 @@ export class SpacesRateLimitStore {
     const digest = createHmac("sha256", this.identityIndexSecret)
       .update(`${namespace}\0${key}`)
       .digest("hex");
+    if (this.s3.consumeRateLimits) {
+      return this.s3.consumeRateLimits([{ namespace, digest, limit, windowMs }]);
+    }
+    if (this.s3.consumeRateLimit) {
+      return this.s3.consumeRateLimit(namespace, digest, limit, windowMs);
+    }
     const shard = digest.slice(0, 2);
     const objectKey = `${OBJECT_PREFIX}security/rate-limits/${namespace}/${shard}.json`;
 

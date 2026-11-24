@@ -40,3 +40,10 @@ Local `pnpm run dev` continues to use its configured local storage. Set
 `PERMINISTER_WRITE_PROXY_URL` and `PERMINISTER_WRITE_PROXY_SECRET` in `.env.local` to send local
 mutations through Railway too. Without those settings, use a separate development bucket so the
 local process does not write to the production bucket.
+
+## Separate self-hosted deployment
+
+Perminister can also run as a customer-managed deployment with PostgreSQL or S3-compatible storage,
+customer OIDC, SMTP, Docker Compose, or Helm. It is activated with a separate runtime profile and
+does not share hosted deployment data. See the [self-hosted installation guide](docs/deployment/self-hosted.md)
+for setup, upgrades, backup, and air-gapped installs.

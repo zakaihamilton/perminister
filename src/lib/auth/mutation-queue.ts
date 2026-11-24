@@ -1,5 +1,8 @@
 import "server-only";
 
+import { storageBackendFromEnv } from "./storage/object-client";
+import { withPostgresMutationLock } from "./storage/postgres-client";
+
 type QueueEntry = {
   kind: "read" | "write";
   execute: () => Promise<unknown>;
@@ -8,10 +11,9 @@ type QueueEntry = {
 };
 
 /**
- * Serializes mutations in this Node.js process only. It is not a distributed
- * lock and must not be used as one when more than one writer process is active.
- * The Spaces store has no conditional PutObject support, so deploy one writer
- * process per bucket until auth mutations use a transactional shared store.
+ * Serializes mutations in this Node.js process. PostgreSQL deployments also
+ * coordinate this queue with advisory locks; object-store deployments must keep
+ * one writer process because S3 PutObject does not provide conditional writes.
  * Read operations may run together, but wait behind earlier writes and prevent
  * later writes from starting until the current read batch has finished.
  */
@@ -19,6 +21,16 @@ export class SingleWriterMutationQueue {
   private readonly pending: QueueEntry[] = [];
   private activeReaders = 0;
   private activeWriter = false;
+  private readonly coordinate: <Value>(
+    kind: QueueEntry["kind"],
+    operation: () => Promise<Value>,
+  ) => Promise<Value>;
+
+  constructor(
+    coordinate: SingleWriterMutationQueue["coordinate"] = async (_kind, operation) => operation(),
+  ) {
+    this.coordinate = coordinate;
+  }
 
   run<T>(operation: () => Promise<T>): Promise<T> {
     return this.enqueue("write", operation);
@@ -60,7 +72,7 @@ export class SingleWriterMutationQueue {
   private startRead(entry: QueueEntry): void {
     this.activeReaders += 1;
     void Promise.resolve()
-      .then(entry.execute)
+      .then(() => this.coordinate("read", entry.execute))
       .then(entry.resolve, entry.reject)
       .then(() => {
         this.activeReaders -= 1;
@@ -71,7 +83,7 @@ export class SingleWriterMutationQueue {
   private startWrite(entry: QueueEntry): void {
     this.activeWriter = true;
     void Promise.resolve()
-      .then(entry.execute)
+      .then(() => this.coordinate("write", entry.execute))
       .then(entry.resolve, entry.reject)
       .then(() => {
         this.activeWriter = false;
@@ -80,4 +92,8 @@ export class SingleWriterMutationQueue {
   }
 }
 
-export const authMutationQueue = new SingleWriterMutationQueue();
+export const authMutationQueue = new SingleWriterMutationQueue((kind, operation) =>
+  storageBackendFromEnv() === "postgres"
+    ? withPostgresMutationLock(operation, kind)
+    : operation(),
+);

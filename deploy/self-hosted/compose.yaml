@@ -1,0 +1,59 @@
+services:
+  db:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-perminister}
+      POSTGRES_USER: ${POSTGRES_USER:-perminister}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.postgres}
+    volumes:
+      - perminister-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+
+  app:
+    image: ${PERMINISTER_IMAGE:-perminister:self-hosted}
+    restart: unless-stopped
+    env_file:
+      - .env.postgres
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      PERMINISTER_DEPLOYMENT_PROFILE: self-hosted
+      PERMINISTER_STORAGE_BACKEND: postgres
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${PERMINISTER_BIND_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+
+  migrate:
+    image: ${PERMINISTER_IMAGE:-perminister:self-hosted}
+    profiles: ["tools"]
+    env_file:
+      - .env.postgres
+    environment:
+      PERMINISTER_STORAGE_BACKEND: postgres
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["node", "scripts/migrate-postgres.mjs"]
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  perminister-postgres-data:

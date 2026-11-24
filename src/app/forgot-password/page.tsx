@@ -3,9 +3,9 @@ import { AuthPageFrame, AuthReturnToSignIn } from "@/components/auth-page-frame"
 import { isMailDeliveryConfigured } from "@/lib/auth/mail";
 
 const errorText: Record<string, string> = {
-  "mail-not-configured": "Resend is not configured. No recovery email was sent.",
+  "mail-not-configured": "Email delivery is not configured. No recovery email was sent.",
   "invalid-email": "Enter a valid email address. No recovery email was sent.",
-  "delivery-failed": "Resend did not accept the message. No recovery email was sent.",
+  "delivery-failed": "The mail provider could not deliver the message. No recovery email was sent.",
 };
 
 export default async function ForgotPasswordPage({
@@ -34,13 +34,13 @@ export default async function ForgotPasswordPage({
         ) : null}
         {params.notice === "requested" ? (
           <p className="form-success" role="status">
-            If an active account matches that address, a recovery link will arrive if Resend accepts
-            it.
+            If an active account matches that address, a recovery link will arrive if the mail
+            provider accepts it.
           </p>
         ) : null}
         {!mailReady ? (
           <p className="form-error" role="status">
-            Resend is not configured. No recovery email can be sent yet.
+            Email delivery is not configured. No recovery email can be sent yet.
           </p>
         ) : null}
         <form action="/actions/requestPasswordRecoveryAction" method="post" className="auth-form">

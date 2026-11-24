@@ -184,6 +184,21 @@ export class MemoryStore {
     );
   }
 
+  async findSubjectIdByExternalIdentity(provider: string, providerSubject: string) {
+    this.objectReads += 1;
+    return (
+      [...this.records.values()]
+        .map((value) => value.record)
+        .find(
+          (record): record is Extract<AuthRecord, { kind: "subject" }> =>
+            record.kind === "subject" &&
+            record.externalIdentities?.some(
+              (identity) => identity.provider === provider && identity.subject === providerSubject,
+            ) === true,
+        )?.subjectId ?? null
+    );
+  }
+
   async findSubjectIdByUsername(productId: string, username: string) {
     this.objectReads += 1;
     return (

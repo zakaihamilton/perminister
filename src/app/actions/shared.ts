@@ -82,6 +82,7 @@ export function publicActionError(error: unknown): string {
     "You cannot disable the currently configured administrator account.",
     "Email delivery is not configured.",
     "Resend could not be reached.",
+    "The SMTP server could not send the message.",
     "Enter a valid website address.",
     "Use a public HTTPS website address.",
     "This website cannot be fetched because it does not resolve to a public address.",
@@ -96,7 +97,7 @@ export function publicActionError(error: unknown): string {
   ];
   if (safePrefixes.some((prefix) => error.message.startsWith(prefix))) return error.message;
   if (/^Resend rejected the message \(HTTP [0-9]{3}\)\./.test(error.message)) return error.message;
-  return "Perminister could not complete that request. Check the Spaces and mail configuration, then try again.";
+  return "Perminister could not complete that request. Check the storage and mail configuration, then try again.";
 }
 
 export function firstValue(data: FormData, name: string): string {

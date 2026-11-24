@@ -69,28 +69,46 @@ function PrivacyBrowserStorageSection() {
   );
 }
 
-function PrivacyProvidersSection() {
+function PrivacyProvidersSection({ selfHosted }: { selfHosted: boolean }) {
   return (
     <section aria-labelledby="privacy-sharing">
       <h2 id="privacy-sharing">Storage and service providers</h2>
-      <p>
-        Perminister stores identity and access records in private DigitalOcean Spaces objects. When
-        transactional email is configured, Resend receives the recipient address and message content
-        needed to deliver verification, recovery, and invitation emails. Product website lookup
-        sends a request to the URL provided by an authorized organization owner or admin.
-      </p>
+      {selfHosted ? (
+        <p>
+          This installation stores identity and access records in the storage backend selected by
+          its operator: PostgreSQL, DigitalOcean Spaces, or an S3-compatible service. If SMTP is
+          configured, the operator’s mail server receives verification, recovery, and invitation
+          messages. Optional organization sign-in sends the browser to the configured identity
+          provider. Product website lookup contacts the URL provided by an authorized owner or
+          admin when the installation’s network permits it.
+        </p>
+      ) : (
+        <p>
+          Perminister stores identity and access records in private DigitalOcean Spaces objects. When
+          transactional email is configured, Resend receives the recipient address and message content
+          needed to deliver verification, recovery, and invitation emails. Product website lookup
+          sends a request to the URL provided by an authorized organization owner or admin.
+        </p>
+      )}
       <p>
         Organization owners and admins can see and manage organization or product information needed
         for their roles. Product members can be shown membership and access information for the
         products they use. Applications that integrate with Perminister are responsible for their
         own data and privacy practices.
       </p>
-      <p className="privacy-provider-links">
-        Provider information:{" "}
-        <a href="https://www.digitalocean.com/legal/privacy-policy">DigitalOcean Privacy Policy</a>
-        {" · "}
-        <a href="https://resend.com/legal/privacy-policy">Resend Privacy Policy</a>.
-      </p>
+      {selfHosted ? (
+        <p className="privacy-provider-links">
+          The installation operator selects the storage, email, and identity providers for this
+          deployment. Contact that operator for the providers' privacy information.
+        </p>
+      ) : (
+        <p className="privacy-provider-links">
+          Provider information:{" "}
+          <a href="https://www.digitalocean.com/legal/privacy-policy">DigitalOcean Privacy Policy</a>
+          {" · "}
+          <a href="https://resend.com/legal/privacy-policy">Resend Privacy Policy</a>.
+        </p>
+      )}
     </section>
   );
 }
@@ -141,7 +159,37 @@ function PrivacyChangesSection() {
   );
 }
 
-function PrivacyContactSection() {
+function PrivacyContactSection({
+  selfHosted,
+  operatorName,
+  privacyEmail,
+}: {
+  selfHosted: boolean;
+  operatorName?: string;
+  privacyEmail?: string;
+}) {
+  const validPrivacyEmail = privacyEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(privacyEmail);
+
+  if (selfHosted) {
+    return (
+      <section aria-labelledby="privacy-contact">
+        <h2 id="privacy-contact">Contact</h2>
+        <p>
+          For privacy questions or requests, contact {operatorName || "the operator of this installation"}
+          {validPrivacyEmail ? (
+            <>
+              {" at "}
+              <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>
+            </>
+          ) : (
+            " using the support channel provided by your organization"
+          )}
+          .
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section aria-labelledby="privacy-contact">
       <h2 id="privacy-contact">Contact</h2>
@@ -153,17 +201,29 @@ function PrivacyContactSection() {
   );
 }
 
-export function PrivacyPolicySections() {
+export function PrivacyPolicySections({
+  selfHosted,
+  operatorName,
+  privacyEmail,
+}: {
+  selfHosted: boolean;
+  operatorName?: string;
+  privacyEmail?: string;
+}) {
   return (
     <div className="privacy-sections">
       <PrivacyInformationSection />
       <PrivacyUseSection />
       <PrivacyBrowserStorageSection />
-      <PrivacyProvidersSection />
+      <PrivacyProvidersSection selfHosted={selfHosted} />
       <PrivacyRetentionSection />
       <PrivacySecuritySection />
       <PrivacyChangesSection />
-      <PrivacyContactSection />
+      <PrivacyContactSection
+        selfHosted={selfHosted}
+        operatorName={operatorName}
+        privacyEmail={privacyEmail}
+      />
     </div>
   );
 }

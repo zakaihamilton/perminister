@@ -1,0 +1,16 @@
+.git
+.github
+node_modules
+.pnpm-store
+.next
+coverage
+test-results
+playwright-report
+storybook-static
+out
+dist
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store

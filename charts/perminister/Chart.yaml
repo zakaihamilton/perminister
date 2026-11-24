@@ -1,0 +1,6 @@
+apiVersion: v2
+name: perminister
+description: Self-hosted Perminister identity and authorization service
+type: application
+version: 0.1.0
+appVersion: "selfhost-v0.1.0"

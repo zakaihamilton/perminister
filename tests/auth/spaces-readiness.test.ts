@@ -1,6 +1,9 @@
 import { ListObjectsV2Command, PutObjectCommand, type S3Client } from "@aws-sdk/client-s3";
 import { describe, expect, it, vi } from "vitest";
 import { newOrganizationId, newSubjectId } from "../../src/lib/auth/domain";
+import {
+  createS3CompatibleClientConfigFromEnv,
+} from "../../src/lib/auth/storage/s3-client";
 import { createSpacesAuthStoreFromEnv, SpacesAuthStore } from "../../src/lib/auth/storage/spaces";
 
 vi.mock("server-only", () => ({}));
@@ -60,5 +63,19 @@ describe("Spaces readiness", () => {
       }),
     ).rejects.toThrow("Spaces store is configured as read-only in this runtime");
     expect(send).not.toHaveBeenCalledWith(expect.any(PutObjectCommand));
+  });
+
+  it("keeps self-hosted S3 storage writable regardless of hosted bucket naming rules", () => {
+    const config = createS3CompatibleClientConfigFromEnv({
+      NODE_ENV: "production",
+      PERMINISTER_DEPLOYMENT_PROFILE: "self-hosted",
+      PERMINISTER_S3_ENDPOINT: "https://s3.example.com",
+      PERMINISTER_S3_BUCKET: "customer-production",
+      PERMINISTER_S3_ACCESS_KEY: "access",
+      PERMINISTER_S3_SECRET_KEY: "secret",
+      PERMINISTER_IDENTITY_INDEX_SECRET: "x".repeat(32),
+    });
+
+    expect(config.readOnly).toBe(false);
   });
 });
