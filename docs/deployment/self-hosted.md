@@ -22,12 +22,13 @@ exactly one Perminister writer for each bucket. The Helm chart rejects multiple 
 object-storage backend. The Compose examples run one app instance.
 
 Google sign-in and Resend delivery are optional hosted integrations. For on-prem installations,
-configure the built-in OIDC login with the customer's identity provider and SMTP with an internal
-mail relay. Both can be omitted: local password accounts still work, but email verification,
-recovery, and invitation messages will be unavailable without mail. An air-gapped install can use
-internal DNS and HTTPS for OIDC and SMTP. Website lookup is an optional convenience and requires
-network access to the target website; admins can enter product details manually when that access is
-blocked.
+configure the built-in OIDC login with the customer's identity provider, SMTP with an internal mail
+relay, or both. At least one is required to bootstrap the first administrator: SMTP verifies a local
+password account, while OIDC supplies a verified email claim. Without either, users can register and
+sign in locally, but they cannot verify an email address or receive administrator access. An
+air-gapped install can use internal DNS and HTTPS for OIDC and SMTP. Website lookup is an optional
+convenience and requires network access to the target website; admins can enter product details
+manually when that access is blocked.
 
 ## Prerequisites
 
@@ -37,7 +38,8 @@ blocked.
   ingress or reverse proxy and forward HTTP to port 3000 on the app network.
 - A PostgreSQL database (the Postgres Compose file includes one), or an S3-compatible bucket with
   private access and Get/List/Put/Delete permissions.
-- A mail relay and OIDC provider reachable from the app if email and federated login are required.
+- At least one of an SMTP relay or OIDC provider reachable from the app for initial administrator
+  verification.
 - A cryptographically random `PERMINISTER_IDENTITY_INDEX_SECRET` and a stable
   `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`. The helper below generates both.
 - For image builds from source: network access to fetch pinned Node and package dependencies. For an
@@ -143,8 +145,9 @@ For DigitalOcean Spaces, set `PERMINISTER_STORAGE_BACKEND=spaces` and fill
 `PERMINISTER_SPACES_ENDPOINT`, `PERMINISTER_SPACES_REGION`, `PERMINISTER_SPACES_BUCKET`,
 `PERMINISTER_SPACES_ACCESS_KEY`, and `PERMINISTER_SPACES_SECRET_KEY`. The endpoint must be the
 bucket's HTTPS endpoint. For another S3 service, keep `PERMINISTER_STORAGE_BACKEND=s3` and fill the
-`PERMINISTER_S3_*` values. Generic S3 uses a private object ACL by default and path-style addressing
-unless `PERMINISTER_S3_FORCE_PATH_STYLE=false`.
+`PERMINISTER_S3_*` values. Generic S3 writes do not set an object ACL; configure the bucket and its
+policies to keep Perminister objects private. Path-style addressing is enabled unless
+`PERMINISTER_S3_FORCE_PATH_STYLE=false`.
 
 For a source build, create the image locally:
 

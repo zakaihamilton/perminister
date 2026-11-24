@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { connection } from "next/server";
 import { PrivacyPolicySections } from "@/components/privacy-policy-sections";
 import { SiteFooter, SiteHeader } from "@/components/site-shell";
 
@@ -9,10 +8,10 @@ export const metadata: Metadata = {
     "Learn what information Perminister uses to provide identity and access management, how it is stored, and how to make a privacy request.",
 };
 
-export default async function PrivacyPage() {
-  if (process.env.PERMINISTER_SELF_HOSTED_BUILD === "true") await connection();
+export default function PrivacyPage() {
   const selfHosted = process.env.PERMINISTER_DEPLOYMENT_PROFILE === "self-hosted";
-  const operatorName = process.env.PERMINISTER_OPERATOR_NAME?.trim();
+  const operatorName = selfHosted ? process.env.PERMINISTER_OPERATOR_NAME?.trim() : undefined;
+  const privacyEmail = selfHosted ? process.env.PERMINISTER_PRIVACY_EMAIL?.trim() : undefined;
   return (
     <>
       <SiteHeader active="none" />
@@ -28,7 +27,11 @@ export default async function PrivacyPage() {
             </p>
             <p className="privacy-updated">Last updated October 7, 2026</p>
           </header>
-          <PrivacyPolicySections />
+          <PrivacyPolicySections
+            selfHosted={selfHosted}
+            operatorName={operatorName}
+            privacyEmail={privacyEmail}
+          />
         </article>
       </main>
       <SiteFooter />

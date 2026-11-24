@@ -69,8 +69,7 @@ function PrivacyBrowserStorageSection() {
   );
 }
 
-function PrivacyProvidersSection() {
-  const selfHosted = process.env.PERMINISTER_DEPLOYMENT_PROFILE === "self-hosted";
+function PrivacyProvidersSection({ selfHosted }: { selfHosted: boolean }) {
   return (
     <section aria-labelledby="privacy-sharing">
       <h2 id="privacy-sharing">Storage and service providers</h2>
@@ -160,9 +159,15 @@ function PrivacyChangesSection() {
   );
 }
 
-function PrivacyContactSection({ selfHosted }: { selfHosted: boolean }) {
-  const operatorName = process.env.PERMINISTER_OPERATOR_NAME?.trim();
-  const privacyEmail = process.env.PERMINISTER_PRIVACY_EMAIL?.trim();
+function PrivacyContactSection({
+  selfHosted,
+  operatorName,
+  privacyEmail,
+}: {
+  selfHosted: boolean;
+  operatorName?: string;
+  privacyEmail?: string;
+}) {
   const validPrivacyEmail = privacyEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(privacyEmail);
 
   if (selfHosted) {
@@ -196,18 +201,29 @@ function PrivacyContactSection({ selfHosted }: { selfHosted: boolean }) {
   );
 }
 
-export function PrivacyPolicySections() {
-  const selfHosted = process.env.PERMINISTER_DEPLOYMENT_PROFILE === "self-hosted";
+export function PrivacyPolicySections({
+  selfHosted,
+  operatorName,
+  privacyEmail,
+}: {
+  selfHosted: boolean;
+  operatorName?: string;
+  privacyEmail?: string;
+}) {
   return (
     <div className="privacy-sections">
       <PrivacyInformationSection />
       <PrivacyUseSection />
       <PrivacyBrowserStorageSection />
-      <PrivacyProvidersSection />
+      <PrivacyProvidersSection selfHosted={selfHosted} />
       <PrivacyRetentionSection />
       <PrivacySecuritySection />
       <PrivacyChangesSection />
-      <PrivacyContactSection selfHosted={selfHosted} />
+      <PrivacyContactSection
+        selfHosted={selfHosted}
+        operatorName={operatorName}
+        privacyEmail={privacyEmail}
+      />
     </div>
   );
 }

@@ -7,6 +7,7 @@ dist/
 *.tsbuildinfo
 .env*
 !.env.example
+!deploy/self-hosted/.env.*.example
 # Keep the service dependency resolution reproducible.
 !package-lock.json
 .DS_Store
