@@ -1,17 +1,15 @@
 import "server-only";
 
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import {
-  GOOGLE_LOGIN_CALLBACK_PATH,
-  safeConsumerAuthorizationReturnTo,
-} from "./consumer-sso";
+import { GOOGLE_LOGIN_CALLBACK_PATH } from "./consumer-sso";
 import {
   completeExternalOidcSignIn,
-  configuredPublicOrigin,
+  createExternalOidcAuthorizationUrl,
   extractVerifiedOidcIdentity,
   parseExternalOidcLoginState,
+  readExternalOidcLoginRequest,
   readSingleQueryParam,
 } from "./external-oidc-helpers";
 import { NO_STORE_HEADERS, publicRedirectResponse } from "./http";
@@ -72,22 +70,11 @@ function isTokenResponse(value: unknown): value is GoogleTokenResponse {
 
 export async function handleGoogleLoginStart(request: Request): Promise<Response> {
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
-  const origin = configuredPublicOrigin(request);
-  const params = new URL(request.url).searchParams;
-  const nextInput = readSingleQueryParam(params, "next");
-  const invitationInput = readSingleQueryParam(params, "invitationToken");
-  const next = safeConsumerAuthorizationReturnTo(nextInput ?? "");
-  const invitationToken = invitationInput?.trim() ?? "";
-
-  if (
-    !clientId ||
-    !origin ||
-    params.getAll("next").length > 1 ||
-    params.getAll("invitationToken").length > 1 ||
-    invitationToken.length > 512
-  ) {
+  const loginRequest = readExternalOidcLoginRequest(request, Boolean(clientId));
+  if (!loginRequest || !clientId) {
     return publicRedirectResponse(request, "/login?error=google_unavailable");
   }
+  const { origin, next, invitationToken } = loginRequest;
 
   const state = randomBytes(32).toString("base64url");
   const nonce = randomBytes(32).toString("base64url");
@@ -115,25 +102,21 @@ export async function handleGoogleLoginStart(request: Request): Promise<Response
     maxAge: GOOGLE_STATE_COOKIE_MAX_AGE_SECONDS,
   });
 
-  const codeChallenge = createHash("sha256").update(codeVerifier).digest("base64url");
-  const authorizationUrl = new URL(GOOGLE_AUTHORIZATION_ENDPOINT);
-  authorizationUrl.search = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    response_type: "code",
-    scope: "openid email profile",
+  const authorizationUrl = createExternalOidcAuthorizationUrl({
+    authorizationEndpoint: GOOGLE_AUTHORIZATION_ENDPOINT,
+    clientId,
+    redirectUri,
     state,
     nonce,
-    code_challenge: codeChallenge,
-    code_challenge_method: "S256",
     prompt: "select_account",
-  }).toString();
+    codeVerifier,
+  });
 
   return new Response(null, {
     status: 303,
     headers: {
       ...NO_STORE_HEADERS,
-      Location: authorizationUrl.toString(),
+      Location: authorizationUrl,
       "Referrer-Policy": "no-referrer",
     },
   });

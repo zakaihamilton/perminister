@@ -7,12 +7,12 @@ import {
   FederatedAccountLinkRequiredError,
   signInWithExternalIdentity,
 } from "./service";
-import { safeConsumerAuthorizationReturnTo } from "./consumer-sso";
 import {
   completeExternalOidcSignIn,
-  configuredPublicOrigin,
+  createExternalOidcAuthorizationUrl,
   extractVerifiedOidcIdentity,
   parseExternalOidcLoginState,
+  readExternalOidcLoginRequest,
   readSingleQueryParam,
 } from "./external-oidc-helpers";
 import { NO_STORE_HEADERS, publicRedirectResponse } from "./http";
@@ -167,22 +167,11 @@ function parseLoginState(value: string | undefined): OidcLoginState | null {
 
 export async function handleFederatedOidcLoginStart(request: Request): Promise<Response> {
   const configuration = configuredProvider();
-  const origin = configuredPublicOrigin(request);
-  const params = new URL(request.url).searchParams;
-  const nextInput = readSingleQueryParam(params, "next");
-  const invitationInput = readSingleQueryParam(params, "invitationToken");
-  const next = safeConsumerAuthorizationReturnTo(nextInput ?? "");
-  const invitationToken = invitationInput?.trim() ?? "";
-
-  if (
-    !configuration ||
-    !origin ||
-    params.getAll("next").length > 1 ||
-    params.getAll("invitationToken").length > 1 ||
-    invitationToken.length > 512
-  ) {
+  const loginRequest = readExternalOidcLoginRequest(request, Boolean(configuration));
+  if (!loginRequest || !configuration) {
     return publicRedirectResponse(request, "/login?error=oidc_unavailable");
   }
+  const { origin, next, invitationToken } = loginRequest;
 
   try {
     const metadata = await discoverProvider(configuration);
@@ -211,23 +200,19 @@ export async function handleFederatedOidcLoginStart(request: Request): Promise<R
       path: "/",
       maxAge: OIDC_STATE_COOKIE_MAX_AGE_SECONDS,
     });
-    const codeChallenge = createHash("sha256").update(codeVerifier).digest("base64url");
-    const authorizationUrl = new URL(metadata.authorization_endpoint);
-    authorizationUrl.search = new URLSearchParams({
-      client_id: configuration.clientId,
-      redirect_uri: redirectUri,
-      response_type: "code",
-      scope: "openid email profile",
+    const authorizationUrl = createExternalOidcAuthorizationUrl({
+      authorizationEndpoint: metadata.authorization_endpoint,
+      clientId: configuration.clientId,
+      redirectUri,
       state,
       nonce,
-      code_challenge: codeChallenge,
-      code_challenge_method: "S256",
-    }).toString();
+      codeVerifier,
+    });
     return new Response(null, {
       status: 303,
       headers: {
         ...NO_STORE_HEADERS,
-        Location: authorizationUrl.toString(),
+        Location: authorizationUrl,
         "Referrer-Policy": "no-referrer",
       },
     });
