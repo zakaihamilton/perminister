@@ -55,10 +55,26 @@ function isWriterRuntime(): boolean {
   );
 }
 
-function refreshTarget(request: NextRequest): URL {
+async function readFormReturnTo(request: NextRequest): Promise<string | null | undefined> {
+  try {
+    const values = (await request.clone().formData()).getAll("returnTo");
+    if (values.length === 0) return undefined;
+    if (values.length !== 1 || typeof values[0] !== "string") return null;
+    return values[0];
+  } catch {
+    return undefined;
+  }
+}
+
+function refreshTarget(
+  request: NextRequest,
+  formReturnTo?: { value: string | null | undefined },
+): URL {
   let target = new URL(request.url);
   const actionPath = request.nextUrl.pathname.startsWith("/actions/");
-  const actionReturnPath = actionPath ? safeDashboardReturnPath(request) : null;
+  const actionReturnPath = actionPath
+    ? safeDashboardReturnPath(request, formReturnTo?.value)
+    : null;
   const referer = request.headers.get("referer");
 
   if (actionPath) {
@@ -88,8 +104,14 @@ function refreshTarget(request: NextRequest): URL {
   return target;
 }
 
-function staleActionResponse(request: NextRequest): Response {
-  const target = refreshTarget(request);
+async function staleActionResponse(
+  request: NextRequest,
+  formReturnTo?: { value: string | null | undefined },
+): Promise<Response> {
+  const target = refreshTarget(
+    request,
+    formReturnTo ?? { value: await readFormReturnTo(request) },
+  );
   const location = `${target.pathname}${target.search}`;
   if (request.headers.has("next-action")) {
     return new Response(null, {
@@ -275,6 +297,10 @@ async function proxyWrite(request: NextRequest, method = request.method): Promis
   }
 
   const destination = new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, writerOrigin);
+  const formReturnTo =
+    method === "POST" && request.nextUrl.pathname.startsWith("/actions/")
+      ? { value: await readFormReturnTo(request) }
+      : undefined;
   const body =
     isReadMethod(method) || (method === "POST" && request.method === "GET")
       ? undefined
@@ -295,7 +321,7 @@ async function proxyWrite(request: NextRequest, method = request.method): Promis
         clientReleaseId: request.headers.get("x-deployment-id"),
         currentReleaseId: currentDeploymentId(),
       });
-      return staleActionResponse(request);
+      return staleActionResponse(request, formReturnTo);
     }
 
     if (upstream.headers.get(RELEASE_MISMATCH_HEADER) === "1") {
@@ -306,7 +332,7 @@ async function proxyWrite(request: NextRequest, method = request.method): Promis
       if (request.headers.get("accept")?.includes("application/json")) {
         return errorResponse(503, "Perminister is updating. Reload the page and try again.");
       }
-      return staleActionResponse(request);
+      return staleActionResponse(request, formReturnTo);
     }
 
     return new Response(upstream.body, {

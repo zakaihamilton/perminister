@@ -24,9 +24,15 @@ export function uniqueFormValue(params: URLSearchParams, name: string): string |
   return values.length === 1 ? (values[0] ?? null) : null;
 }
 
-export function safeDashboardReturnPath(request: Request): string | null {
+export function safeDashboardReturnPath(
+  request: Request,
+  returnToOverride?: string | null,
+): string | null {
   const requestUrl = new URL(request.url);
-  const returnTo = requestUrl.searchParams.get("returnTo");
+  const returnTo =
+    returnToOverride === undefined
+      ? requestUrl.searchParams.get("returnTo")
+      : returnToOverride;
   if (!returnTo) return null;
 
   try {
