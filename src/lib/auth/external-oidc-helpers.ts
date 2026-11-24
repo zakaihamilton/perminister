@@ -53,6 +53,38 @@ export function readSingleQueryParam(params: URLSearchParams, name: string): str
   return values.length === 1 ? (values[0] ?? null) : null;
 }
 
+export function readExternalOidcLoginRequest(request: Request): {
+  origin: string | null;
+  next: string | null;
+  invitationToken: string;
+  hasDuplicateNext: boolean;
+  hasDuplicateInvitationToken: boolean;
+} {
+  const params = new URL(request.url).searchParams;
+  const nextInput = readSingleQueryParam(params, "next");
+  const invitationInput = readSingleQueryParam(params, "invitationToken");
+  return {
+    origin: configuredPublicOrigin(request),
+    next: safeConsumerAuthorizationReturnTo(nextInput ?? ""),
+    invitationToken: invitationInput?.trim() ?? "",
+    hasDuplicateNext: params.getAll("next").length > 1,
+    hasDuplicateInvitationToken: params.getAll("invitationToken").length > 1,
+  };
+}
+
+export function isInvalidExternalOidcLoginRequest(
+  loginRequest: ReturnType<typeof readExternalOidcLoginRequest>,
+  providerConfigured: boolean,
+): boolean {
+  return (
+    !providerConfigured ||
+    !loginRequest.origin ||
+    loginRequest.hasDuplicateNext ||
+    loginRequest.hasDuplicateInvitationToken ||
+    loginRequest.invitationToken.length > 512
+  );
+}
+
 export function createExternalOidcAuthorizationUrl(input: {
   authorizationEndpoint: string;
   clientId: string;

@@ -7,13 +7,13 @@ import {
   FederatedAccountLinkRequiredError,
   signInWithExternalIdentity,
 } from "./service";
-import { safeConsumerAuthorizationReturnTo } from "./consumer-sso";
 import {
   completeExternalOidcSignIn,
-  configuredPublicOrigin,
   createExternalOidcAuthorizationUrl,
   extractVerifiedOidcIdentity,
+  isInvalidExternalOidcLoginRequest,
   parseExternalOidcLoginState,
+  readExternalOidcLoginRequest,
   readSingleQueryParam,
 } from "./external-oidc-helpers";
 import { NO_STORE_HEADERS, publicRedirectResponse } from "./http";
@@ -168,20 +168,10 @@ function parseLoginState(value: string | undefined): OidcLoginState | null {
 
 export async function handleFederatedOidcLoginStart(request: Request): Promise<Response> {
   const configuration = configuredProvider();
-  const origin = configuredPublicOrigin(request);
-  const params = new URL(request.url).searchParams;
-  const nextInput = readSingleQueryParam(params, "next");
-  const invitationInput = readSingleQueryParam(params, "invitationToken");
-  const next = safeConsumerAuthorizationReturnTo(nextInput ?? "");
-  const invitationToken = invitationInput?.trim() ?? "";
+  const loginRequest = readExternalOidcLoginRequest(request);
+  const { origin, next, invitationToken } = loginRequest;
 
-  if (
-    !configuration ||
-    !origin ||
-    params.getAll("next").length > 1 ||
-    params.getAll("invitationToken").length > 1 ||
-    invitationToken.length > 512
-  ) {
+  if (isInvalidExternalOidcLoginRequest(loginRequest, Boolean(configuration))) {
     return publicRedirectResponse(request, "/login?error=oidc_unavailable");
   }
 

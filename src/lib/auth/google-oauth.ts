@@ -3,16 +3,14 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import {
-  GOOGLE_LOGIN_CALLBACK_PATH,
-  safeConsumerAuthorizationReturnTo,
-} from "./consumer-sso";
+import { GOOGLE_LOGIN_CALLBACK_PATH } from "./consumer-sso";
 import {
   completeExternalOidcSignIn,
-  configuredPublicOrigin,
   createExternalOidcAuthorizationUrl,
   extractVerifiedOidcIdentity,
+  isInvalidExternalOidcLoginRequest,
   parseExternalOidcLoginState,
+  readExternalOidcLoginRequest,
   readSingleQueryParam,
 } from "./external-oidc-helpers";
 import { NO_STORE_HEADERS, publicRedirectResponse } from "./http";
@@ -73,20 +71,10 @@ function isTokenResponse(value: unknown): value is GoogleTokenResponse {
 
 export async function handleGoogleLoginStart(request: Request): Promise<Response> {
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
-  const origin = configuredPublicOrigin(request);
-  const params = new URL(request.url).searchParams;
-  const nextInput = readSingleQueryParam(params, "next");
-  const invitationInput = readSingleQueryParam(params, "invitationToken");
-  const next = safeConsumerAuthorizationReturnTo(nextInput ?? "");
-  const invitationToken = invitationInput?.trim() ?? "";
+  const loginRequest = readExternalOidcLoginRequest(request);
+  const { origin, next, invitationToken } = loginRequest;
 
-  if (
-    !clientId ||
-    !origin ||
-    params.getAll("next").length > 1 ||
-    params.getAll("invitationToken").length > 1 ||
-    invitationToken.length > 512
-  ) {
+  if (isInvalidExternalOidcLoginRequest(loginRequest, Boolean(clientId))) {
     return publicRedirectResponse(request, "/login?error=google_unavailable");
   }
 
