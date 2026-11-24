@@ -61,7 +61,7 @@ export const POST = withApiRoutePerformance(
       return invalidConsumerEmailResponse();
     }
     const email = body.email;
-    if (!consumePasswordRecoveryRateLimit(email, `client:${client.clientId}`, 300)) {
+    if (!(await consumePasswordRecoveryRateLimit(email, `client:${client.clientId}`, 300))) {
       return Response.json({ accepted: true }, { status: 202, headers: NO_STORE_HEADERS });
     }
     after(async () => {

@@ -42,6 +42,13 @@ export class GoogleAccountLinkRequiredError extends Error {
   }
 }
 
+export class FederatedAccountLinkRequiredError extends Error {
+  constructor() {
+    super("Sign in with the existing Perminister account before linking this identity provider.");
+    this.name = "FederatedAccountLinkRequiredError";
+  }
+}
+
 export async function registerAccount(
   emailInput: string,
   password: string,
@@ -114,21 +121,43 @@ export async function signInWithGoogle(input: {
   firstName?: string;
   lastName?: string;
 }): Promise<SubjectRecord> {
+  try {
+    return await signInWithExternalIdentity({ ...input, provider: "google" });
+  } catch (error) {
+    if (error instanceof FederatedAccountLinkRequiredError) {
+      throw new GoogleAccountLinkRequiredError();
+    }
+    throw error;
+  }
+}
+
+export async function signInWithExternalIdentity(input: {
+  provider: string;
+  providerSubject: string;
+  email: string;
+  emailVerified: boolean;
+  firstName?: string;
+  lastName?: string;
+}): Promise<SubjectRecord> {
   if (
+    !/^[a-z][a-z0-9-]{0,31}$/.test(input.provider) ||
     typeof input.providerSubject !== "string" ||
     !/^[\x21-\x7e]{1,255}$/.test(input.providerSubject) ||
     input.emailVerified !== true
   ) {
-    throw new Error("Google did not return a verified account.");
+    throw new Error("The identity provider did not return a verified account.");
   }
 
   const email = canonicalEmail(input.email);
-  const identity: ExternalIdentity = { provider: "google", subject: input.providerSubject };
+  const identity: ExternalIdentity = { provider: input.provider, subject: input.providerSubject };
   const firstName = normalizedPersonName(input.firstName?.slice(0, 80), "First");
   const lastName = normalizedPersonName(input.lastName?.slice(0, 80), "Last");
 
   return authMutationQueue.run(async () => {
-    const linkedSubject = await loadSubjectByExternalIdentityUnlocked("google", identity.subject);
+    const linkedSubject = await loadSubjectByExternalIdentityUnlocked(
+      input.provider,
+      identity.subject,
+    );
     if (linkedSubject) {
       if (linkedSubject.status !== "active" || linkedSubject.deletedAt) {
         throw new Error("This Perminister account cannot sign in.");
@@ -142,10 +171,10 @@ export async function signInWithGoogle(input: {
         throw new Error("This Perminister account cannot sign in.");
       }
       if (!existingSubject.primaryEmail || canonicalEmail(existingSubject.primaryEmail) !== email) {
-        throw new GoogleAccountLinkRequiredError();
+        throw new FederatedAccountLinkRequiredError();
       }
-      if (existingSubject.externalIdentities?.some(({ provider }) => provider === "google")) {
-        throw new GoogleAccountLinkRequiredError();
+      if (existingSubject.externalIdentities?.some(({ provider }) => provider === input.provider)) {
+        throw new FederatedAccountLinkRequiredError();
       }
 
       const now = new Date().toISOString();
@@ -155,7 +184,7 @@ export async function signInWithGoogle(input: {
         externalIdentities: [...(existingSubject.externalIdentities ?? []), identity],
         updatedAt: now,
       };
-      await persistRecord(linked, "identity.google-linked", {
+      await persistRecord(linked, `identity.${input.provider}-linked`, {
         kind: "subject",
         subjectId: linked.subjectId,
       });
@@ -181,7 +210,7 @@ export async function signInWithGoogle(input: {
       createdAt: now,
       updatedAt: now,
     };
-    await persistRecord(subject, "identity.google-registered", {
+    await persistRecord(subject, `identity.${input.provider}-registered`, {
       kind: "subject",
       subjectId: subject.subjectId,
     });

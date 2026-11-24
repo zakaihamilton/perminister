@@ -191,7 +191,8 @@ export interface LegacyIdentitySource {
 }
 
 export interface ExternalIdentity {
-  provider: "google";
+  /** Stable provider key; OIDC providers use an issuer-derived identifier. */
+  provider: string;
   /** Stable provider subject; use this instead of the provider's mutable email claim. */
   subject: string;
 }

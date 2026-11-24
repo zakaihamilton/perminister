@@ -36,19 +36,27 @@ import {
   wrapRecord,
 } from "./keys-and-validation";
 import { SpacesRateLimitStore } from "./rate-limit-store";
-import { createSpacesClientConfigFromEnv, SpacesS3Client } from "./s3-client";
+import type { AuthObjectClient } from "./object-client";
+import { storageBackendFromEnv } from "./object-client";
+import {
+  createS3CompatibleClientConfigFromEnv,
+  createSpacesClientConfigFromEnv,
+  SpacesS3Client,
+} from "./s3-client";
+import { createPostgresJsonObjectClientFromEnv } from "./postgres-client";
 
 export type { VersionedRecord };
 
 export interface SpacesAuthStoreOptions {
-  client: S3Client;
-  bucket: string;
+  client?: S3Client;
+  bucket?: string;
+  objectClient?: AuthObjectClient;
   identityIndexSecret: string;
   readOnly?: boolean;
 }
 
 export class SpacesAuthStore {
-  private readonly s3: SpacesS3Client;
+  private readonly s3: AuthObjectClient;
   private readonly rateLimits: SpacesRateLimitStore;
   private readonly events: SpacesEventStore;
   private readonly identityIndexSecret: string;
@@ -56,15 +64,23 @@ export class SpacesAuthStore {
   private organizationMembershipIndexCheckedAt = 0;
   private organizationMembershipIndexCheck?: Promise<boolean>;
 
-  constructor({ client, bucket, identityIndexSecret, readOnly = false }: SpacesAuthStoreOptions) {
-    if (!bucket.trim()) throw new Error("Spaces bucket is required");
+  constructor(options: SpacesAuthStoreOptions) {
+    const { client, bucket, objectClient, identityIndexSecret, readOnly = false } = options;
     if (identityIndexSecret.length < 32) {
       throw new Error("Identity index secret must be at least 32 characters");
     }
     this.identityIndexSecret = identityIndexSecret;
-    this.s3 = new SpacesS3Client({ client, bucket, readOnly });
+    if (objectClient) {
+      this.s3 = objectClient;
+    } else {
+      if (!client || !bucket?.trim()) throw new Error("An object client and bucket are required");
+      this.s3 = new SpacesS3Client({ client, bucket, readOnly });
+    }
     this.rateLimits = new SpacesRateLimitStore(this.s3, identityIndexSecret);
-    this.events = new SpacesEventStore(this.s3);
+    this.events = new SpacesEventStore(
+      this.s3,
+      !this.s3.supportsDistributedCoordination,
+    );
   }
 
   checkReadiness(): Promise<void> {
@@ -404,7 +420,7 @@ export class SpacesAuthStore {
   }
 
   async findSubjectIdByExternalIdentity(
-    provider: "google",
+    provider: string,
     providerSubject: string,
   ): Promise<SubjectId | null> {
     const digest = createHmac("sha256", this.identityIndexSecret)
@@ -459,7 +475,7 @@ export class SpacesAuthStore {
     if (record.kind === "subject") {
       for (const identity of record.externalIdentities ?? []) {
         if (
-          identity.provider !== "google" ||
+          !/^[a-z][a-z0-9-]{0,31}$/.test(identity.provider) ||
           typeof identity.subject !== "string" ||
           !/^[\x21-\x7e]{1,255}$/.test(identity.subject)
         ) {
@@ -658,5 +674,25 @@ export class SpacesAuthStore {
 export function createSpacesAuthStoreFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): SpacesAuthStore {
-  return new SpacesAuthStore(createSpacesClientConfigFromEnv(env));
+  const backend = storageBackendFromEnv(env);
+  if (backend === "postgres") {
+    return new SpacesAuthStore({
+      objectClient: createPostgresJsonObjectClientFromEnv(env),
+      identityIndexSecret: env.PERMINISTER_IDENTITY_INDEX_SECRET?.trim() ?? "",
+    });
+  }
+
+  const config =
+    backend === "spaces"
+      ? createSpacesClientConfigFromEnv(env)
+      : createS3CompatibleClientConfigFromEnv(env);
+  return new SpacesAuthStore({
+    client: config.client,
+    bucket: config.bucket,
+    identityIndexSecret: config.identityIndexSecret,
+    readOnly: config.readOnly,
+    ...(backend === "s3"
+      ? { objectClient: new SpacesS3Client({ ...config, putPrivateAcl: false }) }
+      : {}),
+  });
 }

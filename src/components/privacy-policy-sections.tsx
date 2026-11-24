@@ -70,15 +70,27 @@ function PrivacyBrowserStorageSection() {
 }
 
 function PrivacyProvidersSection() {
+  const selfHosted = process.env.PERMINISTER_DEPLOYMENT_PROFILE === "self-hosted";
   return (
     <section aria-labelledby="privacy-sharing">
       <h2 id="privacy-sharing">Storage and service providers</h2>
-      <p>
-        Perminister stores identity and access records in private DigitalOcean Spaces objects. When
-        transactional email is configured, Resend receives the recipient address and message content
-        needed to deliver verification, recovery, and invitation emails. Product website lookup
-        sends a request to the URL provided by an authorized organization owner or admin.
-      </p>
+      {selfHosted ? (
+        <p>
+          This installation stores identity and access records in the storage backend selected by
+          its operator: PostgreSQL, DigitalOcean Spaces, or an S3-compatible service. If SMTP is
+          configured, the operator’s mail server receives verification, recovery, and invitation
+          messages. Optional organization sign-in sends the browser to the configured identity
+          provider. Product website lookup contacts the URL provided by an authorized owner or
+          admin when the installation’s network permits it.
+        </p>
+      ) : (
+        <p>
+          Perminister stores identity and access records in private DigitalOcean Spaces objects. When
+          transactional email is configured, Resend receives the recipient address and message content
+          needed to deliver verification, recovery, and invitation emails. Product website lookup
+          sends a request to the URL provided by an authorized organization owner or admin.
+        </p>
+      )}
       <p>
         Organization owners and admins can see and manage organization or product information needed
         for their roles. Product members can be shown membership and access information for the

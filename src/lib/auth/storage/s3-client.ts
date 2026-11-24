@@ -10,6 +10,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { recordAuthStorageOperation } from "../performance";
 import { OBJECT_ROOT } from "./keys-and-validation";
+import type { AuthObjectClient } from "./object-client";
 
 type Environment = Readonly<Record<string, string | undefined>>;
 
@@ -32,15 +33,22 @@ function isMissingObject(error: unknown): boolean {
   );
 }
 
-export class SpacesS3Client {
+export class SpacesS3Client implements AuthObjectClient {
   private readonly client: S3Client;
   private readonly bucket: string;
   private readonly readOnly: boolean;
+  private readonly putPrivateAcl: boolean;
 
-  constructor(options: { client: S3Client; bucket: string; readOnly?: boolean }) {
+  constructor(options: {
+    client: S3Client;
+    bucket: string;
+    readOnly?: boolean;
+    putPrivateAcl?: boolean;
+  }) {
     this.client = options.client;
     this.bucket = options.bucket;
     this.readOnly = options.readOnly ?? false;
+    this.putPrivateAcl = options.putPrivateAcl ?? true;
   }
 
   async checkReadiness(): Promise<void> {
@@ -100,7 +108,7 @@ export class SpacesS3Client {
           Key: key,
           Body: JSON.stringify(value),
           ContentType: "application/json",
-          ACL: "private",
+          ...(this.putPrivateAcl ? { ACL: "private" as const } : {}),
           CacheControl: "no-store",
         }),
       ),
@@ -184,6 +192,13 @@ function isReadOnlySpacesRuntime(env: Environment, bucket: string): boolean {
   return false;
 }
 
+function readOnlyFromEnvironment(env: Environment, bucket: string): boolean {
+  if (env.PERMINISTER_DEPLOYMENT_PROFILE === "self-hosted") {
+    return env.PERMINISTER_STORAGE_READ_ONLY === "true";
+  }
+  return env.PERMINISTER_STORAGE_READ_ONLY === "true" || isReadOnlySpacesRuntime(env, bucket);
+}
+
 export function createSpacesClientConfigFromEnv(env: Environment = process.env): {
   client: S3Client;
   bucket: string;
@@ -222,6 +237,51 @@ export function createSpacesClientConfigFromEnv(env: Environment = process.env):
     client,
     bucket,
     identityIndexSecret: requiredEnvironmentValue(env, "PERMINISTER_IDENTITY_INDEX_SECRET"),
-    readOnly: isReadOnlySpacesRuntime(env, bucket),
+    readOnly: readOnlyFromEnvironment(env, bucket),
+  };
+}
+
+export function createS3CompatibleClientConfigFromEnv(env: Environment = process.env): {
+  client: S3Client;
+  bucket: string;
+  identityIndexSecret: string;
+  readOnly: boolean;
+} {
+  const endpoint = requiredEnvironmentValue(env, "PERMINISTER_S3_ENDPOINT");
+  const parsedEndpoint = new URL(endpoint);
+  const localDevelopmentOrigin =
+    env.NODE_ENV !== "production" &&
+    parsedEndpoint.protocol === "http:" &&
+    ["localhost", "127.0.0.1", "::1"].includes(parsedEndpoint.hostname);
+  if (
+    (parsedEndpoint.protocol !== "https:" && !localDevelopmentOrigin) ||
+    parsedEndpoint.pathname !== "/" ||
+    parsedEndpoint.search ||
+    parsedEndpoint.hash ||
+    parsedEndpoint.username ||
+    parsedEndpoint.password
+  ) {
+    throw new Error("PERMINISTER_S3_ENDPOINT must be a secure origin");
+  }
+
+  const bucket = requiredEnvironmentValue(env, "PERMINISTER_S3_BUCKET");
+  const region = env.PERMINISTER_S3_REGION?.trim() || "us-east-1";
+  const forcePathStyle = env.PERMINISTER_S3_FORCE_PATH_STYLE !== "false";
+  const client = new S3Client({
+    endpoint: parsedEndpoint.origin,
+    region,
+    forcePathStyle,
+    credentials: {
+      accessKeyId: requiredEnvironmentValue(env, "PERMINISTER_S3_ACCESS_KEY"),
+      secretAccessKey: requiredEnvironmentValue(env, "PERMINISTER_S3_SECRET_KEY"),
+    },
+    maxAttempts: 3,
+  });
+
+  return {
+    client,
+    bucket,
+    identityIndexSecret: requiredEnvironmentValue(env, "PERMINISTER_IDENTITY_INDEX_SECRET"),
+    readOnly: readOnlyFromEnvironment(env, bucket),
   };
 }

@@ -12,7 +12,7 @@ import {
   sortEvents,
   validateEvent,
 } from "./keys-and-validation";
-import type { SpacesS3Client } from "./s3-client";
+import type { AuthObjectClient } from "./object-client";
 
 const ACTIVITY_READ_CONCURRENCY = 40;
 const RECENT_ACTIVITY_CACHE_LIMIT = 100;
@@ -59,7 +59,10 @@ function setRecentActivityCache(key: string, events: AuthEvent[]): void {
 }
 
 export class SpacesEventStore {
-  constructor(private readonly s3: SpacesS3Client) {}
+  constructor(
+    private readonly s3: AuthObjectClient,
+    private readonly useProcessCache = true,
+  ) {}
 
   async appendEvent(event: AuthEvent): Promise<void> {
     validateEvent(event);
@@ -147,12 +150,12 @@ export class SpacesEventStore {
     if (maxEvents === 0) return [];
 
     const cacheKey = recentActivityCacheKey(organizationId, productId);
-    const cached = getRecentActivityCache(cacheKey);
+    const cached = this.useProcessCache ? getRecentActivityCache(cacheKey) : null;
     if (cached) {
       return cached.events.filter(belongsToOrganization).slice(0, maxEvents);
     }
 
-    const pendingRead = recentActivityReads.get(cacheKey);
+    const pendingRead = this.useProcessCache ? recentActivityReads.get(cacheKey) : undefined;
     if (pendingRead) return (await pendingRead).filter(belongsToOrganization).slice(0, maxEvents);
 
     const read = this.readEventsFromPointers(
@@ -160,14 +163,16 @@ export class SpacesEventStore {
       RECENT_ACTIVITY_CACHE_LIMIT,
       belongsToOrganization,
     ).then((events) => {
-      setRecentActivityCache(cacheKey, events);
+      if (this.useProcessCache) setRecentActivityCache(cacheKey, events);
       return events;
     });
-    recentActivityReads.set(cacheKey, read);
+    if (this.useProcessCache) recentActivityReads.set(cacheKey, read);
     try {
       return (await read).slice(0, maxEvents);
     } finally {
-      if (recentActivityReads.get(cacheKey) === read) recentActivityReads.delete(cacheKey);
+      if (this.useProcessCache && recentActivityReads.get(cacheKey) === read) {
+        recentActivityReads.delete(cacheKey);
+      }
     }
   }
 
@@ -276,6 +281,7 @@ export class SpacesEventStore {
     productId: string | undefined,
     event: AuthEvent,
   ): void {
+    if (!this.useProcessCache) return;
     const cacheKey = recentActivityCacheKey(organizationId, productId);
     const cached = getRecentActivityCache(cacheKey);
     if (!cached || cached.events.some((cachedEvent) => cachedEvent.eventId === event.eventId))

@@ -1,0 +1,12 @@
+services:
+  app:
+    environment:
+      NODE_EXTRA_CA_CERTS: /run/certs/customer-ca.pem
+    volumes:
+      - ${PERMINISTER_CA_CERT_FILE:?Set PERMINISTER_CA_CERT_FILE to the customer CA PEM file}:/run/certs/customer-ca.pem:ro
+
+  migrate:
+    environment:
+      NODE_EXTRA_CA_CERTS: /run/certs/customer-ca.pem
+    volumes:
+      - ${PERMINISTER_CA_CERT_FILE:?Set PERMINISTER_CA_CERT_FILE to the customer CA PEM file}:/run/certs/customer-ca.pem:ro

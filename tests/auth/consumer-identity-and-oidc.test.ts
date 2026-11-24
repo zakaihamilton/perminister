@@ -131,6 +131,29 @@ describe("consumer identity migration and management", () => {
     ).resolves.toMatchObject({ subject: { subjectId: projectAppId } });
   });
 
+  it("supports verified identities from a customer-configured OIDC provider", async () => {
+    const input = {
+      provider: "oidc-0123456789ab",
+      providerSubject: "identity-subject",
+      email: "oidc-user@example.com",
+      emailVerified: true,
+      firstName: "OIDC",
+      lastName: "User",
+    };
+
+    const created = await service.signInWithExternalIdentity(input);
+    const signedIn = await service.signInWithExternalIdentity(input);
+
+    expect(created.subjectId).toBe(signedIn.subjectId);
+    expect(created).toMatchObject({
+      primaryEmail: input.email,
+      externalIdentities: [{ provider: input.provider, subject: input.providerSubject }],
+    });
+    await expect(
+      service.signInWithExternalIdentity({ ...input, emailVerified: false }),
+    ).rejects.toThrow("The identity provider did not return a verified account.");
+  });
+
   it("binds one-time OIDC codes to the client, exact callback, PKCE verifier, and nonce", async () => {
     const now = new Date().toISOString();
     const callback = "https://postparticle.example/auth/perminister/callback";

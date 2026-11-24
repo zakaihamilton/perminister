@@ -14,6 +14,7 @@ const writerSourceFiles = [
   "src/app/actions.ts",
   "src/app/login/submit/route.ts",
   "src/app/auth/google/callback/route.ts",
+  "src/app/auth/oidc/callback/route.ts",
   "src/app/logout/submit/route.ts",
   "src/app/oauth/authorize/action.ts",
   "src/app/oauth/authorize/page.tsx",
@@ -83,6 +84,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  ...(process.env.PERMINISTER_SELF_HOSTED_BUILD === "true" ? { output: "standalone" as const } : {}),
   ...(deploymentId ? { deploymentId } : {}),
   ...(railwayAssetPrefix ? { assetPrefix: railwayAssetPrefix } : {}),
   // Stable across dashboard-only builds, but changes when writer code or dependencies change.

@@ -62,10 +62,18 @@ describe("process-local mutation coordination", () => {
     ).toBe("ip:203.0.113.99");
   });
 
-  it("enforces per-email recovery limits and evicts single-hit email buckets under flood", () => {
-    expect(consumePasswordRecoveryRateLimit("victim@example.com", "ip:203.0.113.1")).toBe(true);
-    expect(consumePasswordRecoveryRateLimit("victim@example.com", "ip:203.0.113.1")).toBe(true);
-    expect(consumePasswordRecoveryRateLimit("victim@example.com", "ip:203.0.113.1")).toBe(true);
-    expect(consumePasswordRecoveryRateLimit("victim@example.com", "ip:203.0.113.2")).toBe(false);
+  it("enforces per-email recovery limits and evicts single-hit email buckets under flood", async () => {
+    await expect(
+      consumePasswordRecoveryRateLimit("victim@example.com", "ip:203.0.113.1"),
+    ).resolves.toBe(true);
+    await expect(
+      consumePasswordRecoveryRateLimit("victim@example.com", "ip:203.0.113.1"),
+    ).resolves.toBe(true);
+    await expect(
+      consumePasswordRecoveryRateLimit("victim@example.com", "ip:203.0.113.1"),
+    ).resolves.toBe(true);
+    await expect(
+      consumePasswordRecoveryRateLimit("victim@example.com", "ip:203.0.113.2"),
+    ).resolves.toBe(false);
   });
 });

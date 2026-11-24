@@ -8,12 +8,13 @@ import { PasswordField } from "@/components/password-field";
 import { type AuthPageProps, authPageContext } from "@/lib/auth/auth-page-context";
 import { postLoginDestination } from "@/lib/auth/login-redirect";
 import { getCurrentSession } from "@/lib/auth/service";
+import { federatedOidcLoginConfigured, federatedOidcLoginLabel } from "@/lib/auth/federated-oidc";
 
 const errorText: Record<string, string> = {
   credentials: "Email or password is incorrect.",
   throttled: "Too many sign-in requests. Please wait a while and try again.",
   request: "Your sign-in request could not be verified. Reload the page and try again.",
-  unavailable: "Sign-in is unavailable right now. Check the Spaces configuration and try again.",
+  unavailable: "Sign-in is unavailable right now. Check the storage configuration and try again.",
   sso: "This product sign-in request is invalid or has expired. Return to the product and try again.",
   google_cancelled: "Google sign-in was cancelled.",
   google_link_required:
@@ -21,13 +22,19 @@ const errorText: Record<string, string> = {
   google_account: "This Perminister account cannot sign in. Contact your organization administrator.",
   google_request: "Your Google sign-in request could not be verified. Start again from this page.",
   google_unavailable: "Google sign-in is unavailable right now. Try again later.",
+  oidc_cancelled: "Organization sign-in was cancelled.",
+  oidc_link_required:
+    "This account needs to be linked first. Sign in with your Perminister password, then contact your administrator.",
+  oidc_account: "This Perminister account cannot sign in. Contact your organization administrator.",
+  oidc_request: "Your organization sign-in request could not be verified. Start again from this page.",
+  oidc_unavailable: "Organization sign-in is unavailable right now. Try again later.",
 };
 
 const noticeText: Record<string, string> = {
   "email-verified": "Your email address is verified. You can sign in.",
   "password-reset": "Your password was changed. Sign in with the new password.",
   "account-created-mail-unconfigured":
-    "Your account was created. Resend is not configured, so no verification email was sent. You can sign in; email verification and recovery require Resend configuration.",
+    "Your account was created, but email delivery is not configured. You can sign in; verification and recovery links require a mail provider.",
   "verification-sent": "A verification link was sent. You can sign in while it is pending.",
   "verification-delivery-failed":
     "Your account was created, but the verification message could not be delivered. You can sign in and request another after checking mail settings.",
@@ -47,6 +54,7 @@ export default async function LoginPage({ searchParams }: AuthPageProps) {
     redirect(postLoginDestination(next, params.invitationToken ?? ""));
   const invitationToken = params.invitationToken ?? "";
   const googleLoginEnabled = Boolean(process.env.GOOGLE_CLIENT_ID?.trim());
+  const oidcLoginEnabled = federatedOidcLoginConfigured();
   const registerParams = new URLSearchParams();
   if (next) registerParams.set("next", next);
   if (invitationToken) registerParams.set("invitationToken", invitationToken);
@@ -93,21 +101,30 @@ export default async function LoginPage({ searchParams }: AuthPageProps) {
             Sign in
           </button>
         </form>
-        {googleLoginEnabled ? (
+        {googleLoginEnabled || oidcLoginEnabled ? (
           <div className="login-provider-options">
             <div className="login-divider" role="separator">
               <span>Or continue with</span>
             </div>
-            <Link
-              className="button button-secondary login-google-button"
-              href={`/auth/google/start${googleLoginParams.size ? `?${googleLoginParams}` : ""}`}
-            >
-              Continue with Google
-            </Link>
+            {oidcLoginEnabled ? (
+              <Link
+                className="button button-secondary"
+                href={`/auth/oidc/start${googleLoginParams.size ? `?${googleLoginParams}` : ""}`}
+              >
+                Continue with {federatedOidcLoginLabel()}
+              </Link>
+            ) : null}
+            {googleLoginEnabled ? (
+              <Link
+                className="button button-secondary login-google-button"
+                href={`/auth/google/start${googleLoginParams.size ? `?${googleLoginParams}` : ""}`}
+              >
+                Continue with Google
+              </Link>
+            ) : null}
             <p className="auth-footnote">
-              A Google sign-in creates or opens your Perminister account. Each app checks its
-              registration policy, organization membership, and owner or administrator access.
-              Access to app data and actions remains separately permission-controlled.
+              Federated sign-in opens or creates a Perminister account. Access to app data and
+              actions remains separately permission-controlled.
             </p>
           </div>
         ) : null}

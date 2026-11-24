@@ -1,0 +1,22 @@
+services:
+  app:
+    image: ${PERMINISTER_IMAGE:-perminister:self-hosted}
+    restart: unless-stopped
+    env_file:
+      - .env.s3
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      PERMINISTER_DEPLOYMENT_PROFILE: self-hosted
+      PERMINISTER_STORAGE_BACKEND: ${PERMINISTER_STORAGE_BACKEND:-s3}
+    ports:
+      - "127.0.0.1:${PERMINISTER_BIND_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true

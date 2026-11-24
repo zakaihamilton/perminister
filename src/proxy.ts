@@ -5,6 +5,7 @@ import {
   legacyConsumerAuthorizationEnabled,
   parseConsumerAuthorizationRequest,
 } from "@/lib/auth/consumer-sso";
+import { FEDERATED_OIDC_CALLBACK_PATH } from "@/lib/auth/federated-oidc";
 import { getOAuthAuthorizationClient } from "@/lib/auth/service";
 import { lastValidForwardedIp } from "@/lib/client-ip";
 import { currentDeploymentId, currentWriterRevision } from "@/lib/deployment";
@@ -37,7 +38,7 @@ const CLIENT_IP_HEADERS = [
   "x-real-ip",
   "x-forwarded-for",
 ];
-const HEALTH_PATHS = new Set(["/api/health", "/api/ready"]);
+const HEALTH_PATHS = new Set(["/api/health", "/api/ready", "/api/live"]);
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 const CONTENT_SECURITY_POLICY_HEADER = "Content-Security-Policy";
 const BASE_CONTENT_SECURITY_POLICY = "frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
@@ -314,6 +315,18 @@ async function proxyWrite(request: NextRequest, method = request.method): Promis
 }
 
 export async function proxy(request: NextRequest): Promise<Response> {
+  if (process.env.PERMINISTER_DEPLOYMENT_PROFILE === "self-hosted") {
+    if (request.nextUrl.pathname === "/oauth/authorize" && request.method === "GET") {
+      const response = NextResponse.next();
+      const contentSecurityPolicy = await consumerAuthorizationPolicy(request);
+      if (contentSecurityPolicy) {
+        response.headers.set(CONTENT_SECURITY_POLICY_HEADER, contentSecurityPolicy);
+      }
+      return response;
+    }
+    return NextResponse.next();
+  }
+
   if (
     process.env.NODE_ENV === "development" &&
     process.env.PERMINISTER_UI_PREVIEW === "1" &&
@@ -346,6 +359,12 @@ export async function proxy(request: NextRequest): Promise<Response> {
   const googleOAuthCallback =
     request.nextUrl.pathname === GOOGLE_LOGIN_CALLBACK_PATH && request.method === "GET";
   if (googleOAuthCallback && (hostedVercel || shouldUseLocalWriteProxy)) {
+    return proxyWrite(request, "POST");
+  }
+
+  const federatedOidcCallback =
+    request.nextUrl.pathname === FEDERATED_OIDC_CALLBACK_PATH && request.method === "GET";
+  if (federatedOidcCallback && (hostedVercel || shouldUseLocalWriteProxy)) {
     return proxyWrite(request, "POST");
   }
 
@@ -384,6 +403,7 @@ export const config = {
     "/api/:path*",
     "/actions/:path*",
     "/auth/google/:path*",
+    "/auth/oidc/:path*",
     "/oauth/authorize",
     "/oauth/token",
     "/oauth/register",

@@ -151,7 +151,7 @@ export async function requestPasswordRecoveryAction(formData: FormData): Promise
   if (!isMailDeliveryConfigured()) redirect("/forgot-password?error=mail-not-configured");
   const email = firstValue(formData, "email");
   const requestHeaders = await headers();
-  if (!consumePasswordRecoveryRateLimit(email, passwordRecoveryRequesterKey(requestHeaders))) {
+  if (!(await consumePasswordRecoveryRateLimit(email, passwordRecoveryRequesterKey(requestHeaders)))) {
     redirect("/forgot-password?notice=requested");
   }
   after(async () => {
