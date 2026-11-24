@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { PrivacyPolicySections } from "@/components/privacy-policy-sections";
 import { SiteFooter, SiteHeader } from "@/components/site-shell";
 
@@ -8,7 +9,10 @@ export const metadata: Metadata = {
     "Learn what information Perminister uses to provide identity and access management, how it is stored, and how to make a privacy request.",
 };
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  if (process.env.PERMINISTER_SELF_HOSTED_BUILD === "true") await connection();
+  const selfHosted = process.env.PERMINISTER_DEPLOYMENT_PROFILE === "self-hosted";
+  const operatorName = process.env.PERMINISTER_OPERATOR_NAME?.trim();
   return (
     <>
       <SiteHeader active="none" />
@@ -18,8 +22,9 @@ export default function PrivacyPage() {
             <p className="eyebrow">Legal</p>
             <h1 id="privacy-title">Privacy Policy</h1>
             <p className="privacy-intro">
-              Perminister is operated by Zakai Hamilton. This policy explains how information is
-              handled when you visit the site or use its identity and access management service.
+              {selfHosted
+                ? `${operatorName || "Your organization"} operates this Perminister installation. This policy explains how information is handled when you visit the site or use its identity and access management service.`
+                : "Perminister is operated by Zakai Hamilton. This policy explains how information is handled when you visit the site or use its identity and access management service."}
             </p>
             <p className="privacy-updated">Last updated October 7, 2026</p>
           </header>

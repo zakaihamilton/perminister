@@ -5,17 +5,20 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import {
   FederatedAccountLinkRequiredError,
-  createSession,
-  setSessionCookie,
   signInWithExternalIdentity,
 } from "./service";
 import { safeConsumerAuthorizationReturnTo } from "./consumer-sso";
+import {
+  completeExternalOidcSignIn,
+  configuredPublicOrigin,
+  extractVerifiedOidcIdentity,
+  parseExternalOidcLoginState,
+  readSingleQueryParam,
+} from "./external-oidc-helpers";
 import { NO_STORE_HEADERS, publicRedirectResponse } from "./http";
-import { postLoginDestination } from "./login-redirect";
 
 export const FEDERATED_OIDC_CALLBACK_PATH = "/auth/oidc/callback";
 const OIDC_STATE_COOKIE_MAX_AGE_SECONDS = 10 * 60;
-const STATE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 type ProviderConfiguration = {
   issuer: string;
@@ -118,6 +121,7 @@ async function discoverProvider(configuration: ProviderConfiguration): Promise<O
   const discoveryUrl = new URL(`${issuerPath}/.well-known/openid-configuration`, issuer.origin);
   const response = await fetch(discoveryUrl, {
     cache: "no-store",
+    redirect: "error",
     signal: AbortSignal.timeout(8_000),
     headers: { Accept: "application/json" },
   });
@@ -143,87 +147,30 @@ async function discoverProvider(configuration: ProviderConfiguration): Promise<O
   return metadata as OidcMetadata;
 }
 
-function configuredPublicOrigin(request: Request): string | null {
-  const configured = process.env.PERMINISTER_PUBLIC_ORIGIN?.trim();
-  let origin: URL;
-  try {
-    origin = new URL(configured || request.url);
-  } catch {
-    return null;
-  }
-  if (
-    (origin.protocol !== "https:" && origin.protocol !== "http:") ||
-    origin.username ||
-    origin.password ||
-    origin.pathname !== "/" ||
-    origin.search ||
-    origin.hash ||
-    (process.env.NODE_ENV === "production" && origin.protocol !== "https:")
-  ) {
-    return null;
-  }
-  return origin.origin;
-}
-
-function singleQueryParam(params: URLSearchParams, name: string): string | null {
-  const values = params.getAll(name);
-  return values.length === 1 ? values[0] : null;
-}
-
 function parseLoginState(value: string | undefined): OidcLoginState | null {
-  if (!value || value.length > 4_000) return null;
-  try {
-    const decoded: unknown = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
-    if (typeof decoded !== "object" || decoded === null || Array.isArray(decoded)) return null;
-    const state = decoded as Record<string, unknown>;
-    if (
-      typeof state.state !== "string" ||
-      !STATE_TOKEN_PATTERN.test(state.state) ||
-      typeof state.nonce !== "string" ||
-      !STATE_TOKEN_PATTERN.test(state.nonce) ||
-      typeof state.codeVerifier !== "string" ||
-      !STATE_TOKEN_PATTERN.test(state.codeVerifier) ||
-      typeof state.redirectUri !== "string" ||
-      typeof state.providerKey !== "string" ||
-      !/^oidc-[a-f0-9]{12}$/.test(state.providerKey) ||
-      typeof state.invitationToken !== "string" ||
-      state.invitationToken.length > 512 ||
-      (state.next !== null && typeof state.next !== "string")
-    ) {
-      return null;
-    }
-    const redirectUri = new URL(state.redirectUri);
-    if (
-      redirectUri.pathname !== FEDERATED_OIDC_CALLBACK_PATH ||
-      redirectUri.search ||
-      redirectUri.hash ||
-      redirectUri.username ||
-      redirectUri.password ||
-      (process.env.NODE_ENV === "production" && redirectUri.protocol !== "https:") ||
-      !["https:", "http:"].includes(redirectUri.protocol)
-    ) {
-      return null;
-    }
-    return {
-      state: state.state,
-      nonce: state.nonce,
-      codeVerifier: state.codeVerifier,
-      redirectUri: redirectUri.toString(),
-      providerKey: state.providerKey,
-      next: typeof state.next === "string" ? safeConsumerAuthorizationReturnTo(state.next) : null,
-      invitationToken: state.invitationToken,
-    };
-  } catch {
+  const parsed = parseExternalOidcLoginState(value, FEDERATED_OIDC_CALLBACK_PATH);
+  if (!parsed) return null;
+  const providerKey = parsed.raw.providerKey;
+  if (typeof providerKey !== "string" || !/^oidc-[a-f0-9]{12}$/.test(providerKey)) {
     return null;
   }
+  return {
+    state: parsed.state,
+    nonce: parsed.nonce,
+    codeVerifier: parsed.codeVerifier,
+    redirectUri: parsed.redirectUri,
+    providerKey,
+    next: parsed.next,
+    invitationToken: parsed.invitationToken,
+  };
 }
 
 export async function handleFederatedOidcLoginStart(request: Request): Promise<Response> {
   const configuration = configuredProvider();
   const origin = configuredPublicOrigin(request);
   const params = new URL(request.url).searchParams;
-  const nextInput = singleQueryParam(params, "next");
-  const invitationInput = singleQueryParam(params, "invitationToken");
+  const nextInput = readSingleQueryParam(params, "next");
+  const invitationInput = readSingleQueryParam(params, "invitationToken");
   const next = safeConsumerAuthorizationReturnTo(nextInput ?? "");
   const invitationToken = invitationInput?.trim() ?? "";
 
@@ -323,6 +270,7 @@ async function exchangeAuthorizationCode(
       code_verifier: state.codeVerifier,
     }),
     cache: "no-store",
+    redirect: "error",
     signal: AbortSignal.timeout(10_000),
   });
   if (!response.ok) throw new Error("The identity provider could not complete sign-in.");
@@ -336,23 +284,12 @@ async function exchangeAuthorizationCode(
     issuer: configuration.issuer,
     clockTolerance: 5,
   });
-  if (
-    payload.nonce !== state.nonce ||
-    (payload.azp !== undefined && payload.azp !== configuration.clientId) ||
-    typeof payload.sub !== "string" ||
-    !/^[\x21-\x7e]{1,255}$/.test(payload.sub) ||
-    typeof payload.email !== "string" ||
-    payload.email_verified !== true
-  ) {
-    throw new Error("The identity provider did not return a verified email address.");
-  }
-  return {
-    sub: payload.sub,
-    email: payload.email,
-    email_verified: true,
-    ...(typeof payload.given_name === "string" ? { given_name: payload.given_name } : {}),
-    ...(typeof payload.family_name === "string" ? { family_name: payload.family_name } : {}),
-  };
+  return extractVerifiedOidcIdentity(
+    payload as Record<string, unknown>,
+    state.nonce,
+    configuration.clientId,
+    "The identity provider did not return a verified email address.",
+  );
 }
 
 export async function handleFederatedOidcLoginCallback(request: Request): Promise<Response> {
@@ -360,7 +297,7 @@ export async function handleFederatedOidcLoginCallback(request: Request): Promis
   const loginState = parseLoginState(cookieStore.get(oidcStateCookieName())?.value);
   cookieStore.delete(oidcStateCookieName());
   const params = new URL(request.url).searchParams;
-  const returnedState = singleQueryParam(params, "state");
+  const returnedState = readSingleQueryParam(params, "state");
   const configuration = configuredProvider();
   if (
     !loginState ||
@@ -371,14 +308,14 @@ export async function handleFederatedOidcLoginCallback(request: Request): Promis
     return publicRedirectResponse(request, "/login?error=oidc_request");
   }
 
-  const providerError = singleQueryParam(params, "error");
+  const providerError = readSingleQueryParam(params, "error");
   if (providerError) {
     return publicRedirectResponse(
       request,
       providerError === "access_denied" ? "/login?error=oidc_cancelled" : "/login?error=oidc_unavailable",
     );
   }
-  const code = singleQueryParam(params, "code");
+  const code = readSingleQueryParam(params, "code");
   if (!code || code.length > 2_048 || params.getAll("code").length !== 1) {
     return publicRedirectResponse(request, "/login?error=oidc_request");
   }
@@ -386,20 +323,19 @@ export async function handleFederatedOidcLoginCallback(request: Request): Promis
   try {
     const metadata = await discoverProvider(configuration);
     const identity = await exchangeAuthorizationCode(code, loginState, configuration, metadata);
-    const subject = await signInWithExternalIdentity({
-      provider: configuration.providerKey,
-      providerSubject: identity.sub,
-      email: identity.email,
-      emailVerified: identity.email_verified,
-      firstName: identity.given_name,
-      lastName: identity.family_name,
-    });
-    const session = await createSession(subject.subjectId);
-    await setSessionCookie(session.token);
-    return publicRedirectResponse(
+    return await completeExternalOidcSignIn({
       request,
-      postLoginDestination(loginState.next, loginState.invitationToken),
-    );
+      loginState,
+      signIn: () =>
+        signInWithExternalIdentity({
+          provider: configuration.providerKey,
+          providerSubject: identity.sub,
+          email: identity.email,
+          emailVerified: identity.email_verified,
+          firstName: identity.given_name,
+          lastName: identity.family_name,
+        }),
+    });
   } catch (error) {
     if (error instanceof FederatedAccountLinkRequiredError) {
       return publicRedirectResponse(request, "/login?error=oidc_link_required");

@@ -7,12 +7,16 @@ import {
   GOOGLE_LOGIN_CALLBACK_PATH,
   safeConsumerAuthorizationReturnTo,
 } from "./consumer-sso";
-import { NO_STORE_HEADERS, publicRedirectResponse } from "./http";
-import { postLoginDestination } from "./login-redirect";
 import {
-  createSession,
+  completeExternalOidcSignIn,
+  configuredPublicOrigin,
+  extractVerifiedOidcIdentity,
+  parseExternalOidcLoginState,
+  readSingleQueryParam,
+} from "./external-oidc-helpers";
+import { NO_STORE_HEADERS, publicRedirectResponse } from "./http";
+import {
   GoogleAccountLinkRequiredError,
-  setSessionCookie,
   signInWithGoogle,
 } from "./service";
 
@@ -21,7 +25,6 @@ const GOOGLE_AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/a
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const GOOGLE_JWKS = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"));
 const GOOGLE_STATE_COOKIE_MAX_AGE_SECONDS = 10 * 60;
-const STATE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 type GoogleLoginState = {
   state: string;
@@ -50,80 +53,17 @@ function googleStateCookieName(): string {
     : "perminister_google_oauth";
 }
 
-function configuredPublicOrigin(request: Request): string | null {
-  const configured = process.env.PERMINISTER_PUBLIC_ORIGIN?.trim();
-  let origin: URL;
-  try {
-    origin = new URL(configured || request.url);
-  } catch {
-    return null;
-  }
-  if (
-    (origin.protocol !== "https:" && origin.protocol !== "http:") ||
-    origin.username ||
-    origin.password ||
-    origin.pathname !== "/" ||
-    origin.search ||
-    origin.hash ||
-    (process.env.NODE_ENV === "production" && origin.protocol !== "https:")
-  ) {
-    return null;
-  }
-  return origin.origin;
-}
-
-function readSingleQueryParam(params: URLSearchParams, name: string): string | null {
-  const values = params.getAll(name);
-  return values.length === 1 ? values[0]! : null;
-}
-
 function parseGoogleLoginState(value: string | undefined): GoogleLoginState | null {
-  if (!value || value.length > 4_000) return null;
-
-  try {
-    const decoded: unknown = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
-    if (typeof decoded !== "object" || decoded === null || Array.isArray(decoded)) return null;
-    const state = decoded as Record<string, unknown>;
-    if (
-      typeof state.state !== "string" ||
-      !STATE_TOKEN_PATTERN.test(state.state) ||
-      typeof state.nonce !== "string" ||
-      !STATE_TOKEN_PATTERN.test(state.nonce) ||
-      typeof state.codeVerifier !== "string" ||
-      !STATE_TOKEN_PATTERN.test(state.codeVerifier) ||
-      typeof state.redirectUri !== "string" ||
-      typeof state.invitationToken !== "string" ||
-      state.invitationToken.length > 512 ||
-      (state.next !== null && typeof state.next !== "string")
-    ) {
-      return null;
-    }
-
-    const redirectUri = new URL(state.redirectUri);
-    if (
-      redirectUri.pathname !== GOOGLE_CALLBACK_PATH ||
-      redirectUri.search ||
-      redirectUri.hash ||
-      redirectUri.username ||
-      redirectUri.password ||
-      (process.env.NODE_ENV === "production" && redirectUri.protocol !== "https:") ||
-      (redirectUri.protocol !== "https:" && redirectUri.protocol !== "http:")
-    ) {
-      return null;
-    }
-
-    return {
-      state: state.state,
-      nonce: state.nonce,
-      codeVerifier: state.codeVerifier,
-      redirectUri: redirectUri.toString(),
-      next:
-        typeof state.next === "string" ? safeConsumerAuthorizationReturnTo(state.next) : null,
-      invitationToken: state.invitationToken,
-    };
-  } catch {
-    return null;
-  }
+  const parsed = parseExternalOidcLoginState(value, GOOGLE_CALLBACK_PATH);
+  if (!parsed) return null;
+  return {
+    state: parsed.state,
+    nonce: parsed.nonce,
+    codeVerifier: parsed.codeVerifier,
+    redirectUri: parsed.redirectUri,
+    next: parsed.next,
+    invitationToken: parsed.invitationToken,
+  };
 }
 
 function isTokenResponse(value: unknown): value is GoogleTokenResponse {
@@ -234,24 +174,12 @@ async function exchangeGoogleCode(
     issuer: ["https://accounts.google.com", "accounts.google.com"],
     clockTolerance: 5,
   });
-  if (
-    payload.nonce !== state.nonce ||
-    (payload.azp !== undefined && payload.azp !== clientId) ||
-    typeof payload.sub !== "string" ||
-    !/^[\x21-\x7e]{1,255}$/.test(payload.sub) ||
-    typeof payload.email !== "string" ||
-    payload.email_verified !== true
-  ) {
-    throw new Error("Google did not return a verified email address.");
-  }
-
-  return {
-    sub: payload.sub,
-    email: payload.email,
-    email_verified: true,
-    ...(typeof payload.given_name === "string" ? { given_name: payload.given_name } : {}),
-    ...(typeof payload.family_name === "string" ? { family_name: payload.family_name } : {}),
-  };
+  return extractVerifiedOidcIdentity(
+    payload as Record<string, unknown>,
+    state.nonce,
+    clientId,
+    "Google did not return a verified email address.",
+  );
 }
 
 export async function handleGoogleLoginCallback(request: Request): Promise<Response> {
@@ -284,19 +212,18 @@ export async function handleGoogleLoginCallback(request: Request): Promise<Respo
 
   try {
     const identity = await exchangeGoogleCode(code, loginState);
-    const subject = await signInWithGoogle({
-      providerSubject: identity.sub,
-      email: identity.email,
-      emailVerified: identity.email_verified,
-      firstName: identity.given_name,
-      lastName: identity.family_name,
-    });
-    const session = await createSession(subject.subjectId);
-    await setSessionCookie(session.token);
-    return publicRedirectResponse(
+    return await completeExternalOidcSignIn({
       request,
-      postLoginDestination(loginState.next, loginState.invitationToken),
-    );
+      loginState,
+      signIn: () =>
+        signInWithGoogle({
+          providerSubject: identity.sub,
+          email: identity.email,
+          emailVerified: identity.email_verified,
+          firstName: identity.given_name,
+          lastName: identity.family_name,
+        }),
+    });
   } catch (error) {
     if (error instanceof GoogleAccountLinkRequiredError) {
       return publicRedirectResponse(request, "/login?error=google_link_required");

@@ -90,6 +90,7 @@ export function postgresObjectClientFromEnv(): PostgresJsonObjectClient {
 }
 
 export class PostgresJsonObjectClient implements AuthObjectClient {
+  private static rateLimitCleanupCounter = 0;
   readonly supportsDistributedCoordination = true;
   private readonly pool: Pool;
 
@@ -200,6 +201,7 @@ export class PostgresJsonObjectClient implements AuthObjectClient {
     }[],
   ): Promise<boolean> {
     if (charges.length === 0) return true;
+    await this.pruneExpiredRateLimitsSometimes();
     const orderedCharges = [...charges].sort(
       (left, right) =>
         left.namespace.localeCompare(right.namespace) || left.digest.localeCompare(right.digest),
@@ -246,6 +248,17 @@ export class PostgresJsonObjectClient implements AuthObjectClient {
       client.release();
       recordAuthStorageOperation("put", performance.now() - startedAt);
     }
+  }
+
+  private async pruneExpiredRateLimitsSometimes(): Promise<void> {
+    PostgresJsonObjectClient.rateLimitCleanupCounter += 1;
+    if (PostgresJsonObjectClient.rateLimitCleanupCounter < 1_000) return;
+    PostgresJsonObjectClient.rateLimitCleanupCounter = 0;
+    await this.pool
+      .query(
+        "DELETE FROM perminister_rate_limits WHERE reset_at < clock_timestamp() - interval '1 day'",
+      )
+      .catch(() => undefined);
   }
 }
 

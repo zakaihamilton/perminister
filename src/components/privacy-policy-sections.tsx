@@ -97,12 +97,19 @@ function PrivacyProvidersSection() {
         products they use. Applications that integrate with Perminister are responsible for their
         own data and privacy practices.
       </p>
-      <p className="privacy-provider-links">
-        Provider information:{" "}
-        <a href="https://www.digitalocean.com/legal/privacy-policy">DigitalOcean Privacy Policy</a>
-        {" · "}
-        <a href="https://resend.com/legal/privacy-policy">Resend Privacy Policy</a>.
-      </p>
+      {selfHosted ? (
+        <p className="privacy-provider-links">
+          The installation operator selects the storage, email, and identity providers for this
+          deployment. Contact that operator for the providers' privacy information.
+        </p>
+      ) : (
+        <p className="privacy-provider-links">
+          Provider information:{" "}
+          <a href="https://www.digitalocean.com/legal/privacy-policy">DigitalOcean Privacy Policy</a>
+          {" · "}
+          <a href="https://resend.com/legal/privacy-policy">Resend Privacy Policy</a>.
+        </p>
+      )}
     </section>
   );
 }
@@ -153,7 +160,31 @@ function PrivacyChangesSection() {
   );
 }
 
-function PrivacyContactSection() {
+function PrivacyContactSection({ selfHosted }: { selfHosted: boolean }) {
+  const operatorName = process.env.PERMINISTER_OPERATOR_NAME?.trim();
+  const privacyEmail = process.env.PERMINISTER_PRIVACY_EMAIL?.trim();
+  const validPrivacyEmail = privacyEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(privacyEmail);
+
+  if (selfHosted) {
+    return (
+      <section aria-labelledby="privacy-contact">
+        <h2 id="privacy-contact">Contact</h2>
+        <p>
+          For privacy questions or requests, contact {operatorName || "the operator of this installation"}
+          {validPrivacyEmail ? (
+            <>
+              {" at "}
+              <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>
+            </>
+          ) : (
+            " using the support channel provided by your organization"
+          )}
+          .
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section aria-labelledby="privacy-contact">
       <h2 id="privacy-contact">Contact</h2>
@@ -166,6 +197,7 @@ function PrivacyContactSection() {
 }
 
 export function PrivacyPolicySections() {
+  const selfHosted = process.env.PERMINISTER_DEPLOYMENT_PROFILE === "self-hosted";
   return (
     <div className="privacy-sections">
       <PrivacyInformationSection />
@@ -175,7 +207,7 @@ export function PrivacyPolicySections() {
       <PrivacyRetentionSection />
       <PrivacySecuritySection />
       <PrivacyChangesSection />
-      <PrivacyContactSection />
+      <PrivacyContactSection selfHosted={selfHosted} />
     </div>
   );
 }

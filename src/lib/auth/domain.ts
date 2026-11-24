@@ -20,7 +20,7 @@ export type InvitationId = BrandedId<"InvitationId">;
 
 export const MIN_CONSUMER_SESSION_LIFETIME_MS = 5 * 60 * 1000;
 export const MAX_CONSUMER_SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
-export const DEFAULT_CONSUMER_SESSION_LIFETIME_MS = MAX_CONSUMER_SESSION_LIFETIME_MS;
+const DEFAULT_CONSUMER_SESSION_LIFETIME_MS = MAX_CONSUMER_SESSION_LIFETIME_MS;
 
 export function effectiveConsumerSessionLifetimeMs(value: number): number {
   if (!Number.isSafeInteger(value)) return DEFAULT_CONSUMER_SESSION_LIFETIME_MS;

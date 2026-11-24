@@ -64,6 +64,8 @@ Server Action keys. The file is mode `0600` and ignored by Git. Edit the new fil
 
 - `PERMINISTER_PUBLIC_ORIGIN` and `PERMINISTER_OIDC_ISSUER` to the canonical HTTPS origin.
 - `PERMINISTER_ADMIN_EMAILS` to a comma-separated list of initial administrator email addresses.
+- `PERMINISTER_OPERATOR_NAME` and `PERMINISTER_PRIVACY_EMAIL` to identify the installation operator
+  on its privacy page. Both are optional; without them the page describes the operator generically.
 - `PERMINISTER_MAIL_FROM`, `PERMINISTER_SMTP_URL`, and `PERMINISTER_SMTP_REQUIRE_TLS` for the internal
   relay. URL-encode special characters in SMTP usernames and passwords. Use `smtps://` for implicit
   TLS or `smtp://` for STARTTLS on a relay that requires it.
@@ -126,6 +128,7 @@ PERMINISTER_CA_CERT_FILE=/etc/perminister/customer-ca.pem docker compose \
 PERMINISTER_CA_CERT_FILE=/etc/perminister/customer-ca.pem docker compose \
   --env-file deploy/self-hosted/.env.postgres \
   -f deploy/self-hosted/compose.yaml -f deploy/self-hosted/compose.ca.yaml up -d app
+```
 
 ## Install with Docker Compose and S3-compatible storage
 
@@ -150,9 +153,11 @@ docker build -t perminister:self-hosted .
 ```
 
 For a published image, set `PERMINISTER_IMAGE` in `.env.s3` to its versioned GHCR tag and pull it.
-Start one app instance; no database migration is needed for object storage:
+Skip the pull when using a source build. Start one app instance; no database migration is needed for
+object storage:
 
 ```sh
+# Run this pull only for a published registry image.
 docker compose --env-file deploy/self-hosted/.env.s3 \
   -f deploy/self-hosted/compose.s3.yaml pull app
 docker compose --env-file deploy/self-hosted/.env.s3 \
@@ -205,12 +210,25 @@ helm upgrade --install perminister charts/perminister \
 Use `storageBackend=spaces` for DigitalOcean Spaces. Keep `replicaCount: 1` for both object-storage
 profiles. Enable and configure the chart ingress with your ingress controller and TLS secret, or
 route an existing reverse proxy to the chart's ClusterIP Service. The app listens on port 3000.
-Readiness and liveness use `/api/ready`, which checks storage access and required database
-migrations.
+Readiness uses `/api/ready` to check storage access and required database migrations. Liveness uses
+`/api/live` to check that the app process is responding.
 
-For a private CA, add a Secret or ConfigMap volume through the chart's `extraVolumes` and
-`extraVolumeMounts` values, and set `NODE_EXTRA_CA_CERTS=/run/certs/customer-ca.pem` in the config
-Secret. The app and PostgreSQL migration Job both read that optional setting.
+For a private CA, create a Secret or ConfigMap and add it to a Helm values file:
+
+```yaml
+extraVolumes:
+  - name: customer-ca
+    secret:
+      secretName: perminister-ca
+extraVolumeMounts:
+  - name: customer-ca
+    mountPath: /run/certs/customer-ca.pem
+    subPath: ca.pem
+    readOnly: true
+```
+
+Set `NODE_EXTRA_CA_CERTS=/run/certs/customer-ca.pem` in the config Secret. The app and PostgreSQL
+migration Job both read that optional setting.
 
 ## First administrator and Sentry8
 
@@ -245,8 +263,8 @@ docker compose --env-file deploy/self-hosted/.env.postgres \
 
 For a source build, run `docker build -t perminister:self-hosted .` before migration and skip the
 `pull` command. For an air-gapped update, load the verified archive and set
-`PERMINISTER_IMAGE=perminister:selfhost-vX.Y.Z`; skip `pull` and use Compose's `--pull never` option
-for the migration and app commands.
+`PERMINISTER_IMAGE=perminister:selfhost-vX.Y.Z`; run the migration and app commands with
+`--pull never` so Compose uses the transferred image.
 
 For Helm, update the image tag and run `helm upgrade`; the chart runs the migration before replacing
 the app pods. PostgreSQL migrations are additive for this installation path. If an upgrade fails,
@@ -292,9 +310,17 @@ docker load --input perminister-selfhost-v0.1.0-linux-amd64.tar.gz
 Set `PERMINISTER_IMAGE=perminister:selfhost-v0.1.0` in the protected Compose env file, then run the
 install commands without `pull`. For Kubernetes, preload the matching architecture archive on
 every eligible node or import it into the customer's private registry, set
-`image.pullPolicy=IfNotPresent`, and install with `--set image.repository=perminister
---set image.tag=selfhost-v0.1.0`. For air-gapped PostgreSQL, the chart migration Job still runs from
-the imported image before the app starts.
+`image.pullPolicy=IfNotPresent`, and point `image.repository` and `image.tag` at the imported image.
+The PostgreSQL migration Job runs from that imported image before the app starts. Example using the
+release chart archive:
+
+```sh
+helm upgrade --install perminister perminister-0.1.0.tgz \
+  --namespace perminister --set storageBackend=postgres \
+  --set image.repository=perminister --set image.tag=selfhost-v0.1.0 \
+  --set image.pullPolicy=IfNotPresent
+```
+
 Restrict outbound traffic to the customer's database, S3 service, identity provider, and SMTP relay.
 No runtime connection to Vercel, Railway, Google, or Resend is required for local password and
 internal OIDC/SMTP operation.
