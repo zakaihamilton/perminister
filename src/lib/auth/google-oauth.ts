@@ -8,7 +8,6 @@ import {
   completeExternalOidcSignIn,
   createExternalOidcAuthorizationUrl,
   extractVerifiedOidcIdentity,
-  isInvalidExternalOidcLoginRequest,
   parseExternalOidcLoginState,
   readExternalOidcLoginRequest,
   readSingleQueryParam,
@@ -71,12 +70,11 @@ function isTokenResponse(value: unknown): value is GoogleTokenResponse {
 
 export async function handleGoogleLoginStart(request: Request): Promise<Response> {
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
-  const loginRequest = readExternalOidcLoginRequest(request);
-  const { origin, next, invitationToken } = loginRequest;
-
-  if (isInvalidExternalOidcLoginRequest(loginRequest, Boolean(clientId))) {
+  const loginRequest = readExternalOidcLoginRequest(request, Boolean(clientId));
+  if (!loginRequest || !clientId) {
     return publicRedirectResponse(request, "/login?error=google_unavailable");
   }
+  const { origin, next, invitationToken } = loginRequest;
 
   const state = randomBytes(32).toString("base64url");
   const nonce = randomBytes(32).toString("base64url");

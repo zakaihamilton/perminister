@@ -53,36 +53,31 @@ export function readSingleQueryParam(params: URLSearchParams, name: string): str
   return values.length === 1 ? (values[0] ?? null) : null;
 }
 
-export function readExternalOidcLoginRequest(request: Request): {
-  origin: string | null;
+export function readExternalOidcLoginRequest(request: Request, providerConfigured: boolean): {
+  origin: string;
   next: string | null;
   invitationToken: string;
-  hasDuplicateNext: boolean;
-  hasDuplicateInvitationToken: boolean;
-} {
+} | null {
   const params = new URL(request.url).searchParams;
   const nextInput = readSingleQueryParam(params, "next");
   const invitationInput = readSingleQueryParam(params, "invitationToken");
-  return {
-    origin: configuredPublicOrigin(request),
-    next: safeConsumerAuthorizationReturnTo(nextInput ?? ""),
-    invitationToken: invitationInput?.trim() ?? "",
-    hasDuplicateNext: params.getAll("next").length > 1,
-    hasDuplicateInvitationToken: params.getAll("invitationToken").length > 1,
-  };
-}
-
-export function isInvalidExternalOidcLoginRequest(
-  loginRequest: ReturnType<typeof readExternalOidcLoginRequest>,
-  providerConfigured: boolean,
-): boolean {
-  return (
+  const origin = configuredPublicOrigin(request);
+  const next = safeConsumerAuthorizationReturnTo(nextInput ?? "");
+  const invitationToken = invitationInput?.trim() ?? "";
+  if (
     !providerConfigured ||
-    !loginRequest.origin ||
-    loginRequest.hasDuplicateNext ||
-    loginRequest.hasDuplicateInvitationToken ||
-    loginRequest.invitationToken.length > 512
-  );
+    !origin ||
+    params.getAll("next").length > 1 ||
+    params.getAll("invitationToken").length > 1 ||
+    invitationToken.length > 512
+  ) {
+    return null;
+  }
+  return {
+    origin,
+    next,
+    invitationToken,
+  };
 }
 
 export function createExternalOidcAuthorizationUrl(input: {

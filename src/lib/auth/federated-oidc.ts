@@ -11,7 +11,6 @@ import {
   completeExternalOidcSignIn,
   createExternalOidcAuthorizationUrl,
   extractVerifiedOidcIdentity,
-  isInvalidExternalOidcLoginRequest,
   parseExternalOidcLoginState,
   readExternalOidcLoginRequest,
   readSingleQueryParam,
@@ -168,12 +167,11 @@ function parseLoginState(value: string | undefined): OidcLoginState | null {
 
 export async function handleFederatedOidcLoginStart(request: Request): Promise<Response> {
   const configuration = configuredProvider();
-  const loginRequest = readExternalOidcLoginRequest(request);
-  const { origin, next, invitationToken } = loginRequest;
-
-  if (isInvalidExternalOidcLoginRequest(loginRequest, Boolean(configuration))) {
+  const loginRequest = readExternalOidcLoginRequest(request, Boolean(configuration));
+  if (!loginRequest || !configuration) {
     return publicRedirectResponse(request, "/login?error=oidc_unavailable");
   }
+  const { origin, next, invitationToken } = loginRequest;
 
   try {
     const metadata = await discoverProvider(configuration);
