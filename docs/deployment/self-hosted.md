@@ -94,7 +94,7 @@ JWKS cache have expired.
 Either build the image from source:
 
 ```sh
-docker build -t perminister:self-hosted .
+docker build -f deploy/self-hosted/Dockerfile -t perminister:self-hosted .
 ```
 
 Or set `PERMINISTER_IMAGE` in `.env.postgres` to a published version such as
@@ -152,7 +152,7 @@ policies to keep Perminister objects private. Path-style addressing is enabled u
 For a source build, create the image locally:
 
 ```sh
-docker build -t perminister:self-hosted .
+docker build -f deploy/self-hosted/Dockerfile -t perminister:self-hosted .
 ```
 
 For a published image, set `PERMINISTER_IMAGE` in `.env.s3` to its versioned GHCR tag and pull it.
@@ -264,8 +264,9 @@ docker compose --env-file deploy/self-hosted/.env.postgres \
   -f deploy/self-hosted/compose.yaml up -d app
 ```
 
-For a source build, run `docker build -t perminister:self-hosted .` before migration and skip the
-`pull` command. For an air-gapped update, load the verified archive and set
+For a source build, run
+`docker build -f deploy/self-hosted/Dockerfile -t perminister:self-hosted .` before migration and
+skip the `pull` command. For an air-gapped update, load the verified archive and set
 `PERMINISTER_IMAGE=perminister:selfhost-vX.Y.Z`; run the migration and app commands with
 `--pull never` so Compose uses the transferred image.
 

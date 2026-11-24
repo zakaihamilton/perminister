@@ -56,7 +56,11 @@ import {
   approveConsumerAuthorizationAction,
   cancelConsumerAuthorizationAction,
 } from "@/app/oauth/authorize/action";
-import { isSameOriginBrowserRequest, publicRedirectResponse } from "@/lib/auth/http";
+import {
+  isSameOriginBrowserRequest,
+  publicRedirectResponse,
+  safeDashboardReturnPath,
+} from "@/lib/auth/http";
 
 export const runtime = "nodejs";
 
@@ -128,6 +132,13 @@ const noStoreHeaders = { "Cache-Control": "no-store" };
 const refreshParam = "__perminister_action";
 
 function refreshDestination(request: Request): string {
+  const returnPath = safeDashboardReturnPath(request);
+  if (returnPath) {
+    const target = new URL(returnPath, request.url);
+    target.searchParams.set(refreshParam, "refresh");
+    return `${target.pathname}${target.search}`;
+  }
+
   const fallback = new URL("/dashboard", request.url);
   fallback.searchParams.set(refreshParam, "refresh");
 
