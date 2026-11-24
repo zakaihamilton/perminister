@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import { safeConsumerAuthorizationReturnTo } from "./consumer-sso";
 import type { SubjectId } from "./domain";
 import { publicRedirectResponse } from "./http";
@@ -50,6 +51,31 @@ export function configuredPublicOrigin(request: Request): string | null {
 export function readSingleQueryParam(params: URLSearchParams, name: string): string | null {
   const values = params.getAll(name);
   return values.length === 1 ? (values[0] ?? null) : null;
+}
+
+export function createExternalOidcAuthorizationUrl(input: {
+  authorizationEndpoint: string;
+  clientId: string;
+  redirectUri: string;
+  state: string;
+  nonce: string;
+  codeVerifier: string;
+  prompt?: string;
+}): string {
+  const codeChallenge = createHash("sha256").update(input.codeVerifier).digest("base64url");
+  const authorizationUrl = new URL(input.authorizationEndpoint);
+  authorizationUrl.search = new URLSearchParams({
+    client_id: input.clientId,
+    redirect_uri: input.redirectUri,
+    response_type: "code",
+    scope: "openid email profile",
+    state: input.state,
+    nonce: input.nonce,
+    code_challenge: codeChallenge,
+    code_challenge_method: "S256",
+    ...(input.prompt ? { prompt: input.prompt } : {}),
+  }).toString();
+  return authorizationUrl.toString();
 }
 
 export function parseExternalOidcLoginState(

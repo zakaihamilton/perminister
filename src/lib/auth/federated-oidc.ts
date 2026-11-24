@@ -11,6 +11,7 @@ import { safeConsumerAuthorizationReturnTo } from "./consumer-sso";
 import {
   completeExternalOidcSignIn,
   configuredPublicOrigin,
+  createExternalOidcAuthorizationUrl,
   extractVerifiedOidcIdentity,
   parseExternalOidcLoginState,
   readSingleQueryParam,
@@ -211,23 +212,19 @@ export async function handleFederatedOidcLoginStart(request: Request): Promise<R
       path: "/",
       maxAge: OIDC_STATE_COOKIE_MAX_AGE_SECONDS,
     });
-    const codeChallenge = createHash("sha256").update(codeVerifier).digest("base64url");
-    const authorizationUrl = new URL(metadata.authorization_endpoint);
-    authorizationUrl.search = new URLSearchParams({
-      client_id: configuration.clientId,
-      redirect_uri: redirectUri,
-      response_type: "code",
-      scope: "openid email profile",
+    const authorizationUrl = createExternalOidcAuthorizationUrl({
+      authorizationEndpoint: metadata.authorization_endpoint,
+      clientId: configuration.clientId,
+      redirectUri,
       state,
       nonce,
-      code_challenge: codeChallenge,
-      code_challenge_method: "S256",
-    }).toString();
+      codeVerifier,
+    });
     return new Response(null, {
       status: 303,
       headers: {
         ...NO_STORE_HEADERS,
-        Location: authorizationUrl.toString(),
+        Location: authorizationUrl,
         "Referrer-Policy": "no-referrer",
       },
     });

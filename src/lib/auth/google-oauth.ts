@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import {
@@ -10,6 +10,7 @@ import {
 import {
   completeExternalOidcSignIn,
   configuredPublicOrigin,
+  createExternalOidcAuthorizationUrl,
   extractVerifiedOidcIdentity,
   parseExternalOidcLoginState,
   readSingleQueryParam,
@@ -115,25 +116,21 @@ export async function handleGoogleLoginStart(request: Request): Promise<Response
     maxAge: GOOGLE_STATE_COOKIE_MAX_AGE_SECONDS,
   });
 
-  const codeChallenge = createHash("sha256").update(codeVerifier).digest("base64url");
-  const authorizationUrl = new URL(GOOGLE_AUTHORIZATION_ENDPOINT);
-  authorizationUrl.search = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    response_type: "code",
-    scope: "openid email profile",
+  const authorizationUrl = createExternalOidcAuthorizationUrl({
+    authorizationEndpoint: GOOGLE_AUTHORIZATION_ENDPOINT,
+    clientId,
+    redirectUri,
     state,
     nonce,
-    code_challenge: codeChallenge,
-    code_challenge_method: "S256",
     prompt: "select_account",
-  }).toString();
+    codeVerifier,
+  });
 
   return new Response(null, {
     status: 303,
     headers: {
       ...NO_STORE_HEADERS,
-      Location: authorizationUrl.toString(),
+      Location: authorizationUrl,
       "Referrer-Policy": "no-referrer",
     },
   });
