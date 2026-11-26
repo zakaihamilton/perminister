@@ -45,6 +45,7 @@ export interface Sentry8ImportSummary {
   created: number;
   linked: number;
   memberships: number;
+  legacyCredentialFallbacks: number;
   applied: boolean;
   conflicts: Sentry8ImportConflict[];
   subjectMappings: Array<{ sentry8UserId: string; subjectId: string }>;
@@ -127,6 +128,7 @@ export async function importSentry8LegacyMemberships(
     created: 0,
     linked: 0,
     memberships: 0,
+    legacyCredentialFallbacks: 0,
     applied: false,
     conflicts: [],
     subjectMappings: [],
@@ -283,17 +285,38 @@ export async function importSentry8LegacyMemberships(
         }
         subjectOwners.set(existing.subjectId, group.email);
       }
+      const existingSentry8Credential = existing?.legacyProductPasswordCredentials?.find(
+        (credential) => credential.productId === PRODUCT_ID,
+      );
       if (
-        existing &&
-        group.passwordHash &&
-        existing.passwordCredential &&
-        existing.passwordCredential.encodedVerifier !== group.passwordHash &&
-        !hasSource(existing, group.email)
+        existingSentry8Credential &&
+        (existingSentry8Credential.source !== SOURCE_ID ||
+          (group.passwordHash !== null &&
+            existingSentry8Credential.passwordCredential.encodedVerifier !== group.passwordHash))
       ) {
-        conflict(group.rows[0].sentry8UserId, "existing Perminister password differs; refusing to overwrite it");
+        conflict(group.rows[0].sentry8UserId, "a different Sentry8 legacy password is already linked");
         continue;
       }
 
+      const primaryPasswordDiffers = Boolean(
+        existing &&
+          group.passwordHash &&
+          existing.passwordCredential &&
+          existing.passwordCredential.encodedVerifier !== group.passwordHash,
+      );
+      const legacyCredentialFallbackAdded = Boolean(
+        primaryPasswordDiffers && !existingSentry8Credential,
+      );
+      const legacyProductPasswordCredentials = legacyCredentialFallbackAdded
+        ? [
+            ...(existing?.legacyProductPasswordCredentials ?? []),
+            {
+              productId: PRODUCT_ID,
+              source: SOURCE_ID,
+              passwordCredential: importedCredential(group.passwordHash!),
+            },
+          ]
+        : existing?.legacyProductPasswordCredentials;
       const now = new Date().toISOString();
       const createdSubject: SubjectRecord = existing
         ? {
@@ -310,6 +333,9 @@ export async function importSentry8LegacyMemberships(
             legacySources: existingSource
               ? existing.legacySources
               : [...(existing.legacySources ?? []), source],
+            ...(legacyProductPasswordCredentials
+              ? { legacyProductPasswordCredentials }
+              : {}),
             ...(group.passwordHash && !existing.passwordCredential
               ? {
                   passwordCredential: importedCredential(group.passwordHash),
@@ -342,7 +368,8 @@ export async function importSentry8LegacyMemberships(
         existing.passwordCredential?.encodedVerifier !==
           createdSubject.passwordCredential?.encodedVerifier ||
         !existing.emailVerificationExemptProducts?.includes(PRODUCT_ID) ||
-        !hasSource(existing, group.email);
+        !hasSource(existing, group.email) ||
+        legacyCredentialFallbackAdded;
       plannedSubjects.set(group.email, {
         subject: createdSubject,
         isNew: !existing,
@@ -350,6 +377,7 @@ export async function importSentry8LegacyMemberships(
       });
       if (!existing) summary.created += 1;
       else summary.linked += 1;
+      if (legacyCredentialFallbackAdded) summary.legacyCredentialFallbacks += 1;
     }
 
     const plannedMemberships = new Map<

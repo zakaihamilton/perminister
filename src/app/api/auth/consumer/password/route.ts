@@ -102,7 +102,10 @@ export const PATCH = withApiRoutePerformance(
         current.subject.subjectId,
         body.currentPassword,
         body.newPassword,
-        { minimumLength: sentry8Client ? 8 : 15 },
+        {
+          minimumLength: sentry8Client ? 8 : 15,
+          productId: sentry8Client ? client.productId : undefined,
+        },
       );
       if (sentry8Client) {
         const refreshed = await createConsumerSession(
