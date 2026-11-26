@@ -96,8 +96,9 @@ export async function rehashAfterLogin(
 ): Promise<void> {
   if (!needsPasswordRehash(subject.passwordCredential)) return;
   const passwordCredential =
-    subject.passwordCredential?.algorithm === "bcrypt" &&
-    subject.passwordCredential.format === LEGACY_BCRYPT_CREDENTIAL_FORMAT
+    (subject.passwordCredential?.algorithm === "bcrypt" &&
+      subject.passwordCredential.format === LEGACY_BCRYPT_CREDENTIAL_FORMAT) ||
+    subject.passwordCredential?.algorithm === "argon2id"
       ? await createScryptPasswordCredential(verifiedPassword)
       : await createPasswordCredential(verifiedPassword);
   await authMutationQueue.run(async () => {

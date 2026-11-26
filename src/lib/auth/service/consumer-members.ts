@@ -1,6 +1,5 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
 import { mapWithConcurrency } from "../concurrency";
 import { consumerProductPolicy, consumerRoleActions, scopeResourceId } from "../consumer-policy";
 import { withOrganizationMutationLock } from "../coordination";
@@ -17,6 +16,7 @@ import {
 } from "../domain";
 import { authMutationQueue } from "../mutation-queue";
 import { createAdminProvisionedSubject } from "./core";
+import { createRoleMembershipRecord } from "./membership-record";
 import { createPasswordCredential } from "./passwords";
 import {
   listRecordsWithRecovery,
@@ -131,23 +131,14 @@ function roleGrant(
   actions: readonly string[],
   existing?: MembershipRecord,
 ): MembershipRecord {
-  const id = createHash("sha256")
-    .update(`${authenticatedProductId}:${scope.kind}:${role}`)
-    .digest("hex")
-    .slice(0, 32);
-  const now = new Date().toISOString();
-  return {
-    kind: "membership",
-    schemaVersion: 1,
-    membershipId: existing?.membershipId ?? newMembershipId(),
+  return createRoleMembershipRecord(
+    authenticatedProductId,
     subjectId,
     scope,
-    grants: [{ scope, actions: [...actions] }],
-    accessRole: { id: `role-${id}`, name: role },
-    status: "active",
-    createdAt: existing?.createdAt ?? now,
-    updatedAt: now,
-  };
+    role,
+    actions,
+    existing,
+  );
 }
 
 async function requireConsumerScopeManagerUnlocked(

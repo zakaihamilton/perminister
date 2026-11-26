@@ -139,9 +139,9 @@ export function normalizeProductUsername(value: string, productId?: string): str
   return username;
 }
 
-export function validatePassword(password: string): void {
-  if (password.length < 15) {
-    throw new Error("Use a password with at least 15 characters.");
+export function validatePassword(password: string, minimumLength = 15): void {
+  if (password.length < minimumLength) {
+    throw new Error(`Use a password with at least ${minimumLength} characters.`);
   }
   if (password.length > 256) {
     throw new Error("Password must be 256 characters or fewer.");

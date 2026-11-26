@@ -3,6 +3,10 @@ import { passwordRecoveryRequesterKey } from "@/lib/auth/coordination";
 import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
 import { withApiRoutePerformance } from "@/lib/auth/performance";
 import {
+  isSentry8ConsumerClient,
+  SENTRY8_PRODUCT_ID,
+} from "@/lib/auth/sentry8-consumer";
+import {
   authenticate,
   ConsumerProductAccessDeniedError,
   consumeConsumerLoginRequestRateLimit,
@@ -36,15 +40,25 @@ function isLoginRequest(value: unknown): value is {
 export const POST = withApiRoutePerformance(
   "POST /api/auth/consumer/login",
   async function POST(request: Request) {
-    if (process.env.PERMINISTER_ENABLE_LEGACY_CONSUMER_PASSWORD_LOGIN !== "true") {
+    const parsed = await requireConsumerClientJsonBody(request, 8 * 1024);
+    if (parsed instanceof Response) return parsed;
+    const { body, client } = parsed;
+    const isSentry8Product =
+      client.productId.trim().toLowerCase() === SENTRY8_PRODUCT_ID;
+    const isSentry8Client = isSentry8ConsumerClient(
+      client.clientId,
+      client.productId,
+    );
+    const passwordLoginEnabled = isSentry8Product
+      ? isSentry8Client &&
+        process.env.PERMINISTER_ENABLE_SENTRY8_CONSUMER_PASSWORD_LOGIN === "true"
+      : process.env.PERMINISTER_ENABLE_LEGACY_CONSUMER_PASSWORD_LOGIN === "true";
+    if (!passwordLoginEnabled) {
       return Response.json(
         { error: "Use the Perminister authorization-code sign-in flow." },
         { status: 410, headers: NO_STORE_HEADERS },
       );
     }
-    const parsed = await requireConsumerClientJsonBody(request, 8 * 1024);
-    if (parsed instanceof Response) return parsed;
-    const { body, client } = parsed;
     if (!isLoginRequest(body)) {
       return Response.json(
         { error: "Provide a login identifier and password." },

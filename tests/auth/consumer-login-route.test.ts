@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   listConsumerOrganizationsForSubject: vi.fn(),
   client: {
     clientId: "11111111-1111-4111-8111-111111111111",
-    productId: "workspaceapp",
+    productId: "sentry8",
     sessionLifetimeMs: 30 * 24 * 60 * 60 * 1000,
   },
 }));
@@ -48,7 +48,10 @@ function loginRequest(password: string): Request {
 describe("consumer login route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  vi.stubEnv("PERMINISTER_ENABLE_LEGACY_CONSUMER_PASSWORD_LOGIN", "true");
+    mocks.client.clientId = "11111111-1111-4111-8111-111111111111";
+    mocks.client.productId = "sentry8";
+    vi.stubEnv("PERMINISTER_ENABLE_SENTRY8_CONSUMER_PASSWORD_LOGIN", "true");
+    vi.stubEnv("PERMINISTER_SENTRY8_CONSUMER_CLIENT_ID", mocks.client.clientId);
     mocks.authenticate.mockResolvedValue(subject);
     mocks.consumeConsumerLoginRequestRateLimit.mockResolvedValue(true);
     mocks.createConsumerSession.mockResolvedValue({
@@ -58,7 +61,7 @@ describe("consumer login route", () => {
     mocks.listConsumerOrganizationsForSubject.mockResolvedValue([]);
   });
 
-  it("keeps legacy password login available only during an explicit rollout window", async () => {
+  it("keeps Sentry8 password login available only during an explicit rollout window", async () => {
     const password = "p".repeat(1024);
     const response = await POST(loginRequest(password));
 
@@ -67,7 +70,7 @@ describe("consumer login route", () => {
       mocks.client.clientId,
       null,
     );
-    expect(mocks.authenticate).toHaveBeenCalledWith("person@example.com", password, "workspaceapp");
+    expect(mocks.authenticate).toHaveBeenCalledWith("person@example.com", password, "sentry8");
     expect(await response.json()).toMatchObject({
       authenticated: true,
       sessionToken: "opaque-session-token",
@@ -82,11 +85,35 @@ describe("consumer login route", () => {
   });
 
   it("disables direct product password login when the rollout flag is off", async () => {
-    vi.stubEnv("PERMINISTER_ENABLE_LEGACY_CONSUMER_PASSWORD_LOGIN", "false");
+    vi.stubEnv("PERMINISTER_ENABLE_SENTRY8_CONSUMER_PASSWORD_LOGIN", "false");
     const response = await POST(loginRequest("secret"));
 
     expect(response.status).toBe(410);
     expect(mocks.authenticate).not.toHaveBeenCalled();
+  });
+
+  it("allows direct password login only for the configured Sentry8 client", async () => {
+    mocks.client.clientId = "33333333-3333-4333-8333-333333333333";
+
+    const response = await POST(loginRequest("secret"));
+
+    expect(response.status).toBe(410);
+    expect(mocks.authenticate).not.toHaveBeenCalled();
+  });
+
+  it("keeps the separate legacy rollout flag for other product clients", async () => {
+    mocks.client.clientId = "33333333-3333-4333-8333-333333333333";
+    mocks.client.productId = "visitoring";
+    vi.stubEnv("PERMINISTER_ENABLE_LEGACY_CONSUMER_PASSWORD_LOGIN", "true");
+
+    const response = await POST(loginRequest("secret"));
+
+    expect(response.status).toBe(200);
+    expect(mocks.authenticate).toHaveBeenCalledWith(
+      "person@example.com",
+      "secret",
+      "visitoring",
+    );
   });
 });
 

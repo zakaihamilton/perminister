@@ -307,6 +307,7 @@ export async function changePasswordForSubject(
   subjectId: SubjectId,
   currentPassword: string,
   newPassword: string,
+  options: { minimumLength?: number } = {},
 ): Promise<void> {
   await authMutationQueue.run(async () => {
     const current = await loadSubjectUnlocked(subjectId);
@@ -315,7 +316,13 @@ export async function changePasswordForSubject(
     if (!(await verifyPassword(currentPassword, current.passwordCredential))) {
       throw new Error("Current password is incorrect.");
     }
-    const passwordCredential = await createPasswordCredential(newPassword);
+    if (currentPassword === newPassword) {
+      throw new Error("Choose a different password from your current one.");
+    }
+    const passwordCredential = await createPasswordCredential(
+      newPassword,
+      options.minimumLength ?? 15,
+    );
     const next: SubjectRecord = {
       ...current,
       passwordCredential,
@@ -370,13 +377,17 @@ export async function completeEmailAction(
   token: string,
   purpose: EmailActionRecord["purpose"],
   newPassword?: string,
+  options: { minimumLength?: number; markEmailVerified?: boolean } = {},
 ): Promise<void> {
   const match = /^([0-9a-f-]{36})\.([A-Za-z0-9_-]{40,})$/i.exec(token);
   if (!match) throw new InvalidAuthActionError();
   let passwordCredential: PasswordCredential | undefined;
   if (purpose === "recover-password") {
     if (!newPassword) throw new Error("Enter a new password.");
-    passwordCredential = await createPasswordCredential(newPassword);
+    passwordCredential = await createPasswordCredential(
+      newPassword,
+      options.minimumLength ?? 15,
+    );
   }
   await authMutationQueue.run(async () => {
     const currentAction = await loadRecord("email-action", match[1] as EmailActionId);
@@ -405,7 +416,10 @@ export async function completeEmailAction(
       nextSubject = {
         ...subject,
         passwordCredential: passwordCredential!,
-        emailVerifiedAt: subject.emailVerifiedAt ?? new Date().toISOString(),
+        emailVerifiedAt:
+          options.markEmailVerified === false
+            ? subject.emailVerifiedAt
+            : subject.emailVerifiedAt ?? new Date().toISOString(),
         authVersion: subject.authVersion + 1,
         updatedAt: new Date().toISOString(),
       };
