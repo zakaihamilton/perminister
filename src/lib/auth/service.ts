@@ -103,8 +103,8 @@ export {
   issueEmailAction,
   issueRecoveryAction,
   registerAccount,
-  signInWithGoogle,
   signInWithExternalIdentity,
+  signInWithGoogle,
   updateAccountProfile,
 } from "./service/identity";
 export {
@@ -202,6 +202,11 @@ export {
   type ProductShareInfo,
   type PublicProductCatalogEntry,
 } from "./service/public-products";
+export {
+  importSentry8LegacyMemberships,
+  type Sentry8ImportSummary,
+  type Sentry8LegacyMembership,
+} from "./service/sentry8-migration";
 export {
   type AuthenticatedSession,
   clearSessionCookie,

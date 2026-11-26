@@ -8,7 +8,12 @@ import {
   readBoundedJson,
 } from "@/lib/auth/http";
 import { withApiRoutePerformance } from "@/lib/auth/performance";
-import { changePasswordForSubject, getConsumerSessionFromToken } from "@/lib/auth/service";
+import { isSentry8ConsumerClient } from "@/lib/auth/sentry8-consumer";
+import {
+  changePasswordForSubject,
+  createConsumerSession,
+  getConsumerSessionFromToken,
+} from "@/lib/auth/service";
 
 export const runtime = "nodejs";
 
@@ -34,6 +39,10 @@ export const PATCH = withApiRoutePerformance(
         },
       );
     }
+    const sentry8Client = isSentry8ConsumerClient(
+      client.clientId,
+      client.productId,
+    );
     if (!isJsonRequest(request)) {
       return Response.json(
         { error: "Content-Type must be application/json." },
@@ -65,11 +74,13 @@ export const PATCH = withApiRoutePerformance(
       typeof body.currentPassword !== "string" ||
       typeof body.newPassword !== "string" ||
       body.currentPassword.length > 256 ||
-      body.newPassword.length < 15 ||
+      body.newPassword.length < (sentry8Client ? 8 : 15) ||
       body.newPassword.length > 256
     ) {
       return Response.json(
-        { error: "Provide the current password and a new password between 15 and 256 characters." },
+        {
+          error: `Provide the current password and a new password between ${sentry8Client ? 8 : 15} and 256 characters.`,
+        },
         {
           status: 400,
           headers: NO_STORE_HEADERS,
@@ -91,7 +102,25 @@ export const PATCH = withApiRoutePerformance(
         current.subject.subjectId,
         body.currentPassword,
         body.newPassword,
+        { minimumLength: sentry8Client ? 8 : 15 },
       );
+      if (sentry8Client) {
+        const refreshed = await createConsumerSession(
+          current.subject.subjectId,
+          client.clientId,
+          client.productId,
+          client.sessionLifetimeMs,
+        );
+        return Response.json(
+          {
+            passwordChanged: true,
+            allSessionsRevoked: true,
+            sessionToken: refreshed.token,
+            session: { expiresAt: refreshed.session.expiresAt },
+          },
+          { headers: NO_STORE_HEADERS },
+        );
+      }
       return Response.json(
         { passwordChanged: true, allSessionsRevoked: true },
         {
@@ -100,13 +129,20 @@ export const PATCH = withApiRoutePerformance(
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Password could not be changed.";
-      const status = message === "Current password is incorrect." ? 403 : 503;
+      const status =
+        message === "Current password is incorrect."
+          ? 403
+          : message === "Choose a different password from your current one."
+            ? 400
+            : 503;
       return Response.json(
         {
           error:
             status === 403
               ? "current_password_incorrect"
-              : "Password change is temporarily unavailable.",
+              : status === 400
+                ? "same_password"
+                : "Password change is temporarily unavailable.",
         },
         {
           status,

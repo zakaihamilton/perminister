@@ -44,8 +44,11 @@ function legacySaltedScrypt(password: string, salt: string): Promise<Buffer> {
   });
 }
 
-export async function createPasswordCredential(password: string): Promise<PasswordCredential> {
-  validatePassword(password);
+export async function createPasswordCredential(
+  password: string,
+  minimumLength = 15,
+): Promise<PasswordCredential> {
+  validatePassword(password, minimumLength);
   return createScryptPasswordCredential(password);
 }
 
