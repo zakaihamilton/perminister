@@ -213,6 +213,12 @@ export interface PasswordCredential {
   updatedAt: string;
 }
 
+export interface ProductPasswordCredential {
+  productId: string;
+  source: string;
+  passwordCredential: PasswordCredential;
+}
+
 export interface SubjectRecord {
   kind: "subject";
   schemaVersion: 1;
@@ -241,6 +247,8 @@ export interface SubjectRecord {
   /** App-specific account state; shared identity status remains independent across products. */
   consumerProductStates?: ConsumerProductState[];
   passwordCredential: PasswordCredential | null;
+  /** Product-scoped migration credentials preserve an existing account password. */
+  legacyProductPasswordCredentials?: ProductPasswordCredential[];
   /** Incremented after credential changes to invalidate every older session. */
   authVersion: number;
   createdAt: string;
