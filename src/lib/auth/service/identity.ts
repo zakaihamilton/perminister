@@ -280,9 +280,24 @@ export async function authenticate(
         return emailSubject ?? usernameSubject;
       }),
     );
-    const matched = await withRequestPerformanceSpan("auth.password.verification", () =>
-      verifyPassword(password, subject?.passwordCredential ?? null),
+    const primaryMatched = await withRequestPerformanceSpan(
+      "auth.password.verification",
+      () => verifyPassword(password, subject?.passwordCredential ?? null),
     );
+    const legacyCredential =
+      productId === "sentry8"
+        ? subject?.legacyProductPasswordCredentials?.find(
+            (item) => item.productId === productId && item.source === "sentry8",
+          )?.passwordCredential ?? null
+        : null;
+    const legacyMatched =
+      !primaryMatched && productId === "sentry8"
+        ? await withRequestPerformanceSpan(
+            "auth.password.legacy-product-verification",
+            () => verifyPassword(password, legacyCredential),
+          )
+        : false;
+    const matched = primaryMatched || legacyMatched;
     if (
       !subject ||
       subject.status !== "active" ||
@@ -293,9 +308,11 @@ export async function authenticate(
       throw new Error("Email or password is incorrect.");
     }
     attempt.recordSuccess();
-    await withRequestPerformanceSpan("auth.password.rehash", () =>
-      rehashAfterLogin(subject, password),
-    );
+    if (primaryMatched) {
+      await withRequestPerformanceSpan("auth.password.rehash", () =>
+        rehashAfterLogin(subject, password),
+      );
+    }
     return subject;
   } catch (error) {
     attempt.release();
@@ -307,13 +324,26 @@ export async function changePasswordForSubject(
   subjectId: SubjectId,
   currentPassword: string,
   newPassword: string,
-  options: { minimumLength?: number } = {},
+  options: { minimumLength?: number; productId?: string } = {},
 ): Promise<void> {
   await authMutationQueue.run(async () => {
     const current = await loadSubjectUnlocked(subjectId);
     if (!current || current.status !== "active")
       throw new Error("This account cannot change its password.");
-    if (!(await verifyPassword(currentPassword, current.passwordCredential))) {
+    const primaryMatched = await verifyPassword(
+      currentPassword,
+      current.passwordCredential,
+    );
+    const legacyCredential = options.productId
+      ? current.legacyProductPasswordCredentials?.find(
+          (item) => item.productId === options.productId,
+        )?.passwordCredential ?? null
+      : null;
+    const legacyMatched =
+      !primaryMatched && options.productId
+        ? await verifyPassword(currentPassword, legacyCredential)
+        : false;
+    if (!primaryMatched && !legacyMatched) {
       throw new Error("Current password is incorrect.");
     }
     if (currentPassword === newPassword) {
@@ -326,6 +356,7 @@ export async function changePasswordForSubject(
     const next: SubjectRecord = {
       ...current,
       passwordCredential,
+      legacyProductPasswordCredentials: [],
       authVersion: current.authVersion + 1,
       updatedAt: new Date().toISOString(),
     };
@@ -416,6 +447,7 @@ export async function completeEmailAction(
       nextSubject = {
         ...subject,
         passwordCredential: passwordCredential!,
+        legacyProductPasswordCredentials: [],
         emailVerifiedAt:
           options.markEmailVerified === false
             ? subject.emailVerifiedAt
