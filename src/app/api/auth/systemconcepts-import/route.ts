@@ -1,6 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
 import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
-import { importSystemConceptsLegacyIdentities } from "@/lib/auth/service";
+import { readMigrationRequest } from "@/lib/auth/migration-request";
+import {
+  importSystemConceptsLegacyIdentities,
+  type SystemConceptsLegacyIdentity,
+} from "@/lib/auth/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,13 +22,7 @@ function authorized(request: Request): boolean {
   return timingSafeEqual(expectedBytes, providedBytes);
 }
 
-function validIdentity(value: unknown): value is {
-  id: string;
-  email?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
-  passwordHash: string;
-} {
+function validIdentity(value: unknown): value is SystemConceptsLegacyIdentity {
   if (!isJsonObject(value)) return false;
   const allowedKeys = new Set(["id", "email", "firstName", "lastName", "passwordHash"]);
   return (
@@ -37,44 +35,32 @@ function validIdentity(value: unknown): value is {
   );
 }
 
+function validMigrationBatch(
+  value: unknown,
+): value is Record<string, unknown> & {
+  apply: boolean;
+  identities: SystemConceptsLegacyIdentity[];
+} {
+  return (
+    isJsonObject(value) &&
+    Object.keys(value).every((key) => ["apply", "identities"].includes(key)) &&
+    typeof value.apply === "boolean" &&
+    Array.isArray(value.identities) &&
+    value.identities.length <= MAX_IDENTITIES &&
+    value.identities.every(validIdentity)
+  );
+}
+
 export async function POST(request: Request) {
-  if (!authorized(request)) {
-    return Response.json({ error: "Not found." }, { status: 404, headers: NO_STORE_HEADERS });
-  }
-  if (request.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() !== "application/json") {
-    return Response.json({ error: "Expected a JSON migration batch." }, { status: 415, headers: NO_STORE_HEADERS });
-  }
-  const contentLength = Number(request.headers.get("content-length") ?? "0");
-  if (contentLength > MAX_BODY_BYTES) {
-    return Response.json({ error: "Migration batch is too large." }, { status: 413, headers: NO_STORE_HEADERS });
-  }
-
-  let raw: string;
-  try {
-    raw = await request.text();
-  } catch {
-    return Response.json({ error: "Invalid migration batch." }, { status: 400, headers: NO_STORE_HEADERS });
-  }
-  if (Buffer.byteLength(raw, "utf8") > MAX_BODY_BYTES) {
-    return Response.json({ error: "Migration batch is too large." }, { status: 413, headers: NO_STORE_HEADERS });
-  }
-
-  let body: unknown;
-  try {
-    body = JSON.parse(raw);
-  } catch {
-    return Response.json({ error: "Invalid migration batch." }, { status: 400, headers: NO_STORE_HEADERS });
-  }
-  if (
-    !isJsonObject(body) ||
-    Object.keys(body).some((key) => !["apply", "identities"].includes(key)) ||
-    typeof body.apply !== "boolean" ||
-    !Array.isArray(body.identities) ||
-    body.identities.length > MAX_IDENTITIES ||
-    !body.identities.every(validIdentity)
-  ) {
-    return Response.json({ error: "Invalid migration batch." }, { status: 400, headers: NO_STORE_HEADERS });
-  }
+  const parsed = await readMigrationRequest(
+    request,
+    MAX_BODY_BYTES,
+    "systemconcepts",
+    authorized(request),
+    validMigrationBatch,
+  );
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.value;
 
   try {
     const summary = await importSystemConceptsLegacyIdentities(body.identities, body.apply);

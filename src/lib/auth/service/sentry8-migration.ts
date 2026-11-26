@@ -1,6 +1,5 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
 import { consumerRoleActions } from "../consumer-policy";
 import {
   type MembershipRecord,
@@ -14,6 +13,7 @@ import {
   type SubjectRecord,
 } from "../domain";
 import { authMutationQueue } from "../mutation-queue";
+import { createRoleMembershipRecord } from "./membership-record";
 import { loadApprovedOrganizationUnlocked, loadRecord, loadSubjectByEmailUnlocked, loadSubjectUnlocked, persistRecord, store } from "./persistence";
 import { canonicalEmail, validateProductId, validateScope } from "./validators";
 
@@ -106,23 +106,15 @@ function roleGrant(
   const role = expectedPerministerRole(row.role);
   const actions = consumerRoleActions(PRODUCT_ID, role, "project");
   if (!actions) throw new Error("Unsupported Sentry8 access role.");
-  const roleId = createHash("sha256")
-    .update(`${PRODUCT_ID}:project:${role}`)
-    .digest("hex")
-    .slice(0, 32);
-  const now = new Date().toISOString();
-  return {
-    kind: "membership",
-    schemaVersion: 1,
-    membershipId: existing?.membershipId ?? newMembershipId(),
+  return createRoleMembershipRecord(
+    PRODUCT_ID,
     subjectId,
     scope,
-    grants: [{ scope, actions: [...actions] }],
-    accessRole: { id: `role-${roleId}`, name: role },
-    status: row.status === "active" ? "active" : "disabled",
-    createdAt: existing?.createdAt ?? now,
-    updatedAt: now,
-  };
+    role,
+    actions,
+    existing,
+    row.status === "active" ? "active" : "disabled",
+  );
 }
 
 /** Imports encrypted-manifest identities and project grants after endpoint decryption. */

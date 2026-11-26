@@ -1,5 +1,6 @@
 import { createDecipheriv, timingSafeEqual } from "node:crypto";
 import { isJsonObject, NO_STORE_HEADERS } from "@/lib/auth/http";
+import { readMigrationRequest } from "@/lib/auth/migration-request";
 import { importSentry8LegacyMemberships, type Sentry8LegacyMembership } from "@/lib/auth/service";
 
 export const runtime = "nodejs";
@@ -89,43 +90,28 @@ function decryptEnvelope(body: Record<string, unknown>): unknown {
   return JSON.parse(plaintext.toString("utf8")) as unknown;
 }
 
+function validEnvelope(
+  value: unknown,
+): value is Record<string, unknown> & { apply: boolean } {
+  return (
+    isJsonObject(value) &&
+    Object.keys(value).every((key) =>
+      ["format", "algorithm", "iv", "tag", "ciphertext", "apply"].includes(key),
+    ) &&
+    typeof value.apply === "boolean"
+  );
+}
+
 export async function POST(request: Request) {
-  if (!authorized(request)) {
-    return Response.json({ error: "Not found." }, { status: 404, headers: NO_STORE_HEADERS });
-  }
-  if (request.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() !== "application/json") {
-    return Response.json({ error: "Expected an encrypted JSON manifest." }, { status: 415, headers: NO_STORE_HEADERS });
-  }
-  const contentLength = Number(request.headers.get("content-length") ?? "0");
-  if (contentLength > MAX_BODY_BYTES) {
-    return Response.json({ error: "Migration manifest is too large." }, { status: 413, headers: NO_STORE_HEADERS });
-  }
-
-  let raw: string;
-  try {
-    raw = await request.text();
-  } catch {
-    return Response.json({ error: "Invalid migration manifest." }, { status: 400, headers: NO_STORE_HEADERS });
-  }
-  if (Buffer.byteLength(raw, "utf8") > MAX_BODY_BYTES) {
-    return Response.json({ error: "Migration manifest is too large." }, { status: 413, headers: NO_STORE_HEADERS });
-  }
-
-  let envelope: unknown;
-  try {
-    envelope = JSON.parse(raw);
-  } catch {
-    return Response.json({ error: "Invalid migration manifest." }, { status: 400, headers: NO_STORE_HEADERS });
-  }
-  if (
-    !isJsonObject(envelope) ||
-    Object.keys(envelope).some(
-      (key) => !["format", "algorithm", "iv", "tag", "ciphertext", "apply"].includes(key),
-    ) ||
-    typeof envelope.apply !== "boolean"
-  ) {
-    return Response.json({ error: "Invalid migration manifest." }, { status: 400, headers: NO_STORE_HEADERS });
-  }
+  const parsed = await readMigrationRequest(
+    request,
+    MAX_BODY_BYTES,
+    "sentry8",
+    authorized(request),
+    validEnvelope,
+  );
+  if (!parsed.ok) return parsed.response;
+  const envelope = parsed.value;
 
   let manifest: unknown;
   try {
